@@ -9,12 +9,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { DashboardHeader } from '../../core/components/DashboardHeader';
-import { StatCard } from '../../core/components/StatCard';
-import { QuickActionButton } from '../../core/components/QuickActionButton';
-import { colors } from '../../core/theme/colors';
-import { spacing } from '../../core/theme/spacing';
-import { typography } from '../../core/theme/typography';
+import { DashboardHeader } from '../core/components/DashboardHeader';
+import { StatCard } from '../core/components/StatCard';
+import { QuickActionButton } from '../core/components/QuickActionButton';
+import { colors } from '../core/theme/colors';
+import { spacing } from '../core/theme/spacing';
+import { typography } from '../core/theme/typography';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
