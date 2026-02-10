@@ -1,0 +1,65 @@
+export const colors = {
+  primary: {
+    main: '#2563eb',
+    light: '#60a5fa',
+    dark: '#1e40af',
+    50: '#eff6ff',
+    100: '#dbeafe',
+  },
+  secondary: {
+    main: '#7c3aed',
+    light: '#a78bfa',
+    dark: '#5b21b6',
+  },
+  success: {
+    main: '#10b981',
+    light: '#34d399',
+    dark: '#059669',
+    50: '#ecfdf5',
+  },
+  warning: {
+    main: '#f59e0b',
+    light: '#fbbf24',
+    dark: '#d97706',
+    50: '#fffbeb',
+  },
+  error: {
+    main: '#ef4444',
+    light: '#f87171',
+    dark: '#dc2626',
+    50: '#fef2f2',
+  },
+  info: {
+    main: '#3b82f6',
+    light: '#60a5fa',
+    dark: '#2563eb',
+  },
+  background: {
+    default: '#ffffff',
+    paper: '#f9fafb',
+    dark: '#111827',
+  },
+  text: {
+    primary: '#111827',
+    secondary: '#6b7280',
+    disabled: '#9ca3af',
+    light: '#ffffff',
+  },
+  border: {
+    light: '#e5e7eb',
+    main: '#d1d5db',
+    dark: '#9ca3af',
+  },
+  grey: {
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    300: '#d1d5db',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+  },
+};
