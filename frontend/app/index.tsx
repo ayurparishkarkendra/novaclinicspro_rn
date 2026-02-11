@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 
 export default function Index() {
   const router = useRouter();
+  const { isAuthenticated, currentUser } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated]);
+
+  // Show loading or nothing while redirecting
+  if (!isAuthenticated || !currentUser) {
+    return null;
+  }
 
   const dashboards = [
     {
@@ -61,6 +75,7 @@ export default function Index() {
         </View>
         <Text style={styles.title}>NovaClinicsPro</Text>
         <Text style={styles.subtitle}>Healthcare Management Platform</Text>
+        <Text style={styles.userInfo}>Logged in as: {currentUser.email}</Text>
       </View>
 
       <ScrollView
@@ -169,6 +184,11 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.body1,
     color: colors.text.secondary,
+  },
+  userInfo: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
   },
   scrollView: {
     flex: 1,
