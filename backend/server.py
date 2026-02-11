@@ -55,12 +55,14 @@ async def get_status_checks():
 # Include the router in the main app
 app.include_router(api_router)
 
+# CORS Configuration - Fixed for JWT-based auth
+# Since we use Authorization header (not cookies), we don't need credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
+    allow_credentials=False,  # Changed: No credentials needed for JWT
+    allow_origins=["*"],  # Now valid since credentials=False
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"],  # Includes Authorization header
 )
 
 # Configure logging

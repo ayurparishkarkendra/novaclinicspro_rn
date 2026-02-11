@@ -1,28 +1,34 @@
 /**
  * Axios Client Configuration
  * Handles HTTP requests to FastAPI backend with JWT auth
+ * 
+ * IMPORTANT: Uses Authorization header for auth (no cookies/credentials needed)
  */
 
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
-import Constants from 'expo-constants';
 import { supabase } from './supabaseClient';
 
-const baseURL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL;
+const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 if (!baseURL) {
-  throw new Error('Missing API base URL');
+  console.error('EXPO_PUBLIC_API_BASE_URL not set');
+  throw new Error('Missing API base URL. Please check .env file.');
 }
 
-// Create axios instance
+console.log('📡 API Base URL:', baseURL);
+
+// Create axios instance with clean configuration
 export const axiosClient = axios.create({
   baseURL: `${baseURL}/api`,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Do NOT use withCredentials - we use Authorization header instead
+  withCredentials: false,
 });
 
-// Request interceptor - Add JWT token
+// Request interceptor - Add JWT token from Supabase
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
@@ -30,37 +36,58 @@ axiosClient.interceptors.request.use(
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.access_token) {
+        // Add JWT to Authorization header
         config.headers.Authorization = `Bearer ${session.access_token}`;
+        console.log('🔐 JWT added to request:', config.url);
+      } else {
+        console.log('ℹ️ No JWT available for request:', config.url);
       }
     } catch (error) {
-      console.error('Error getting session for request:', error);
+      console.error('❌ Error getting session for request:', error);
     }
     
     return config;
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - Handle 401 errors
+// Response interceptor - Handle 401 errors and token refresh
 axiosClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API response:', response.config.url, response.status);
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+    // Log CORS errors specifically
+    if (error.message?.includes('CORS') || error.message?.includes('Network Error')) {
+      console.error('🚫 CORS/Network error:', {
+        url: originalRequest.url,
+        method: originalRequest.method,
+        headers: originalRequest.headers,
+        message: error.message,
+      });
+    }
 
     // Handle 401 errors - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+      console.log('🔄 Attempting token refresh...');
 
       try {
         // Attempt to refresh the session
         const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !session) {
-          // Refresh failed - user needs to log in again
+          console.error('❌ Token refresh failed:', refreshError);
           throw new Error('Session expired');
         }
+
+        console.log('✅ Token refreshed successfully');
 
         // Retry the original request with new token
         if (originalRequest.headers) {
@@ -69,10 +96,16 @@ axiosClient.interceptors.response.use(
         
         return axiosClient(originalRequest);
       } catch (refreshError) {
-        // Clear session and redirect to login will be handled by auth store
+        console.error('❌ Token refresh failed:', refreshError);
         return Promise.reject(refreshError);
       }
     }
+
+    console.error('❌ API error:', {
+      url: originalRequest.url,
+      status: error.response?.status,
+      message: error.message,
+    });
 
     return Promise.reject(error);
   }
@@ -94,6 +127,15 @@ export interface NormalizedError {
 export const normalizeError = (error: unknown): NormalizedError => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<any>;
+    
+    // Check for CORS errors
+    if (axiosError.message?.includes('CORS') || axiosError.message?.includes('Network Error')) {
+      return {
+        code: 'CORS_ERROR',
+        message: 'Unable to connect to server. Please check your internet connection.',
+        status: 0,
+      };
+    }
     
     return {
       code: axiosError.response?.data?.code || 'API_ERROR',
