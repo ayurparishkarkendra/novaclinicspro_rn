@@ -3,7 +3,8 @@
  * Client-side auth state management with platform-aware secure token storage
  */
 
-import { create } from 'zustand';\nimport { secureStorage } from '../../../../core/utils/secureStorage';
+import { create } from 'zustand';
+import { secureStorage } from '../../../../core/utils/secureStorage';
 import { AuthUserSession } from '../../domain/entities/auth.entity';
 
 const ACCESS_TOKEN_KEY = 'supabase_access_token';
