@@ -22,7 +22,7 @@ console.log('📡 API Base URL:', baseURL);
 
 // Create axios instance with minimal configuration
 export const axiosClient = axios.create({
-  baseURL: `${baseURL}/api`,
+  baseURL: baseURL, // Backend routes already include /api/v1/...
   timeout: 30000,
   // No global headers - add only when needed
   // No withCredentials - we use JWT, not cookies
