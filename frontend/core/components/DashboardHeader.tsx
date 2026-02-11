@@ -11,6 +11,7 @@ interface DashboardHeaderProps {
   userName?: string;
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
+  onLogoutPress?: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
