@@ -20,6 +20,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   userName,
   onNotificationPress,
   onProfilePress,
+  onLogoutPress,
 }) => {
   return (
     <View style={styles.container}>
@@ -52,6 +53,15 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             activeOpacity={0.7}
           >
             <Ionicons name="person-circle" size={32} color={colors.primary.main} />
+          </TouchableOpacity>
+        )}
+        {onLogoutPress && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={onLogoutPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={24} color={colors.error.main} />
           </TouchableOpacity>
         )}
       </View>
