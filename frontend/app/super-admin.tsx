@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,18 +16,42 @@ import { QuickActionButton } from '../core/components/QuickActionButton';
 import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
+import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 
 export default function SuperAdminDashboard() {
   const router = useRouter();
+  const { logout, currentUser } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Super Admin Dashboard"
         subtitle="System Overview"
-        userName="Admin"
+        userName={currentUser?.fullName || 'Admin'}
         onNotificationPress={() => console.log('Notifications')}
         onProfilePress={() => console.log('Profile')}
+        onLogoutPress={handleLogout}
       />
 
       <ScrollView
