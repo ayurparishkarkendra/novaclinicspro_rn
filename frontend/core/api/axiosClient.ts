@@ -2,7 +2,10 @@
  * Axios Client Configuration
  * Handles HTTP requests to FastAPI backend with JWT auth
  * 
- * IMPORTANT: Backend requires credentials for CORS
+ * IMPORTANT: 
+ * - Uses Authorization header for JWT (no cookies/credentials needed)
+ * - Minimal headers to avoid unnecessary CORS preflight complexity
+ * - Content-Type added only when needed (POST/PUT/PATCH)
  */
 
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
@@ -17,18 +20,16 @@ if (!baseURL) {
 
 console.log('📡 API Base URL:', baseURL);
 
-// Create axios instance with proper CORS configuration
+// Create axios instance with minimal configuration
 export const axiosClient = axios.create({
   baseURL: `${baseURL}/api`,
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  // Backend requires credentials for CORS to work
-  withCredentials: true,
+  // No global headers - add only when needed
+  // No withCredentials - we use JWT, not cookies
+  withCredentials: false,
 });
 
-// Request interceptor - Add JWT token from Supabase
+// Request interceptor - Add JWT token and Content-Type only when needed
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
@@ -42,8 +43,15 @@ axiosClient.interceptors.request.use(
       } else {
         console.log('ℹ️ No JWT available for request:', config.url);
       }
+
+      // Add Content-Type only for requests with body
+      if (config.method && ['post', 'put', 'patch'].includes(config.method.toLowerCase())) {
+        if (config.data && !config.headers['Content-Type']) {
+          config.headers['Content-Type'] = 'application/json';
+        }
+      }
     } catch (error) {
-      console.error('❌ Error getting session for request:', error);
+      console.error('❌ Error in request interceptor:', error);
     }
     
     return config;
@@ -105,6 +113,7 @@ axiosClient.interceptors.response.use(
       url: originalRequest.url,
       status: error.response?.status,
       message: error.message,
+      data: error.response?.data,
     });
 
     return Promise.reject(error);
