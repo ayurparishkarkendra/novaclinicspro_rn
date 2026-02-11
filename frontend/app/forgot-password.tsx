@@ -54,8 +54,15 @@ export default function ForgotPasswordScreen() {
       setIsLoading(true);
       setError(null);
 
+      // Supabase will send reset link
+      // For mobile, the link should use deep linking (novaclinicspro://reset-password)
+      // For web, it redirects to the web URL
+      const redirectUrl = Platform.OS === 'web' 
+        ? `${window.location.origin}/reset-password`
+        : 'novaclinicspro://reset-password';
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (resetError) {
