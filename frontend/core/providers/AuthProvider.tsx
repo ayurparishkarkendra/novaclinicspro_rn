@@ -8,7 +8,6 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { ThemeProvider } from '../theme/useClinicTheme';
 import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
 import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
-import { colors } from '../theme/colors';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -31,7 +30,7 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator size="large" color="#2F6F4E" />
       </View>
     );
   }
