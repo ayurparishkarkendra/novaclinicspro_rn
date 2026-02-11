@@ -11,6 +11,6 @@ import { CurrentUserResponse } from '../models/auth.dtos';
  * GET /api/v1/auth/me
  */
 export const getCurrentUserApi = async (): Promise<CurrentUserResponse> => {
-  const response = await axiosClient.get<CurrentUserResponse>('/v1/auth/me');
+  const response = await axiosClient.get<CurrentUserResponse>('/api/v1/auth/me');
   return response.data;
 };
