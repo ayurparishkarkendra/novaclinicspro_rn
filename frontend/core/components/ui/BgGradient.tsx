@@ -81,7 +81,7 @@ export const BgGradient: React.FC<BgGradientProps> = ({
   return (
     <LinearGradient
       colors={[fromColor, toColor]}
-      locations={locations}
+      locations={locations.length >= 2 ? locations as [number, number, ...number[]] : [0, 1]}
       start={start}
       end={end}
       style={[styles.container, style]}
