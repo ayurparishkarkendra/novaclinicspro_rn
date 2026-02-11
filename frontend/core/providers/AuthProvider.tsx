@@ -5,10 +5,10 @@
 
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { ThemeProvider } from '../core/theme/useClinicTheme';
-import { useAuthStore } from '../features/auth/presentation/providers/auth.store';
-import { useAuth } from '../features/auth/presentation/hooks/useAuth';
-import { colors } from '../core/theme/colors';
+import { ThemeProvider } from '../theme/useClinicTheme';
+import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
+import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
+import { colors } from '../theme/colors';
 
 interface AuthProviderProps {
   children: React.ReactNode;
