@@ -3,6 +3,6 @@
  * /super-admin/applications
  */
 
-import ApplicationsListScreen from '../../../features/adminApplications/presentation/pages/ApplicationsListScreen.tsx';
+import ApplicationsListScreen from '../../features/adminApplications/presentation/pages/ApplicationsListScreen.tsx';
 
 export default ApplicationsListScreen;
