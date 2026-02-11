@@ -107,15 +107,15 @@ export default function SuperAdminDashboard() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             <QuickActionButton
-              icon="add-circle"
-              label="Onboard Clinic"
-              onPress={() => console.log('Onboard')}
+              icon="business"
+              label="Manage Tenants"
+              onPress={() => router.push('/super-admin/tenants')}
               color={colors.primary.main}
             />
             <QuickActionButton
-              icon="business"
-              label="Manage Clinics"
-              onPress={() => console.log('Manage')}
+              icon="document-text"
+              label="Applications"
+              onPress={() => console.log('Applications - Coming Soon')}
               color={colors.secondary.main}
             />
             <QuickActionButton
