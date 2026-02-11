@@ -1,0 +1,13 @@
+diff --git a/frontend/core/components/ui/BgGradient.tsx b/frontend/core/components/ui/BgGradient.tsx
+index 31078a0..54e2379 100644
+--- a/frontend/core/components/ui/BgGradient.tsx
++++ b/frontend/core/components/ui/BgGradient.tsx
+@@ -81,7 +81,7 @@ export const BgGradient: React.FC<BgGradientProps> = ({
+   return (
+     <LinearGradient
+       colors={[fromColor, toColor]}
+-      locations={locations}
++      locations={locations.length >= 2 ? locations as [number, number, ...number[]] : [0, 1]}
+       start={start}
+       end={end}
+       style={[styles.container, style]}
