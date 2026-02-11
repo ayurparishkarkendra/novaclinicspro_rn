@@ -2,7 +2,7 @@
  * Axios Client Configuration
  * Handles HTTP requests to FastAPI backend with JWT auth
  * 
- * IMPORTANT: Uses Authorization header for auth (no cookies/credentials needed)
+ * IMPORTANT: Backend requires credentials for CORS
  */
 
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
@@ -17,15 +17,15 @@ if (!baseURL) {
 
 console.log('📡 API Base URL:', baseURL);
 
-// Create axios instance with clean configuration
+// Create axios instance with proper CORS configuration
 export const axiosClient = axios.create({
   baseURL: `${baseURL}/api`,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
-  // Do NOT use withCredentials - we use Authorization header instead
-  withCredentials: false,
+  // Backend requires credentials for CORS to work
+  withCredentials: true,
 });
 
 // Request interceptor - Add JWT token from Supabase
@@ -68,7 +68,7 @@ axiosClient.interceptors.response.use(
       console.error('🚫 CORS/Network error:', {
         url: originalRequest.url,
         method: originalRequest.method,
-        headers: originalRequest.headers,
+        status: error.response?.status,
         message: error.message,
       });
     }
@@ -132,7 +132,7 @@ export const normalizeError = (error: unknown): NormalizedError => {
     if (axiosError.message?.includes('CORS') || axiosError.message?.includes('Network Error')) {
       return {
         code: 'CORS_ERROR',
-        message: 'Unable to connect to server. Please check your internet connection.',
+        message: 'Unable to connect to server. This may be a temporary issue. Please try again.',
         status: 0,
       };
     }
