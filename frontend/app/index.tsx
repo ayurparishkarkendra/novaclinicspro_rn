@@ -43,6 +43,14 @@ export default function Index() {
       color: colors.error.main,
       route: '/therapist',
     },
+    {
+      id: 'theme-demo',
+      title: 'Theme System Demo',
+      subtitle: 'Multi-clinic theming',
+      icon: 'color-palette' as const,
+      color: colors.secondary.main,
+      route: '/theme-demo',
+    },
   ];
 
   return (
