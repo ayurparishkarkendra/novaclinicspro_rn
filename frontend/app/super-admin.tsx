@@ -115,7 +115,7 @@ export default function SuperAdminDashboard() {
             <QuickActionButton
               icon="document-text"
               label="Applications"
-              onPress={() => console.log('Applications - Coming Soon')}
+              onPress={() => router.push('/super-admin/applications')}
               color={colors.secondary.main}
             />
             <QuickActionButton
