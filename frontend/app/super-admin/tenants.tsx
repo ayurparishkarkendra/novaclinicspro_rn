@@ -3,6 +3,6 @@
  * /super-admin/tenants
  */
 
-import TenantsListScreen from '../../../features/tenants/presentation/pages/TenantsListScreen.tsx';
+import TenantsListScreen from '../../features/tenants/presentation/pages/TenantsListScreen';
 
 export default TenantsListScreen;
