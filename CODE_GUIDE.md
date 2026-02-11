@@ -192,7 +192,7 @@ All files are in: `/app/frontend/`
 
 ### **Option 2: View in Browser**
 You can view the running app at:
-https://healthcare-platform-3.preview.emergentagent.com
+https://medportal-flow.preview.emergentagent.com
 
 ### **Option 3: Download/Export**
 You can download the entire project using git or file export tools.

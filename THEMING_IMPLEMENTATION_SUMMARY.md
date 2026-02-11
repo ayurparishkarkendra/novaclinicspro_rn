@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://healthcare-platform-3.preview.emergentagent.com/theme-demo
+https://medportal-flow.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
