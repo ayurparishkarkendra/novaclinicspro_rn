@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { colors } from '../../core/theme/colors';
 
 export default function ClinicAdminLayout() {
+  console.log('[ClinicAdminLayout] Rendering _layout.tsx');
   return (
     <Stack
       screenOptions={{
@@ -14,6 +15,7 @@ export default function ClinicAdminLayout() {
         contentStyle: { backgroundColor: colors.background.paper },
       }}
     >
+      <Stack.Screen name="index" />
       <Stack.Screen name="staff" />
       <Stack.Screen name="staff/[staffId]" />
       <Stack.Screen name="staff/leave" />
