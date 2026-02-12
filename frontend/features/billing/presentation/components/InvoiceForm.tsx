@@ -99,8 +99,8 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     // Recalculate line total
     const qty = parseAmount(newLines[index].quantity);
     const price = parseAmount(newLines[index].unit_price);
-    const discount = parseAmount(newLines[index].discount_amount);
-    const taxPct = parseAmount(newLines[index].tax_percentage);
+    const discount = parseAmount(newLines[index].discount_amount ?? null);
+    const taxPct = parseAmount(newLines[index].tax_percentage ?? null);
     const subtotal = qty * price - discount;
     const taxAmt = subtotal * (taxPct / 100);
     
