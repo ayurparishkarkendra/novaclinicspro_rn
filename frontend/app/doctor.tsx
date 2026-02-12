@@ -116,6 +116,40 @@ export default function DoctorDashboard() {
     },
   ], [dashboardData, router]);
 
+  // Clinical documents quick actions
+  const clinicalActions: QuickAction[] = useMemo(() => [
+    {
+      label: 'Casesheets',
+      icon: 'document-text-outline',
+      onPress: () => {
+        Alert.alert(
+          'View Casesheets',
+          'Select a patient first to view their casesheets.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Patients', onPress: () => router.push('/clinic-admin/clients') },
+          ]
+        );
+      },
+      color: colors.primary.main,
+    },
+    {
+      label: 'Prescriptions',
+      icon: 'medkit-outline',
+      onPress: () => {
+        Alert.alert(
+          'View Prescriptions',
+          'Select a patient first to view their prescriptions.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Patients', onPress: () => router.push('/clinic-admin/clients') },
+          ]
+        );
+      },
+      color: colors.success.main,
+    },
+  ], [router]);
+
   const handleLogout = () => {
     Alert.alert(
       'Logout',
