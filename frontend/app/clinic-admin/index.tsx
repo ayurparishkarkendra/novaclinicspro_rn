@@ -397,21 +397,20 @@ export default function ClinicAdminDashboard() {
                             : colors.warning.main + '20',
                         },
                       ]}
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.levelText,
-                        {
-                          color: isCritical ? colors.error.main : colors.warning.main,
-                        },
-                      ]}
                     >
-                      {isCritical ? 'Critical' : 'Low'}
-                    </Text>
-                  </View>
-                </Pressable>
-              </Link>
+                      <Text
+                        style={[
+                          styles.levelText,
+                          {
+                            color: isCritical ? colors.error.main : colors.warning.main,
+                          },
+                        ]}
+                      >
+                        {isCritical ? 'Critical' : 'Low'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </Link>
               );
             })
           ) : (
