@@ -96,6 +96,17 @@ const styles = StyleSheet.create({
   leftSection: {
     flex: 1,
   },
+  leftSectionWithBack: {
+    marginLeft: spacing.xs,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.grey[100],
+  },
   title: {
     ...typography.h4,
     color: colors.text.primary,
