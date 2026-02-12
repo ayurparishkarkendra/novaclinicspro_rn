@@ -330,47 +330,118 @@ export default function ClinicAdminDashboard() {
 
         {/* Inventory Alerts */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Low Stock Alerts</Text>
-          {[
-            { item: 'Paracetamol 500mg', stock: '45 units', level: 'Low' },
-            { item: 'Ibuprofen 400mg', stock: '12 units', level: 'Critical' },
-            { item: 'Bandages (Large)', stock: '28 units', level: 'Low' },
-          ].map((item, index) => (
-            <View key={index} style={styles.inventoryCard}>
-              <View style={styles.inventoryInfo}>
-                <Ionicons name="cube" size={20} color={colors.warning.main} />
-                <View style={styles.inventoryDetails}>
-                  <Text style={styles.inventoryName}>{item.item}</Text>
-                  <Text style={styles.inventoryStock}>{item.stock}</Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.levelBadge,
-                  {
-                    backgroundColor:
-                      item.level === 'Critical'
-                        ? colors.error.main + '20'
-                        : colors.warning.main + '20',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.levelText,
-                    {
-                      color:
-                        item.level === 'Critical'
-                          ? colors.error.main
-                          : colors.warning.main,
-                    },
-                  ]}
-                >
-                  {item.level}
-                </Text>
-              </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Low Stock Alerts</Text>
+            <TouchableOpacity onPress={() => router.push('/clinic-admin/inventory/alerts')}>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          {alertsLoading || inventoryLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.primary.main} />
+              <Text style={styles.loadingText}>Loading alerts...</Text>
             </View>
-          ))}
+          ) : lowStockItems.length > 0 ? (
+            lowStockItems.slice(0, 3).map((item) => {
+              const stock = parseFloat(item.current_stock) || 0;
+              const isCritical = stock <= item.reorder_point * 0.5;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.inventoryCard}
+                  onPress={() => router.push(`/clinic-admin/inventory/${item.id}`)}
+                >
+                  <View style={styles.inventoryInfo}>
+                    <Ionicons
+                      name={isCritical ? 'warning' : 'cube'}
+                      size={20}
+                      color={isCritical ? colors.error.main : colors.warning.main}
+                    />
+                    <View style={styles.inventoryDetails}>
+                      <Text style={styles.inventoryName}>{item.name}</Text>
+                      <Text style={styles.inventoryStock}>
+                        {stock} {item.unit || 'units'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.levelBadge,
+                      {
+                        backgroundColor: isCritical
+                          ? colors.error.main + '20'
+                          : colors.warning.main + '20',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.levelText,
+                        {
+                          color: isCritical ? colors.error.main : colors.warning.main,
+                        },
+                      ]}
+                    >
+                      {isCritical ? 'Critical' : 'Low'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.noAlertsCard}>
+              <Ionicons name="checkmark-circle" size={24} color={colors.success.main} />
+              <Text style={styles.noAlertsText}>All stock levels healthy</Text>
+            </View>
+          )}
+          {lowStockItems.length > 3 && (
+            <TouchableOpacity
+              style={styles.moreAlertsButton}
+              onPress={() => router.push('/clinic-admin/inventory/alerts')}
+            >
+              <Text style={styles.moreAlertsText}>
+                +{lowStockItems.length - 3} more alerts
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Inventory Quick Links */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Inventory Management</Text>
+          <Text style={styles.sectionSubtitle}>Manage stock & supplies</Text>
+          
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/inventory')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
+              <Ionicons name="cube-outline" size={24} color={colors.primary.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Inventory Items</Text>
+              <Text style={styles.settingsDescription}>
+                {inventoryLoading ? 'Loading...' : `${totalItems} items in stock`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/inventory/alerts')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
+              <Ionicons name="notifications-outline" size={24} color={colors.warning.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Stock Alerts</Text>
+              <Text style={styles.settingsDescription}>
+                {alertsLoading ? 'Loading...' : `${totalAlertCount} active alerts`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Navigation */}
