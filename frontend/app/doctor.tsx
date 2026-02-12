@@ -226,6 +226,12 @@ export default function DoctorDashboard() {
           <DashboardQuickActions actions={quickActions} />
         </View>
 
+        {/* Clinical Documents */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Clinical Documents</Text>
+          <DashboardQuickActions actions={clinicalActions} />
+        </View>
+
         {/* Today's Appointments */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
