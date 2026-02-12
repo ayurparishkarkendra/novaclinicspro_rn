@@ -349,7 +349,7 @@ export default function ClinicAdminDashboard() {
                   {staff.status}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
 
@@ -357,9 +357,11 @@ export default function ClinicAdminDashboard() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Low Stock Alerts</Text>
-            <TouchableOpacity onPress={() => router.push('/clinic-admin/inventory/alerts')}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
+            <Link href="/clinic-admin/inventory/alerts" asChild>
+              <Pressable>
+                <Text style={styles.viewAll}>View All</Text>
+              </Pressable>
+            </Link>
           </View>
           {alertsLoading || inventoryLoading ? (
             <View style={styles.loadingRow}>
@@ -371,32 +373,30 @@ export default function ClinicAdminDashboard() {
               const stock = parseFloat(item.current_stock) || 0;
               const isCritical = stock <= item.reorder_point * 0.5;
               return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.inventoryCard}
-                  onPress={() => router.push(`/clinic-admin/inventory/${item.id}`)}
-                >
-                  <View style={styles.inventoryInfo}>
-                    <Ionicons
-                      name={isCritical ? 'warning' : 'cube'}
-                      size={20}
-                      color={isCritical ? colors.error.main : colors.warning.main}
-                    />
-                    <View style={styles.inventoryDetails}>
-                      <Text style={styles.inventoryName}>{item.name}</Text>
-                      <Text style={styles.inventoryStock}>
-                        {stock} {item.unit || 'units'}
-                      </Text>
+                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}` as any} asChild>
+                  <Pressable style={styles.inventoryCard}>
+                    <View style={styles.inventoryInfo}>
+                      <Ionicons
+                        name={isCritical ? 'warning' : 'cube'}
+                        size={20}
+                        color={isCritical ? colors.error.main : colors.warning.main}
+                      />
+                      <View style={styles.inventoryDetails}>
+                        <Text style={styles.inventoryName}>{item.name}</Text>
+                        <Text style={styles.inventoryStock}>
+                          {stock} {item.unit || 'units'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.levelBadge,
-                      {
-                        backgroundColor: isCritical
-                          ? colors.error.main + '20'
-                          : colors.warning.main + '20',
-                      },
+                    <View
+                      style={[
+                        styles.levelBadge,
+                        {
+                          backgroundColor: isCritical
+                            ? colors.error.main + '20'
+                            : colors.warning.main + '20',
+                        },
+                      ]}
                     ]}
                   >
                     <Text
