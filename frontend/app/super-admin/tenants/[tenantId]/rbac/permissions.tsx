@@ -3,6 +3,6 @@
  * /super-admin/tenants/[tenantId]/rbac/permissions
  */
 
-import { TenantPermissionsScreen } from '../../../../features/rbac/presentation/pages/TenantPermissionsScreen';
+import { TenantPermissionsScreen } from '../../../../../features/rbac/presentation/pages/TenantPermissionsScreen';
 
 export default TenantPermissionsScreen;

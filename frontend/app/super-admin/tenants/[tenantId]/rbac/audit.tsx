@@ -3,6 +3,6 @@
  * /super-admin/tenants/[tenantId]/rbac/audit
  */
 
-import { RbacAuditScreen } from '../../../../features/rbac/presentation/pages/RbacAuditScreen';
+import { RbacAuditScreen } from '../../../../../features/rbac/presentation/pages/RbacAuditScreen';
 
 export default RbacAuditScreen;

@@ -3,6 +3,6 @@
  * /super-admin/tenants/[tenantId]/rbac/users
  */
 
-import { TenantUserRolesScreen } from '../../../../features/rbac/presentation/pages/TenantUserRolesScreen';
+import { TenantUserRolesScreen } from '../../../../../features/rbac/presentation/pages/TenantUserRolesScreen';
 
 export default TenantUserRolesScreen;
