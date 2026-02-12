@@ -137,10 +137,63 @@ export default function ClinicAdminDashboard() {
             <QuickActionButton
               icon="settings"
               label="Settings"
-              onPress={() => console.log('Settings')}
+              onPress={() => router.push('/clinic-admin/settings')}
               color={colors.text.secondary}
             />
           </View>
+        </View>
+
+        {/* Clinic Settings */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Clinic Settings</Text>
+            <TouchableOpacity onPress={() => router.push('/clinic-admin/settings')}>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.sectionSubtitle}>Configure your clinic operations</Text>
+          
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/settings/operating-hours')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
+              <Ionicons name="time-outline" size={24} color={colors.primary.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Operating Hours</Text>
+              <Text style={styles.settingsDescription}>Set clinic open/close times</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/settings/rooms')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.info.main + '15' }]}>
+              <Ionicons name="grid-outline" size={24} color={colors.info.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Rooms & Resources</Text>
+              <Text style={styles.settingsDescription}>Manage therapy rooms</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/settings/treatments')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
+              <Ionicons name="leaf-outline" size={24} color={colors.warning.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Treatments & Services</Text>
+              <Text style={styles.settingsDescription}>Configure Ayurvedic treatments</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Staff Status */}
