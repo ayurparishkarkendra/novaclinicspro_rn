@@ -29,6 +29,10 @@ export default function ClinicAdminLayout() {
       <Stack.Screen name="inventory" />
       <Stack.Screen name="bulk-upload" />
       <Stack.Screen name="billing" />
+      <Stack.Screen name="analytics" />
+      <Stack.Screen name="analytics/revenue" />
+      <Stack.Screen name="analytics/users" />
+      <Stack.Screen name="analytics/performance" />
     </Stack>
   );
 }
