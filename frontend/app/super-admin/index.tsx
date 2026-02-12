@@ -115,28 +115,19 @@ export default function SuperAdminDashboard() {
             <QuickActionButton
               icon="business"
               label="Manage Tenants"
-              onPress={() => {
-                console.log('[SuperAdmin] Navigating to /super-admin/tenants');
-                router.push('/super-admin/tenants');
-              }}
+              href="/super-admin/tenants"
               color={colors.primary.main}
             />
             <QuickActionButton
               icon="document-text"
               label="Applications"
-              onPress={() => {
-                console.log('[SuperAdmin] Navigating to /super-admin/applications');
-                router.push('/super-admin/applications');
-              }}
+              href="/super-admin/applications"
               color={colors.secondary.main}
             />
             <QuickActionButton
               icon="card"
               label="Finance"
-              onPress={() => {
-                console.log('[SuperAdmin] Navigating to /super-admin/billing');
-                router.push('/super-admin/billing');
-              }}
+              href="/super-admin/billing"
               color={colors.success.main}
             />
             <QuickActionButton
@@ -164,9 +155,11 @@ export default function SuperAdminDashboard() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Clinic Onboarding</Text>
-            <TouchableOpacity onPress={() => router.push('/super-admin/tenants')}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
+            <Link href="/super-admin/tenants" asChild>
+              <Pressable>
+                <Text style={styles.viewAll}>View All</Text>
+              </Pressable>
+            </Link>
           </View>
           {[
             {
@@ -188,7 +181,7 @@ export default function SuperAdminDashboard() {
               date: 'Jan 13, 2025',
             },
           ].map((clinic, index) => (
-            <TouchableOpacity key={index} style={styles.clinicCard}>
+            <View key={index} style={styles.clinicCard}>
               <View style={styles.clinicInfo}>
                 <View style={styles.clinicIconContainer}>
                   <Ionicons
