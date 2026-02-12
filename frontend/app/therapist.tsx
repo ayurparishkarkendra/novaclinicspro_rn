@@ -91,10 +91,17 @@ export default function TherapistDashboard() {
       variant: 'primary',
     },
     {
-      label: 'Treatment Notes',
-      icon: 'document-text-outline',
+      label: 'Treatment Sheets',
+      icon: 'fitness-outline',
       onPress: () => {
-        Alert.alert('Treatment Notes', 'Navigate to treatment notes section');
+        Alert.alert(
+          'Treatment Sheets',
+          'View treatment sheets from patient casesheets.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Patients', onPress: () => router.push('/clinic-admin/clients') },
+          ]
+        );
       },
       color: colors.success.main,
     },
