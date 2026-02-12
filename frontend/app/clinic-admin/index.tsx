@@ -842,23 +842,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     marginLeft: 48 + spacing.md,
   },
-  testLinkContainer: {
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.error.main + '20',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.error.main,
-  },
-  testLink: {
-    padding: spacing.md,
-    backgroundColor: colors.error.main,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
-  },
-  testLinkText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    textAlign: 'center',
-  },
 });
