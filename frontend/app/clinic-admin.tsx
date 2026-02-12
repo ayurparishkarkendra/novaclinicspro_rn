@@ -23,6 +23,35 @@ import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../feat
 export default function ClinicAdminDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
+  const tenantId = currentUser?.activeTenant?.id || '';
+
+  // Fetch inventory data for dashboard stats
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItemsListQuery(
+    tenantId,
+    { limit: 100 },
+    { enabled: !!tenantId }
+  );
+
+  const { data: alertsData, isLoading: alertsLoading } = useInventoryAlertsListQuery(
+    tenantId,
+    { is_acknowledged: false, limit: 50 },
+    { enabled: !!tenantId }
+  );
+
+  // Calculate inventory stats
+  const inventoryItems = inventoryData?.items || [];
+  const totalItems = inventoryData?.total || 0;
+  const lowStockItems = inventoryItems.filter((item) => {
+    const stock = parseFloat(item.current_stock) || 0;
+    return stock <= item.reorder_point;
+  });
+  const lowStockCount = lowStockItems.length;
+  
+  // Calculate alerts by type
+  const alerts = alertsData?.items || [];
+  const expiringCount = alerts.filter((a) => a.alert_type === 'EXPIRY_WARNING').length;
+  const expiredCount = alerts.filter((a) => a.alert_type === 'EXPIRED').length;
+  const totalAlertCount = alerts.length;
 
   const handleLogout = () => {
     Alert.alert(
