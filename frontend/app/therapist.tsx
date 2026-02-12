@@ -22,6 +22,7 @@ import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
+import { t, ErrorTokens } from '../core/localization';
 import {
   useTherapistDashboardQuery,
   SessionListItem,
@@ -147,18 +148,26 @@ export default function TherapistDashboard() {
 
     // Error state
     if (isError) {
+      const errorMessage = error?.message || '';
+      const errorData = (error as any)?.response?.data?.detail || '';
+      
+      // Handle permission errors (403)
+      const isPermissionError = errorMessage.includes('403') || errorData.includes('permission');
+      
       return (
         <View style={styles.section}>
           <EmptyDashboardState
             variant="error"
-            title="Unable to Load Dashboard"
+            title={isPermissionError ? t(ErrorTokens.dashboard.accessRestricted) : t('common.error')}
             message={
-              error?.message?.includes('401')
-                ? 'Authentication failed. Please try logging in again.'
-                : 'Could not load your sessions. Pull down to retry.'
+              isPermissionError
+                ? t(ErrorTokens.dashboard.permissionRequired)
+                : error?.message?.includes('401')
+                ? t(ErrorTokens.auth.sessionExpired)
+                : t(ErrorTokens.treatmentSessions.loadFailed)
             }
-            actionLabel="Retry"
-            onActionPress={() => refetch()}
+            actionLabel={isPermissionError ? t('common.goBack') : t('common.retry')}
+            onActionPress={() => isPermissionError ? router.back() : refetch()}
           />
         </View>
       );

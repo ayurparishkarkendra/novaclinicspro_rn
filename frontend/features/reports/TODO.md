@@ -1,56 +1,248 @@
-# Module 9: Reports Feature - TODO
+# Module 9: Reports Feature - Implementation Guide
 
 ## Status: ⏳ WAITING FOR BACKEND
 
-The Reports feature UI is built but **disabled** because the required API endpoints do not exist.
+**Priority**: P1 (High)
+**Estimated Effort**: 2-3 days after backend ready
+**Dependencies**: Backend API endpoints
 
-### What's Built (Frontend)
-- `ReportsHomeScreen` - Main reports listing with "Coming Soon" banner
-- Report type cards (Financial, Clinical, Operational, Compliance)
-- Placeholder UI showing what reports will be available
-- Route: `/clinic-admin/reports`
+---
 
-### Backend Dependencies - REQUIRED
+## Current State
 
-The following endpoints are **expected** but **do not exist** in the OpenAPI spec:
+### What's Built (Frontend - Ready)
 
-| Expected Endpoint | Expected Tag | Purpose | Status |
-|-------------------|--------------|---------|--------|
-| `GET /api/v1/tenants/{tenantId}/reports` | Reports | List available report types | ❌ Not Found |
-| `GET /api/v1/tenants/{tenantId}/reports/{reportId}` | Reports | Get report details/data | ❌ Not Found |
-| `POST /api/v1/tenants/{tenantId}/reports/generate` | Reports | Generate a new report | ❌ Not Found |
-| `GET /api/v1/tenants/{tenantId}/reports/download/{reportId}` | Reports | Download report as PDF/CSV | ❌ Not Found |
+| Component | Location | Status |
+|-----------|----------|--------|
+| ReportsHomeScreen | `/presentation/pages/ReportsHomeScreen.tsx` | ✅ Built (disabled) |
+| Report type cards | `/presentation/components/` | ✅ Built |
+| API Datasource | `/data/datasources/reports.api.ts` | ⏳ Placeholder |
+| Repository | `/data/repositories/reports.repository.impl.ts` | ⏳ Placeholder |
+| DTOs | `/data/models/reports.dtos.ts` | ✅ Defined |
 
-### Why We're Waiting
-1. **No "Reports" tag exists** in the current OpenAPI spec
-2. Per PRD rules: "If no suitable operation exists, render controls as disabled/unavailable"
-3. The UI shows a friendly "Coming Soon" message instead of broken functionality
+**Route**: `/clinic-admin/reports`
 
-### Expected Report Types (from PRD)
-- **Financial Reports**: Revenue, billing summaries, payment history
-- **Clinical Reports**: Treatment outcomes, patient statistics
-- **Operational Reports**: Staff performance, appointment metrics
-- **Compliance Reports**: Audit trails, consent records
+### Current UI Behavior
+- Shows "Coming Soon" banner
+- Displays preview of report types (Financial, Clinical, Operational, Compliance)
+- All action buttons disabled
+- No API calls are made
 
-### When Backend Adds These Endpoints
-1. Update `/features/reports/data/datasources/reports.api.ts` - uncomment API calls
-2. Update `/features/reports/data/repositories/reports.repository.impl.ts` - enable queries
-3. Remove "Coming Soon" banner from `ReportsHomeScreen.tsx`
-4. Enable report generation and download buttons
+---
 
-### Files to Update When Ready
+## Backend Requirements
+
+### Required API Endpoints
+
+| Method | Endpoint | Purpose | Request Body | Response |
+|--------|----------|---------|--------------|----------|
+| GET | `/api/v1/tenants/{tenantId}/reports` | List reports | - | `ReportListDto[]` |
+| GET | `/api/v1/tenants/{tenantId}/reports/{reportId}` | Get report | - | `ReportDto` |
+| POST | `/api/v1/tenants/{tenantId}/reports/generate` | Generate report | `GenerateReportDto` | `ReportDto` |
+| GET | `/api/v1/tenants/{tenantId}/reports/download/{reportId}` | Download | - | Binary (PDF/CSV) |
+
+### Expected DTOs
+
+```typescript
+// Report Types
+type ReportType = 'financial' | 'clinical' | 'operational' | 'compliance';
+type ReportFormat = 'pdf' | 'csv' | 'xlsx';
+type ReportStatus = 'pending' | 'generating' | 'completed' | 'failed';
+
+// List Response
+interface ReportListDto {
+  id: string;
+  tenant_id: string;
+  type: ReportType;
+  name: string;
+  description: string;
+  status: ReportStatus;
+  format: ReportFormat;
+  generated_at: string;
+  generated_by: string;
+  file_size?: number;
+  download_url?: string;
+}
+
+// Generate Request
+interface GenerateReportDto {
+  type: ReportType;
+  format: ReportFormat;
+  date_from: string;  // ISO date
+  date_to: string;    // ISO date
+  filters?: {
+    staff_ids?: string[];
+    client_ids?: string[];
+    treatment_ids?: string[];
+  };
+}
+
+// Full Report Response
+interface ReportDto extends ReportListDto {
+  data?: any;  // Report-specific data structure
+  parameters: {
+    date_from: string;
+    date_to: string;
+    filters: object;
+  };
+}
+```
+
+### Report Type Specifications
+
+#### Financial Reports
+- Revenue by period (daily/weekly/monthly)
+- Payment collection summaries
+- Outstanding invoices
+- Revenue by treatment type
+- Revenue by staff member
+
+#### Clinical Reports
+- Treatment outcomes summary
+- Patient visit statistics
+- Treatment completion rates
+- Prescription statistics
+
+#### Operational Reports
+- Staff performance metrics
+- Appointment utilization
+- Room/resource utilization
+- Cancellation rates
+
+#### Compliance Reports
+- Audit trail summaries
+- Consent record status
+- Data access logs
+- HIPAA/GDPR compliance status
+
+---
+
+## Implementation Steps (When Backend Ready)
+
+### Step 1: Update API Datasource
+
+**File**: `/features/reports/data/datasources/reports.api.ts`
+
+```typescript
+import { apiClient } from '@/core/api/client';
+import { ReportListDto, ReportDto, GenerateReportDto } from '../models/reports.dtos';
+
+export const reportsApi = {
+  getReports: async (tenantId: string): Promise<ReportListDto[]> => {
+    const response = await apiClient.get(`/api/v1/tenants/${tenantId}/reports`);
+    return response.data;
+  },
+
+  getReport: async (tenantId: string, reportId: string): Promise<ReportDto> => {
+    const response = await apiClient.get(`/api/v1/tenants/${tenantId}/reports/${reportId}`);
+    return response.data;
+  },
+
+  generateReport: async (tenantId: string, data: GenerateReportDto): Promise<ReportDto> => {
+    const response = await apiClient.post(`/api/v1/tenants/${tenantId}/reports/generate`, data);
+    return response.data;
+  },
+
+  downloadReport: async (tenantId: string, reportId: string): Promise<Blob> => {
+    const response = await apiClient.get(
+      `/api/v1/tenants/${tenantId}/reports/download/${reportId}`,
+      { responseType: 'blob' }
+    );
+    return response.data;
+  },
+};
+```
+
+### Step 2: Enable Repository Hooks
+
+**File**: `/features/reports/data/repositories/reports.repository.impl.ts`
+
+```typescript
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { reportsApi } from '../datasources/reports.api';
+
+export const useReports = (tenantId: string) => {
+  return useQuery({
+    queryKey: ['reports', tenantId],
+    queryFn: () => reportsApi.getReports(tenantId),
+    enabled: !!tenantId,
+  });
+};
+
+export const useGenerateReport = (tenantId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: GenerateReportDto) => reportsApi.generateReport(tenantId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports', tenantId] });
+    },
+  });
+};
+```
+
+### Step 3: Update Presentation Layer
+
+**File**: `/features/reports/presentation/pages/ReportsHomeScreen.tsx`
+
+- Remove "Coming Soon" banner
+- Enable "Generate Report" button
+- Connect date pickers and filters
+- Add loading states
+- Implement download functionality
+
+### Step 4: Add Report Detail Screen
+
+Create `/features/reports/presentation/pages/ReportDetailScreen.tsx` to view generated reports inline.
+
+---
+
+## Testing Checklist
+
+### API Integration Tests
+- [ ] List reports returns correct data
+- [ ] Generate report with valid parameters
+- [ ] Generate report with invalid parameters (error handling)
+- [ ] Download report as PDF
+- [ ] Download report as CSV
+- [ ] Pagination works correctly
+
+### UI Tests
+- [ ] Report type cards display correctly
+- [ ] Date range picker works
+- [ ] Filter selection works
+- [ ] Generate button shows loading state
+- [ ] Success toast on report generation
+- [ ] Error handling displays user-friendly message
+- [ ] Download triggers file save dialog
+
+### Edge Cases
+- [ ] Empty state (no reports yet)
+- [ ] Large date ranges
+- [ ] Network error during generation
+- [ ] Report generation timeout
+
+---
+
+## Files to Update When Ready
+
 ```
 /app/frontend/features/reports/
 ├── data/
-│   ├── datasources/reports.api.ts      <- Add real API calls
-│   ├── models/reports.dtos.ts          <- Verify DTOs match API response
-│   └── repositories/reports.repository.impl.ts <- Enable React Query hooks
-└── presentation/
-    └── pages/ReportsHomeScreen.tsx     <- Remove Coming Soon banner
+│   ├── datasources/reports.api.ts       <- UNCOMMENT API calls
+│   ├── models/reports.dtos.ts           <- VERIFY DTOs match API
+│   └── repositories/reports.repository.impl.ts <- ENABLE hooks
+├── presentation/
+│   ├── pages/
+│   │   ├── ReportsHomeScreen.tsx        <- REMOVE Coming Soon
+│   │   └── ReportDetailScreen.tsx       <- CREATE if needed
+│   └── components/
+│       ├── ReportTypeCard.tsx           <- ENABLE actions
+│       └── ReportGenerateModal.tsx      <- CREATE for generation flow
+└── index.ts                             <- EXPORT new components
 ```
 
 ---
 
 ## Last Updated
-- Date: 2025-02-12
+- Date: 2025-06-XX (Enhanced)
 - By: Development Agent
