@@ -352,10 +352,33 @@ class ClinicAPITester:
         except Exception as e:
             self.log_result("Tenant Scoping", False, f"Error: {str(e)}")
     
+    def test_basic_connectivity(self):
+        """Test basic API connectivity"""
+        try:
+            # Test basic connectivity without auth
+            response = requests.get(f"{self.base_url}/health", timeout=10)
+            if response.status_code == 200:
+                self.log_result("Basic Connectivity", True, "API is reachable")
+            else:
+                self.log_result("Basic Connectivity", False, f"Health check failed: {response.status_code}")
+        except Exception as e:
+            self.log_result("Basic Connectivity", False, f"Cannot reach API: {str(e)}")
+        
+        # Test root endpoint
+        try:
+            response = requests.get(f"{self.base_url}/", timeout=10)
+            self.log_result("Root Endpoint", True, f"Root endpoint responded: {response.status_code}")
+        except Exception as e:
+            self.log_result("Root Endpoint", False, f"Root endpoint error: {str(e)}")
+    
     def run_all_tests(self):
         """Run all test scenarios"""
         print("🧪 Starting Clinic Settings API Tests")
         print("=" * 50)
+        
+        # Step 0: Basic connectivity
+        print("\n🔗 Testing Basic Connectivity...")
+        self.test_basic_connectivity()
         
         # Step 1: Authentication
         if not self.authenticate_supabase("hareshlekkala@gmail.com", "Vishnu432!"):
