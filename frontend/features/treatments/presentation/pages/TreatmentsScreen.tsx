@@ -32,7 +32,7 @@ import {
 } from '../../data/models/treatments.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { useAuthStore } from '../../../../features/auth/presentation/stores/auth.store';
+import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
 
 // Treatment card component
 const TreatmentCard: React.FC<{
