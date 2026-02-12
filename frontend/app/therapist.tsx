@@ -147,18 +147,26 @@ export default function TherapistDashboard() {
 
     // Error state
     if (isError) {
+      const errorMessage = error?.message || '';
+      const errorData = (error as any)?.response?.data?.detail || '';
+      
+      // Handle permission errors (403)
+      const isPermissionError = errorMessage.includes('403') || errorData.includes('permission');
+      
       return (
         <View style={styles.section}>
           <EmptyDashboardState
             variant="error"
-            title="Unable to Load Dashboard"
+            title={isPermissionError ? 'Access Restricted' : 'Unable to Load Dashboard'}
             message={
-              error?.message?.includes('401')
+              isPermissionError
+                ? 'Your role does not have permission to view this dashboard. Please contact your administrator to request access.'
+                : error?.message?.includes('401')
                 ? 'Authentication failed. Please try logging in again.'
                 : 'Could not load your sessions. Pull down to retry.'
             }
-            actionLabel="Retry"
-            onActionPress={() => refetch()}
+            actionLabel={isPermissionError ? 'Go Back' : 'Retry'}
+            onActionPress={() => isPermissionError ? router.back() : refetch()}
           />
         </View>
       );
