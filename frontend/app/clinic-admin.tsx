@@ -167,6 +167,12 @@ export default function ClinicAdminDashboard() {
               color={colors.warning.main}
             />
             <QuickActionButton
+              icon="cube"
+              label="Inventory"
+              onPress={() => router.push('/clinic-admin/inventory')}
+              color={colors.info.main}
+            />
+            <QuickActionButton
               icon="settings"
               label="Settings"
               onPress={() => router.push('/clinic-admin/settings')}
