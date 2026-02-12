@@ -50,6 +50,11 @@ export const DashboardQuickActions: React.FC<DashboardQuickActionsProps> = ({ ac
     return action.variant === 'primary' ? colors.background.default : baseColor;
   };
 
+  const handleActionPress = (action: QuickAction) => {
+    console.log(`[DashboardQuickActions] Pressed: ${action.label}`);
+    action.onPress();
+  };
+
   return (
     <View style={styles.container}>
       {actions.map((action, index) => (
@@ -59,7 +64,7 @@ export const DashboardQuickActions: React.FC<DashboardQuickActionsProps> = ({ ac
             styles.actionButton,
             getButtonStyle(action),
           ]}
-          onPress={action.onPress}
+          onPress={() => handleActionPress(action)}
           activeOpacity={0.7}
         >
           <Ionicons
