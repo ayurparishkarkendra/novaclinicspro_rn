@@ -182,6 +182,23 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.error.main,
   },
+  badgeWithCount: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.error.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: colors.text.light,
+    fontSize: 10,
+    fontWeight: '700',
+  },
   profileButton: {
     width: 40,
     height: 40,
