@@ -280,7 +280,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </View>
 
               <Text style={styles.lineTotal}>
-                Line Total: {formatCurrency(line.line_total)}
+                Line Total: {formatCurrency(line.line_total ?? null)}
               </Text>
             </View>
           ))}
