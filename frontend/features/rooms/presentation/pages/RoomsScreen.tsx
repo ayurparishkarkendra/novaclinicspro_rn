@@ -106,8 +106,8 @@ const getTypeColor = (type: RoomType): string => {
 
 export const RoomsScreen: React.FC = () => {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const tenantId = user?.tenantId || '';
+  const { currentUser } = useAuthStore();
+  const tenantId = currentUser?.tenantId || '';
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
