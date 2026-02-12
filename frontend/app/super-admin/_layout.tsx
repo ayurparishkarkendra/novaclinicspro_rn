@@ -18,6 +18,7 @@ export default function SuperAdminLayout() {
       <Stack.Screen name="tenants" />
       <Stack.Screen name="applications" />
       <Stack.Screen name="billing" />
+      <Stack.Screen name="system-settings" />
     </Stack>
   );
 }
