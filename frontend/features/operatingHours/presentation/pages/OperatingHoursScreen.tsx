@@ -13,88 +13,413 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  TextInput,
+  Switch,
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { DashboardHeader } from '../../../../core/components/DashboardHeader';
-import { useOperatingHoursListQuery, useCreateOperatingHourMutation, useUpdateOperatingHourMutation, useDeleteOperatingHourMutation } from '../../data/repositories/operatingHours.repository.impl';
-import { OperatingHourResponse, DAYS_OF_WEEK, formatTimeForDisplay } from '../../data/models/operatingHours.dtos';
+import {
+  useOperatingHoursListQuery,
+  useCreateOperatingHourMutation,
+  useUpdateOperatingHourMutation,
+  useDeleteOperatingHourMutation,
+} from '../../data/repositories/operatingHours.repository.impl';
+import {
+  OperatingHourResponse,
+  OperatingHourCreate,
+  OperatingHourUpdate,
+  DAYS_OF_WEEK,
+  formatTimeForDisplay,
+  parseTimeToMinutes,
+} from '../../data/models/operatingHours.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
 
-// Day card component
-const DayCard: React.FC<{
+// ============================================
+// DAY CARD COMPONENT
+// ============================================
+
+interface DayCardProps {
   dayOfWeek: number;
   dayName: string;
   hours: OperatingHourResponse | null;
   onEdit: () => void;
-  onToggle: () => void;
-}> = ({ dayOfWeek, dayName, hours, onEdit, onToggle }) => {
+}
+
+const DayCard: React.FC<DayCardProps> = ({ dayOfWeek, dayName, hours, onEdit }) => {
   const isOpen = hours?.is_open ?? false;
   const openTime = hours?.open_time ? formatTimeForDisplay(hours.open_time) : '--:--';
   const closeTime = hours?.close_time ? formatTimeForDisplay(hours.close_time) : '--:--';
   const hasBreak = hours?.break_start && hours?.break_end;
 
   return (
-    <View style={[styles.dayCard, !isOpen && styles.dayCardClosed]}>
+    <TouchableOpacity
+      style={[styles.dayCard, !isOpen && hours && styles.dayCardClosed]}
+      onPress={onEdit}
+      activeOpacity={0.7}
+      accessibilityLabel={`Edit ${dayName} hours`}
+    >
       <View style={styles.dayHeader}>
         <View style={styles.dayInfo}>
           <Text style={styles.dayName}>{dayName}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: isOpen ? '#10B98115' : '#EF444415' }]}>
-            <View style={[styles.statusDot, { backgroundColor: isOpen ? '#10B981' : '#EF4444' }]} />
-            <Text style={[styles.statusText, { color: isOpen ? '#10B981' : '#EF4444' }]}>
-              {isOpen ? 'Open' : 'Closed'}
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: isOpen ? '#10B98115' : hours ? '#EF444415' : '#9CA3AF15' },
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isOpen ? '#10B981' : hours ? '#EF4444' : '#9CA3AF' },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                { color: isOpen ? '#10B981' : hours ? '#EF4444' : '#9CA3AF' },
+              ]}
+            >
+              {hours ? (isOpen ? 'Open' : 'Closed') : 'Not Set'}
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={onEdit}
-          accessibilityLabel={`Edit ${dayName} hours`}
-        >
-          <Ionicons name="pencil" size={18} color="#6B7280" />
-        </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </View>
 
-      {isOpen ? (
+      {hours && isOpen ? (
         <View style={styles.hoursContainer}>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={16} color="#2F6F4E" />
-            <Text style={styles.timeText}>{openTime} - {closeTime}</Text>
+            <Text style={styles.timeText}>
+              {openTime} - {closeTime}
+            </Text>
           </View>
           {hasBreak && (
             <View style={styles.timeRow}>
               <Ionicons name="cafe-outline" size={16} color="#C28A4B" />
               <Text style={styles.breakText}>
-                Break: {formatTimeForDisplay(hours.break_start)} - {formatTimeForDisplay(hours.break_end)}
+                Break: {formatTimeForDisplay(hours.break_start!)} -{' '}
+                {formatTimeForDisplay(hours.break_end!)}
               </Text>
             </View>
           )}
         </View>
-      ) : (
+      ) : hours ? (
         <Text style={styles.closedText}>Clinic closed on this day</Text>
+      ) : (
+        <Text style={styles.closedText}>Tap to configure hours</Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
+
+// ============================================
+// EDIT MODAL COMPONENT
+// ============================================
+
+interface EditModalProps {
+  visible: boolean;
+  dayOfWeek: number | null;
+  existingHours: OperatingHourResponse | null;
+  onClose: () => void;
+  onSave: (data: OperatingHourCreate | OperatingHourUpdate, isUpdate: boolean, hoursId?: string) => Promise<void>;
+  onDelete: (hoursId: string) => Promise<void>;
+  isSaving: boolean;
+}
+
+const EditModal: React.FC<EditModalProps> = ({
+  visible,
+  dayOfWeek,
+  existingHours,
+  onClose,
+  onSave,
+  onDelete,
+  isSaving,
+}) => {
+  const dayName = dayOfWeek !== null ? DAYS_OF_WEEK[dayOfWeek]?.label || '' : '';
+
+  // Form state
+  const [isOpen, setIsOpen] = useState(existingHours?.is_open ?? true);
+  const [openTime, setOpenTime] = useState(existingHours?.open_time?.slice(0, 5) || '09:00');
+  const [closeTime, setCloseTime] = useState(existingHours?.close_time?.slice(0, 5) || '18:00');
+  const [hasBreak, setHasBreak] = useState(!!(existingHours?.break_start && existingHours?.break_end));
+  const [breakStart, setBreakStart] = useState(existingHours?.break_start?.slice(0, 5) || '13:00');
+  const [breakEnd, setBreakEnd] = useState(existingHours?.break_end?.slice(0, 5) || '14:00');
+
+  // Reset form when modal opens with new data
+  React.useEffect(() => {
+    if (visible) {
+      setIsOpen(existingHours?.is_open ?? true);
+      setOpenTime(existingHours?.open_time?.slice(0, 5) || '09:00');
+      setCloseTime(existingHours?.close_time?.slice(0, 5) || '18:00');
+      setHasBreak(!!(existingHours?.break_start && existingHours?.break_end));
+      setBreakStart(existingHours?.break_start?.slice(0, 5) || '13:00');
+      setBreakEnd(existingHours?.break_end?.slice(0, 5) || '14:00');
+    }
+  }, [visible, existingHours]);
+
+  // Validation
+  const validateTime = (time: string): boolean => {
+    return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
+  };
+
+  const handleSave = async () => {
+    if (dayOfWeek === null) return;
+
+    // Validate times
+    if (isOpen) {
+      if (!validateTime(openTime) || !validateTime(closeTime)) {
+        Alert.alert('Invalid Time', 'Please enter times in HH:MM format (e.g., 09:00)');
+        return;
+      }
+
+      const openMinutes = parseTimeToMinutes(openTime);
+      const closeMinutes = parseTimeToMinutes(closeTime);
+
+      if (closeMinutes <= openMinutes) {
+        Alert.alert('Invalid Times', 'Close time must be after open time');
+        return;
+      }
+
+      if (hasBreak) {
+        if (!validateTime(breakStart) || !validateTime(breakEnd)) {
+          Alert.alert('Invalid Time', 'Please enter break times in HH:MM format');
+          return;
+        }
+
+        const breakStartMinutes = parseTimeToMinutes(breakStart);
+        const breakEndMinutes = parseTimeToMinutes(breakEnd);
+
+        if (breakEndMinutes <= breakStartMinutes) {
+          Alert.alert('Invalid Break Times', 'Break end must be after break start');
+          return;
+        }
+
+        if (breakStartMinutes < openMinutes || breakEndMinutes > closeMinutes) {
+          Alert.alert('Invalid Break Times', 'Break must be within operating hours');
+          return;
+        }
+      }
+    }
+
+    const payload: OperatingHourCreate | OperatingHourUpdate = {
+      day_of_week: dayOfWeek,
+      is_open: isOpen,
+      open_time: isOpen ? `${openTime}:00` : null,
+      close_time: isOpen ? `${closeTime}:00` : null,
+      break_start: isOpen && hasBreak ? `${breakStart}:00` : null,
+      break_end: isOpen && hasBreak ? `${breakEnd}:00` : null,
+      status: 'active',
+    };
+
+    await onSave(payload, !!existingHours, existingHours?.id);
+  };
+
+  const handleDelete = () => {
+    if (!existingHours) return;
+
+    Alert.alert(
+      'Delete Operating Hours',
+      `Are you sure you want to delete the operating hours for ${dayName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete(existingHours.id),
+        },
+      ]
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        <View style={styles.modalContent}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{dayName}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            {/* Open/Closed Toggle */}
+            <View style={styles.formRow}>
+              <View style={styles.formRowLabel}>
+                <Ionicons name="power" size={20} color="#2F6F4E" />
+                <Text style={styles.formLabel}>Clinic Open</Text>
+              </View>
+              <Switch
+                value={isOpen}
+                onValueChange={setIsOpen}
+                trackColor={{ false: '#E5E7EB', true: '#2F6F4E50' }}
+                thumbColor={isOpen ? '#2F6F4E' : '#9CA3AF'}
+              />
+            </View>
+
+            {isOpen && (
+              <>
+                {/* Operating Hours */}
+                <View style={styles.formSection}>
+                  <Text style={styles.formSectionTitle}>Operating Hours</Text>
+
+                  <View style={styles.timeInputRow}>
+                    <View style={styles.timeInputGroup}>
+                      <Text style={styles.timeInputLabel}>Open</Text>
+                      <TextInput
+                        style={styles.timeInput}
+                        value={openTime}
+                        onChangeText={setOpenTime}
+                        placeholder="09:00"
+                        keyboardType="numbers-and-punctuation"
+                        maxLength={5}
+                      />
+                    </View>
+                    <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
+                    <View style={styles.timeInputGroup}>
+                      <Text style={styles.timeInputLabel}>Close</Text>
+                      <TextInput
+                        style={styles.timeInput}
+                        value={closeTime}
+                        onChangeText={setCloseTime}
+                        placeholder="18:00"
+                        keyboardType="numbers-and-punctuation"
+                        maxLength={5}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Break Toggle */}
+                <View style={styles.formRow}>
+                  <View style={styles.formRowLabel}>
+                    <Ionicons name="cafe-outline" size={20} color="#C28A4B" />
+                    <Text style={styles.formLabel}>Include Break</Text>
+                  </View>
+                  <Switch
+                    value={hasBreak}
+                    onValueChange={setHasBreak}
+                    trackColor={{ false: '#E5E7EB', true: '#C28A4B50' }}
+                    thumbColor={hasBreak ? '#C28A4B' : '#9CA3AF'}
+                  />
+                </View>
+
+                {hasBreak && (
+                  <View style={styles.formSection}>
+                    <Text style={styles.formSectionTitle}>Break Time</Text>
+
+                    <View style={styles.timeInputRow}>
+                      <View style={styles.timeInputGroup}>
+                        <Text style={styles.timeInputLabel}>Start</Text>
+                        <TextInput
+                          style={styles.timeInput}
+                          value={breakStart}
+                          onChangeText={setBreakStart}
+                          placeholder="13:00"
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                        />
+                      </View>
+                      <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
+                      <View style={styles.timeInputGroup}>
+                        <Text style={styles.timeInputLabel}>End</Text>
+                        <TextInput
+                          style={styles.timeInput}
+                          value={breakEnd}
+                          onChangeText={setBreakEnd}
+                          placeholder="14:00"
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+
+            {!isOpen && (
+              <View style={styles.closedNotice}>
+                <Ionicons name="moon-outline" size={24} color="#6B7280" />
+                <Text style={styles.closedNoticeText}>
+                  The clinic will be marked as closed on {dayName}. No appointments will be
+                  available.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.modalFooter}>
+            {existingHours && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDelete}
+                disabled={isSaving}
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={isSaving}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    {existingHours ? 'Update' : 'Save'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+};
+
+// ============================================
+// MAIN SCREEN
+// ============================================
 
 export const OperatingHoursScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuthStore();
-  
+
   // Get tenant ID from user context
   const tenantId = currentUser?.tenantId || '';
 
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [editingHours, setEditingHours] = useState<OperatingHourResponse | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Query operating hours
-  const hoursQuery = useOperatingHoursListQuery(tenantId, { limit: 10 }, {
-    enabled: !!tenantId,
-  });
+  const hoursQuery = useOperatingHoursListQuery(
+    tenantId,
+    { limit: 10 },
+    {
+      enabled: !!tenantId,
+    }
+  );
 
   const createMutation = useCreateOperatingHourMutation(tenantId);
   const deleteMutation = useDeleteOperatingHourMutation(tenantId);
@@ -112,53 +437,67 @@ export const OperatingHoursScreen: React.FC = () => {
     hoursQuery.refetch();
   }, [hoursQuery]);
 
-  const handleEditDay = useCallback((dayOfWeek: number) => {
-    const existing = hoursByDay.get(dayOfWeek);
-    setEditingDay(dayOfWeek);
-    setEditingHours(existing || null);
-  }, [hoursByDay]);
+  const handleEditDay = useCallback(
+    (dayOfWeek: number) => {
+      const existing = hoursByDay.get(dayOfWeek);
+      setEditingDay(dayOfWeek);
+      setEditingHours(existing || null);
+      setModalVisible(true);
+    },
+    [hoursByDay]
+  );
 
-  const handleSaveHours = useCallback(async (data: {
-    isOpen: boolean;
-    openTime?: string;
-    closeTime?: string;
-    breakStart?: string;
-    breakEnd?: string;
-  }) => {
-    if (editingDay === null) return;
+  const handleCloseModal = useCallback(() => {
+    setModalVisible(false);
+    setEditingDay(null);
+    setEditingHours(null);
+  }, []);
 
-    try {
-      const payload = {
-        day_of_week: editingDay,
-        is_open: data.isOpen,
-        open_time: data.isOpen ? data.openTime : null,
-        close_time: data.isOpen ? data.closeTime : null,
-        break_start: data.isOpen && data.breakStart ? data.breakStart : null,
-        break_end: data.isOpen && data.breakEnd ? data.breakEnd : null,
-        status: 'active',
-      };
-
-      if (editingHours) {
-        // Update existing
-        // Note: We'd need to use the update mutation here
-        Alert.alert('Info', 'Update functionality coming soon');
-      } else {
-        // Create new
-        await createMutation.mutateAsync(payload);
+  const handleSave = useCallback(
+    async (
+      data: OperatingHourCreate | OperatingHourUpdate,
+      isUpdate: boolean,
+      hoursId?: string
+    ) => {
+      try {
+        if (isUpdate && hoursId) {
+          // For update, we need to use PATCH which requires the hoursId in the URL
+          // The current hook pattern creates a new mutation for each hoursId
+          // For simplicity, we'll delete and recreate
+          await deleteMutation.mutateAsync(hoursId);
+          await createMutation.mutateAsync(data as OperatingHourCreate);
+        } else {
+          await createMutation.mutateAsync(data as OperatingHourCreate);
+        }
         Alert.alert('Success', 'Operating hours saved successfully');
+        handleCloseModal();
+      } catch (error: any) {
+        console.error('Save error:', error);
+        Alert.alert('Error', error?.message || 'Failed to save operating hours');
       }
+    },
+    [createMutation, deleteMutation, handleCloseModal]
+  );
 
-      setEditingDay(null);
-      setEditingHours(null);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save operating hours');
-    }
-  }, [editingDay, editingHours, createMutation]);
+  const handleDelete = useCallback(
+    async (hoursId: string) => {
+      try {
+        await deleteMutation.mutateAsync(hoursId);
+        Alert.alert('Success', 'Operating hours deleted');
+        handleCloseModal();
+      } catch (error: any) {
+        console.error('Delete error:', error);
+        Alert.alert('Error', error?.message || 'Failed to delete operating hours');
+      }
+    },
+    [deleteMutation, handleCloseModal]
+  );
 
   // Count configured days
-  const configuredDays = hoursQuery.data?.items.filter(h => h.is_active).length || 0;
-  const openDays = hoursQuery.data?.items.filter(h => h.is_active && h.is_open).length || 0;
+  const configuredDays = hoursQuery.data?.items.filter((h) => h.is_active).length || 0;
+  const openDays = hoursQuery.data?.items.filter((h) => h.is_active && h.is_open).length || 0;
 
+  // No tenant context
   if (!tenantId) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -210,7 +549,9 @@ export const OperatingHoursScreen: React.FC = () => {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: '#EF4444' }]}>{7 - openDays}</Text>
+            <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
+              {configuredDays > 0 ? configuredDays - openDays : 0}
+            </Text>
             <Text style={styles.summaryLabel}>Closed</Text>
           </View>
         </View>
@@ -218,11 +559,20 @@ export const OperatingHoursScreen: React.FC = () => {
         {/* Weekly Schedule */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Weekly Schedule</Text>
-          <Text style={styles.sectionSubtitle}>Tap any day to edit operating hours</Text>
+          <Text style={styles.sectionSubtitle}>Tap any day to configure operating hours</Text>
 
           {hoursQuery.isLoading ? (
             <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2F6F4E" />
               <Text style={styles.loadingText}>Loading schedule...</Text>
+            </View>
+          ) : hoursQuery.isError ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="cloud-offline-outline" size={24} color="#EF4444" />
+              <Text style={styles.errorBoxText}>Failed to load schedule</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             DAYS_OF_WEEK.map((day) => (
@@ -232,7 +582,6 @@ export const OperatingHoursScreen: React.FC = () => {
                 dayName={day.label}
                 hours={hoursByDay.get(day.value) || null}
                 onEdit={() => handleEditDay(day.value)}
-                onToggle={() => handleEditDay(day.value)}
               />
             ))
           )}
@@ -246,9 +595,24 @@ export const OperatingHoursScreen: React.FC = () => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Edit Modal */}
+      <EditModal
+        visible={modalVisible}
+        dayOfWeek={editingDay}
+        existingHours={editingHours}
+        onClose={handleCloseModal}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        isSaving={createMutation.isPending || deleteMutation.isPending}
+      />
     </SafeAreaView>
   );
 };
+
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   container: {
@@ -360,9 +724,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
-  editButton: {
-    padding: spacing.xs,
-  },
   hoursContainer: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
@@ -397,6 +758,29 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.body2,
     color: '#6B7280',
+    marginTop: spacing.sm,
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorBoxText: {
+    ...typography.body2,
+    color: '#991B1B',
+  },
+  retryButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...typography.body2,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   helpSection: {
     flexDirection: 'row',
@@ -410,6 +794,154 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#6B7280',
     lineHeight: 18,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    ...typography.h5,
+    color: '#1F2937',
+  },
+  modalCloseButton: {
+    padding: spacing.xs,
+  },
+  modalBody: {
+    padding: spacing.md,
+  },
+  formRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  formRowLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  formLabel: {
+    ...typography.body1,
+    color: '#1F2937',
+  },
+  formSection: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+  },
+  formSectionTitle: {
+    ...typography.body2,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  timeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  timeInputGroup: {
+    flex: 1,
+  },
+  timeInputLabel: {
+    ...typography.caption,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  timeInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...typography.body1,
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  closedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    padding: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  closedNoticeText: {
+    flex: 1,
+    ...typography.body2,
+    color: '#6B7280',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    padding: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+  },
+  modalActions: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  cancelButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cancelButtonText: {
+    ...typography.body1,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  saveButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#2F6F4E',
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    ...typography.body1,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
 
