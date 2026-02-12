@@ -18,8 +18,13 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   onPress,
   color = colors.primary.main,
 }) => {
+  const handlePress = () => {
+    console.log(`[QuickActionButton] Pressed: ${label}`);
+    onPress();
+  };
+
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.button} onPress={handlePress} activeOpacity={0.7}>
       <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
