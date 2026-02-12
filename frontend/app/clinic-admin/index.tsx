@@ -575,17 +575,6 @@ export default function ClinicAdminDashboard() {
             </Link>
           </View>
         </View>
-
-        {/* Debug Link */}
-        <View style={styles.section}>
-          <Link href="/debug" asChild>
-            <Pressable style={styles.dashboardLink}>
-              <Ionicons name="bug" size={20} color={colors.grey[500]} />
-              <Text style={styles.dashboardLinkText}>Debug Navigation</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </Pressable>
-          </Link>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
