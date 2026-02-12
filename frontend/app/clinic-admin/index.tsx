@@ -243,7 +243,10 @@ export default function ClinicAdminDashboard() {
           
           <TouchableOpacity
             style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/settings/operating-hours')}
+            onPress={() => {
+              console.log('[ClinicAdmin] Navigating to /clinic-admin/settings/operating-hours');
+              router.push('/clinic-admin/settings/operating-hours');
+            }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
               <Ionicons name="time-outline" size={24} color={colors.primary.main} />
@@ -257,7 +260,10 @@ export default function ClinicAdminDashboard() {
 
           <TouchableOpacity
             style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/settings/rooms')}
+            onPress={() => {
+              console.log('[ClinicAdmin] Navigating to /clinic-admin/settings/rooms');
+              router.push('/clinic-admin/settings/rooms');
+            }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: colors.info.main + '15' }]}>
               <Ionicons name="grid-outline" size={24} color={colors.info.main} />
@@ -271,7 +277,10 @@ export default function ClinicAdminDashboard() {
 
           <TouchableOpacity
             style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/settings/treatments')}
+            onPress={() => {
+              console.log('[ClinicAdmin] Navigating to /clinic-admin/settings/treatments');
+              router.push('/clinic-admin/settings/treatments');
+            }}
           >
             <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
               <Ionicons name="leaf-outline" size={24} color={colors.warning.main} />
