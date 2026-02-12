@@ -26,6 +26,7 @@ export default function ClinicAdminLayout() {
       <Stack.Screen name="treatment-sessions/[sessionId]" />
       <Stack.Screen name="treatment-sheets" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="settings/global" />
       <Stack.Screen name="inventory" />
       <Stack.Screen name="bulk-upload" />
       <Stack.Screen name="billing" />
@@ -34,6 +35,7 @@ export default function ClinicAdminLayout() {
       <Stack.Screen name="analytics/users" />
       <Stack.Screen name="analytics/performance" />
       <Stack.Screen name="reports" />
+      <Stack.Screen name="branding" />
     </Stack>
   );
 }
