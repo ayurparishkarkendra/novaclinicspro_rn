@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://clinic-dashboard-52.preview.emergentagent.com/theme-demo
+https://admin-docs-2.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
