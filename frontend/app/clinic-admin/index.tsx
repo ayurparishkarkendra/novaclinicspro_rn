@@ -505,69 +505,75 @@ export default function ClinicAdminDashboard() {
             )}
           </View>
 
-          <TouchableOpacity
-            style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/billing/invoices')}
-          >
-            <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
-              <Ionicons name="document-text-outline" size={24} color={colors.primary.main} />
-            </View>
-            <View style={styles.settingsInfo}>
-              <Text style={styles.settingsTitle}>Invoices</Text>
-              <Text style={styles.settingsDescription}>
-                {billingLoading 
-                  ? 'Loading...' 
-                  : `${billingSummary?.totalInvoices || 0} total invoices`
-                }
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-          </TouchableOpacity>
+          <Link href="/clinic-admin/billing/invoices" asChild>
+            <Pressable style={styles.settingsCard}>
+              <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
+                <Ionicons name="document-text-outline" size={24} color={colors.primary.main} />
+              </View>
+              <View style={styles.settingsInfo}>
+                <Text style={styles.settingsTitle}>Invoices</Text>
+                <Text style={styles.settingsDescription}>
+                  {billingLoading 
+                    ? 'Loading...' 
+                    : `${billingSummary?.totalInvoices || 0} total invoices`
+                  }
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </Pressable>
+          </Link>
 
-          <TouchableOpacity
-            style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/billing/payments')}
-          >
-            <View style={[styles.settingsIcon, { backgroundColor: colors.success.main + '15' }]}>
-              <Ionicons name="card-outline" size={24} color={colors.success.main} />
-            </View>
-            <View style={styles.settingsInfo}>
-              <Text style={styles.settingsTitle}>Payments</Text>
-              <Text style={styles.settingsDescription}>View payment history</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-          </TouchableOpacity>
+          <Link href="/clinic-admin/billing/payments" asChild>
+            <Pressable style={styles.settingsCard}>
+              <View style={[styles.settingsIcon, { backgroundColor: colors.success.main + '15' }]}>
+                <Ionicons name="card-outline" size={24} color={colors.success.main} />
+              </View>
+              <View style={styles.settingsInfo}>
+                <Text style={styles.settingsTitle}>Payments</Text>
+                <Text style={styles.settingsDescription}>View payment history</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </Pressable>
+          </Link>
         </View>
 
         {/* Navigation */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Switch Dashboard</Text>
           <View style={styles.dashboardLinks}>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/super-admin')}
-            >
-              <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
-              <Text style={styles.dashboardLinkText}>Super Admin</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/doctor')}
-            >
-              <Ionicons name="medical" size={20} color={colors.success.main} />
-              <Text style={styles.dashboardLinkText}>Doctor</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/therapist')}
-            >
-              <Ionicons name="heart" size={20} color={colors.error.main} />
-              <Text style={styles.dashboardLinkText}>Therapist</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
+            <Link href="/super-admin" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
+                <Text style={styles.dashboardLinkText}>Super Admin</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
+            <Link href="/doctor" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="medical" size={20} color={colors.success.main} />
+                <Text style={styles.dashboardLinkText}>Doctor</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
+            <Link href="/therapist" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="heart" size={20} color={colors.error.main} />
+                <Text style={styles.dashboardLinkText}>Therapist</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
           </View>
+        </View>
+
+        {/* Debug Link */}
+        <View style={styles.section}>
+          <Link href="/debug" asChild>
+            <Pressable style={styles.dashboardLink}>
+              <Ionicons name="bug" size={20} color={colors.grey[500]} />
+              <Text style={styles.dashboardLinkText}>Debug Navigation</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
     </SafeAreaView>
