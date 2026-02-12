@@ -83,11 +83,10 @@ const DayCard: React.FC<{
 
 export const OperatingHoursScreen: React.FC = () => {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { currentUser } = useAuthStore();
   
-  // Get tenant ID from user context - for now we'll use a placeholder
-  // In production, this would come from the user's tenant association
-  const tenantId = user?.tenantId || '';
+  // Get tenant ID from user context
+  const tenantId = currentUser?.tenantId || '';
 
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [editingHours, setEditingHours] = useState<OperatingHourResponse | null>(null);
