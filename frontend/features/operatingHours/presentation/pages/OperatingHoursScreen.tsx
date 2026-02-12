@@ -23,7 +23,7 @@ import { useOperatingHoursListQuery, useCreateOperatingHourMutation, useUpdateOp
 import { OperatingHourResponse, DAYS_OF_WEEK, formatTimeForDisplay } from '../../data/models/operatingHours.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { useAuthStore } from '../../../../features/auth/presentation/stores/auth.store';
+import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
 
 // Day card component
 const DayCard: React.FC<{
