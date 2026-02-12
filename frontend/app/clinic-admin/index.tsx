@@ -197,6 +197,12 @@ export default function ClinicAdminDashboard() {
               color={colors.primary.main}
             />
             <QuickActionButton
+              icon="document-text"
+              label="Reports"
+              href="/clinic-admin/reports"
+              color={colors.warning.main}
+            />
+            <QuickActionButton
               icon="cloud-upload"
               label="Bulk Upload"
               href="/clinic-admin/bulk-upload"
