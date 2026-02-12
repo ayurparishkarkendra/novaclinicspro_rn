@@ -114,19 +114,28 @@ export default function SuperAdminDashboard() {
             <QuickActionButton
               icon="business"
               label="Manage Tenants"
-              onPress={() => router.push('/super-admin/tenants')}
+              onPress={() => {
+                console.log('[SuperAdmin] Navigating to /super-admin/tenants');
+                router.push('/super-admin/tenants');
+              }}
               color={colors.primary.main}
             />
             <QuickActionButton
               icon="document-text"
               label="Applications"
-              onPress={() => router.push('/super-admin/applications')}
+              onPress={() => {
+                console.log('[SuperAdmin] Navigating to /super-admin/applications');
+                router.push('/super-admin/applications');
+              }}
               color={colors.secondary.main}
             />
             <QuickActionButton
               icon="card"
               label="Finance"
-              onPress={() => router.push('/super-admin/billing')}
+              onPress={() => {
+                console.log('[SuperAdmin] Navigating to /super-admin/billing');
+                router.push('/super-admin/billing');
+              }}
               color={colors.success.main}
             />
             <QuickActionButton
