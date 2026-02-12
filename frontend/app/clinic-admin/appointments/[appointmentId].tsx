@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { AppointmentDetailScreen } from '../../../../features/appointments/presentation/pages/AppointmentDetailScreen';
+import { AppointmentDetailScreen } from '../../../features/appointments/presentation/pages/AppointmentDetailScreen';
 
 export default function AppointmentDetailRoute() {
   return <AppointmentDetailScreen />;

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { TreatmentSessionsListScreen } from '../../../features/treatmentSessions/presentation/pages/TreatmentSessionsListScreen';
+import { TreatmentSessionsListScreen } from '../../features/treatmentSessions/presentation/pages/TreatmentSessionsListScreen';
 
 export default function TreatmentSessionsRoute() {
   return <TreatmentSessionsListScreen />;
