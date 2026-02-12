@@ -24,7 +24,7 @@ import { useCreateTreatmentMutation } from '../../../../features/treatments/data
 import { DOSHA_COLORS } from '../../../../features/treatments/data/models/treatments.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { useAuthStore } from '../../../../features/auth/presentation/stores/auth.store';
+import { useAuthStore } from '../../../../features/auth/presentation/providers/auth.store';
 
 interface DoshaState {
   balances: boolean;
@@ -33,8 +33,8 @@ interface DoshaState {
 
 export default function CreateTreatmentScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const tenantId = user?.tenantId || '';
+  const { currentUser } = useAuthStore();
+  const tenantId = currentUser?.tenantId || '';
 
   const [formData, setFormData] = useState({
     code: '',
