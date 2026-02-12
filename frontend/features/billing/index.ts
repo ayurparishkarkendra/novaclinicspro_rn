@@ -21,6 +21,7 @@ export { TenantInvoiceEditScreen } from './presentation/pages/TenantInvoiceEditS
 export { TenantPaymentsListScreen } from './presentation/pages/TenantPaymentsListScreen';
 export { TenantPaymentDetailScreen } from './presentation/pages/TenantPaymentDetailScreen';
 export { TenantRecordPaymentScreen } from './presentation/pages/TenantRecordPaymentScreen';
+export { SuperAdminBillingOverviewScreen } from './presentation/pages/SuperAdminBillingOverviewScreen';
 
 // Presentation - Components
 export { InvoiceListItem } from './presentation/components/InvoiceListItem';
