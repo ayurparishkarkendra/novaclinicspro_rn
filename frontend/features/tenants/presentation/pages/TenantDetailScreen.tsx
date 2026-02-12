@@ -838,4 +838,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  rbacButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: spacing.md,
+  },
+  rbacIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rbacTextContainer: {
+    flex: 1,
+  },
+  rbacTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  rbacSubtitle: {
+    fontSize: 14,
+  },
 });
