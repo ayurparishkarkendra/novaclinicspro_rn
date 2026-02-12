@@ -178,6 +178,42 @@ frontend:
         - agent: "testing"
         - comment: "Frontend testing not performed as per system limitations. Focus on backend API testing only."
 
+  - task: "Module 5 Phase 2 - Doctor Dashboard"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/doctor.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Implemented data-driven Doctor Dashboard with: Today's appointments list, stats row (Today/Upcoming/Completed/No-Shows), Quick Actions (View Schedule, View Patients, Start Session), On Leave banner, error handling with friendly messages. Uses useDoctorDashboardQuery hook connected to /api/v1/clinic/{tenant_id}/staff/me/dashboard/doctor endpoint. Cannot verify data flow due to backend 401 auth issue, but UI scaffolding compiles successfully."
+
+  - task: "Module 5 Phase 2 - Therapist Dashboard"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/therapist.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Implemented data-driven Therapist Dashboard with: Today's sessions list, stats row (Today/In Progress/Completed/Cancelled), Quick Actions (View Sessions, Treatment Notes, View Clients), On Leave banner, error handling with friendly messages. Uses useTherapistDashboardQuery hook connected to /api/v1/clinic/{tenant_id}/staff/me/dashboard/therapist endpoint. Cannot verify data flow due to backend 401 auth issue, but UI scaffolding compiles successfully."
+
+  - task: "Module 5 Phase 2 - Staff Dashboards Feature Module"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/features/staffDashboards/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Created complete Clean Architecture feature module with: Data Layer (DTOs, API calls, React Query hooks), Presentation Layer (AppointmentListItem, SessionListItem, DashboardStatsRow, DashboardQuickActions, EmptyDashboardState, OnLeaveBanner components). All components successfully bundle with Metro (1211 modules)."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
