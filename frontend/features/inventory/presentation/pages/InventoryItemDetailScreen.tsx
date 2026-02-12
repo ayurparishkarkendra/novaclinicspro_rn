@@ -630,4 +630,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.error.main,
   },
+  batchesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary.main + '10',
+    borderRadius: 12,
+    marginTop: spacing.sm,
+  },
+  batchesLinkText: {
+    ...typography.body2,
+    fontWeight: '600',
+    color: colors.primary.main,
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
 });
