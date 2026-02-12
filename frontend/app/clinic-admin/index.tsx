@@ -377,7 +377,7 @@ export default function ClinicAdminDashboard() {
               const stock = parseFloat(item.current_stock) || 0;
               const isCritical = stock <= item.reorder_point * 0.5;
               return (
-                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}` as any} asChild>
+                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}`} asChild>
                   <Pressable style={styles.inventoryCard}>
                     <View style={styles.inventoryInfo}>
                       <Ionicons
