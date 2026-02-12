@@ -1,4 +1,9 @@
-import React from 'react';
+/**
+ * Therapist Dashboard Screen
+ * Role-specific dashboard for therapists showing today's sessions, stats, and quick actions
+ */
+
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,21 +11,100 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { DashboardHeader } from '../core/components/DashboardHeader';
-import { StatCard } from '../core/components/StatCard';
-import { QuickActionButton } from '../core/components/QuickActionButton';
 import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
+import {
+  useTherapistDashboardQuery,
+  SessionListItem,
+  DashboardStatsRow,
+  DashboardQuickActions,
+  EmptyDashboardState,
+  OnLeaveBanner,
+  StatItem,
+  QuickAction,
+} from '../features/staffDashboards';
 
 export default function TherapistDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
+
+  // Fetch dashboard data
+  const {
+    data: dashboardData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useTherapistDashboardQuery(tenantId, {
+    enabled: !!tenantId,
+  });
+
+  // Calculate stats from the data
+  const stats: StatItem[] = useMemo(() => {
+    if (!dashboardData) {
+      return [
+        { label: 'Today', value: 0, icon: 'fitness', color: colors.primary.main },
+        { label: 'In Progress', value: 0, icon: 'play-circle', color: colors.info.main },
+        { label: 'Completed', value: 0, icon: 'checkmark-circle', color: colors.success.main },
+        { label: 'Cancelled', value: 0, icon: 'close-circle', color: colors.error.main },
+      ];
+    }
+
+    const sessions = dashboardData.sessions || [];
+    const todayCount = sessions.length;
+    const inProgress = sessions.filter((s) =>
+      s.status?.toLowerCase() === 'in_progress'
+    ).length;
+    const completed = sessions.filter((s) =>
+      s.status?.toLowerCase() === 'completed'
+    ).length;
+    const cancelledOrNoShow = sessions.filter((s) =>
+      ['cancelled', 'no_show'].includes(s.status?.toLowerCase())
+    ).length;
+
+    return [
+      { label: 'Today', value: todayCount, icon: 'fitness', color: colors.primary.main },
+      { label: 'In Progress', value: inProgress, icon: 'play-circle', color: colors.info.main },
+      { label: 'Completed', value: completed, icon: 'checkmark-circle', color: colors.success.main },
+      { label: 'Cancelled', value: cancelledOrNoShow, icon: 'close-circle', color: colors.error.main },
+    ];
+  }, [dashboardData]);
+
+  // Quick actions
+  const quickActions: QuickAction[] = useMemo(() => [
+    {
+      label: 'View Sessions',
+      icon: 'list-outline',
+      onPress: () => router.push('/clinic-admin/treatment-sessions'),
+      color: colors.primary.main,
+      variant: 'primary',
+    },
+    {
+      label: 'Treatment Notes',
+      icon: 'document-text-outline',
+      onPress: () => {
+        Alert.alert('Treatment Notes', 'Navigate to treatment notes section');
+      },
+      color: colors.success.main,
+    },
+    {
+      label: 'View Clients',
+      icon: 'people-outline',
+      onPress: () => router.push('/clinic-admin/clients'),
+      color: colors.info.main,
+    },
+  ], [router]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -34,7 +118,7 @@ export default function TherapistDashboard() {
           onPress: async () => {
             try {
               await logout();
-            } catch (error) {
+            } catch (err) {
               Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },
@@ -43,241 +127,97 @@ export default function TherapistDashboard() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <DashboardHeader
-        title="Therapist Dashboard"
-        subtitle="Physical Therapy Center"
-        userName={currentUser?.fullName || 'Emily Rodriguez'}
-        onNotificationPress={() => console.log('Notifications')}
-        onProfilePress={() => console.log('Profile')}
-        onLogoutPress={handleLogout}
-      />
+  const renderContent = () => {
+    // Loading state
+    if (isLoading) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.success.main} />
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        </View>
+      );
+    }
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Today's Stats */}
+    // Error state
+    if (isError) {
+      return (
+        <View style={styles.section}>
+          <EmptyDashboardState
+            variant="error"
+            title="Unable to Load Dashboard"
+            message={
+              error?.message?.includes('401')
+                ? 'Authentication failed. Please try logging in again.'
+                : 'Could not load your sessions. Pull down to retry.'
+            }
+            actionLabel="Retry"
+            onActionPress={() => refetch()}
+          />
+        </View>
+      );
+    }
+
+    // Success state
+    const sessions = dashboardData?.sessions || [];
+    const onLeave = dashboardData?.on_leave_today;
+
+    return (
+      <>
+        {/* On Leave Banner */}
+        {onLeave && (
+          <View style={styles.section}>
+            <OnLeaveBanner />
+          </View>
+        )}
+
+        {/* Stats Row */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Sessions Today"
-                value="8"
-                icon="fitness"
-                color={colors.primary.main}
-                trend={{ value: '3 completed', isPositive: true }}
-              />
-            </View>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Active Therapy Plans"
-                value="24"
-                icon="calendar"
-                color={colors.success.main}
-              />
-            </View>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Patients in Progress"
-                value="32"
-                icon="people"
-                color={colors.info.main}
-              />
-            </View>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Completion Rate"
-                value="87%"
-                icon="checkmark-circle"
-                color={colors.warning.main}
-                trend={{ value: '+5% vs last week', isPositive: true }}
-              />
-            </View>
-          </View>
+          <DashboardStatsRow stats={stats} />
         </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <QuickActionButton
-              icon="add-circle"
-              label="New Plan"
-              onPress={() => console.log('New Plan')}
-              color={colors.primary.main}
-            />
-            <QuickActionButton
-              icon="document-text"
-              label="Session Notes"
-              onPress={() => console.log('Notes')}
-              color={colors.success.main}
-            />
-            <QuickActionButton
-              icon="trending-up"
-              label="Progress Report"
-              onPress={() => console.log('Progress')}
-              color={colors.info.main}
-            />
-            <QuickActionButton
-              icon="search"
-              label="Patient Search"
-              onPress={() => console.log('Search')}
-              color={colors.secondary.main}
-            />
-            <QuickActionButton
-              icon="calendar"
-              label="Schedule"
-              onPress={() => console.log('Schedule')}
-              color={colors.warning.main}
-            />
-            <QuickActionButton
-              icon="stats-chart"
-              label="Analytics"
-              onPress={() => console.log('Analytics')}
-              color={colors.text.secondary}
-            />
-          </View>
+          <DashboardQuickActions actions={quickActions} />
         </View>
 
         {/* Today's Sessions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Today's Sessions</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/clinic-admin/treatment-sessions')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
-          {[
-            {
-              patient: 'Michael Johnson',
-              time: '9:00 AM',
-              type: 'Physical Therapy',
-              session: 'Day 5/14',
-              condition: 'Post-surgery rehab',
-            },
-            {
-              patient: 'Sarah Williams',
-              time: '10:00 AM',
-              type: 'Occupational Therapy',
-              session: 'Day 3/21',
-              condition: 'Stroke recovery',
-            },
-            {
-              patient: 'Tom Anderson',
-              time: '11:00 AM',
-              type: 'Physical Therapy',
-              session: 'Day 12/14',
-              condition: 'Sports injury',
-            },
-          ].map((session, index) => (
-            <TouchableOpacity key={index} style={styles.sessionCard}>
-              <View style={styles.sessionHeader}>
-                <View style={styles.patientInfo}>
-                  <View style={styles.patientAvatar}>
-                    <Ionicons name="person" size={24} color={colors.primary.main} />
-                  </View>
-                  <View style={styles.patientDetails}>
-                    <Text style={styles.patientName}>{session.patient}</Text>
-                    <Text style={styles.sessionType}>{session.type}</Text>
-                  </View>
-                </View>
-                <View style={styles.timeContainer}>
-                  <Ionicons name="time" size={16} color={colors.primary.main} />
-                  <Text style={styles.timeText}>{session.time}</Text>
-                </View>
-              </View>
-              <View style={styles.sessionFooter}>
-                <View style={styles.sessionInfo}>
-                  <View style={styles.progressTag}>
-                    <Ionicons name="calendar" size={14} color={colors.info.main} />
-                    <Text style={styles.progressText}>{session.session}</Text>
-                  </View>
-                  <Text style={styles.conditionText}>{session.condition}</Text>
-                </View>
-                <TouchableOpacity style={styles.startButton}>
-                  <Text style={styles.startButtonText}>Start</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={colors.background.default}
-                  />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Active Therapy Plans */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Multi-Day Therapy Plans</Text>
-          {[
-            {
-              patient: 'Jennifer Martinez',
-              plan: 'Lower Back Rehabilitation',
-              progress: 65,
-              daysCompleted: 9,
-              totalDays: 14,
-              nextSession: 'Tomorrow, 2:00 PM',
-            },
-            {
-              patient: 'Robert Chen',
-              plan: 'Shoulder Mobility Program',
-              progress: 42,
-              daysCompleted: 9,
-              totalDays: 21,
-              nextSession: 'Today, 3:00 PM',
-            },
-            {
-              patient: 'Lisa Brown',
-              plan: 'Knee Strength Training',
-              progress: 85,
-              daysCompleted: 12,
-              totalDays: 14,
-              nextSession: 'Tomorrow, 10:00 AM',
-            },
-          ].map((plan, index) => (
-            <TouchableOpacity key={index} style={styles.planCard}>
-              <View style={styles.planHeader}>
-                <View style={styles.planIconContainer}>
-                  <Ionicons name="fitness" size={24} color={colors.success.main} />
-                </View>
-                <View style={styles.planDetails}>
-                  <Text style={styles.planPatient}>{plan.patient}</Text>
-                  <Text style={styles.planName}>{plan.plan}</Text>
-                  <Text style={styles.nextSession}>Next: {plan.nextSession}</Text>
-                </View>
-              </View>
-              <View style={styles.progressSection}>
-                <View style={styles.progressInfo}>
-                  <Text style={styles.progressLabel}>Progress</Text>
-                  <Text style={styles.progressValue}>{plan.progress}%</Text>
-                </View>
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${plan.progress}%`,
-                        backgroundColor:
-                          plan.progress >= 70
-                            ? colors.success.main
-                            : plan.progress >= 40
-                            ? colors.info.main
-                            : colors.warning.main,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.daysInfo}>
-                  Day {plan.daysCompleted} of {plan.totalDays}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {sessions.length === 0 ? (
+            <EmptyDashboardState
+              icon="fitness-outline"
+              title="No Sessions Today"
+              message={onLeave ? "You're on leave today." : "You have no treatment sessions scheduled for today."}
+            />
+          ) : (
+            sessions.map((session) => (
+              <SessionListItem
+                key={session.id}
+                session={session}
+                onPress={() => {
+                  router.push(`/clinic-admin/treatment-sessions/${session.id}`);
+                }}
+                onStartPress={() => {
+                  Alert.alert(
+                    'Start Session',
+                    `Start session #${session.session_number} with ${session.client_name || 'client'}?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Start', onPress: () => console.log('Start:', session.id) },
+                    ]
+                  );
+                }}
+              />
+            ))
+          )}
         </View>
 
         {/* Navigation */}
@@ -290,11 +230,7 @@ export default function TherapistDashboard() {
             >
               <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
               <Text style={styles.dashboardLinkText}>Super Admin</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.text.secondary}
-              />
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.dashboardLink}
@@ -302,11 +238,7 @@ export default function TherapistDashboard() {
             >
               <Ionicons name="business" size={20} color={colors.success.main} />
               <Text style={styles.dashboardLinkText}>Clinic Admin</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.text.secondary}
-              />
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.dashboardLink}
@@ -314,14 +246,39 @@ export default function TherapistDashboard() {
             >
               <Ionicons name="medical" size={20} color={colors.error.main} />
               <Text style={styles.dashboardLinkText}>Doctor</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.text.secondary}
-              />
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
             </TouchableOpacity>
           </View>
         </View>
+      </>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <DashboardHeader
+        title="Therapist Dashboard"
+        subtitle="Physical Therapy Center"
+        userName={currentUser?.email?.split('@')[0] || 'Therapist'}
+        onNotificationPress={() => console.log('Notifications')}
+        onProfilePress={() => console.log('Profile')}
+        onLogoutPress={handleLogout}
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            colors={[colors.success.main]}
+            tintColor={colors.success.main}
+          />
+        }
+      >
+        {renderContent()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -338,6 +295,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
   },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  loadingText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+  },
   section: {
     paddingHorizontal: spacing.md,
     marginTop: spacing.lg,
@@ -349,7 +317,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    ...typography.h5,
+    ...typography.h6,
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
@@ -357,179 +325,6 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.primary.main,
     fontWeight: '600',
-  },
-  statsGrid: {
-    gap: spacing.md,
-  },
-  statItem: {
-    marginBottom: spacing.sm,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  sessionCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  patientInfo: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  patientAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  patientDetails: {
-    flex: 1,
-  },
-  patientName: {
-    ...typography.body1,
-    color: colors.text.primary,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  sessionType: {
-    ...typography.body2,
-    color: colors.text.secondary,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary.main + '15',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  timeText: {
-    ...typography.caption,
-    color: colors.primary.main,
-    fontWeight: '600',
-  },
-  sessionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  progressTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  progressText: {
-    ...typography.caption,
-    color: colors.info.main,
-    fontWeight: '600',
-  },
-  conditionText: {
-    ...typography.body2,
-    color: colors.text.secondary,
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    gap: 4,
-  },
-  startButtonText: {
-    ...typography.button,
-    color: colors.background.default,
-  },
-  planCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-  },
-  planIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.success.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  planDetails: {
-    flex: 1,
-  },
-  planPatient: {
-    ...typography.body1,
-    color: colors.text.primary,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  planName: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: 4,
-  },
-  nextSession: {
-    ...typography.caption,
-    color: colors.primary.main,
-    fontWeight: '500',
-  },
-  progressSection: {
-    marginTop: spacing.sm,
-  },
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  progressLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  progressValue: {
-    ...typography.caption,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: colors.grey[200],
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  daysInfo: {
-    ...typography.caption,
-    color: colors.text.secondary,
   },
   dashboardLinks: {
     gap: spacing.sm,
