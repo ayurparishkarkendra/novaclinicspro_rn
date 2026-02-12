@@ -195,5 +195,5 @@ axiosClient.get(API_ENDPOINTS.TENANTS.GET(tenantId));
 
 **Fixed By:** Emergent AI Agent  
 **Date:** January 2025  
-**Preview URL:** https://admin-docs-2.preview.emergentagent.com  
+**Preview URL:** https://invoice-pay-9.preview.emergentagent.com  
 **Status:** ✅ All API endpoints working correctly

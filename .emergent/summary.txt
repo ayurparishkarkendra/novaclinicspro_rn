@@ -1,117 +1,112 @@
 <analysis>
-
 <original_problem_statement>
-The user initiated the session to build **Module 5, Phase 2: Role-Specific Dashboards** for Doctors and Therapists. After successful completion, the user provided a new, detailed Product Requirements Document for **Module 6: Clinical Documents**, covering Casesheets, Prescriptions, and Treatment Sheets.
+The user initiated a session to build **Module 7: Inventory Management & Bulk Upload Utilities**. After the agent successfully completed both phases of Module 7, the user provided a new Product Requirements Document for **Module 8: Billing & Finance**, covering tenant-level invoicing, payments, and subscription overviews.
 
-**Module 5 Requirements:**
--   Implement dashboards for Doctors () and Therapists ().
--   Use  and  API endpoints.
--   Display specific stats, quick actions, and lists for each role.
--   Handle the known 401 backend error gracefully.
+**Module 7 Requirements (Now Complete):**
+- Implement a full **Inventory** feature (items CRUD, stock adjustments, movements, batches, alerts) and a **Bulk Upload** feature (for clients, treatments, inventory, appointments).
+- Follow the existing Clean Architecture, creating  and  modules.
+- Use only OpenAPI tags: , .
+- All API calls must use the  path.
+- Integrate the new features into the Clinic Admin dashboard with stats and quick links.
 
-**Module 6 Requirements:**
--   Implement features for Casesheets, Prescriptions, and Treatment Sheets following the existing Clean Architecture.
--   Use only the specified OpenAPI tags: , , .
--   All API calls must use the  path.
--   The implementation was split into two phases:
-    -   **Phase 1 (Now Complete):** Build Casesheets and Prescriptions features, including CRUD, lifecycles (DRAFT/FINAL/SIGNED), and integration into the Client Detail and Doctor dashboard.
-    -   **Phase 2 (Now Complete):** Build the Treatment Sheets feature, integrated with Casesheets and the Therapist dashboard.
--   All screens must handle loading/error states gracefully due to the persistent backend 401 error.
+**Module 8 Requirements (In Progress):**
+- Implement a **Billing & Finance** feature for Clinic Admins and Super Admins.
+- Use only the OpenAPI tag: .
+- The implementation is split into two phases:
+    - **Phase 1 (In Progress):** Build Clinic Admin billing features (invoices, payments, subscription summary).
+    - **Phase 2 (Not Started):** Build Super Admin finance overview.
+- All new screens must handle loading/error states gracefully due to the persistent backend 401 error.
+- **Specific instructions:**
+    - Invoice statuses must be mapped directly from the API schema, with a fallback for unknown values.
+    - Payment methods should be derived from the API schema or a curated list if the schema uses a free-form string.
+    - The initial subscription summary should be derived simply from invoice data (outstanding balance, last payment, next due date).
 </original_problem_statement>
 
 **User's preferred language**: English
 
 **what currently exists?**
--   A React Native (Expo) project with a Clean Architecture structure.
--   **Module 5 (Phase 2) is UI-complete**: The Doctor and Therapist dashboards are fully implemented with data-fetching logic, connected to the  feature.
--   **Module 6 (Phases 1 & 2) is UI-complete**: The full clinical documentation suite is implemented.
-    -   : Full CRUD, lifecycle management, and UI components.
-    -   : Full CRUD, sharing flow, and UI components.
-    -   : Creation, detail view, row-level editing, and UI components.
--   **Integration is complete**:
-    -   New document features are linked from the Client Detail screen ().
-    -   Quick actions for documents are added to the Doctor and Therapist dashboards.
-    -   Treatment Sheets are correctly linked from within the Casesheet Detail screen.
--   All new features include graceful error handling for the known 401 backend auth issue, displaying Unable to Load messages instead of crashing.
+- A React Native (Expo) project using a Clean Architecture.
+- **Module 7 (Inventory & Bulk Upload) is UI-complete**: The features are fully built with data, domain, and presentation layers, including new routes and integration into the Clinic Admin dashboard. The dependency  was added to support file uploads.
+- **Module 8 (Billing & Finance) has been started**: The agent has created the foundational file structure for the  module, including the data layer (, DTOs, repository), presentation components (, , etc.), and form components (, ).
 
 **Last working item**:
--   Last item agent was working: The agent just completed the implementation of **Module 6, Phase 2 (Treatment Sheets)**, including creating the feature module, integrating it into the Casesheet Detail screen, and adding a quick link to the Therapist dashboard. The user reviewed and approved this work.
--   Status: NONE (The task is completed and user-verified).
--   Agent Testing Done: Y (Verified by successful Metro bundling logs, as UI preview is unreliable).
--   Which testing method agent to use? N/A
--   User Testing Done: Y (User has reviewed the plan and the summary of completed work, and has confirmed they will test the UI/UX aspects).
+- Last item agent was working: The agent was in the middle of implementing **Module 8, Phase 1: Clinic Admin Billing**. It had just finished creating the form components for the billing feature. The agent's next intended step was to create the main page screens for billing.
+- Status: IN PROGRESS
+- Agent Testing Done: N
+- Which testing method agent to use? The agent should continue to rely on successful Metro bundler logs as the primary method of verifying code compilation due to environmental issues with the preview URL. Full feature testing is not possible until the 401 error is resolved.
+- User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Backend JWT Authentication Failure (P0)**
-    -   **Description**: A persistent, known issue where all API calls to the external Koyeb-hosted backend fail with a 401 Unauthorized error. This is an external backend server problem.
-    -   **Status**: BLOCKED
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical blocker for the entire application. Fixing it will enable all data-related functionality (fetching, creating, updating) and allow for true end-to-end testing.
-    -   **Next debug checklist**: This is an external issue that the agent cannot resolve. The next agent must continue to build UI features and ensure that all data-dependent screens handle loading and error states gracefully without crashing.
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: Both.
-    -   **Blocked on other issue**: No.
+- **Issue 1: Backend JWT Authentication Failure (P0)**
+    - **Description**: A persistent, critical issue where all API calls requiring authentication fail with a 401 Unauthorized error. This is an external backend server problem that the agent cannot fix.
+    - **Status**: BLOCKED
+    - **Why fix this issue and what will be achieved with the fix?**: This is the main blocker for the entire application's data functionality. Fixing it is required for end-to-end testing and making the app functional.
+    - **Next debug checklist**: Continue building UI features and ensure all data-dependent screens handle loading and error states gracefully without crashing. Do not attempt to fix the 401 error.
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Both.
+    - **Blocked on other issue**: No.
 
--   **Issue 2: Preview URL Unavailability (P1)**
-    -   **Description**: The environment's preview URL used by the  is often unavailable due to inactivity, preventing visual UI verification.
-    -   **Status**: IN PROGRESS (Environmental)
-    -   **Why fix this issue and what will be achieved with the fix?**: Resolving this would allow for screenshot-based verification of UI changes.
-    -   **Next debug checklist**: This is an environmental issue. If the  fails, the agent must continue to rely on the Metro bundler's success logs () as the primary method of verifying code compilation.
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: Frontend.
-    -   **Blocked on other issue**: No.
+- **Issue 2: Preview URL Unavailability (P1)**
+    - **Description**: The environment's preview URL used by the  is often unavailable, preventing visual UI verification.
+    - **Status**: IN PROGRESS (Environmental)
+    - **Why fix this issue and what will be achieved with the fix?**: Resolving this would allow for screenshot-based verification of UI changes.
+    - **Next debug checklist**: This is an environmental issue. Rely on Metro bundler's success logs () as the primary method of verifying code compilation and syntactic correctness.
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Frontend.
+    - **Blocked on other issue**: No.
+
+- **Issue 3: ESLint False Positives (P2)**
+    - **Description**: The linter incorrectly reports Parsing error: Unexpected token : for valid TypeScript syntax in new files.
+    - **Status**: NOT STARTED
+    - **Why fix this issue and what will be achieved with this?**: Fixing the linter configuration () will provide accurate code quality feedback and improve the developer experience.
+    - **Next debug checklist**: Inspect  and ensure  is configured correctly for  files.
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: N/A.
 
 **In progress Task List**:
--   None. All assigned tasks for Module 5 and 6 are complete.
+- **Task 1: Complete Module 8, Phase 1 (Clinic Admin Billing) Implementation (P0)**
+    - **Where to resume**: The agent has created the data, component, and form files for . The immediate next step is to create the **presentation pages** as defined in the PRD. Specifically, create , , , , , , and  inside .
+    - **What will be achieved with this?**: This will complete the UI and data-fetching logic for the tenant-level billing section, including the overview, invoice management, and payment recording flows.
+    - **Status**: IN PROGRESS
+    - **Should Test frontend/backend/both after fix?**: Frontend (via Metro bundling).
+    - **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks (P0):**
-    -   **Implement Global Admin Document Lists**: Create new routes like  and  to provide admin-level views of all documents, as discussed with the user.
--   **Future Tasks (P1):**
-    -   **Address Module 4 TODOs**: Implement enhancements listed in .
-    -   **Address Module 3 TODOs**: Implement enhancements listed in .
--   **Technical Debt (P2):**
-    -   Refactor components still using  to use the modern  hook.
-    -   Fix the  configuration to correctly parse TypeScript files and resolve false positive Unexpected token : errors.
+- **Upcoming Tasks (P0):**
+    - **Implement Module 8, Phase 2**: Build the Super Admin Finance overview page () and integrate it into the Super Admin dashboard.
+- **Future Tasks (P1):**
+    - **Enhancement**: Implement batch-expiry notifications within the Inventory Alerts feature.
+    - **Technical Debt**: Address TODOs from Module 4 (Clinic Settings) and Module 3 (RBAC).
+    - **Refactoring**: Migrate components still using  to use the  hook.
 
 **Completed work in this session**
--   **Module 5, Phase 2: Role-Specific Dashboards (DONE)**
-    -   Implemented data-driven dashboards for Doctors () and Therapists ().
-    -   Created the  presentation layer and connected it to the dashboard routes.
--   **Module 6, Phase 1: Casesheets & Prescriptions (DONE)**
-    -   Created  and  modules with complete data, domain, and presentation layers.
-    -   Created new client-nested routes:  and .
-    -   Integrated navigation links into the Client Detail screen and the Doctor Dashboard.
--   **Module 6, Phase 2: Treatment Sheets (DONE)**
-    -   Created the  module.
-    -   Integrated Treatment Sheet creation and viewing within the .
-    -   Added a quick link to the Therapist Dashboard.
--   **Bug Fixes & Refactoring:**
-    -   Resolved an Expo Router conflict between  and a  directory by adopting the directory-based routing pattern.
-    -   Fixed multiple  errors in new route files by correcting relative import path depths and clearing the Metro bundler cache.
+- **Module 7: Inventory & Bulk Upload (DONE)**
+    - Created  module for item CRUD, stock adjustments, and alerts.
+    - Created  batch management screens and linked them from the item detail view.
+    - Created  module for CSV uploads of clients, treatments, inventory, and appointments.
+    - Created all associated routes under  and .
+    - Integrated new features into the  dashboard with statistics cards and quick action buttons.
+- **Dependency Management:**
+    - Installed  to support the bulk upload feature.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: ESLint False Positives**
-    -   **Description**: The linter incorrectly reports Parsing error: Unexpected token : for valid TypeScript syntax. The agent correctly identified this as a linter configuration issue and bypassed it.
-    -   **Debug checklist**: Inspect  and ensure  is configured correctly for  files.
-    -   **Why to solve this issue and what will be achieved with this?**: Fixing it will improve the developer experience and make the linter a reliable tool for code quality.
-    -   **Should Test frontend/backend/both after fix**: N/A.
-    -   **Is recurring issue?**: Y
+- The ESLint configuration issue remains unresolved (listed in All Pending/In progress Issue list).
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: Metro Bundler Cache Inconsistency.
--   **Recurrence count**: Multiple times during this session.
--   **Status**: RESOLVED (by agent). The agent learned that after creating new files, especially routes, a simple server restart (expo: ERROR (not running)
-expo: ERROR (abnormal termination)) is required to clear the stale cache and resolve module resolution errors. The next agent must remember this pattern.
+- **Issue recurrence in previous fork**: Metro Bundler Cache Inconsistency.
+- **Recurrence count**: Multiple times.
+- **Status**: RESOLVED (by agent). The agent learned the pattern: after creating new files (especially routes), a server restart (expo: ERROR (not running)
+expo: started) is required to clear the stale cache and resolve module resolution errors. The next agent must remember this procedure.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend**: React Native with Expo, Expo Router v3
--   **Architecture**: Clean Architecture (Data, Domain, Presentation layers)
--   **State Management**:  (server state),  (client state)
--   **API Client**: 
--   **Backend**: External FastAPI backend hosted on Koyeb.
+- **Frontend**: React Native with Expo, Expo Router v3
+- **Architecture**: Clean Architecture (Data, Domain, Presentation layers)
+- **State Management**:  (server state),  (client state)
+- **API Client**: 
+- **Backend**: External FastAPI backend hosted on Koyeb.
 
 **key DB schema**
 N/A. Database is not directly accessed.
@@ -120,86 +115,61 @@ N/A. Database is not directly accessed.
 None.
 
 **All files of reference**
--   **Newly created files**:
-    -   All files under .
-    -   All files under .
-    -   All route files under .
-    -   All route files under .
--   **Key modified files**:
-    -   : Updated for dashboard UI and links to clinical documents.
-    -   : Updated for dashboard UI and links to treatment sheets.
-    -   : Updated with navigation to clinical documents.
-    -   : Updated with integration for treatment sheets.
+- **Newly created/updated in this session**:
+    - All files under  (Module 7).
+    - All files under  (Module 7).
+    - All route files under  and  (Module 7).
+    - Files started under  (Module 8).
+- **Key modified files**:
+    - : Updated with Inventory and Bulk Upload dashboard integrations.
+    - : Updated with link to batch management screen.
 
 **Areas that need refactoring**:
--   The ESLint configuration () needs to be fixed to properly handle TypeScript files.
+- The ESLint configuration () needs to be fixed to properly handle TypeScript files and eliminate false positive errors.
 
 **key api endpoints**
--   **Module 5 (Dashboards):**
-    -   
-    -   
--   **Module 6 (Clinical Docs):**
-    -   : All CRUD & lifecycle endpoints under 
-    -   : All CRUD & lifecycle endpoints under 
-    -   : Endpoints under  and 
+- **Inventory**: , , , , 
+- **Bulk Upload**: , , 
+- **Billing & Finance**: , 
 
 **Critical Info for New Agent**
--   **CRITICAL: AUTH IS BLOCKED**: The external backend fails all API requests with a 401 error. You cannot fix this. Your primary role is to build UI and ensure it handles empty/error data states gracefully.
--   **Modules 5 and 6 are UI-Complete**: The dashboards and clinical documentation features are fully built from a UI and frontend logic perspective. Do not modify them unless a bug is found.
--   **METRO CACHE RESTART**: After adding new files (especially routes), you will likely encounter  errors even with correct paths. The fix is to restart the Expo server with expo: ERROR (not running)
-expo: started to clear the cache. This is a recurring and predictable issue.
--   **NEXT TASK**: The user's next priority is likely to implement **Global Admin Document Lists**. This would involve creating new top-level routes like  and . Await user confirmation before starting.
+- **CRITICAL: AUTH IS BLOCKED**: The backend fails all authenticated API requests with a 401 error. Do not try to fix this. Your primary role is to build the UI and ensure it handles empty/error data states gracefully.
+- **CURRENT TASK**: You are in the middle of building **Module 8, Phase 1 (Clinic Admin Billing)**. Your immediate task is to create the presentation page files for the  feature. Refer to the In progress Task List for the exact files to create.
+- **METRO CACHE RESTART**: After creating new files (especially routes), you will likely encounter  errors. The fix is to restart the Expo server with expo: stopped
+expo: started to clear the cache.
+- **USER-SPECIFIC LOGIC**: For the billing module, strictly follow the user's instructions regarding invoice statuses, payment methods, and how the subscription summary is calculated. Do not infer logic not present in the API schema.
 
 **documents created in this job**
 None.
 
 **Last 10 User Messages and any pending HUMAN messages**
--   **User (Msg 103)**: Approved the phased plan for Module 6. Authorized the agent to start Phase 1 (Casesheets & Prescriptions).
--   **User (Msg 188)**: Approved the completion of Module 6, Phase 1. Confirmed they would test the UI/UX. Authorized the agent to start Phase 2 (Treatment Sheets).
--   **User (Msg 231)**: Approved the completion of Module 6, Phase 2. Confirmed the entire clinical documentation flow meets expectations. Stated they will test UI/UX. Indicated the next steps would be global admin lists, followed by Module 4 and 3 TODOs.
--   **Agent (Msg 232)**: Acknowledged the user's approval and provided a summary of what's ready for testing and the potential next steps. The agent is now waiting for the user's next instruction.
+- **User (Msg 126)**: Confirmed Module 7 is feature-complete, outlined their testing plan, and mentioned potential future tasks (batch-expiry notifications, Module 3/4 TODOs).
+- **Agent (Msg 127)**: Acknowledged user approval, provided a helpful testing reference, and confirmed readiness for the next task.
+- **User (Msg 128)**: Provided the full PRD for **Module 8: Billing & Finance** and asked the agent to propose a phased plan.
+- **Agent (Msg 129-137)**: Analyzed the  endpoints from the OpenAPI spec.
+- **Agent (Msg 138)**: Proposed a two-phase plan for Module 8 (Phase 1: Clinic Admin, Phase 2: Super Admin).
+- **User (Msg 139)**: Approved the plan for Module 8 and provided very specific instructions on handling invoice statuses, payment methods, and the subscription summary logic. Authorized the agent to start **Phase 1: Clinic Admin Billing**.
+- **Agent (Msg 140-146)**: Acknowledged the user's instructions and started creating the files for the  module. The agent's last action was creating form components, with the next step being the creation of the main page screens.
 
 **Project Health Check:**
--   **Broken**: Backend API Integration (due to external 401 auth error).
--   **Mocked**: No mocked data is being used; the UI relies on handling error states from live (but failing) API calls.
+- **Broken**: Backend API Integration (due to external 401 auth error).
+- **Mocked**: No mocked data is being used; the UI relies on handling error states from live (but failing) API calls.
 
 **3rd Party Integrations**
--   **Supabase**: For authentication and user identity.
--   **Koyeb**: Hosting for the external FastAPI backend.
+- **Supabase**: For authentication and user identity.
+- **Koyeb**: Hosting for the external FastAPI backend.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
--   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None.
--   **Known regressions**: None.
+- **Testing agent used after significant changes**: NO
+- **Troubleshoot agent used after agent stuck in loop**: NO
+- **Test files created**: None.
+- **Known regressions**: None.
 
 **Credentials to test flow:**
--   **user**: 
--   **password**: 
--   **Note**: Login will succeed, but subsequent data-fetching API calls will fail with a 401 error.
+- **user**: 
+- **password**: 
+- **Note**: Login will succeed, but subsequent data-fetching API calls will fail with a 401 error.
 
 **What agent forgot to execute**
-The agent performed exceptionally well, successfully implementing two large and complex modules (5 and 6) while navigating a critical backend blocker and tricky environment issues (Metro cache). No user requirements or tasks were overlooked.
-
+- The agent correctly identified the need to check the 401 status but did not perform a definitive test. It ran a public health check endpoint that returned a success message but never attempted a call to a protected route to confirm if the 401 issue was actually resolved. The user's later messages confirm the issue persists. The next agent should not assume the 401 error is fixed.
 </analysis>
-<SYS_PROMPT_SEPARATOR>
-<workspace_dir>
-/app
-</workspace_dir>
-Hello! I've reviewed the excellent progress on the Doctor/Therapist dashboards (Module 5) and the full Clinical Documentation suite (Module 6). I've confirmed that the UI, navigation, and error handling are all in place as requested.
-
-Now, let's proceed with the next task we discussed.
-
-**New Task: Implement Global Admin Document Lists**
-
-Please create the following new top-level routes for Clinic Admins:
-1.  : This should display a list of **all** casesheets for the entire clinic, not filtered by a specific patient.
-2.  : This should display a list of **all** prescriptions for the entire clinic.
-
-**Implementation Details:**
--   Reuse the existing  and  components you've already built.
--   The key difference will be in how the data is fetched. You'll pass  or  for the  parameter to signify a global list rather than a client-specific one.
--   Add navigation links to these new pages from the main Clinic Admin dashboard ().
--   As always, ensure these new pages handle the 401 API error gracefully.
-
-Please start by creating a plan for this and confirm it with me.

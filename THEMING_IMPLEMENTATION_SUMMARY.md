@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://admin-docs-2.preview.emergentagent.com/theme-demo
+https://invoice-pay-9.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
