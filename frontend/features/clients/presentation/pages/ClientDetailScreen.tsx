@@ -637,6 +637,38 @@ const styles = StyleSheet.create({
     ...typography.h6,
     color: colors.text.primary,
   },
+  documentsGrid: {
+    gap: spacing.sm,
+  },
+  documentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    marginBottom: spacing.xs,
+  },
+  documentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  documentTitle: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  documentSubtitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginRight: spacing.sm,
+  },
 });
 
 export default ClientDetailScreen;
