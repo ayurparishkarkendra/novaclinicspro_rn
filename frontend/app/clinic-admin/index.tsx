@@ -108,7 +108,7 @@ export default function ClinicAdminDashboard() {
       >
         {/* Clinic Stats */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Overview</Text>
+          <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <StatCard
