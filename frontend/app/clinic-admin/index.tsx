@@ -410,7 +410,8 @@ export default function ClinicAdminDashboard() {
                       {isCritical ? 'Critical' : 'Low'}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
+              </Link>
               );
             })
           ) : (
@@ -420,14 +421,13 @@ export default function ClinicAdminDashboard() {
             </View>
           )}
           {lowStockItems.length > 3 && (
-            <TouchableOpacity
-              style={styles.moreAlertsButton}
-              onPress={() => router.push('/clinic-admin/inventory/alerts')}
-            >
-              <Text style={styles.moreAlertsText}>
-                +{lowStockItems.length - 3} more alerts
-              </Text>
-            </TouchableOpacity>
+            <Link href="/clinic-admin/inventory/alerts" asChild>
+              <Pressable style={styles.moreAlertsButton}>
+                <Text style={styles.moreAlertsText}>
+                  +{lowStockItems.length - 3} more alerts
+                </Text>
+              </Pressable>
+            </Link>
           )}
         </View>
 
@@ -436,46 +436,46 @@ export default function ClinicAdminDashboard() {
           <Text style={styles.sectionTitle}>Inventory Management</Text>
           <Text style={styles.sectionSubtitle}>Manage stock & supplies</Text>
           
-          <TouchableOpacity
-            style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/inventory')}
-          >
-            <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
-              <Ionicons name="cube-outline" size={24} color={colors.primary.main} />
-            </View>
-            <View style={styles.settingsInfo}>
-              <Text style={styles.settingsTitle}>Inventory Items</Text>
-              <Text style={styles.settingsDescription}>
-                {inventoryLoading ? 'Loading...' : `${totalItems} items in stock`}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-          </TouchableOpacity>
+          <Link href="/clinic-admin/inventory" asChild>
+            <Pressable style={styles.settingsCard}>
+              <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
+                <Ionicons name="cube-outline" size={24} color={colors.primary.main} />
+              </View>
+              <View style={styles.settingsInfo}>
+                <Text style={styles.settingsTitle}>Inventory Items</Text>
+                <Text style={styles.settingsDescription}>
+                  {inventoryLoading ? 'Loading...' : `${totalItems} items in stock`}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </Pressable>
+          </Link>
 
-          <TouchableOpacity
-            style={styles.settingsCard}
-            onPress={() => router.push('/clinic-admin/inventory/alerts')}
-          >
-            <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
-              <Ionicons name="notifications-outline" size={24} color={colors.warning.main} />
-            </View>
-            <View style={styles.settingsInfo}>
-              <Text style={styles.settingsTitle}>Stock Alerts</Text>
-              <Text style={styles.settingsDescription}>
-                {alertsLoading ? 'Loading...' : `${totalAlertCount} active alerts`}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-          </TouchableOpacity>
+          <Link href="/clinic-admin/inventory/alerts" asChild>
+            <Pressable style={styles.settingsCard}>
+              <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
+                <Ionicons name="notifications-outline" size={24} color={colors.warning.main} />
+              </View>
+              <View style={styles.settingsInfo}>
+                <Text style={styles.settingsTitle}>Stock Alerts</Text>
+                <Text style={styles.settingsDescription}>
+                  {alertsLoading ? 'Loading...' : `${totalAlertCount} active alerts`}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </Pressable>
+          </Link>
         </View>
 
         {/* Billing & Finance */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Billing & Finance</Text>
-            <TouchableOpacity onPress={() => router.push('/clinic-admin/billing')}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
+            <Link href="/clinic-admin/billing" asChild>
+              <Pressable>
+                <Text style={styles.viewAll}>View All</Text>
+              </Pressable>
+            </Link>
           </View>
           <Text style={styles.sectionSubtitle}>Manage invoices & payments</Text>
           
