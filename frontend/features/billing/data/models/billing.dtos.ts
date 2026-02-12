@@ -333,8 +333,8 @@ export const calculateInvoiceTotals = (
   lines.forEach((line) => {
     const qty = parseAmount(line.quantity);
     const price = parseAmount(line.unit_price);
-    const lineTax = parseAmount(line.tax_amount);
-    const lineDiscount = parseAmount(line.discount_amount);
+    const lineTax = parseAmount(line.tax_amount ?? null);
+    const lineDiscount = parseAmount(line.discount_amount ?? null);
 
     subtotal += qty * price;
     tax += lineTax;
