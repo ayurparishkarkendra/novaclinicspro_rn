@@ -19,6 +19,8 @@ import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../features/inventory/data/repositories/inventory.repository.impl';
+import { useSubscriptionSummaryQuery } from '../features/billing/data/repositories/billing.repository.impl';
+import { formatCurrency } from '../features/billing/data/models/billing.dtos';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
