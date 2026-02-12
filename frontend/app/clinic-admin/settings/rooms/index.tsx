@@ -3,6 +3,6 @@
  * /clinic-admin/settings/rooms
  */
 
-import { RoomsScreen } from '../../../features/rooms/presentation/pages/RoomsScreen';
+import { RoomsScreen } from '../../../../features/rooms/presentation/pages/RoomsScreen';
 
 export default RoomsScreen;
