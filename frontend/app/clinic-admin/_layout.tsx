@@ -7,7 +7,6 @@ import { Stack } from 'expo-router';
 import { colors } from '../../core/theme/colors';
 
 export default function ClinicAdminLayout() {
-  console.log('[ClinicAdminLayout] Rendering _layout.tsx');
   return (
     <Stack
       screenOptions={{
