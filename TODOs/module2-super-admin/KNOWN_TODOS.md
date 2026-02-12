@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://clinic-setup.preview.emergentagent.com
+**Preview URL:** https://coreconfig.preview.emergentagent.com
 
 ---
 
