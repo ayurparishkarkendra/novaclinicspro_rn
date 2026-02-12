@@ -33,6 +33,7 @@ export default function ClinicAdminLayout() {
       <Stack.Screen name="analytics/revenue" />
       <Stack.Screen name="analytics/users" />
       <Stack.Screen name="analytics/performance" />
+      <Stack.Screen name="reports" />
     </Stack>
   );
 }
