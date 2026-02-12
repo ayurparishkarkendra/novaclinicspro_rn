@@ -100,6 +100,12 @@ class ClinicAPITester:
         
         url = f"{self.base_url}{endpoint}"
         
+        # Debug: Print request details
+        print(f"DEBUG: Making {method} request to {url}")
+        print(f"DEBUG: Headers: {headers}")
+        if data:
+            print(f"DEBUG: Data: {json.dumps(data, indent=2)}")
+        
         if method.upper() == "GET":
             return requests.get(url, headers=headers)
         elif method.upper() == "POST":
