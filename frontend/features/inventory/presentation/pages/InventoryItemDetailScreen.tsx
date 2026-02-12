@@ -318,6 +318,17 @@ export const InventoryItemDetailScreen: React.FC = () => {
             </Text>
           </View>
 
+          {item.batch_tracking_enabled && (
+            <TouchableOpacity
+              style={styles.batchesLink}
+              onPress={() => router.push(`/clinic-admin/inventory/batches?itemId=${itemId}`)}
+            >
+              <Ionicons name="layers-outline" size={20} color={colors.primary.main} />
+              <Text style={styles.batchesLinkText}>View Batches</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Prescription Required</Text>
             <Text style={styles.infoValue}>
