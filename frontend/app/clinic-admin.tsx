@@ -123,9 +123,10 @@ export default function ClinicAdminDashboard() {
             <View style={styles.statItem}>
               <StatCard
                 title="Inventory Alerts"
-                value="5"
+                value={alertsLoading ? '...' : totalAlertCount.toString()}
                 icon="warning"
                 color={colors.error.main}
+                trend={lowStockCount > 0 ? { value: `${lowStockCount} low stock`, isPositive: false } : undefined}
               />
             </View>
           </View>
