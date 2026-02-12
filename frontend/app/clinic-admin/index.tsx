@@ -261,9 +261,11 @@ export default function ClinicAdminDashboard() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Staff Status</Text>
-            <TouchableOpacity onPress={() => router.push('/clinic-admin/staff')}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
+            <Link href="/clinic-admin/staff" asChild>
+              <Pressable>
+                <Text style={styles.viewAll}>View All</Text>
+              </Pressable>
+            </Link>
           </View>
           {[
             {
@@ -288,7 +290,7 @@ export default function ClinicAdminDashboard() {
               available: true,
             },
           ].map((staff, index) => (
-            <TouchableOpacity key={index} style={styles.staffCard}>
+            <View key={index} style={styles.staffCard}>
               <View style={styles.staffInfo}>
                 <View
                   style={[
