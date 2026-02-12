@@ -94,7 +94,7 @@ export default function ClinicAdminDashboard() {
         title="Clinic Admin Dashboard"
         subtitle="Springfield Medical Center"
         userName={currentUser?.fullName || 'Dr. Sarah Johnson'}
-        onNotificationPress={() => console.log('Notifications')}
+        notificationCount={notificationCount}
         onProfilePress={() => console.log('Profile')}
         onLogoutPress={handleLogout}
       />
@@ -104,19 +104,6 @@ export default function ClinicAdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* SIMPLE TEST LINK - Minimal test for navigation */}
-        <View style={styles.testBox}>
-          <Text style={styles.testBoxTitle}>NAVIGATION TEST (Click these links)</Text>
-          <Link href="/clinic-admin/staff">
-            <Text style={styles.testLinkText}>Go to Staff (simple test)</Text>
-          </Link>
-          <Link href="/clinic-admin/billing">
-            <Text style={styles.testLinkText}>Go to Billing (simple test)</Text>
-          </Link>
-          <Link href="/clinic-admin/analytics">
-            <Text style={styles.testLinkText}>Go to Analytics (simple test)</Text>
-          </Link>
-        </View>
 
         {/* Clinic Stats */}
         <View style={styles.section}>
