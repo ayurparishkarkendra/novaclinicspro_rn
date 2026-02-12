@@ -49,8 +49,8 @@ const STAFF_TYPE_FILTERS: (StaffType | 'all')[] = [
 
 export const StaffListScreen: React.FC = () => {
   const router = useRouter();
-  const { currentTenant } = useAuth();
-  const tenantId = currentTenant?.id || '';
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
