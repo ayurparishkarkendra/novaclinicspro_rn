@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://nova-tenancy.preview.emergentagent.com/theme-demo
+https://clinic-setup.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
