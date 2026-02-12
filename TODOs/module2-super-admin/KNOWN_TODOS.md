@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://invoice-pay-9.preview.emergentagent.com
+**Preview URL:** https://clinic-dashboard-53.preview.emergentagent.com
 
 ---
 
