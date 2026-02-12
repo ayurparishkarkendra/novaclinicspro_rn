@@ -594,27 +594,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
   },
-  testBox: {
-    margin: spacing.md,
-    padding: spacing.md,
-    backgroundColor: '#FFEB3B',
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#FF5722',
-  },
-  testBoxTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#D32F2F',
-    marginBottom: spacing.md,
-  },
-  testLinkText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1565C0',
-    textDecorationLine: 'underline',
-    paddingVertical: spacing.sm,
-  },
   section: {
     paddingHorizontal: spacing.md,
     marginTop: spacing.lg,
