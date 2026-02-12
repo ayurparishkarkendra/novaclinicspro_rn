@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ApplicationsListScreen } from '../../../features/applications/presentation/pages/ApplicationsListScreen';
+import { ApplicationsListScreen } from '../../../features/adminApplications/presentation/pages/ApplicationsListScreen';
 
 export default function ApplicationsRoute() {
   return <ApplicationsListScreen />;
