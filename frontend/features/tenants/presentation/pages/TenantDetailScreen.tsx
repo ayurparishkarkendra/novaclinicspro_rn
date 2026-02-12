@@ -556,6 +556,36 @@ export default function TenantDetailScreen() {
           )}
         </View>
 
+        {/* RBAC Management */}
+        <View style={styles.formSection}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Access Control
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.rbacButton,
+              {
+                backgroundColor: theme.colors.surface.default,
+                borderColor: theme.colors.border.default,
+              },
+            ]}
+            onPress={() => router.push(`/super-admin/tenants/${tenantId}/rbac`)}
+          >
+            <View style={[styles.rbacIconContainer, { backgroundColor: '#2F6F4E' + '15' }]}>
+              <Ionicons name="shield-checkmark" size={24} color="#2F6F4E" />
+            </View>
+            <View style={styles.rbacTextContainer}>
+              <Text style={[styles.rbacTitle, { color: theme.colors.text.primary }]}>
+                RBAC Management
+              </Text>
+              <Text style={[styles.rbacSubtitle, { color: theme.colors.text.secondary }]}>
+                Manage roles, permissions, and user access
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.text.tertiary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Danger Zone */}
         {tenant.is_active && (
           <View style={styles.dangerSection}>
