@@ -29,7 +29,7 @@ export function getEffectiveFeature(
   feature: keyof FeatureFlags
 ): boolean {
   if (hasFeatureOverride(tenantSettings, feature)) {
-    return settings.featureOverrides[feature] as boolean;
+    return tenantSettings.featureOverrides[feature] as boolean;
   }
   return globalFeatureFlags[feature];
 }
