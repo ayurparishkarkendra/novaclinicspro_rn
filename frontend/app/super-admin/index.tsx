@@ -225,7 +225,7 @@ export default function SuperAdminDashboard() {
                   {clinic.status}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
 
@@ -233,30 +233,27 @@ export default function SuperAdminDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Switch Dashboard</Text>
           <View style={styles.dashboardLinks}>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/clinic-admin')}
-            >
-              <Ionicons name="business" size={20} color={colors.primary.main} />
-              <Text style={styles.dashboardLinkText}>Clinic Admin</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/doctor')}
-            >
-              <Ionicons name="medical" size={20} color={colors.success.main} />
-              <Text style={styles.dashboardLinkText}>Doctor</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/therapist')}
-            >
-              <Ionicons name="heart" size={20} color={colors.error.main} />
-              <Text style={styles.dashboardLinkText}>Therapist</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
+            <Link href="/clinic-admin" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="business" size={20} color={colors.primary.main} />
+                <Text style={styles.dashboardLinkText}>Clinic Admin</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
+            <Link href="/doctor" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="medical" size={20} color={colors.success.main} />
+                <Text style={styles.dashboardLinkText}>Doctor</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
+            <Link href="/therapist" asChild>
+              <Pressable style={styles.dashboardLink}>
+                <Ionicons name="heart" size={20} color={colors.error.main} />
+                <Text style={styles.dashboardLinkText}>Therapist</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+              </Pressable>
+            </Link>
           </View>
         </View>
       </ScrollView>
