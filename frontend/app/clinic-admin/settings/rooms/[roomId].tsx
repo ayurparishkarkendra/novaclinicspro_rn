@@ -25,13 +25,13 @@ import {
 import { ROOM_TYPES, RoomType, getRoomTypeLabel } from '../../../../features/rooms/data/models/rooms.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { useAuthStore } from '../../../../features/auth/presentation/stores/auth.store';
+import { useAuthStore } from '../../../../features/auth/presentation/providers/auth.store';
 
 export default function RoomDetailScreen() {
   const router = useRouter();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
-  const { user } = useAuthStore();
-  const tenantId = user?.tenantId || '';
+  const { currentUser } = useAuthStore();
+  const tenantId = currentUser?.tenantId || '';
 
   const [isEditing, setIsEditing] = React.useState(false);
   const [formData, setFormData] = React.useState({
