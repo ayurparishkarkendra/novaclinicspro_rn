@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -13,6 +14,8 @@ interface DashboardHeaderProps {
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
   onLogoutPress?: () => void;
+  notificationCount?: number;
+  showNotifications?: boolean;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -23,7 +26,55 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onNotificationPress,
   onProfilePress,
   onLogoutPress,
+  notificationCount = 0,
+  showNotifications = true,
 }) => {
+  const renderNotificationButton = () => {
+    const button = (
+      <View style={styles.iconButton}>
+        <Ionicons
+          name="notifications-outline"
+          size={24}
+          color={colors.text.primary}
+        />
+        {notificationCount > 0 && (
+          <View style={styles.badgeWithCount}>
+            <Text style={styles.badgeText}>
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+
+    // If custom handler provided, use TouchableOpacity
+    if (onNotificationPress) {
+      return (
+        <TouchableOpacity
+          onPress={onNotificationPress}
+          activeOpacity={0.7}
+          accessibilityLabel={`Notifications. ${notificationCount} unread.`}
+          accessibilityRole="button"
+        >
+          {button}
+        </TouchableOpacity>
+      );
+    }
+
+    // Default: Link to notifications screen
+    return (
+      <Link href="/notifications" asChild>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          accessibilityLabel={`Notifications. ${notificationCount} unread.`}
+          accessibilityRole="button"
+        >
+          {button}
+        </TouchableOpacity>
+      </Link>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {onBackPress && (
@@ -45,20 +96,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         )}
       </View>
       <View style={styles.rightSection}>
-        {onNotificationPress && (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={onNotificationPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={colors.text.primary}
-            />
-            <View style={styles.badge} />
-          </TouchableOpacity>
-        )}
+        {showNotifications && renderNotificationButton()}
         {onProfilePress && (
           <TouchableOpacity
             style={styles.profileButton}
