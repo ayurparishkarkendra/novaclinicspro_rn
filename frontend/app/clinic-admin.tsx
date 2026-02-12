@@ -528,4 +528,41 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
   },
+  sectionSubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    marginTop: -spacing.sm,
+  },
+  settingsCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  settingsIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  settingsInfo: {
+    flex: 1,
+  },
+  settingsTitle: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  settingsDescription: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
 });
