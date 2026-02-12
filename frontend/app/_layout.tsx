@@ -32,6 +32,8 @@ export default function RootLayout() {
           <Stack.Screen name="theme-demo" />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="notification-preferences" />
+          <Stack.Screen name="localization" />
+          <Stack.Screen name="tenant-localization" />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>
