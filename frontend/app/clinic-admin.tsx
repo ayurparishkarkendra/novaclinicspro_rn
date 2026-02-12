@@ -618,6 +618,40 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
   },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  noAlertsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.success.main + '10',
+    borderRadius: 12,
+  },
+  noAlertsText: {
+    ...typography.body2,
+    color: colors.success.main,
+    fontWeight: '600',
+  },
+  moreAlertsButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  moreAlertsText: {
+    ...typography.body2,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
   dashboardLinks: {
     gap: spacing.sm,
   },
