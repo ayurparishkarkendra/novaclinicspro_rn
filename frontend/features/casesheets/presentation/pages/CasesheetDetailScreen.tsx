@@ -388,6 +388,56 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontWeight: '500',
   },
+  treatmentSheetsSection: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.success.main + '30',
+  },
+  treatmentSheetsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  treatmentSheetsIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.success.main + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  treatmentSheetsInfo: {
+    flex: 1,
+  },
+  treatmentSheetsTitle: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  treatmentSheetsSubtitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  createTreatmentSheetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.success.main + '10',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.success.main + '30',
+    gap: spacing.xs,
+  },
+  createTreatmentSheetText: {
+    ...typography.button,
+    color: colors.success.main,
+    flex: 1,
+  },
 });
 
 export default CasesheetDetailScreen;
