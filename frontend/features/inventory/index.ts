@@ -17,6 +17,7 @@ export { InventoryListScreen } from './presentation/pages/InventoryListScreen';
 export { InventoryItemDetailScreen } from './presentation/pages/InventoryItemDetailScreen';
 export { InventoryStockAdjustScreen } from './presentation/pages/InventoryStockAdjustScreen';
 export { InventoryAlertsScreen } from './presentation/pages/InventoryAlertsScreen';
+export { InventoryBatchesScreen } from './presentation/pages/InventoryBatchesScreen';
 
 // Presentation - Components
 export { InventoryItemListItem } from './presentation/components/InventoryItemListItem';
@@ -24,3 +25,5 @@ export { InventoryItemForm } from './presentation/components/InventoryItemForm';
 export { InventoryAlertListItem } from './presentation/components/InventoryAlertListItem';
 export { StockAdjustmentForm } from './presentation/components/StockAdjustmentForm';
 export { MovementListItem } from './presentation/components/MovementListItem';
+export { BatchListItem } from './presentation/components/BatchListItem';
+export { BatchForm } from './presentation/components/BatchForm';
