@@ -191,6 +191,12 @@ export default function ClinicAdminDashboard() {
               color={colors.success.main}
             />
             <QuickActionButton
+              icon="analytics"
+              label="Analytics"
+              href="/clinic-admin/analytics"
+              color={colors.primary.main}
+            />
+            <QuickActionButton
               icon="cloud-upload"
               label="Bulk Upload"
               href="/clinic-admin/bulk-upload"
