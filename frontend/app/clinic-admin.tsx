@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
+import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../features/inventory/data/repositories/inventory.repository.impl';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
