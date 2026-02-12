@@ -55,6 +55,12 @@ export default function ClinicAdminDashboard() {
   const expiredCount = alerts.filter((a) => a.alert_type === 'EXPIRED').length;
   const totalAlertCount = alerts.length;
 
+  // Fetch billing summary for dashboard
+  const { data: billingSummary, isLoading: billingLoading } = useSubscriptionSummaryQuery(
+    tenantId,
+    { enabled: !!tenantId }
+  );
+
   const handleLogout = () => {
     Alert.alert(
       'Logout',
