@@ -22,6 +22,7 @@ import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
+import { t, ErrorTokens } from '../core/localization';
 import {
   useTherapistDashboardQuery,
   SessionListItem,
