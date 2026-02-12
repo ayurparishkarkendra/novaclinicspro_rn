@@ -464,6 +464,76 @@ export default function ClinicAdminDashboard() {
           </TouchableOpacity>
         </View>
 
+        {/* Billing & Finance */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Billing & Finance</Text>
+            <TouchableOpacity onPress={() => router.push('/clinic-admin/billing')}>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.sectionSubtitle}>Manage invoices & payments</Text>
+          
+          {/* Billing Summary Card */}
+          <View style={styles.billingSummaryCard}>
+            <View style={styles.billingSummaryHeader}>
+              <View style={[styles.settingsIcon, { backgroundColor: colors.success.main + '15' }]}>
+                <Ionicons name="wallet" size={24} color={colors.success.main} />
+              </View>
+              <View style={styles.billingSummaryInfo}>
+                <Text style={styles.billingSummaryLabel}>Outstanding Balance</Text>
+                <Text style={[
+                  styles.billingSummaryValue,
+                  billingSummary && billingSummary.outstandingBalance > 0 && { color: colors.warning.main }
+                ]}>
+                  {billingLoading 
+                    ? '...' 
+                    : formatCurrency(billingSummary?.outstandingBalance || 0)
+                  }
+                </Text>
+              </View>
+            </View>
+            {billingSummary && billingSummary.unpaidInvoices > 0 && (
+              <Text style={styles.billingSummarySubtext}>
+                {billingSummary.unpaidInvoices} unpaid invoice{billingSummary.unpaidInvoices !== 1 ? 's' : ''}
+              </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/billing/invoices')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.primary.main + '15' }]}>
+              <Ionicons name="document-text-outline" size={24} color={colors.primary.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Invoices</Text>
+              <Text style={styles.settingsDescription}>
+                {billingLoading 
+                  ? 'Loading...' 
+                  : `${billingSummary?.totalInvoices || 0} total invoices`
+                }
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsCard}
+            onPress={() => router.push('/clinic-admin/billing/payments')}
+          >
+            <View style={[styles.settingsIcon, { backgroundColor: colors.success.main + '15' }]}>
+              <Ionicons name="card-outline" size={24} color={colors.success.main} />
+            </View>
+            <View style={styles.settingsInfo}>
+              <Text style={styles.settingsTitle}>Payments</Text>
+              <Text style={styles.settingsDescription}>View payment history</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Navigation */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Switch Dashboard</Text>
