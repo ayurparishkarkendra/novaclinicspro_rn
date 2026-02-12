@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { TreatmentSheetDetailScreen } from '../../../features/treatmentSheets/presentation/pages/TreatmentSheetDetailScreen';
+import { TreatmentSheetDetailScreen } from '../../../../features/treatmentSheets/presentation/pages/TreatmentSheetDetailScreen';
 
 export default function TreatmentSheetDetailRoute() {
   return <TreatmentSheetDetailScreen />;
