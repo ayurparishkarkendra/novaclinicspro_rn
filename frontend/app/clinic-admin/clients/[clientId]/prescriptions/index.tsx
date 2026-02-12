@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { PrescriptionsListScreen } from '../../../../features/prescriptions/presentation/pages/PrescriptionsListScreen';
+import { PrescriptionsListScreen } from '../../../../../features/prescriptions/presentation/pages/PrescriptionsListScreen';
 
 export default function ClientPrescriptionsRoute() {
   return <PrescriptionsListScreen />;

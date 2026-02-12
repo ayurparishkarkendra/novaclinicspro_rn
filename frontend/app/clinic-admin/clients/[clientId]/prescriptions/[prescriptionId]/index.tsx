@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { PrescriptionDetailScreen } from '../../../../../features/prescriptions/presentation/pages/PrescriptionDetailScreen';
+import { PrescriptionDetailScreen } from '../../../../../../features/prescriptions/presentation/pages/PrescriptionDetailScreen';
 
 export default function PrescriptionDetailRoute() {
   return <PrescriptionDetailScreen />;
