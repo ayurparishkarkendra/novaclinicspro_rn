@@ -1,13 +1,11 @@
 /**
- * Client Detail Index
- * Re-exports the client detail screen
+ * Client Detail Index Route
+ * /clinic-admin/clients/[clientId]
  */
 
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import ClientDetailScreen from '../[clientId]';
+import { ClientDetailScreen } from '../../../../features/clients/presentation/pages/ClientDetailScreen';
 
-export default function ClientDetailIndex() {
-  // This re-renders the client detail when navigating back
+export default function ClientDetailIndexRoute() {
   return <ClientDetailScreen />;
 }
