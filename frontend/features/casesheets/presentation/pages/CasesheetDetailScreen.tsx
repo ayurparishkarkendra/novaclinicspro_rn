@@ -198,6 +198,50 @@ export const CasesheetDetailScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Treatment Sheets Section */}
+        <View style={styles.treatmentSheetsSection}>
+          <View style={styles.treatmentSheetsHeader}>
+            <View style={styles.treatmentSheetsIcon}>
+              <Ionicons name="fitness" size={24} color={colors.success.main} />
+            </View>
+            <View style={styles.treatmentSheetsInfo}>
+              <Text style={styles.treatmentSheetsTitle}>Treatment Sheets</Text>
+              <Text style={styles.treatmentSheetsSubtitle}>
+                Therapy plans and progress tracking
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.createTreatmentSheetButton}
+            onPress={() => {
+              Alert.alert(
+                'Create Treatment Sheet',
+                'Create a new treatment sheet from this casesheet?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Create',
+                    onPress: () => {
+                      // Navigate to create treatment sheet
+                      // The actual creation would require specifying duration_days
+                      Alert.alert(
+                        'Coming Soon',
+                        'Treatment sheet creation will be available after selecting treatment duration.'
+                      );
+                    },
+                  },
+                ]
+              );
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Create treatment sheet"
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.success.main} />
+            <Text style={styles.createTreatmentSheetText}>Create Treatment Sheet</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Actions */}
         <View style={styles.actionsContainer}>
           <Text style={styles.actionsTitle}>Actions</Text>
