@@ -798,4 +798,34 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.text.secondary,
   },
+  billingSummaryCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  billingSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  billingSummaryInfo: {
+    flex: 1,
+  },
+  billingSummaryLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  billingSummaryValue: {
+    ...typography.h5,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  billingSummarySubtext: {
+    ...typography.caption,
+    color: colors.warning.main,
+    marginTop: spacing.xs,
+    marginLeft: 48 + spacing.md,
+  },
 });
