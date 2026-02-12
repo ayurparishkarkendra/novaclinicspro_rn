@@ -105,34 +105,34 @@ export default function ClinicAdminDashboard() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             <QuickActionButton
-              icon="person-add"
-              label="Add Staff"
-              onPress={() => console.log('Add Staff')}
+              icon="people"
+              label="Staff"
+              onPress={() => router.push('/clinic-admin/staff')}
               color={colors.primary.main}
             />
             <QuickActionButton
+              icon="person"
+              label="Clients"
+              onPress={() => router.push('/clinic-admin/clients')}
+              color={colors.success.main}
+            />
+            <QuickActionButton
               icon="calendar"
-              label="Schedule"
-              onPress={() => console.log('Schedule')}
+              label="Appointments"
+              onPress={() => router.push('/clinic-admin/appointments')}
               color={colors.secondary.main}
             />
             <QuickActionButton
-              icon="bar-chart"
-              label="Reports"
-              onPress={() => console.log('Reports')}
+              icon="fitness"
+              label="Sessions"
+              onPress={() => router.push('/clinic-admin/treatment-sessions')}
               color={colors.info.main}
             />
             <QuickActionButton
-              icon="cube"
-              label="Inventory"
-              onPress={() => console.log('Inventory')}
+              icon="time"
+              label="Leave Mgmt"
+              onPress={() => router.push('/clinic-admin/staff/leave')}
               color={colors.warning.main}
-            />
-            <QuickActionButton
-              icon="card"
-              label="Billing"
-              onPress={() => console.log('Billing')}
-              color={colors.success.main}
             />
             <QuickActionButton
               icon="settings"
