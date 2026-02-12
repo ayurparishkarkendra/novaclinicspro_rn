@@ -28,11 +28,7 @@ import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../f
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
 import { formatCurrency } from '../../features/billing/data/models/billing.dtos';
 
-// IMPORTANT: Log to verify this is the file being rendered
-console.log('[ClinicAdminEntry] >>> Rendering /app/clinic-admin/index.tsx <<<');
-
 export default function ClinicAdminDashboard() {
-  console.log('[ClinicAdminDashboard] Component function called');
   const router = useRouter();
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
