@@ -345,6 +345,42 @@ export const ClientDetailScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Clinical Documents */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Clinical Documents</Text>
+          <View style={styles.documentsGrid}>
+            <TouchableOpacity
+              style={styles.documentCard}
+              onPress={() => router.push({
+                pathname: '/clinic-admin/clients/[clientId]/casesheets',
+                params: { clientId: clientId, clientName: client.full_name },
+              })}
+            >
+              <View style={[styles.documentIcon, { backgroundColor: colors.primary.main + '15' }]}>
+                <Ionicons name="document-text" size={24} color={colors.primary.main} />
+              </View>
+              <Text style={styles.documentTitle}>Casesheets</Text>
+              <Text style={styles.documentSubtitle}>Clinical notes & SOAP</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.documentCard}
+              onPress={() => router.push({
+                pathname: '/clinic-admin/clients/[clientId]/prescriptions',
+                params: { clientId: clientId, clientName: client.full_name },
+              })}
+            >
+              <View style={[styles.documentIcon, { backgroundColor: colors.success.main + '15' }]}>
+                <Ionicons name="medkit" size={24} color={colors.success.main} />
+              </View>
+              <Text style={styles.documentTitle}>Prescriptions</Text>
+              <Text style={styles.documentSubtitle}>Medications & advice</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Record Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Record Information</Text>
