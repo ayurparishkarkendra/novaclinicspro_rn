@@ -1,6 +1,6 @@
 /**
  * Tenant Billing Overview Screen
- * Main billing dashboard for clinic admins
+ * Dashboard showing subscription summary, outstanding balance, and quick actions
  */
 
 import React from 'react';
@@ -18,13 +18,8 @@ import { useRouter } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { StatCard } from '../../../../core/components/StatCard';
-import { QuickActionButton } from '../../../../core/components/QuickActionButton';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import {
-  useInvoicesListQuery,
-  useSubscriptionSummaryQuery,
-} from '../../data/repositories/billing.repository.impl';
+import { useSubscriptionSummaryQuery, useInvoicesListQuery } from '../../data/repositories/billing.repository.impl';
 import { SubscriptionSummaryCard } from '../components/SubscriptionSummaryCard';
 import { InvoiceListItem } from '../components/InvoiceListItem';
 import { formatCurrency } from '../../data/models/billing.dtos';
@@ -34,7 +29,7 @@ export const TenantBillingOverviewScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
 
-  // Fetch summary
+  // Fetch subscription summary
   const {
     data: summary,
     isLoading: summaryLoading,
@@ -50,7 +45,7 @@ export const TenantBillingOverviewScreen: React.FC = () => {
     isRefetching,
   } = useInvoicesListQuery(tenantId, { limit: 5 });
 
-  const recentInvoices = invoicesData?.items || [];
+  const recentInvoices = invoicesData?.items?.slice(0, 5) || [];
 
   const handleRefresh = () => {
     refetchSummary();
@@ -65,7 +60,7 @@ export const TenantBillingOverviewScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Billing & Subscription</Text>
+          <Text style={styles.headerTitle}>Billing & Finance</Text>
           <Text style={styles.headerSubtitle}>Manage invoices & payments</Text>
         </View>
       </View>
@@ -91,53 +86,50 @@ export const TenantBillingOverviewScreen: React.FC = () => {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsRow}>
-            <QuickActionButton
-              icon="document-text"
-              label="Invoices"
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => router.push('/clinic-admin/billing/invoices')}
-              color={colors.primary.main}
-            />
-            <QuickActionButton
-              icon="cash"
-              label="Payments"
-              onPress={() => router.push('/clinic-admin/billing/payments')}
-              color={colors.success.main}
-            />
-            <QuickActionButton
-              icon="add-circle"
-              label="New Invoice"
-              onPress={() => router.push('/clinic-admin/billing/invoices/create')}
-              color={colors.info.main}
-            />
-            <QuickActionButton
-              icon="wallet"
-              label="Record Payment"
-              onPress={() => router.push('/clinic-admin/billing/payments/record')}
-              color={colors.warning.main}
-            />
-          </View>
-        </View>
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary.main + '15' }]}>
+                <Ionicons name="document-text" size={24} color={colors.primary.main} />
+              </View>
+              <Text style={styles.actionTitle}>View Invoices</Text>
+              <Text style={styles.actionSubtitle}>All invoices</Text>
+            </TouchableOpacity>
 
-        {/* Stats Row */}
-        <View style={styles.section}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Outstanding"
-                value={summaryLoading ? '...' : formatCurrency(summary?.outstandingBalance || 0)}
-                icon="alert-circle"
-                color={summary?.outstandingBalance ? colors.warning.main : colors.success.main}
-              />
-            </View>
-            <View style={styles.statItem}>
-              <StatCard
-                title="Unpaid Invoices"
-                value={summaryLoading ? '...' : (summary?.unpaidInvoices || 0).toString()}
-                icon="document"
-                color={colors.info.main}
-              />
-            </View>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push('/clinic-admin/billing/payments')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.success.main + '15' }]}>
+                <Ionicons name="card" size={24} color={colors.success.main} />
+              </View>
+              <Text style={styles.actionTitle}>Payments</Text>
+              <Text style={styles.actionSubtitle}>Payment history</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push('/clinic-admin/billing/invoices/create')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.info.main + '15' }]}>
+                <Ionicons name="add-circle" size={24} color={colors.info.main} />
+              </View>
+              <Text style={styles.actionTitle}>New Invoice</Text>
+              <Text style={styles.actionSubtitle}>Create invoice</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionCard, styles.actionCardDisabled]}
+              disabled
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.grey[200] }]}>
+                <Ionicons name="settings" size={24} color={colors.grey[400]} />
+              </View>
+              <Text style={[styles.actionTitle, { color: colors.grey[400] }]}>Settings</Text>
+              <Text style={[styles.actionSubtitle, { color: colors.grey[400] }]}>Coming soon</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -151,10 +143,15 @@ export const TenantBillingOverviewScreen: React.FC = () => {
           </View>
 
           {invoicesLoading ? (
-            <View style={styles.loadingContainer}>
+            <View style={styles.loadingPlaceholder}>
               <Text style={styles.loadingText}>Loading invoices...</Text>
             </View>
-          ) : recentInvoices.length > 0 ? (
+          ) : recentInvoices.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={40} color={colors.text.tertiary} />
+              <Text style={styles.emptyText}>No invoices yet</Text>
+            </View>
+          ) : (
             recentInvoices.map((invoice) => (
               <InvoiceListItem
                 key={invoice.id}
@@ -162,17 +159,6 @@ export const TenantBillingOverviewScreen: React.FC = () => {
                 onPress={() => router.push(`/clinic-admin/billing/invoices/${invoice.id}`)}
               />
             ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="document-text-outline" size={48} color={colors.text.tertiary} />
-              <Text style={styles.emptyText}>No invoices yet</Text>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() => router.push('/clinic-admin/billing/invoices/create')}
-              >
-                <Text style={styles.createButtonText}>Create First Invoice</Text>
-              </TouchableOpacity>
-            </View>
           )}
         </View>
       </ScrollView>
@@ -214,7 +200,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl * 2,
   },
   section: {
     marginTop: spacing.lg,
@@ -232,22 +218,43 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     ...typography.body2,
-    color: colors.primary.main,
     fontWeight: '600',
+    color: colors.primary.main,
   },
-  actionsRow: {
+  actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
+  actionCard: {
+    width: '48%',
+    backgroundColor: colors.background.default,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
   },
-  statItem: {
-    flex: 1,
+  actionCardDisabled: {
+    opacity: 0.6,
   },
-  loadingContainer: {
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  actionTitle: {
+    ...typography.body1,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  actionSubtitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  loadingPlaceholder: {
     padding: spacing.lg,
     alignItems: 'center',
   },
@@ -255,27 +262,17 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.text.secondary,
   },
-  emptyContainer: {
-    padding: spacing.xl,
+  emptyState: {
     alignItems: 'center',
+    paddingVertical: spacing.xl,
     backgroundColor: colors.background.default,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border.light,
   },
   emptyText: {
     ...typography.body2,
     color: colors.text.tertiary,
     marginTop: spacing.sm,
-  },
-  createButton: {
-    backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    marginTop: spacing.md,
-  },
-  createButtonText: {
-    ...typography.body2,
-    fontWeight: '600',
-    color: colors.text.light,
   },
 });

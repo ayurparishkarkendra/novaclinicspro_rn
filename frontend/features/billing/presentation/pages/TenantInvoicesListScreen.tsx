@@ -1,6 +1,6 @@
 /**
  * Tenant Invoices List Screen
- * Lists all invoices for the tenant
+ * Lists all invoices with filtering options
  */
 
 import React, { useState, useCallback } from 'react';
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -26,7 +27,9 @@ import { InvoiceResponse, ListInvoicesParams } from '../../data/models/billing.d
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
-  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'pending', label: 'Pending' },
   { value: 'paid', label: 'Paid' },
   { value: 'overdue', label: 'Overdue' },
 ];
@@ -36,13 +39,15 @@ export const TenantInvoicesListScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
 
-  const [statusFilter, setStatusFilter] = useState('all');
+  // Filter state
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
-  // Query params
+  // Build query params
   const queryParams: ListInvoicesParams = {
     limit: 50,
   };
 
+  // Fetch invoices
   const {
     data,
     isLoading,
@@ -54,19 +59,10 @@ export const TenantInvoicesListScreen: React.FC = () => {
 
   const allInvoices = data?.items || [];
 
-  // Client-side filtering since API may not support status filter
-  const filteredInvoices = allInvoices.filter((invoice) => {
-    if (statusFilter === 'all') return true;
-    const status = invoice.status.toLowerCase();
-    if (statusFilter === 'paid') return status === 'paid' || status === 'completed';
-    if (statusFilter === 'unpaid') return status !== 'paid' && status !== 'completed' && status !== 'cancelled';
-    if (statusFilter === 'overdue') {
-      if (!invoice.due_date) return false;
-      const dueDate = new Date(invoice.due_date);
-      return dueDate < new Date() && status !== 'paid' && status !== 'completed';
-    }
-    return true;
-  });
+  // Client-side filtering by status
+  const displayedInvoices = selectedStatus === 'all'
+    ? allInvoices
+    : allInvoices.filter((inv) => inv.status.toLowerCase() === selectedStatus);
 
   const handleInvoicePress = useCallback(
     (invoice: InvoiceResponse) => {
@@ -74,6 +70,10 @@ export const TenantInvoicesListScreen: React.FC = () => {
     },
     [router]
   );
+
+  const handleCreateInvoice = () => {
+    router.push('/clinic-admin/billing/invoices/create');
+  };
 
   const renderItem = useCallback(
     ({ item }: { item: InvoiceResponse }) => (
@@ -84,7 +84,7 @@ export const TenantInvoicesListScreen: React.FC = () => {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Filters */}
+      {/* Status Filters */}
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -95,14 +95,14 @@ export const TenantInvoicesListScreen: React.FC = () => {
           <TouchableOpacity
             style={[
               styles.filterChip,
-              statusFilter === item.value && styles.filterChipActive,
+              selectedStatus === item.value && styles.filterChipActive,
             ]}
-            onPress={() => setStatusFilter(item.value)}
+            onPress={() => setSelectedStatus(item.value)}
           >
             <Text
               style={[
                 styles.filterChipText,
-                statusFilter === item.value && styles.filterChipTextActive,
+                selectedStatus === item.value && styles.filterChipTextActive,
               ]}
             >
               {item.label}
@@ -111,9 +111,13 @@ export const TenantInvoicesListScreen: React.FC = () => {
         )}
       />
 
-      <Text style={styles.resultsText}>
-        {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
-      </Text>
+      {/* Results count */}
+      <View style={styles.resultsRow}>
+        <Text style={styles.resultsText}>
+          {displayedInvoices.length} invoice{displayedInvoices.length !== 1 ? 's' : ''}
+          {data?.total && data.total > displayedInvoices.length && ` of ${data.total}`}
+        </Text>
+      </View>
     </View>
   );
 
@@ -126,7 +130,7 @@ export const TenantInvoicesListScreen: React.FC = () => {
           <Ionicons name="alert-circle" size={48} color={colors.error.main} />
           <Text style={styles.emptyTitle}>Unable to Load Invoices</Text>
           <Text style={styles.emptySubtitle}>
-            {error?.message || 'Please check your connection.'}
+            {error?.message || 'Please check your connection and try again.'}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -135,19 +139,18 @@ export const TenantInvoicesListScreen: React.FC = () => {
       ) : (
         <>
           <Ionicons name="document-text-outline" size={48} color={colors.text.tertiary} />
-          <Text style={styles.emptyTitle}>No Invoices Found</Text>
-          <Text style={styles.emptySubtitle}>
-            {statusFilter !== 'all'
-              ? 'Try adjusting your filter'
-              : 'Create your first invoice'}
+          <Text style={styles.emptyTitle}>
+            {selectedStatus !== 'all' ? 'No invoices found' : 'No Invoices Yet'}
           </Text>
-          {statusFilter === 'all' && (
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => router.push('/clinic-admin/billing/invoices/create')}
-            >
+          <Text style={styles.emptySubtitle}>
+            {selectedStatus !== 'all'
+              ? 'Try changing the status filter'
+              : 'Create your first invoice to get started'}
+          </Text>
+          {selectedStatus === 'all' && (
+            <TouchableOpacity style={styles.emptyButton} onPress={handleCreateInvoice}>
               <Ionicons name="add" size={20} color={colors.text.light} />
-              <Text style={styles.createButtonText}>Create Invoice</Text>
+              <Text style={styles.emptyButtonText}>Create Invoice</Text>
             </TouchableOpacity>
           )}
         </>
@@ -164,18 +167,13 @@ export const TenantInvoicesListScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Invoices</Text>
-          <Text style={styles.headerSubtitle}>{data?.total || 0} total</Text>
+          <Text style={styles.headerSubtitle}>Manage your invoices</Text>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/clinic-admin/billing/invoices/create')}
-        >
-          <Ionicons name="add" size={24} color={colors.primary.main} />
-        </TouchableOpacity>
       </View>
 
+      {/* Content */}
       <FlatList
-        data={filteredInvoices}
+        data={displayedInvoices}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
@@ -189,6 +187,11 @@ export const TenantInvoicesListScreen: React.FC = () => {
           />
         }
       />
+
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={handleCreateInvoice}>
+        <Ionicons name="add" size={28} color={colors.text.light} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -222,12 +225,9 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
   },
-  addButton: {
-    padding: spacing.xs,
-  },
   headerContainer: {
-    paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   filtersContainer: {
     gap: spacing.xs,
@@ -251,14 +251,16 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: colors.text.light,
   },
+  resultsRow: {
+    marginBottom: spacing.sm,
+  },
   resultsText: {
     ...typography.body2,
     color: colors.text.secondary,
-    marginBottom: spacing.sm,
   },
   listContent: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 100,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -277,6 +279,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.lg,
+  },
+  emptyButtonText: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.light,
+  },
   retryButton: {
     backgroundColor: colors.primary.main,
     paddingHorizontal: spacing.lg,
@@ -289,19 +306,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.light,
   },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    marginTop: spacing.lg,
-  },
-  createButtonText: {
-    ...typography.body1,
-    fontWeight: '600',
-    color: colors.text.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });
