@@ -30,6 +30,8 @@ export default function RootLayout() {
           <Stack.Screen name="doctor" />
           <Stack.Screen name="therapist" />
           <Stack.Screen name="theme-demo" />
+          <Stack.Screen name="clinic-admin-test" />
+          <Stack.Screen name="debug" />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>
