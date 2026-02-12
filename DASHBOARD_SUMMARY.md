@@ -133,6 +133,6 @@ The foundation is ready! You can now:
 
 ## 📱 Access the App
 
-**Web Preview**: https://clinic-dashboard-53.preview.emergentagent.com
+**Web Preview**: https://clinical-dashboard-9.preview.emergentagent.com
 
 The app is live and fully functional with navigation between all 4 dashboards!

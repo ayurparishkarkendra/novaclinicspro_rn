@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://clinic-dashboard-53.preview.emergentagent.com
+**Preview URL:** https://clinical-dashboard-9.preview.emergentagent.com
 
 ---
 
