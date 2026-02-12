@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { StaffListScreen } from '../../../features/staff';
+import { StaffListScreen } from '../../../features/staff/presentation/pages/StaffListScreen';
 
 export default function StaffRoute() {
   return <StaffListScreen />;
