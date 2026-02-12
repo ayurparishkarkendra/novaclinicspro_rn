@@ -9,6 +9,7 @@ interface DashboardHeaderProps {
   title: string;
   subtitle?: string;
   userName?: string;
+  onBackPress?: () => void;
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
   onLogoutPress?: () => void;
@@ -18,13 +19,25 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   title,
   subtitle,
   userName,
+  onBackPress,
   onNotificationPress,
   onProfilePress,
   onLogoutPress,
 }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.leftSection}>
+      {onBackPress && (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBackPress}
+          activeOpacity={0.7}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+      )}
+      <View style={[styles.leftSection, onBackPress && styles.leftSectionWithBack]}>
         <Text style={styles.title}>{title}</Text>
         {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         {userName && (
