@@ -27,17 +27,13 @@ import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
 import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../features/inventory/data/repositories/inventory.repository.impl';
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
 import { formatCurrency } from '../../features/billing/data/models/billing.dtos';
-
-// TOP-LEVEL LOG: This will appear in browser console when file is loaded
-console.log('[ClinicAdminEntry] >>> THIS FILE IS LOADED: /app/clinic-admin/index.tsx <<<');
+import { useNotificationBadgeCount } from '../../features/notifications/presentation/hooks/useNotificationBadgeCount';
 
 export default function ClinicAdminDashboard() {
-  // COMPONENT LOG: This will appear every render
-  console.log('[ClinicAdminEntry] rendering THIS clinic-admin entry');
-  
   const router = useRouter();
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
+  const notificationCount = useNotificationBadgeCount();
 
   // Fetch inventory data for dashboard stats
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItemsListQuery(
