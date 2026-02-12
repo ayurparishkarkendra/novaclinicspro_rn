@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { CasesheetsListScreen } from '../../../../features/casesheets/presentation/pages/CasesheetsListScreen';
+import { CasesheetsListScreen } from '../../../../../features/casesheets/presentation/pages/CasesheetsListScreen';
 
 export default function ClientCasesheetsRoute() {
   return <CasesheetsListScreen />;
