@@ -1,6 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Link, Href } from 'expo-router';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -8,30 +9,59 @@ import { typography } from '../theme/typography';
 interface QuickActionButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  onPress: () => void;
+  onPress?: () => void;
+  href?: Href<string>;
   color?: string;
 }
 
+/**
+ * QuickActionButton - A button for dashboard quick actions
+ * 
+ * Supports two modes:
+ * 1. href prop (preferred): Uses expo-router Link for navigation
+ * 2. onPress prop (fallback): Uses callback for custom actions
+ */
 export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   icon,
   label,
   onPress,
+  href,
   color = colors.primary.main,
 }) => {
-  const handlePress = () => {
-    console.log(`[QuickActionButton] Pressed: ${label}`);
-    onPress();
-  };
-
-  return (
-    <TouchableOpacity style={styles.button} onPress={handlePress} activeOpacity={0.7}>
+  const ButtonContent = () => (
+    <>
       <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
       <Text style={styles.label} numberOfLines={2}>
         {label}
       </Text>
-    </TouchableOpacity>
+    </>
+  );
+
+  // If href is provided, use Link for navigation (more reliable in Expo Router)
+  if (href) {
+    return (
+      <Link href={href} asChild>
+        <Pressable style={styles.button}>
+          <ButtonContent />
+        </Pressable>
+      </Link>
+    );
+  }
+
+  // Fallback to onPress callback
+  const handlePress = () => {
+    console.log(`[QuickActionButton] Pressed: ${label}`);
+    if (onPress) {
+      onPress();
+    }
+  };
+
+  return (
+    <Pressable style={styles.button} onPress={handlePress}>
+      <ButtonContent />
+    </Pressable>
   );
 };
 
