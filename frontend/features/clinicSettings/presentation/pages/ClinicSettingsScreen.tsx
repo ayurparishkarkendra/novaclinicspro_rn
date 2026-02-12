@@ -14,9 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { DashboardHeader } from '../../core/components/DashboardHeader';
-import { spacing } from '../../core/theme/spacing';
-import { typography } from '../../core/theme/typography';
+import { DashboardHeader } from '../../../../core/components/DashboardHeader';
+import { spacing } from '../../../../core/theme/spacing';
+import { typography } from '../../../../core/theme/typography';
 
 interface SettingItem {
   key: string;
