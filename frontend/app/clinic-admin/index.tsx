@@ -151,17 +151,6 @@ export default function ClinicAdminDashboard() {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          
-          {/* TEST: Plain Link without any wrapper - this MUST work for navigation to be valid */}
-          <View style={styles.testLinkContainer}>
-            <Link href="/clinic-admin/staff" style={styles.testLink}>
-              <Text style={styles.testLinkText}>TEST: Go to Staff (plain Link)</Text>
-            </Link>
-            <Link href="/clinic-admin/inventory" style={styles.testLink}>
-              <Text style={styles.testLinkText}>TEST: Go to Inventory (plain Link)</Text>
-            </Link>
-          </View>
-          
           <View style={styles.quickActions}>
             <QuickActionButton
               icon="people"
