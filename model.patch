@@ -1,178 +1,183 @@
-diff --git a/frontend/app/clinic-admin/index.tsx b/frontend/app/clinic-admin/index.tsx
-index 2055ed9..8a56a03 100644
---- a/frontend/app/clinic-admin/index.tsx
-+++ b/frontend/app/clinic-admin/index.tsx
-@@ -108,7 +108,7 @@ export default function ClinicAdminDashboard() {
-       >
-         {/* Clinic Stats */}
-         <View style={styles.section}>
--          <Text style={styles.sectionTitle}>Today's Overview</Text>
-+          <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
-           <View style={styles.statsGrid}>
-             <View style={styles.statItem}>
-               <StatCard
-@@ -377,7 +377,7 @@ export default function ClinicAdminDashboard() {
-               const stock = parseFloat(item.current_stock) || 0;
-               const isCritical = stock <= item.reorder_point * 0.5;
-               return (
--                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}` as any} asChild>
-+                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}`} asChild>
-                   <Pressable style={styles.inventoryCard}>
-                     <View style={styles.inventoryInfo}>
-                       <Ionicons
-@@ -842,23 +842,4 @@ const styles = StyleSheet.create({
-     marginTop: spacing.xs,
-     marginLeft: 48 + spacing.md,
-   },
--  testLinkContainer: {
--    marginBottom: spacing.md,
--    padding: spacing.md,
--    backgroundColor: colors.error.main + '20',
--    borderRadius: 8,
--    borderWidth: 2,
--    borderColor: colors.error.main,
--  },
--  testLink: {
--    padding: spacing.md,
--    backgroundColor: colors.error.main,
--    borderRadius: 8,
--    marginBottom: spacing.sm,
--  },
--  testLinkText: {
--    color: '#FFFFFF',
--    fontWeight: '700',
--    textAlign: 'center',
--  },
- });
 diff --git a/model.patch b/model.patch
-index 79e96e5..e69de29 100644
+index dd93874..e69de29 100644
 --- a/model.patch
 +++ b/model.patch
-@@ -1,127 +0,0 @@
+@@ -1,178 +0,0 @@
+-diff --git a/frontend/app/clinic-admin/index.tsx b/frontend/app/clinic-admin/index.tsx
+-index 2055ed9..8a56a03 100644
+---- a/frontend/app/clinic-admin/index.tsx
+-+++ b/frontend/app/clinic-admin/index.tsx
+-@@ -108,7 +108,7 @@ export default function ClinicAdminDashboard() {
+-       >
+-         {/* Clinic Stats */}
+-         <View style={styles.section}>
+--          <Text style={styles.sectionTitle}>Today's Overview</Text>
+-+          <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
+-           <View style={styles.statsGrid}>
+-             <View style={styles.statItem}>
+-               <StatCard
+-@@ -377,7 +377,7 @@ export default function ClinicAdminDashboard() {
+-               const stock = parseFloat(item.current_stock) || 0;
+-               const isCritical = stock <= item.reorder_point * 0.5;
+-               return (
+--                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}` as any} asChild>
+-+                <Link key={item.id} href={`/clinic-admin/inventory/${item.id}`} asChild>
+-                   <Pressable style={styles.inventoryCard}>
+-                     <View style={styles.inventoryInfo}>
+-                       <Ionicons
+-@@ -842,23 +842,4 @@ const styles = StyleSheet.create({
+-     marginTop: spacing.xs,
+-     marginLeft: 48 + spacing.md,
+-   },
+--  testLinkContainer: {
+--    marginBottom: spacing.md,
+--    padding: spacing.md,
+--    backgroundColor: colors.error.main + '20',
+--    borderRadius: 8,
+--    borderWidth: 2,
+--    borderColor: colors.error.main,
+--  },
+--  testLink: {
+--    padding: spacing.md,
+--    backgroundColor: colors.error.main,
+--    borderRadius: 8,
+--    marginBottom: spacing.sm,
+--  },
+--  testLinkText: {
+--    color: '#FFFFFF',
+--    fontWeight: '700',
+--    textAlign: 'center',
+--  },
+- });
 -diff --git a/model.patch b/model.patch
--index 14a6677..e69de29 100644
+-index 79e96e5..e69de29 100644
 ---- a/model.patch
 -+++ b/model.patch
--@@ -1,13 +0,0 @@
---diff --git a/frontend/core/components/ui/BgGradient.tsx b/frontend/core/components/ui/BgGradient.tsx
---index 31078a0..54e2379 100644
------ a/frontend/core/components/ui/BgGradient.tsx
---+++ b/frontend/core/components/ui/BgGradient.tsx
---@@ -81,7 +81,7 @@ export const BgGradient: React.FC<BgGradientProps> = ({
---   return (
---     <LinearGradient
---       colors={[fromColor, toColor]}
----      locations={locations}
---+      locations={locations.length >= 2 ? locations as [number, number, ...number[]] : [0, 1]}
---       start={start}
---       end={end}
---       style={[styles.container, style]}
--diff --git a/test_result.md b/test_result.md
--index 187cba4..d3aa8ae 100644
----- a/test_result.md
--+++ b/test_result.md
--@@ -100,4 +100,101 @@
-- 
-- #====================================================================================================
-- # Testing Data - Main Agent and testing sub agent both should log testing data below this section
---#====================================================================================================
--\ No newline at end of file
--+#====================================================================================================
--+
--+user_problem_statement: "QA Testing: Module 4 Phase 1 - Clinic Settings - Testing external API endpoints for Operating Hours, Rooms, and Treatments CRUD operations with Supabase authentication"
--+
--+backend:
--+  - task: "Supabase Authentication Integration"
--+    implemented: true
--+    working: false
--+    file: "External API - https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app"
--+    stuck_count: 1
--+    priority: "high"
--+    needs_retesting: false
--+    status_history:
--+        - working: false
--+        - agent: "testing"
--+        - comment: "CRITICAL: Supabase JWT authentication works correctly (gets valid token and tenant_id: 286c339c-571e-4a0a-bf86-e69b923161d0), but backend API rejects all authenticated requests with 401 'Authentication failed'. Root cause: Backend likely using hardcoded JWT secret instead of validating against Supabase JWKS endpoint (https://evkcvntjpkxlcxgwychq.supabase.co/auth/v1/.well-known/jwks.json). JWT uses ES256 algorithm, not HS256. Backend needs to implement proper JWKS validation using jose library."
--+
--+  - task: "Operating Hours CRUD API"
--+    implemented: true
--+    working: false
--+    file: "External API - /api/v1/clinic/{tenant_id}/operating-hours"
--+    stuck_count: 1
--+    priority: "high"
--+    needs_retesting: true
--+    status_history:
--+        - working: false
--+        - agent: "testing"
--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Validation logic works correctly (properly rejects invalid time ranges). Requires fixing JWT validation in backend."
--+
--+  - task: "Rooms CRUD API"
--+    implemented: true
--+    working: false
--+    file: "External API - /api/v1/clinic/{tenant_id}/rooms"
--+    stuck_count: 1
--+    priority: "high"
--+    needs_retesting: true
--+    status_history:
--+        - working: false
--+        - agent: "testing"
--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Requires fixing JWT validation in backend."
--+
--+  - task: "Treatments CRUD API"
--+    implemented: true
--+    working: false
--+    file: "External API - /api/v1/clinic/{tenant_id}/treatments"
--+    stuck_count: 1
--+    priority: "high"
--+    needs_retesting: true
--+    status_history:
--+        - working: false
--+        - agent: "testing"
--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Requires fixing JWT validation in backend."
--+
--+  - task: "Tenant Scoping Security"
--+    implemented: true
--+    working: false
--+    file: "External API - tenant validation"
--+    stuck_count: 1
--+    priority: "medium"
--+    needs_retesting: true
--+    status_history:
--+        - working: false
--+        - agent: "testing"
--+        - comment: "Cannot test tenant scoping due to authentication failures. All requests with fake tenant_id also return 401, indicating authentication layer blocks before tenant validation."
--+
--+frontend:
--+  - task: "Frontend Integration Testing"
--+    implemented: false
--+    working: "NA"
--+    file: "Not tested per system limitations"
--+    stuck_count: 0
--+    priority: "low"
--+    needs_retesting: false
--+    status_history:
--+        - working: "NA"
--+        - agent: "testing"
--+        - comment: "Frontend testing not performed as per system limitations. Focus on backend API testing only."
--+
--+metadata:
--+  created_by: "testing_agent"
--+  version: "1.0"
--+  test_sequence: 1
--+  run_ui: false
--+
--+test_plan:
--+  current_focus:
--+    - "Supabase Authentication Integration"
--+    - "Operating Hours CRUD API"
--+    - "Rooms CRUD API"
--+    - "Treatments CRUD API"
--+  stuck_tasks:
--+    - "Supabase Authentication Integration"
--+  test_all: false
--+  test_priority: "high_first"
--+
--+agent_communication:
--+    - agent: "testing"
--+    - message: "CRITICAL BACKEND AUTHENTICATION ISSUE: All API endpoints are implemented and responding, but JWT authentication is failing. Supabase authentication works correctly (valid ES256 JWT token obtained), but backend API rejects all requests with 401 errors. Root cause identified: Backend likely using hardcoded JWT secret instead of proper JWKS validation. Backend needs to implement jose library with JWKS endpoint validation for Supabase ES256 tokens. This is blocking all clinic settings functionality testing."
--\ No newline at end of file
+-@@ -1,127 +0,0 @@
+--diff --git a/model.patch b/model.patch
+--index 14a6677..e69de29 100644
+----- a/model.patch
+--+++ b/model.patch
+--@@ -1,13 +0,0 @@
+---diff --git a/frontend/core/components/ui/BgGradient.tsx b/frontend/core/components/ui/BgGradient.tsx
+---index 31078a0..54e2379 100644
+------ a/frontend/core/components/ui/BgGradient.tsx
+---+++ b/frontend/core/components/ui/BgGradient.tsx
+---@@ -81,7 +81,7 @@ export const BgGradient: React.FC<BgGradientProps> = ({
+---   return (
+---     <LinearGradient
+---       colors={[fromColor, toColor]}
+----      locations={locations}
+---+      locations={locations.length >= 2 ? locations as [number, number, ...number[]] : [0, 1]}
+---       start={start}
+---       end={end}
+---       style={[styles.container, style]}
+--diff --git a/test_result.md b/test_result.md
+--index 187cba4..d3aa8ae 100644
+----- a/test_result.md
+--+++ b/test_result.md
+--@@ -100,4 +100,101 @@
+-- 
+-- #====================================================================================================
+-- # Testing Data - Main Agent and testing sub agent both should log testing data below this section
+---#====================================================================================================
+--\ No newline at end of file
+--+#====================================================================================================
+--+
+--+user_problem_statement: "QA Testing: Module 4 Phase 1 - Clinic Settings - Testing external API endpoints for Operating Hours, Rooms, and Treatments CRUD operations with Supabase authentication"
+--+
+--+backend:
+--+  - task: "Supabase Authentication Integration"
+--+    implemented: true
+--+    working: false
+--+    file: "External API - https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app"
+--+    stuck_count: 1
+--+    priority: "high"
+--+    needs_retesting: false
+--+    status_history:
+--+        - working: false
+--+        - agent: "testing"
+--+        - comment: "CRITICAL: Supabase JWT authentication works correctly (gets valid token and tenant_id: 286c339c-571e-4a0a-bf86-e69b923161d0), but backend API rejects all authenticated requests with 401 'Authentication failed'. Root cause: Backend likely using hardcoded JWT secret instead of validating against Supabase JWKS endpoint (https://evkcvntjpkxlcxgwychq.supabase.co/auth/v1/.well-known/jwks.json). JWT uses ES256 algorithm, not HS256. Backend needs to implement proper JWKS validation using jose library."
+--+
+--+  - task: "Operating Hours CRUD API"
+--+    implemented: true
+--+    working: false
+--+    file: "External API - /api/v1/clinic/{tenant_id}/operating-hours"
+--+    stuck_count: 1
+--+    priority: "high"
+--+    needs_retesting: true
+--+    status_history:
+--+        - working: false
+--+        - agent: "testing"
+--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Validation logic works correctly (properly rejects invalid time ranges). Requires fixing JWT validation in backend."
+--+
+--+  - task: "Rooms CRUD API"
+--+    implemented: true
+--+    working: false
+--+    file: "External API - /api/v1/clinic/{tenant_id}/rooms"
+--+    stuck_count: 1
+--+    priority: "high"
+--+    needs_retesting: true
+--+    status_history:
+--+        - working: false
+--+        - agent: "testing"
+--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Requires fixing JWT validation in backend."
+--+
+--+  - task: "Treatments CRUD API"
+--+    implemented: true
+--+    working: false
+--+    file: "External API - /api/v1/clinic/{tenant_id}/treatments"
+--+    stuck_count: 1
+--+    priority: "high"
+--+    needs_retesting: true
+--+    status_history:
+--+        - working: false
+--+        - agent: "testing"
+--+        - comment: "All CRUD operations fail with 401 Authentication failed. API endpoints exist and respond, but authentication layer blocks access. Requires fixing JWT validation in backend."
+--+
+--+  - task: "Tenant Scoping Security"
+--+    implemented: true
+--+    working: false
+--+    file: "External API - tenant validation"
+--+    stuck_count: 1
+--+    priority: "medium"
+--+    needs_retesting: true
+--+    status_history:
+--+        - working: false
+--+        - agent: "testing"
+--+        - comment: "Cannot test tenant scoping due to authentication failures. All requests with fake tenant_id also return 401, indicating authentication layer blocks before tenant validation."
+--+
+--+frontend:
+--+  - task: "Frontend Integration Testing"
+--+    implemented: false
+--+    working: "NA"
+--+    file: "Not tested per system limitations"
+--+    stuck_count: 0
+--+    priority: "low"
+--+    needs_retesting: false
+--+    status_history:
+--+        - working: "NA"
+--+        - agent: "testing"
+--+        - comment: "Frontend testing not performed as per system limitations. Focus on backend API testing only."
+--+
+--+metadata:
+--+  created_by: "testing_agent"
+--+  version: "1.0"
+--+  test_sequence: 1
+--+  run_ui: false
+--+
+--+test_plan:
+--+  current_focus:
+--+    - "Supabase Authentication Integration"
+--+    - "Operating Hours CRUD API"
+--+    - "Rooms CRUD API"
+--+    - "Treatments CRUD API"
+--+  stuck_tasks:
+--+    - "Supabase Authentication Integration"
+--+  test_all: false
+--+  test_priority: "high_first"
+--+
+--+agent_communication:
+--+    - agent: "testing"
+--+    - message: "CRITICAL BACKEND AUTHENTICATION ISSUE: All API endpoints are implemented and responding, but JWT authentication is failing. Supabase authentication works correctly (valid ES256 JWT token obtained), but backend API rejects all requests with 401 errors. Root cause identified: Backend likely using hardcoded JWT secret instead of proper JWKS validation. Backend needs to implement jose library with JWKS endpoint validation for Supabase ES256 tokens. This is blocking all clinic settings functionality testing."
+--\ No newline at end of file
