@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://healthcare-platform-3-live.preview.emergentagent.com
+**Preview URL:** https://nova-tenancy.preview.emergentagent.com
 
 ---
 
