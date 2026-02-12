@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ClientDetailScreen } from '../../../../features/clients/presentation/pages/ClientDetailScreen';
+import { ClientDetailScreen } from '../../../../features/clients';
 
 export default function ClientDetailRoute() {
   return <ClientDetailScreen />;

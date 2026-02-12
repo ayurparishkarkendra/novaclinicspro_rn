@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { AppointmentsListScreen } from '../../../features/appointments/presentation/pages/AppointmentsListScreen';
+import { AppointmentsListScreen } from '../../../features/appointments';
 
 export default function AppointmentsRoute() {
   return <AppointmentsListScreen />;
