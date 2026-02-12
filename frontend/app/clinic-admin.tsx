@@ -173,6 +173,12 @@ export default function ClinicAdminDashboard() {
               color={colors.info.main}
             />
             <QuickActionButton
+              icon="cloud-upload"
+              label="Bulk Upload"
+              onPress={() => router.push('/clinic-admin/bulk-upload')}
+              color={colors.secondary.main}
+            />
+            <QuickActionButton
               icon="settings"
               label="Settings"
               onPress={() => router.push('/clinic-admin/settings')}
