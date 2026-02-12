@@ -42,8 +42,8 @@ import {
 export const TreatmentSessionDetailScreen: React.FC = () => {
   const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const { currentTenant } = useAuth();
-  const tenantId = currentTenant?.id || '';
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
 
   // State
   const [showCompleteModal, setShowCompleteModal] = useState(false);

@@ -38,8 +38,8 @@ import { ClientForm } from '../components/ClientForm';
 export const ClientDetailScreen: React.FC = () => {
   const router = useRouter();
   const { clientId } = useLocalSearchParams<{ clientId: string }>();
-  const { currentTenant } = useAuth();
-  const tenantId = currentTenant?.id || '';
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
 
   // State
   const [showEditModal, setShowEditModal] = useState(false);

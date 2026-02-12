@@ -46,8 +46,8 @@ const STATUS_FILTERS: (LeaveStatus | 'all')[] = [
 
 export const StaffLeaveScreen: React.FC = () => {
   const router = useRouter();
-  const { currentTenant } = useAuth();
-  const tenantId = currentTenant?.id || '';
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
 
   // State
   const [selectedStatus, setSelectedStatus] = useState<LeaveStatus | 'all'>('PENDING');

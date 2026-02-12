@@ -33,8 +33,8 @@ import { ClientForm } from '../components/ClientForm';
 
 export const ClientsListScreen: React.FC = () => {
   const router = useRouter();
-  const { currentTenant } = useAuth();
-  const tenantId = currentTenant?.id || '';
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
