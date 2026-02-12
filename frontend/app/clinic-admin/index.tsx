@@ -150,55 +150,82 @@ export default function ClinicAdminDashboard() {
             <QuickActionButton
               icon="people"
               label="Staff"
-              onPress={() => router.push('/clinic-admin/staff')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/staff');
+                router.push('/clinic-admin/staff');
+              }}
               color={colors.primary.main}
             />
             <QuickActionButton
               icon="person"
               label="Clients"
-              onPress={() => router.push('/clinic-admin/clients')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/clients');
+                router.push('/clinic-admin/clients');
+              }}
               color={colors.success.main}
             />
             <QuickActionButton
               icon="calendar"
               label="Appointments"
-              onPress={() => router.push('/clinic-admin/appointments')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/appointments');
+                router.push('/clinic-admin/appointments');
+              }}
               color={colors.secondary.main}
             />
             <QuickActionButton
               icon="fitness"
               label="Sessions"
-              onPress={() => router.push('/clinic-admin/treatment-sessions')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/treatment-sessions');
+                router.push('/clinic-admin/treatment-sessions');
+              }}
               color={colors.info.main}
             />
             <QuickActionButton
               icon="time"
               label="Leave Mgmt"
-              onPress={() => router.push('/clinic-admin/staff/leave')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/staff/leave');
+                router.push('/clinic-admin/staff/leave');
+              }}
               color={colors.warning.main}
             />
             <QuickActionButton
               icon="cube"
               label="Inventory"
-              onPress={() => router.push('/clinic-admin/inventory')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/inventory');
+                router.push('/clinic-admin/inventory');
+              }}
               color={colors.info.main}
             />
             <QuickActionButton
               icon="card"
               label="Billing"
-              onPress={() => router.push('/clinic-admin/billing')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/billing');
+                router.push('/clinic-admin/billing');
+              }}
               color={colors.success.main}
             />
             <QuickActionButton
               icon="cloud-upload"
               label="Bulk Upload"
-              onPress={() => router.push('/clinic-admin/bulk-upload')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/bulk-upload');
+                router.push('/clinic-admin/bulk-upload');
+              }}
               color={colors.secondary.main}
             />
             <QuickActionButton
               icon="settings"
               label="Settings"
-              onPress={() => router.push('/clinic-admin/settings')}
+              onPress={() => {
+                console.log('[ClinicAdmin] Navigating to /clinic-admin/settings');
+                router.push('/clinic-admin/settings');
+              }}
               color={colors.text.secondary}
             />
           </View>
