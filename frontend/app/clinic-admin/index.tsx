@@ -12,10 +12,11 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { DashboardHeader } from '../../core/components/DashboardHeader';
 import { StatCard } from '../../core/components/StatCard';
 import { QuickActionButton } from '../../core/components/QuickActionButton';
