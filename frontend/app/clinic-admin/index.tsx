@@ -28,7 +28,13 @@ import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../f
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
 import { formatCurrency } from '../../features/billing/data/models/billing.dtos';
 
+// TOP-LEVEL LOG: This will appear in browser console when file is loaded
+console.log('[ClinicAdminEntry] >>> THIS FILE IS LOADED: /app/clinic-admin/index.tsx <<<');
+
 export default function ClinicAdminDashboard() {
+  // COMPONENT LOG: This will appear every render
+  console.log('[ClinicAdminEntry] rendering THIS clinic-admin entry');
+  
   const router = useRouter();
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
