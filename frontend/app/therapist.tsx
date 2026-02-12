@@ -158,15 +158,15 @@ export default function TherapistDashboard() {
         <View style={styles.section}>
           <EmptyDashboardState
             variant="error"
-            title={isPermissionError ? 'Access Restricted' : 'Unable to Load Dashboard'}
+            title={isPermissionError ? t(ErrorTokens.dashboard.accessRestricted) : t('common.error')}
             message={
               isPermissionError
-                ? 'Your role does not have permission to view this dashboard. Please contact your administrator to request access.'
+                ? t(ErrorTokens.dashboard.permissionRequired)
                 : error?.message?.includes('401')
-                ? 'Authentication failed. Please try logging in again.'
-                : 'Could not load your sessions. Pull down to retry.'
+                ? t(ErrorTokens.auth.sessionExpired)
+                : t(ErrorTokens.treatmentSessions.loadFailed)
             }
-            actionLabel={isPermissionError ? 'Go Back' : 'Retry'}
+            actionLabel={isPermissionError ? t('common.goBack') : t('common.retry')}
             onActionPress={() => isPermissionError ? router.back() : refetch()}
           />
         </View>
