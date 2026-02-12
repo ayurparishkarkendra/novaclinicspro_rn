@@ -26,13 +26,13 @@ import {
 import { formatPrice, formatDuration, DOSHA_COLORS } from '../../../../features/treatments/data/models/treatments.dtos';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { useAuthStore } from '../../../../features/auth/presentation/stores/auth.store';
+import { useAuthStore } from '../../../../features/auth/presentation/providers/auth.store';
 
 export default function TreatmentDetailScreen() {
   const router = useRouter();
   const { treatmentId } = useLocalSearchParams<{ treatmentId: string }>();
-  const { user } = useAuthStore();
-  const tenantId = user?.tenantId || '';
+  const { currentUser } = useAuthStore();
+  const tenantId = currentUser?.tenantId || '';
 
   const [isEditing, setIsEditing] = useState(false);
 
