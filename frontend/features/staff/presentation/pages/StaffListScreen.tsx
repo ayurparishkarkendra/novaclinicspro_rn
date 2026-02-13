@@ -168,7 +168,7 @@ export const StaffListScreen: React.FC = () => {
         <Ionicons name="search" size={20} color={colors.text.tertiary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search staff..."
+          placeholder={`Search staff... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -180,32 +180,63 @@ export const StaffListScreen: React.FC = () => {
         )}
       </View>
 
+      {/* Status Filters */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Status</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.filterRow}>
+            {STATUS_FILTERS.map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.filterChip,
+                  selectedStatus === status && styles.filterChipSelected,
+                ]}
+                onPress={() => setSelectedStatus(status)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedStatus === status && styles.filterChipTextSelected,
+                  ]}
+                >
+                  {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+
       {/* Type Filters */}
-      <FlatList
-        horizontal
-        data={STAFF_TYPE_FILTERS}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterList}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              selectedType === item && styles.filterChipSelected,
-            ]}
-            onPress={() => setSelectedType(item)}
-          >
-            <Text
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Staff Type</Text>
+        <FlatList
+          horizontal
+          data={STAFF_TYPE_FILTERS}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterList}
+          renderItem={({ item }) => (
+            <TouchableOpacity
               style={[
-                styles.filterChipText,
-                selectedType === item && styles.filterChipTextSelected,
+                styles.filterChip,
+                selectedType === item && styles.filterChipSelected,
               ]}
+              onPress={() => setSelectedType(item)}
             >
-              {item === 'all' ? 'All' : getStaffTypeLabel(item as StaffType)}
-            </Text>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-      />
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedType === item && styles.filterChipTextSelected,
+                ]}
+              >
+                {item === 'all' ? 'All' : getStaffTypeLabel(item as StaffType)}
+              </Text>
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item}
+        />
+      </View>
     </View>
   );
 
