@@ -139,7 +139,7 @@ export default function ClinicAdminDashboard() {
             <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Active Staff"
-                value="0"
+                value={staffLoading ? '...' : activeStaffCount.toString()}
                 icon="people"
                 color={colors.success.main}
               />
