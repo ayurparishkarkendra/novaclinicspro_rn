@@ -82,10 +82,14 @@ export interface AppointmentResponse {
   notes: string | null;
   is_active: boolean;
   created_at: string;
+  updated_at?: string;
   appointment_type: string | null;
   series_id: string | null;
+  session_number?: number;
+  total_sessions?: number;
   // Expanded fields (may be present)
   client_name?: string;
+  client_phone?: string;
   staff_name?: string;
   treatment_name?: string;
   room_name?: string;
