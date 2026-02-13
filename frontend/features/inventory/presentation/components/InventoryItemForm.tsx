@@ -610,6 +610,13 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
+  locationSectionLabel: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
   input: {
     backgroundColor: colors.background.default,
     borderWidth: 1,
