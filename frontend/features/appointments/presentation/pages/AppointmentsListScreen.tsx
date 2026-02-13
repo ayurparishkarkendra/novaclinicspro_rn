@@ -1,6 +1,11 @@
 /**
  * Appointments List Screen
  * Enhanced with date slider, daily summary, and debounced search
+ * 
+ * FIXES APPLIED:
+ * 1. Date-scoped loading - always filter by selected date
+ * 2. Date slider layout - fixed height and no jumping
+ * 3. Search query param - uses 'q' instead of 'query'
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -14,8 +19,6 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
-  Linking,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,13 +46,16 @@ import {
 } from '../../data/models/appointments.dtos';
 
 // ============================================
-// DATE SLIDER COMPONENT
+// DATE SLIDER COMPONENT - FIXED LAYOUT
 // ============================================
 
 interface DateSliderProps {
   selectedDate: Date;
   onDateSelect: (date: Date) => void;
 }
+
+const DATE_ITEM_WIDTH = 64;
+const DATE_ITEM_HEIGHT = 80; // Fixed height to prevent jumping
 
 const DateSlider: React.FC<DateSliderProps> = ({ selectedDate, onDateSelect }) => {
   const dates = generateDateRange(new Date(), 14);
@@ -60,68 +66,75 @@ const DateSlider: React.FC<DateSliderProps> = ({ selectedDate, onDateSelect }) =
     // Scroll to today on mount
     if (scrollViewRef.current && todayIndex >= 0) {
       setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ x: todayIndex * 70 - 100, animated: false });
+        scrollViewRef.current?.scrollTo({ 
+          x: Math.max(0, (todayIndex * (DATE_ITEM_WIDTH + spacing.xs)) - 100), 
+          animated: false 
+        });
       }, 100);
     }
   }, [todayIndex]);
 
   return (
-    <ScrollView
-      ref={scrollViewRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.dateSliderContent}
-      style={styles.dateSlider}
-    >
-      {dates.map((date, index) => {
-        const dateStr = toISODateString(date);
-        const isSelected = toISODateString(selectedDate) === dateStr;
-        const isTodayDate = isToday(date.toISOString());
+    <View style={styles.dateSliderContainer}>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.dateSliderContent}
+      >
+        {dates.map((date) => {
+          const dateStr = toISODateString(date);
+          const isSelected = toISODateString(selectedDate) === dateStr;
+          const isTodayDate = isToday(date.toISOString());
 
-        return (
-          <TouchableOpacity
-            key={dateStr}
-            style={[
-              styles.dateItem,
-              isSelected && styles.dateItemSelected,
-              isTodayDate && !isSelected && styles.dateItemToday,
-            ]}
-            onPress={() => onDateSelect(date)}
-          >
-            <Text
+          return (
+            <TouchableOpacity
+              key={dateStr}
               style={[
-                styles.dateDayOfWeek,
-                isSelected && styles.dateTextSelected,
-                isTodayDate && !isSelected && styles.dateTextToday,
+                styles.dateItem,
+                isSelected && styles.dateItemSelected,
+                isTodayDate && !isSelected && styles.dateItemToday,
               ]}
+              onPress={() => onDateSelect(date)}
+              activeOpacity={0.7}
             >
-              {formatDayOfWeek(date.toISOString())}
-            </Text>
-            <Text
-              style={[
-                styles.dateDay,
-                isSelected && styles.dateTextSelected,
-                isTodayDate && !isSelected && styles.dateTextToday,
-              ]}
-            >
-              {date.getDate()}
-            </Text>
-            <Text
-              style={[
-                styles.dateMonth,
-                isSelected && styles.dateTextSelected,
-                isTodayDate && !isSelected && styles.dateTextToday,
-              ]}
-            >
-              {date.toLocaleDateString('en-IN', { month: 'short' })}
-            </Text>
-            {isTodayDate && (
-              <View style={[styles.todayDot, isSelected && styles.todayDotSelected]} />
-            )}
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+              <Text
+                style={[
+                  styles.dateDayOfWeek,
+                  isSelected && styles.dateTextSelected,
+                  isTodayDate && !isSelected && styles.dateTextToday,
+                ]}
+                numberOfLines={1}
+              >
+                {formatDayOfWeek(date.toISOString())}
+              </Text>
+              <Text
+                style={[
+                  styles.dateDay,
+                  isSelected && styles.dateTextSelected,
+                  isTodayDate && !isSelected && styles.dateTextToday,
+                ]}
+              >
+                {date.getDate()}
+              </Text>
+              <Text
+                style={[
+                  styles.dateMonth,
+                  isSelected && styles.dateTextSelected,
+                  isTodayDate && !isSelected && styles.dateTextToday,
+                ]}
+                numberOfLines={1}
+              >
+                {date.toLocaleDateString('en-IN', { month: 'short' })}
+              </Text>
+              {isTodayDate && (
+                <View style={[styles.todayDot, isSelected && styles.todayDotSelected]} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 };
 
@@ -135,7 +148,7 @@ interface SummaryCardProps {
 }
 
 const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
-  const activeCount = summary.scheduled + summary.in_progress + summary.completed;
+  const activeCount = summary.scheduled + summary.in_progress + (summary.completed || 0);
 
   return (
     <View style={styles.summaryCard}>
@@ -257,7 +270,10 @@ export const AppointmentsListScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  // Queries
+  // Date string for queries - ALWAYS use selected date
+  const selectedDateStr = toISODateString(selectedDate);
+
+  // Queries - Always filter by selected date
   const {
     data: appointmentsData,
     isLoading,
@@ -265,14 +281,15 @@ export const AppointmentsListScreen: React.FC = () => {
     error,
     refetch,
     isRefetching,
-  } = useAppointmentsByDateQuery(tenantId, toISODateString(selectedDate));
+  } = useAppointmentsByDateQuery(tenantId, selectedDateStr);
 
+  // Search query - also scoped to selected date
   const {
     data: searchData,
     isLoading: isSearching,
   } = useSearchAppointmentsQuery(
     tenantId,
-    { q: debouncedQuery, date: toISODateString(selectedDate) },
+    { q: debouncedQuery, date: selectedDateStr },
     { enabled: debouncedQuery.length >= 3 }
   );
 
@@ -296,14 +313,23 @@ export const AppointmentsListScreen: React.FC = () => {
 
   const handleAppointmentPress = useCallback(
     (appointment: AppointmentWithDetails) => {
-      router.push(`/clinic-admin/appointments/${appointment.id}`);
+      router.push(`/clinic-admin/appointments/${appointment.id}` as any);
     },
     [router]
   );
 
   const handleCreatePress = useCallback(() => {
-    router.push('/clinic-admin/appointments/create');
+    router.push('/clinic-admin/appointments/create' as any);
   }, [router]);
+
+  // Handle date change - clears search
+  const handleDateSelect = useCallback((date: Date) => {
+    setSelectedDate(date);
+    // Clear search when changing date
+    if (searchQuery) {
+      setSearchQuery('');
+    }
+  }, [searchQuery]);
 
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
@@ -356,10 +382,10 @@ export const AppointmentsListScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Date Slider */}
-      <DateSlider selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+      {/* Date Slider - Fixed height */}
+      <DateSlider selectedDate={selectedDate} onDateSelect={handleDateSelect} />
 
-      {/* Summary */}
+      {/* Summary - computed from date-filtered data */}
       <SummaryCard summary={summary} selectedDate={selectedDate} />
 
       {/* Search */}
@@ -368,7 +394,7 @@ export const AppointmentsListScreen: React.FC = () => {
           <Ionicons name="search" size={20} color={colors.text.tertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by phone, name, or status..."
+            placeholder="Search by name, phone, or status..."
             placeholderTextColor={colors.text.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -450,28 +476,31 @@ const styles = StyleSheet.create({
   createButton: {
     backgroundColor: colors.primary.main,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
   },
 
-  // Date Slider
-  dateSlider: {
+  // Date Slider - FIXED LAYOUT
+  dateSliderContainer: {
+    height: DATE_ITEM_HEIGHT + spacing.md * 2, // Fixed height container
     backgroundColor: colors.background.default,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
   dateSliderContent: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    alignItems: 'center', // Center items vertically
   },
   dateItem: {
+    width: DATE_ITEM_WIDTH,
+    height: DATE_ITEM_HEIGHT,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    minWidth: 60,
+    paddingHorizontal: spacing.xs,
+    borderRadius: spacing.sm,
     backgroundColor: colors.background.paper,
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs / 2,
   },
   dateItemSelected: {
     backgroundColor: colors.primary.main,
@@ -482,17 +511,22 @@ const styles = StyleSheet.create({
   },
   dateDayOfWeek: {
     ...typography.caption,
+    fontSize: 10,
     color: colors.text.secondary,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   dateDay: {
     ...typography.h5,
     color: colors.text.primary,
-    marginVertical: 2,
+    marginVertical: spacing.xs / 2,
+    textAlign: 'center',
   },
   dateMonth: {
     ...typography.caption,
+    fontSize: 10,
     color: colors.text.secondary,
+    textAlign: 'center',
   },
   dateTextSelected: {
     color: colors.background.default,
@@ -501,11 +535,11 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
   },
   todayDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: spacing.xs,
+    height: spacing.xs,
+    borderRadius: spacing.xs / 2,
     backgroundColor: colors.primary.main,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   todayDotSelected: {
     backgroundColor: colors.background.default,
@@ -517,7 +551,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.light,
   },
@@ -542,11 +576,11 @@ const styles = StyleSheet.create({
   summaryLabel: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   summaryDivider: {
     width: 1,
-    height: 30,
+    height: spacing.xl,
     backgroundColor: colors.border.light,
   },
 
@@ -559,7 +593,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background.default,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -581,10 +615,10 @@ const styles = StyleSheet.create({
   // Appointment Card
   appointmentCard: {
     backgroundColor: colors.background.default,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     marginBottom: spacing.sm,
     padding: spacing.md,
-    paddingLeft: spacing.md + 4,
+    paddingLeft: spacing.md + spacing.xs,
     borderWidth: 1,
     borderColor: colors.border.light,
     position: 'relative',
@@ -595,9 +629,9 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 4,
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
+    width: spacing.xs,
+    borderTopLeftRadius: spacing.sm,
+    borderBottomLeftRadius: spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -617,14 +651,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.sm,
+    gap: spacing.xs,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: spacing.xs,
+    height: spacing.xs,
+    borderRadius: spacing.xs / 2,
   },
   statusText: {
     ...typography.caption,
@@ -649,7 +683,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   metaText: {
     ...typography.caption,
@@ -712,7 +746,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.primary.main,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
   },
   emptyButtonText: {
     ...typography.button,
@@ -742,7 +776,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.primary.main,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
   },
   retryButtonText: {
     ...typography.button,
