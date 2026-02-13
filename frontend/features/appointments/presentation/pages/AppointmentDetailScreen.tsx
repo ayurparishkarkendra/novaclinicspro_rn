@@ -394,7 +394,7 @@ export const AppointmentDetailScreen: React.FC = () => {
           <InfoRow
             icon="person"
             label="Name"
-            value={appointment.client_name}
+            value={appointment.client_name || null}
           />
           {appointment.client_phone && (
             <InfoRow
