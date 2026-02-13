@@ -713,8 +713,8 @@ export const CreateAppointmentScreen: React.FC = () => {
       await createMutation.mutateAsync(payload);
 
       // Open WhatsApp
-      const clientPhone = selectedClient?.phone || selectedClientInfo?.phone;
-      const clientName = selectedClient?.name || selectedClientInfo?.name || 'Client';
+      const clientPhone = (selectedClient as any)?.subtitle || selectedClientInfo?.phone;
+      const clientName = (selectedClient as any)?.label || selectedClientInfo?.name || 'Client';
       
       if (clientPhone) {
         const message = generateWhatsAppConfirmationMessage(
