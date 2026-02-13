@@ -228,8 +228,8 @@ export const TreatmentsScreen: React.FC = () => {
     />
   ), [router, handleDeleteTreatment]);
 
-  const activeTreatments = treatmentsQuery.data?.items.filter(t => t.is_active).length || 0;
-  const totalTreatments = treatmentsQuery.data?.total || 0;
+  const activeTreatments = treatmentsData?.items.filter(t => t.is_active).length || 0;
+  const totalTreatments = treatmentsData?.total || 0;
 
   if (!tenantId) {
     return (
