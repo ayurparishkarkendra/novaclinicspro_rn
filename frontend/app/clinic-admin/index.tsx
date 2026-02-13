@@ -37,6 +37,10 @@ export default function ClinicAdminDashboard() {
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.activeTenant?.id || '';
   const notificationCount = useNotificationBadgeCount();
+  const { width } = useWindowDimensions();
+  
+  // Determine if we're on mobile (< 768px) or web
+  const isMobile = width < 768;
 
   // Fetch inventory data for dashboard stats
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItemsListQuery(
@@ -72,18 +76,18 @@ export default function ClinicAdminDashboard() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('confirmations.logout'),
+      t('confirmations.logout'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: t('navigation.logout'),
           style: 'destructive',
           onPress: async () => {
             try {
               await logout();
             } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              Alert.alert(t('common.error'), t(ErrorTokens.auth.logoutFailed));
             }
           },
         },
