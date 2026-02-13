@@ -17,6 +17,7 @@ import {
   updateInventoryBatchApi,
   listInventoryAlertsApi,
   acknowledgeInventoryAlertsApi,
+  searchInventoryApi,
 } from '../datasources/inventory.api';
 import {
   InventoryCreateRequest,
