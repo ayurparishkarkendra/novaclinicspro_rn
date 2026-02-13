@@ -533,7 +533,7 @@ export const AppointmentDetailScreen: React.FC = () => {
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               minimumDate={new Date()}
-              onChange={(event, date) => {
+              onChange={(event: DateTimePickerEvent, date?: Date) => {
                 if (event.type === 'dismissed') {
                   setShowReschedulePicker(false);
                   return;
@@ -581,7 +581,7 @@ export const AppointmentDetailScreen: React.FC = () => {
               value={rescheduleTime || new Date()}
               mode="time"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, time) => {
+              onChange={(event: DateTimePickerEvent, time?: Date) => {
                 if (event.type === 'dismissed') {
                   setShowRescheduleTime(false);
                   return;
