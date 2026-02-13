@@ -56,18 +56,27 @@ export const ClientsListScreen: React.FC = () => {
     ? debouncedSearchQuery 
     : '';
 
-  // Queries - load more for client-side filtering
-  const {
-    data: clientsData,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useClientsListQuery(tenantId, {
-    search: effectiveSearchQuery || undefined,
-    limit: 100, // Load more to enable client-side filtering
-  });
+  // Queries - use list API when not searching, search API when searching
+  const listQuery = useClientsListQuery(
+    tenantId, 
+    { limit: 100 },
+    { enabled: !!tenantId && effectiveSearchQuery === '' }
+  );
+  
+  const searchResultsQuery = useSearchClientsQuery(
+    tenantId,
+    effectiveSearchQuery,
+    100,
+    { enabled: !!tenantId && effectiveSearchQuery.length >= MIN_SEARCH_LENGTH }
+  );
+
+  // Combine data sources
+  const clientsData = effectiveSearchQuery ? searchResultsQuery.data : listQuery.data;
+  const isLoading = effectiveSearchQuery ? searchResultsQuery.isLoading : listQuery.isLoading;
+  const isError = effectiveSearchQuery ? searchResultsQuery.isError : listQuery.isError;
+  const error = effectiveSearchQuery ? searchResultsQuery.error : listQuery.error;
+  const isRefetching = effectiveSearchQuery ? searchResultsQuery.isRefetching : listQuery.isRefetching;
+  const refetch = effectiveSearchQuery ? searchResultsQuery.refetch : listQuery.refetch;
 
   // Client-side filtering for partial search (< 3 chars)
   const filteredClients = useMemo(() => {
