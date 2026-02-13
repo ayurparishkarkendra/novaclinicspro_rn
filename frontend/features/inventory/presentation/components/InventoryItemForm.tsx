@@ -68,6 +68,17 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
   isLoading = false,
   isEdit = false,
 }) => {
+  // Helper to extract initial location values
+  const getInitialLocationValue = (field: keyof InventoryLocation): string => {
+    if (!initialData?.location) return '';
+    if (typeof initialData.location === 'string') {
+      // Legacy string format - try to parse it
+      const parsed = parseLocationString(initialData.location);
+      return parsed?.[field]?.toString() || '';
+    }
+    return initialData.location[field]?.toString() || '';
+  };
+
   // Form state
   const [name, setName] = useState(initialData?.name || '');
   const [brand, setBrand] = useState(initialData?.brand || '');
@@ -86,7 +97,14 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
   const [manufacturer, setManufacturer] = useState(initialData?.manufacturer || '');
   const [strength, setStrength] = useState(initialData?.strength || '');
   const [composition, setComposition] = useState(initialData?.composition || '');
-  const [location, setLocation] = useState(initialData?.location || '');
+  
+  // Location fields as separate state (InventoryLocation object)
+  const [locationShelf, setLocationShelf] = useState(getInitialLocationValue('shelf'));
+  const [locationRack, setLocationRack] = useState(getInitialLocationValue('rack'));
+  const [locationBin, setLocationBin] = useState(getInitialLocationValue('bin'));
+  const [locationZone, setLocationZone] = useState(getInitialLocationValue('zone'));
+  const [locationNotes, setLocationNotes] = useState(getInitialLocationValue('notes'));
+  
   const [barcode, setBarcode] = useState(initialData?.barcode || '');
   const [sku, setSku] = useState(initialData?.sku || '');
   const [hsnCode, setHsnCode] = useState(initialData?.hsn_code || '');
