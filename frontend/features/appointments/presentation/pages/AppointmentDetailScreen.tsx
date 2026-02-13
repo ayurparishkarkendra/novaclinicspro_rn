@@ -264,7 +264,7 @@ export const AppointmentDetailScreen: React.FC = () => {
     const newDateTime = new Date(rescheduleDate);
     newDateTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes());
 
-    const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
+    const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end) || 60;
     const newEndTime = new Date(newDateTime);
     newEndTime.setMinutes(newEndTime.getMinutes() + duration);
 
