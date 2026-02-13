@@ -73,9 +73,9 @@ export const AppointmentsListScreen: React.FC = () => {
   );
 
   const handleCreateAppointment = useCallback(
-    async (data: AppointmentCreate) => {
+    async (data: AppointmentCreate | AppointmentUpdate) => {
       try {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(data as AppointmentCreate);
         setShowAddModal(false);
         Alert.alert('Success', 'Appointment created successfully');
       } catch (err: any) {
