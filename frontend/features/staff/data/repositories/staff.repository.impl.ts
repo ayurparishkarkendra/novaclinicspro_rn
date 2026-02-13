@@ -15,6 +15,7 @@ import {
   approveLeaveApi,
   rejectLeaveApi,
   cancelLeaveApi,
+  searchStaffApi,
 } from '../datasources/staff.api';
 import {
   StaffCreate,
