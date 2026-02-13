@@ -7,11 +7,20 @@ import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../core/providers/AuthProvider';
 
-// Create a client
+// Create a client with smart retry logic
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      // Only retry on network errors, not on business errors (401, 403, 404)
+      retry: (failureCount, error: any) => {
+        // Don't retry on authentication/authorization errors
+        const status = error?.response?.status;
+        if (status === 401 || status === 403 || status === 404) {
+          return false;
+        }
+        // Retry up to 2 times for other errors (network issues, 500s)
+        return failureCount < 2;
+      },
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
