@@ -3,7 +3,7 @@
  * List and manage Ayurvedic treatments/services
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { DashboardHeader } from '../../../../core/components/DashboardHeader';
+import { useDebounce } from '../../../../core/hooks/useDebounce';
 import {
   useTreatmentsListQuery,
   useDeleteTreatmentMutation,
+  useSearchTreatmentsQuery,
 } from '../../data/repositories/treatments.repository.impl';
 import {
   TreatmentResponse,
@@ -33,6 +35,11 @@ import {
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
+
+// Minimum characters before triggering search
+const MIN_SEARCH_LENGTH = 3;
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 300;
 
 // Treatment card component
 const TreatmentCard: React.FC<{
