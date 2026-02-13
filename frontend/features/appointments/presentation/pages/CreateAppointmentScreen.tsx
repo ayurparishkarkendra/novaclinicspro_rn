@@ -493,7 +493,7 @@ export const CreateAppointmentScreen: React.FC = () => {
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               minimumDate={new Date()}
-              onChange={(event, date) => {
+              onChange={(event: DateTimePickerEvent, date?: Date) => {
                 setShowDatePicker(Platform.OS === 'ios');
                 if (date) setAppointmentDate(date);
               }}
@@ -505,7 +505,7 @@ export const CreateAppointmentScreen: React.FC = () => {
               value={appointmentTime}
               mode="time"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, time) => {
+              onChange={(event: DateTimePickerEvent, time?: Date) => {
                 setShowTimePicker(Platform.OS === 'ios');
                 if (time) setAppointmentTime(time);
               }}
