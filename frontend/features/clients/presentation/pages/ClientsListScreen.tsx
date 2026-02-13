@@ -196,11 +196,11 @@ export const ClientsListScreen: React.FC = () => {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Loading clients...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
         <FlatList
-          data={clientsData?.items || []}
+          data={filteredClients}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmptyList}
           renderItem={({ item }) => (
