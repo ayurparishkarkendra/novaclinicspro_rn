@@ -622,8 +622,19 @@ const styles = StyleSheet.create({
   statsGrid: {
     gap: spacing.md,
   },
+  statsGridMobile: {
+    flexDirection: 'column',
+  },
+  statsGridWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
   statItem: {
     marginBottom: spacing.sm,
+  },
+  statItemWeb: {
+    width: '48%',
+    marginRight: '2%',
   },
   quickActions: {
     flexDirection: 'row',
