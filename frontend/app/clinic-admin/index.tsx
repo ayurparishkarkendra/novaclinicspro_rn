@@ -75,6 +75,17 @@ export default function ClinicAdminDashboard() {
     { enabled: !!tenantId }
   );
 
+  // Fetch staff data for Staff Status section
+  const { data: staffData, isLoading: staffLoading } = useStaffListQuery(
+    tenantId,
+    { limit: 10, is_active: true },
+    { enabled: !!tenantId }
+  );
+  
+  // Get staff for display (up to 3)
+  const staffMembers = staffData?.items?.slice(0, 3) || [];
+  const activeStaffCount = staffData?.total || 0;
+
   const handleLogout = () => {
     Alert.alert(
       t('confirmations.logout'),
