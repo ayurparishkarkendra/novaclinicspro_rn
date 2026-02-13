@@ -305,9 +305,10 @@ export const TreatmentsScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderTreatment}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
-            refreshing={treatmentsQuery.isRefetching}
+            refreshing={isRefetching}
             onRefresh={handleRefresh}
             colors={['#2F6F4E']}
             tintColor="#2F6F4E"
