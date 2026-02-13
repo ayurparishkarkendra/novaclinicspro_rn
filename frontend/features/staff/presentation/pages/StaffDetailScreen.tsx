@@ -3,7 +3,7 @@
  * Displays detailed info for a single staff member with edit/delete actions
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useStaffDetailQuery,
   useUpdateStaffMutation,
@@ -39,6 +40,33 @@ import {
 import { StaffForm } from '../components/StaffForm';
 import { StaffLeaveForm } from '../components/StaffLeaveForm';
 import { LeaveListItem } from '../components/LeaveListItem';
+
+export const StaffDetailScreen: React.FC = () => {
+  const router = useRouter();
+  const { staffId } = useLocalSearchParams<{ staffId: string }>();
+  const { currentUser } = useAuth();
+  const tenantId = currentUser?.tenantId || '';
+
+  // State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  // Check if current user is viewing their own profile (can request leave)
+  // Only the staff member themselves can request leave, not Clinic Admin
+  const isOwnProfile = useMemo(() => {
+    if (!currentUser || !staffId) return false;
+    // Check if the current user's staff ID matches this staff member
+    // Note: currentUser.staffId would need to be available from auth context
+    return currentUser.id === staffId || currentUser.staffId === staffId;
+  }, [currentUser, staffId]);
+
+  // Check if current user is Clinic Admin (can deactivate)
+  const isClinicAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.roles?.some(role => 
+      role.toLowerCase().includes('admin') || role.toLowerCase().includes('clinic_admin')
+    ) || currentUser.role === 'clinic_admin';
+  }, [currentUser]);
 
 export const StaffDetailScreen: React.FC = () => {
   const router = useRouter();
