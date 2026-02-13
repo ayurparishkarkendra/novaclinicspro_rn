@@ -33,6 +33,15 @@ export interface DoshaProperties {
 // REQUEST DTOs
 // ============================================
 
+/** Inventory location object structure */
+export interface InventoryLocation {
+  shelf?: string | null;
+  rack?: string | null;
+  bin?: string | null;
+  zone?: string | null;
+  notes?: string | null;
+}
+
 /** Create inventory item request */
 export interface InventoryCreateRequest {
   name: string;
@@ -49,7 +58,7 @@ export interface InventoryCreateRequest {
   gst_percentage?: number | null;
   barcode?: string | null;
   sku?: string | null;
-  location?: string | null;
+  location?: InventoryLocation | null;  // Changed from string to InventoryLocation
   supplier_id?: string | null;
   dosha_properties?: DoshaProperties | null;
   hsn_code?: string | null;
@@ -79,7 +88,7 @@ export interface InventoryUpdateRequest {
   gst_percentage?: number | null;
   barcode?: string | null;
   sku?: string | null;
-  location?: string | null;
+  location?: InventoryLocation | null;  // Changed from string to InventoryLocation
   supplier_id?: string | null;
   dosha_properties?: DoshaProperties | null;
   hsn_code?: string | null;
