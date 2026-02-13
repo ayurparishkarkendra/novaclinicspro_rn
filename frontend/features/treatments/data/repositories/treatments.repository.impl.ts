@@ -32,6 +32,8 @@ export const treatmentsKeys = {
   details: () => [...treatmentsKeys.all, 'detail'] as const,
   detail: (tenantId: string, treatmentId: string) =>
     [...treatmentsKeys.details(), tenantId, treatmentId] as const,
+  search: (tenantId: string, query: string) =>
+    [...treatmentsKeys.all, 'search', tenantId, query] as const,
 };
 
 // ============================================
