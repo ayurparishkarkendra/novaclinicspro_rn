@@ -33,13 +33,20 @@ export interface DoshaProperties {
 // REQUEST DTOs
 // ============================================
 
-/** Inventory location object structure */
+/** 
+ * Inventory location object structure
+ * Backend expects a dictionary for location field.
+ * Using flexible structure that allows additional backend-defined fields.
+ * Common fields: shelf, rack, bin, zone, notes (based on typical inventory systems)
+ */
 export interface InventoryLocation {
   shelf?: string | null;
   rack?: string | null;
   bin?: string | null;
   zone?: string | null;
   notes?: string | null;
+  // Allow additional fields from backend
+  [key: string]: string | null | undefined;
 }
 
 /** Create inventory item request */
