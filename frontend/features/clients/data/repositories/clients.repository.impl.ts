@@ -10,6 +10,7 @@ import {
   createClientApi,
   updateClientApi,
   deleteClientApi,
+  searchClientsApi,
 } from '../datasources/clients.api';
 import {
   ClientCreate,
