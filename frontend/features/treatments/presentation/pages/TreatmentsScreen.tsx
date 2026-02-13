@@ -135,18 +135,51 @@ export const TreatmentsScreen: React.FC = () => {
   const tenantId = currentUser?.tenantId || '';
 
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Debounce search query - only trigger API call after user stops typing
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
+  
+  // Only use search query if >= 3 characters
+  const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
+    ? debouncedSearchQuery 
+    : '';
 
+  // Use search API when query is >= 3 characters, otherwise use list API
   const treatmentsQuery = useTreatmentsListQuery(
     tenantId,
     { limit: 100 },
-    { enabled: !!tenantId }
+    { enabled: !!tenantId && effectiveSearchQuery === '' }
+  );
+  
+  const searchTreatmentsQuery = useSearchTreatmentsQuery(
+    tenantId,
+    effectiveSearchQuery,
+    100,
+    { enabled: !!tenantId && effectiveSearchQuery.length >= MIN_SEARCH_LENGTH }
   );
 
   const deleteMutation = useDeleteTreatmentMutation(tenantId);
 
+  // Combine data sources: use search results when searching, list results otherwise
+  const treatmentsData = effectiveSearchQuery 
+    ? searchTreatmentsQuery.data 
+    : treatmentsQuery.data;
+    
+  const isLoading = effectiveSearchQuery 
+    ? searchTreatmentsQuery.isLoading 
+    : treatmentsQuery.isLoading;
+    
+  const isRefetching = effectiveSearchQuery 
+    ? searchTreatmentsQuery.isRefetching 
+    : treatmentsQuery.isRefetching;
+
   const handleRefresh = useCallback(() => {
-    treatmentsQuery.refetch();
-  }, [treatmentsQuery]);
+    if (effectiveSearchQuery) {
+      searchTreatmentsQuery.refetch();
+    } else {
+      treatmentsQuery.refetch();
+    }
+  }, [effectiveSearchQuery, searchTreatmentsQuery, treatmentsQuery]);
 
   const handleDeleteTreatment = useCallback((treatment: TreatmentResponse) => {
     Alert.alert(
@@ -170,16 +203,22 @@ export const TreatmentsScreen: React.FC = () => {
     );
   }, [deleteMutation]);
 
-  // Filter treatments by search
-  const filteredTreatments = React.useMemo(() => {
-    if (!searchQuery) return treatmentsQuery.data?.items || [];
-    const query = searchQuery.toLowerCase();
-    return (treatmentsQuery.data?.items || []).filter(
-      (t) =>
-        t.name.toLowerCase().includes(query) ||
-        t.code.toLowerCase().includes(query)
-    );
-  }, [treatmentsQuery.data?.items, searchQuery]);
+  // Client-side filtering for partial search (< 3 chars) when not using search API
+  const filteredTreatments = useMemo(() => {
+    const treatments = treatmentsData?.items || [];
+    
+    // If search query is 1-2 characters, filter client-side
+    if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
+      const query = searchQuery.toLowerCase();
+      return treatments.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          t.code.toLowerCase().includes(query)
+      );
+    }
+    
+    return treatments;
+  }, [treatmentsData?.items, searchQuery]);
 
   const renderTreatment = useCallback(({ item }: { item: TreatmentResponse }) => (
     <TreatmentCard
