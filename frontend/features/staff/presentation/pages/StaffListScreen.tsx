@@ -410,6 +410,19 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: colors.text.primary,
   },
+  filterSection: {
+    marginBottom: spacing.sm,
+  },
+  filterLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   filterList: {
     gap: spacing.sm,
   },
