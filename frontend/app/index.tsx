@@ -35,7 +35,7 @@ export default function Index() {
     if (isOrgAdmin || roles.includes('super_admin') || roles.includes('org_admin') || roles.includes('system_admin')) {
       console.log('[Index] Redirecting to Super Admin dashboard');
       router.replace('/super-admin');
-    } else if (roles.includes('clinic_admin') || roles.includes('admin') || roles.includes('owner')) {
+    } else if (roles.includes('clinic_admin') || roles.includes('admin') || roles.includes('owner') || roles.includes('tenant_admin')) {
       console.log('[Index] Redirecting to Clinic Admin dashboard');
       router.replace('/clinic-admin');
     } else if (roles.includes('doctor')) {
