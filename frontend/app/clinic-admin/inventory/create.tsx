@@ -32,7 +32,8 @@ export default function CreateInventoryItemRoute() {
 
   const handleSubmit = async (data: InventoryCreateRequest | InventoryUpdateRequest) => {
     try {
-      const result = await createMutation.mutateAsync(data);
+      // Cast to InventoryCreateRequest since we're creating, not updating
+      const result = await createMutation.mutateAsync(data as InventoryCreateRequest);
       Alert.alert(
         'Success',
         `"${result.name}" has been added to inventory.`,
