@@ -433,13 +433,63 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
             />
           </View>
 
+          {/* Storage Location - Multiple Fields for Backend Dictionary Format */}
+          <Text style={styles.locationSectionLabel}>Storage Location</Text>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Zone</Text>
+              <TextInput
+                style={styles.input}
+                value={locationZone}
+                onChangeText={setLocationZone}
+                placeholder="e.g., A"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+            <View style={{ width: spacing.md }} />
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Shelf</Text>
+              <TextInput
+                style={styles.input}
+                value={locationShelf}
+                onChangeText={setLocationShelf}
+                placeholder="e.g., 1"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Rack</Text>
+              <TextInput
+                style={styles.input}
+                value={locationRack}
+                onChangeText={setLocationRack}
+                placeholder="e.g., 2"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+            <View style={{ width: spacing.md }} />
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Bin</Text>
+              <TextInput
+                style={styles.input}
+                value={locationBin}
+                onChangeText={setLocationBin}
+                placeholder="e.g., B3"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Storage Location</Text>
+            <Text style={styles.label}>Location Notes</Text>
             <TextInput
               style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="e.g., Shelf A, Row 2"
+              value={locationNotes}
+              onChangeText={setLocationNotes}
+              placeholder="Additional location details"
               placeholderTextColor={colors.text.tertiary}
             />
           </View>
