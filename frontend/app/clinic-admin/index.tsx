@@ -31,6 +31,7 @@ import { useSubscriptionSummaryQuery } from '../../features/billing/data/reposit
 import { useNotificationBadgeCount } from '../../features/notifications/presentation/hooks/useNotificationBadgeCount';
 import { formatInrCurrency } from '../../core/utils/currency';
 import { t, ErrorTokens } from '../../core/localization';
+import { useStaffListQuery } from '../../features/staff/data/repositories/staff.repository.impl';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
