@@ -36,7 +36,7 @@ import { useStaffListQuery } from '../../features/staff/data/repositories/staff.
 export default function ClinicAdminDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
   const notificationCount = useNotificationBadgeCount();
   const { width } = useWindowDimensions();
   
