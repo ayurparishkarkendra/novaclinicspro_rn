@@ -141,7 +141,7 @@ export const InventoryListScreen: React.FC = () => {
         <Ionicons name="search" size={20} color={colors.text.tertiary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search inventory..."
+          placeholder={`Search inventory... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
