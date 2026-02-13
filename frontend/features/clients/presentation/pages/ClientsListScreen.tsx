@@ -28,6 +28,7 @@ import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useClientsListQuery,
   useCreateClientMutation,
+  useSearchClientsQuery,
 } from '../../data/repositories/clients.repository.impl';
 import { ClientResponse, ClientCreate } from '../../data/models/clients.dtos';
 import { ClientListItem } from '../components/ClientListItem';
