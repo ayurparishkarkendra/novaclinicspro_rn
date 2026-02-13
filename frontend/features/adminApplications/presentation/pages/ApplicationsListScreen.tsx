@@ -253,11 +253,24 @@ export default function ApplicationsListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background.default }]}
       edges={['top']}
     >
-      <DashboardHeader
-        title="Tenant Applications"
-        subtitle="Review and manage applications"
-        userName={currentUser?.fullName}
-        onProfilePress={() => console.log('Profile')}
+      {/* Navigation Header */}
+      <View style={[styles.navHeader, { backgroundColor: theme.colors.surface.default }]}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.navTitle, { color: theme.colors.text.primary }]}>
+          Tenant Applications
+        </Text>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => router.push('/super-admin')}
+        >
+          <Ionicons name="home-outline" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+      </View>
         onLogoutPress={handleLogout}
       />
 
