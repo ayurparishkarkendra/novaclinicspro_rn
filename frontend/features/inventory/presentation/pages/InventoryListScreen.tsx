@@ -56,32 +56,65 @@ export const InventoryListScreen: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | 'all'>('all');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 
-  // Build query params
+  // Debounce search query - only trigger API call after user stops typing
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
+  
+  // Only use search query if >= 3 characters
+  const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
+    ? debouncedSearchQuery 
+    : '';
+
+  // Build query params for list API (when not searching)
   const queryParams: ListInventoryParams = {
-    search: searchQuery || undefined,
     category: selectedCategory !== 'all' ? selectedCategory : undefined,
     limit: 50,
   };
 
-  // Fetch inventory items
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useInventoryItemsListQuery(tenantId, queryParams);
+  // Fetch inventory items (regular list)
+  const listQuery = useInventoryItemsListQuery(
+    tenantId, 
+    queryParams,
+    { enabled: !!tenantId && effectiveSearchQuery === '' }
+  );
+  
+  // Fetch search results (when searching)
+  const searchQuery_ = useSearchInventoryQuery(
+    tenantId,
+    effectiveSearchQuery,
+    50,
+    { enabled: !!tenantId && effectiveSearchQuery.length >= MIN_SEARCH_LENGTH }
+  );
 
-  const items = data?.items || [];
+  // Determine which data source to use
+  const data = effectiveSearchQuery ? searchQuery_.data : listQuery.data;
+  const isLoading = effectiveSearchQuery ? searchQuery_.isLoading : listQuery.isLoading;
+  const isRefetching = effectiveSearchQuery ? searchQuery_.isRefetching : listQuery.isRefetching;
+  const refetch = effectiveSearchQuery ? searchQuery_.refetch : listQuery.refetch;
 
-  // Filter low stock items if needed
-  const displayedItems = showLowStockOnly
-    ? items.filter((item) => {
+  // Client-side filtering for partial search (< 3 chars) and low stock
+  const displayedItems = useMemo(() => {
+    let items = data?.items || [];
+    
+    // If search query is 1-2 characters, filter client-side
+    if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter((item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.sku?.toLowerCase().includes(query) ||
+        item.barcode?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter low stock items if needed
+    if (showLowStockOnly) {
+      items = items.filter((item) => {
         const stock = parseFloat(item.current_stock) || 0;
         return stock <= item.reorder_point;
-      })
-    : items;
+      });
+    }
+    
+    return items;
+  }, [data?.items, searchQuery, showLowStockOnly]);
 
   const handleItemPress = useCallback(
     (item: InventoryItemResponse) => {
