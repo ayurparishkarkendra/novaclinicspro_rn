@@ -299,90 +299,82 @@ export default function ClinicAdminDashboard() {
               </Pressable>
             </Link>
           </View>
-          {[
-            {
-              name: 'Dr. Michael Chen',
-              role: 'Doctor',
-              status: 'In Session',
-              appointments: 8,
-              available: false,
-            },
-            {
-              name: 'Emily Rodriguez',
-              role: 'Therapist',
-              status: 'Available',
-              appointments: 5,
-              available: true,
-            },
-            {
-              name: 'James Wilson',
-              role: 'Pharmacist',
-              status: 'Available',
-              appointments: 0,
-              available: true,
-            },
-          ].map((staff, index) => (
-            <View key={index} style={styles.staffCard}>
-              <View style={styles.staffInfo}>
-                <View
-                  style={[
-                    styles.staffAvatar,
-                    {
-                      backgroundColor: staff.available
-                        ? colors.success.main + '20'
-                        : colors.warning.main + '20',
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="person"
-                    size={24}
-                    color={staff.available ? colors.success.main : colors.warning.main}
-                  />
-                </View>
-                <View style={styles.staffDetails}>
-                  <Text style={styles.staffName}>{staff.name}</Text>
-                  <Text style={styles.staffRole}>{staff.role}</Text>
-                  <Text style={styles.staffAppointments}>
-                    {staff.appointments} appointments today
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.statusIndicator,
-                  {
-                    backgroundColor: staff.available
-                      ? colors.success.main + '20'
-                      : colors.warning.main + '20',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: staff.available
-                        ? colors.success.main
-                        : colors.warning.main,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color: staff.available
-                        ? colors.success.main
-                        : colors.warning.main,
-                    },
-                  ]}
-                >
-                  {staff.status}
-                </Text>
-              </View>
+          {staffLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.primary.main} />
+              <Text style={styles.loadingText}>Loading staff...</Text>
             </View>
-          ))}
+          ) : staffMembers.length > 0 ? (
+            staffMembers.map((staff) => (
+              <Link key={staff.id} href={`/clinic-admin/staff/${staff.id}`} asChild>
+                <Pressable style={styles.staffCard}>
+                  <View style={styles.staffInfo}>
+                    <View
+                      style={[
+                        styles.staffAvatar,
+                        {
+                          backgroundColor: staff.is_active
+                            ? colors.success.main + '20'
+                            : colors.warning.main + '20',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={24}
+                        color={staff.is_active ? colors.success.main : colors.warning.main}
+                      />
+                    </View>
+                    <View style={styles.staffDetails}>
+                      <Text style={styles.staffName}>{staff.full_name}</Text>
+                      <Text style={styles.staffRole}>
+                        {staff.staff_type ? staff.staff_type.charAt(0).toUpperCase() + staff.staff_type.slice(1) : 'Staff'}
+                      </Text>
+                      <Text style={styles.staffAppointments}>{staff.email || 'No email'}</Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusIndicator,
+                      {
+                        backgroundColor: staff.is_active
+                          ? colors.success.main + '20'
+                          : colors.warning.main + '20',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor: staff.is_active
+                            ? colors.success.main
+                            : colors.warning.main,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color: staff.is_active
+                            ? colors.success.main
+                            : colors.warning.main,
+                        },
+                      ]}
+                    >
+                      {staff.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Link>
+            ))
+          ) : (
+            <View style={styles.noAlertsCard}>
+              <Ionicons name="people-outline" size={24} color={colors.text.secondary} />
+              <Text style={styles.noAlertsText}>No staff members found</Text>
+            </View>
+          )}
         </View>
 
         {/* Inventory Alerts */}
