@@ -3,7 +3,7 @@
  * Displays list of all staff members for the clinic
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,8 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useDebounce } from '../../../../core/hooks/useDebounce';
+import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useStaffListQuery,
   useCreateStaffMutation,
@@ -47,6 +50,14 @@ const STAFF_TYPE_FILTERS: (StaffType | 'all')[] = [
   'admin',
 ];
 
+const STATUS_FILTERS = ['all', 'active', 'inactive'] as const;
+type StatusFilter = typeof STATUS_FILTERS[number];
+
+// Minimum characters before triggering search
+const MIN_SEARCH_LENGTH = 3;
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 300;
+
 export const StaffListScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -55,7 +66,24 @@ export const StaffListScreen: React.FC = () => {
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<StaffType | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Debounce search query - only trigger API call after user stops typing
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
+  
+  // Only use search query if >= 3 characters, otherwise don't filter
+  const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
+    ? debouncedSearchQuery 
+    : '';
+
+  // Build query params based on filters
+  const queryParams = useMemo(() => ({
+    staff_type: selectedType === 'all' ? undefined : selectedType,
+    is_active: selectedStatus === 'all' ? undefined : selectedStatus === 'active',
+    search: effectiveSearchQuery || undefined,
+    limit: 100, // Load more to enable client-side filtering
+  }), [selectedType, selectedStatus, effectiveSearchQuery]);
 
   // Queries
   const {
@@ -65,11 +93,24 @@ export const StaffListScreen: React.FC = () => {
     error,
     refetch,
     isRefetching,
-  } = useStaffListQuery(tenantId, {
-    staff_type: selectedType === 'all' ? undefined : selectedType,
-    search: searchQuery || undefined,
-    limit: 50,
-  });
+  } = useStaffListQuery(tenantId, queryParams);
+
+  // Client-side filtering for partial search (< 3 chars)
+  const filteredStaff = useMemo(() => {
+    const staff = staffData?.items || [];
+    
+    // If search query is 1-2 characters, filter client-side
+    if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
+      const lowerQuery = searchQuery.toLowerCase();
+      return staff.filter(s => 
+        s.full_name.toLowerCase().includes(lowerQuery) ||
+        s.email.toLowerCase().includes(lowerQuery) ||
+        (s.phone && s.phone.includes(searchQuery))
+      );
+    }
+    
+    return staff;
+  }, [staffData?.items, searchQuery]);
 
   // Mutations
   const createMutation = useCreateStaffMutation(tenantId);
@@ -87,9 +128,9 @@ export const StaffListScreen: React.FC = () => {
       try {
         await createMutation.mutateAsync(data);
         setShowAddModal(false);
-        Alert.alert('Success', 'Staff member added successfully');
+        Alert.alert(t('common.success'), t('success.created'));
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to add staff member');
+        Alert.alert(t('common.error'), err.message || t(ErrorTokens.staff.createFailed));
       }
     },
     [createMutation]
