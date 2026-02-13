@@ -271,8 +271,6 @@ export default function ApplicationsListScreen() {
           <Ionicons name="home-outline" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
       </View>
-        onLogoutPress={handleLogout}
-      />
 
       {/* Filters */}
       <View style={[styles.filterContainer, { backgroundColor: theme.colors.surface.default }]}>
