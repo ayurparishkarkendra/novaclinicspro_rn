@@ -365,16 +365,20 @@ export const StaffDetailScreen: React.FC = () => {
         </View>
 
         {/* Leave Requests */}
+        {/* Leave Requests Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Leave Requests</Text>
-            <TouchableOpacity
-              style={styles.addLeaveButton}
-              onPress={() => setShowLeaveModal(true)}
-            >
-              <Ionicons name="add" size={16} color={colors.primary.main} />
-              <Text style={styles.addLeaveText}>Request Leave</Text>
-            </TouchableOpacity>
+            {/* Only show Request Leave button if viewing own profile */}
+            {isOwnProfile && (
+              <TouchableOpacity
+                style={styles.addLeaveButton}
+                onPress={() => setShowLeaveModal(true)}
+              >
+                <Ionicons name="add" size={16} color={colors.primary.main} />
+                <Text style={styles.addLeaveText}>Request Leave</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {leavesData?.items && leavesData.items.length > 0 ? (
             leavesData.items.map((leave) => (
