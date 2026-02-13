@@ -32,6 +32,8 @@ export const clientsKeys = {
   details: () => [...clientsKeys.all, 'detail'] as const,
   detail: (tenantId: string, clientId: string) =>
     [...clientsKeys.details(), tenantId, clientId] as const,
+  search: (tenantId: string, query: string) =>
+    [...clientsKeys.all, 'search', tenantId, query] as const,
 };
 
 // ============================================
