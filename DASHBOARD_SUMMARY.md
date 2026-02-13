@@ -133,6 +133,6 @@ The foundation is ready! You can now:
 
 ## 📱 Access the App
 
-**Web Preview**: https://clinic-dash-7.preview.emergentagent.com
+**Web Preview**: https://schedule-hub-93.preview.emergentagent.com
 
 The app is live and fully functional with navigation between all 4 dashboards!

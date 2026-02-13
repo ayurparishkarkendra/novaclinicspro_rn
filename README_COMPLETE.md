@@ -130,7 +130,7 @@ A **professional, mobile-first healthcare management platform** with 4 fully fun
 
 ## 🌐 **Live Preview**
 
-**Web URL:** https://clinic-dash-7.preview.emergentagent.com
+**Web URL:** https://schedule-hub-93.preview.emergentagent.com
 
 You can:
 - ✅ View all 4 dashboards
@@ -314,7 +314,7 @@ You now have:
 
 **All code is in:** `/app/frontend/`
 
-**View it live:** https://clinic-dash-7.preview.emergentagent.com
+**View it live:** https://schedule-hub-93.preview.emergentagent.com
 
 ---
 

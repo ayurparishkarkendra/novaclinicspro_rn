@@ -184,6 +184,6 @@ const fetchData = async () => {
 
 ## 📱 Access URLs
 
-- **Web Preview**: https://clinic-dash-7.preview.emergentagent.com
+- **Web Preview**: https://schedule-hub-93.preview.emergentagent.com
 - **Backend API**: Port 8001 (internal)
 - **MongoDB**: Port 27017 (internal)

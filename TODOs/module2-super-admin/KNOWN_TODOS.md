@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://clinic-dash-7.preview.emergentagent.com
+**Preview URL:** https://schedule-hub-93.preview.emergentagent.com
 
 ---
 
