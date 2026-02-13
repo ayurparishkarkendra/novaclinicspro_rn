@@ -48,7 +48,9 @@ export interface AppointmentUpdate {
 
 /** Request to reschedule an appointment */
 export interface AppointmentReschedule {
-  appointment_start: string; // ISO datetime
+  new_start?: string; // ISO datetime
+  new_end?: string | null;
+  appointment_start?: string; // ISO datetime (legacy)
   appointment_end?: string | null;
   reason?: string | null;
 }
