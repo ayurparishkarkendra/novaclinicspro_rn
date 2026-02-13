@@ -37,20 +37,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
 
     // If roles are required, check if user has appropriate role
+    // Note: We no longer redirect here - we show access denied in the render
     if (allowedRoles && allowedRoles.length > 0 && currentUser) {
       const userRoles = currentUser.roles || [];
       const userRole = (currentUser as any).role;
       const allUserRoles = [...userRoles, userRole].filter(Boolean).map(r => r.toLowerCase());
+      
+      // Also check for isOrgAdmin flag
+      if (currentUser.isOrgAdmin) {
+        allUserRoles.push('super_admin', 'org_admin', 'system_admin');
+      }
       
       const hasRequiredRole = allowedRoles.some(role => 
         allUserRoles.includes(role.toLowerCase())
       );
 
       if (!hasRequiredRole) {
-        console.log('[ProtectedRoute] User lacks required role:', allowedRoles);
-        // Redirect to a default dashboard or access denied
-        router.replace('/');
-        return;
+        console.log('[ProtectedRoute] User lacks required role:', { required: allowedRoles, has: allUserRoles });
+        // Don't redirect - let render show access denied
       }
     }
   }, [isAuthenticated, isLoading, currentUser, allowedRoles, router]);
