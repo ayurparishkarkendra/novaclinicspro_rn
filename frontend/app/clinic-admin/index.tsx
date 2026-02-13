@@ -628,13 +628,13 @@ const styles = StyleSheet.create({
   statsGridWeb: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   statItem: {
     marginBottom: spacing.sm,
   },
   statItemWeb: {
-    width: '48%',
-    marginRight: '2%',
+    width: '49%',
   },
   quickActions: {
     flexDirection: 'row',
