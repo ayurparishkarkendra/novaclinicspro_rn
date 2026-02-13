@@ -935,7 +935,7 @@ export const CreateAppointmentScreen: React.FC = () => {
                 style={[
                   styles.durationButton,
                   durationMinutes === mins && styles.durationButtonSelected,
-                  treatmentHasDuration && mins !== treatmentHasDuration && styles.durationButtonDisabled,
+                  !!(treatmentHasDuration && mins !== treatmentHasDuration) && styles.durationButtonDisabled,
                 ]}
                 onPress={() => !treatmentHasDuration && setDurationMinutes(mins)}
                 disabled={!!treatmentHasDuration && mins !== treatmentHasDuration}
