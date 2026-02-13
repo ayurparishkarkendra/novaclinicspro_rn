@@ -260,6 +260,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  navHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  navButton: {
+    padding: spacing.sm,
+  },
+  navTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
   searchContainer: {
     padding: spacing.md,
     gap: spacing.sm,
