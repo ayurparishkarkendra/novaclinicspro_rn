@@ -5,8 +5,9 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
