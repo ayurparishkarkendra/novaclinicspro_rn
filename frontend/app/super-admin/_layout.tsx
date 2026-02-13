@@ -17,7 +17,7 @@ import { ProtectedRoute } from '../../core/components/ProtectedRoute';
 
 export default function SuperAdminLayout() {
   return (
-    <ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'system_admin']}>
+    <ProtectedRoute>
       <Stack
         screenOptions={{
           headerShown: false,
