@@ -193,7 +193,7 @@ export interface InventoryItemResponse {
   gst_percentage: number | null;
   barcode: string | null;
   sku: string | null;
-  location: string | null;
+  location: InventoryLocation | string | null;  // Can be object or string for backward compatibility
   supplier_id: string | null;
   dosha_properties: DoshaProperties | null;
   hsn_code: string | null;
