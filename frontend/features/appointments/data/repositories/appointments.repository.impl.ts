@@ -12,6 +12,15 @@ import {
   deleteAppointmentApi,
   cancelAppointmentApi,
   rescheduleAppointmentApi,
+  listAppointmentsByDateApi,
+  searchAppointmentsApi,
+  getAvailableSlotsApi,
+  getAvailableTherapistsApi,
+  validateAppointmentApi,
+  generateTherapyPlanApi,
+  bulkCreateAppointmentsApi,
+  updateAppointmentStatusApi,
+  getSeriesAppointmentsApi,
 } from '../datasources/appointments.api';
 import {
   AppointmentCreate,
@@ -21,6 +30,17 @@ import {
   AppointmentRescheduleResponse,
   ListAppointmentsParams,
   PaginatedAppointmentsResponse,
+  AppointmentsListResponse,
+  SearchAppointmentsParams,
+  AvailableSlotsRequest,
+  AvailableSlotsResponse,
+  ValidateAppointmentRequest,
+  ValidationResponse,
+  TherapyPlanRequest,
+  TherapyPlanResponse,
+  BulkCreateRequest,
+  BulkCreateResponse,
+  AvailableTherapist,
 } from '../models/appointments.dtos';
 
 // ============================================
@@ -32,9 +52,19 @@ export const appointmentsKeys = {
   lists: () => [...appointmentsKeys.all, 'list'] as const,
   list: (tenantId: string, params?: ListAppointmentsParams) =>
     [...appointmentsKeys.lists(), tenantId, params] as const,
+  byDate: (tenantId: string, date: string) =>
+    [...appointmentsKeys.lists(), tenantId, 'date', date] as const,
+  search: (tenantId: string, params: SearchAppointmentsParams) =>
+    [...appointmentsKeys.lists(), tenantId, 'search', params] as const,
   details: () => [...appointmentsKeys.all, 'detail'] as const,
   detail: (tenantId: string, appointmentId: string) =>
     [...appointmentsKeys.details(), tenantId, appointmentId] as const,
+  series: (seriesId: string) =>
+    [...appointmentsKeys.all, 'series', seriesId] as const,
+  availableSlots: (params: AvailableSlotsRequest) =>
+    [...appointmentsKeys.all, 'slots', params] as const,
+  availableTherapists: (tenantId: string, params: Record<string, string>) =>
+    [...appointmentsKeys.all, 'therapists', tenantId, params] as const,
 };
 
 // ============================================
@@ -58,6 +88,40 @@ export const useAppointmentsListQuery = (
 };
 
 /**
+ * Hook to list appointments by date with summary
+ */
+export const useAppointmentsByDateQuery = (
+  tenantId: string,
+  date: string,
+  options?: Omit<UseQueryOptions<AppointmentsListResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<AppointmentsListResponse, Error>({
+    queryKey: appointmentsKeys.byDate(tenantId, date),
+    queryFn: () => listAppointmentsByDateApi(tenantId, date),
+    enabled: !!tenantId && !!date,
+    staleTime: 30000, // 30 seconds
+    ...options,
+  });
+};
+
+/**
+ * Hook to search appointments
+ */
+export const useSearchAppointmentsQuery = (
+  tenantId: string,
+  params: SearchAppointmentsParams,
+  options?: Omit<UseQueryOptions<AppointmentsListResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<AppointmentsListResponse, Error>({
+    queryKey: appointmentsKeys.search(tenantId, params),
+    queryFn: () => searchAppointmentsApi(tenantId, params),
+    enabled: !!tenantId && params.q.length >= 3,
+    staleTime: 30000,
+    ...options,
+  });
+};
+
+/**
  * Hook to get a single appointment
  */
 export const useAppointmentDetailQuery = (
@@ -69,6 +133,60 @@ export const useAppointmentDetailQuery = (
     queryKey: appointmentsKeys.detail(tenantId, appointmentId),
     queryFn: () => getAppointmentApi(tenantId, appointmentId),
     enabled: !!tenantId && !!appointmentId,
+    ...options,
+  });
+};
+
+/**
+ * Hook to get available slots
+ */
+export const useAvailableSlotsQuery = (
+  params: AvailableSlotsRequest,
+  options?: Omit<UseQueryOptions<AvailableSlotsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<AvailableSlotsResponse, Error>({
+    queryKey: appointmentsKeys.availableSlots(params),
+    queryFn: () => getAvailableSlotsApi(params),
+    enabled: !!params.start_date && !!params.end_date,
+    staleTime: 60000, // 1 minute
+    ...options,
+  });
+};
+
+/**
+ * Hook to get available therapists for multi-slot
+ */
+export const useAvailableTherapistsQuery = (
+  tenantId: string,
+  params: {
+    start_date: string;
+    end_date: string;
+    preferred_time?: string;
+    treatment_id?: string;
+    client_gender?: string;
+  },
+  options?: Omit<UseQueryOptions<{ available_staff: AvailableTherapist[] }, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<{ available_staff: AvailableTherapist[] }, Error>({
+    queryKey: appointmentsKeys.availableTherapists(tenantId, params as Record<string, string>),
+    queryFn: () => getAvailableTherapistsApi(tenantId, params),
+    enabled: !!tenantId && !!params.start_date && !!params.end_date,
+    staleTime: 60000,
+    ...options,
+  });
+};
+
+/**
+ * Hook to get series appointments
+ */
+export const useSeriesAppointmentsQuery = (
+  seriesId: string,
+  options?: Omit<UseQueryOptions<{ series_id: string; appointments: AppointmentResponse[]; total_appointments: number }, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery({
+    queryKey: appointmentsKeys.series(seriesId),
+    queryFn: () => getSeriesAppointmentsApi(seriesId),
+    enabled: !!seriesId,
     ...options,
   });
 };
@@ -145,6 +263,53 @@ export const useRescheduleAppointmentMutation = (tenantId: string, appointmentId
     mutationFn: (payload) => rescheduleAppointmentApi(tenantId, appointmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.detail(tenantId, appointmentId) });
+      queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
+    },
+  });
+};
+
+/**
+ * Hook to validate appointment
+ */
+export const useValidateAppointmentMutation = () => {
+  return useMutation<ValidationResponse, Error, ValidateAppointmentRequest>({
+    mutationFn: (payload) => validateAppointmentApi(payload),
+  });
+};
+
+/**
+ * Hook to generate therapy plan (preview)
+ */
+export const useGenerateTherapyPlanMutation = () => {
+  return useMutation<TherapyPlanResponse, Error, TherapyPlanRequest>({
+    mutationFn: (payload) => generateTherapyPlanApi(payload),
+  });
+};
+
+/**
+ * Hook to bulk create appointments
+ */
+export const useBulkCreateAppointmentsMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<BulkCreateResponse, Error, BulkCreateRequest>({
+    mutationFn: (payload) => bulkCreateAppointmentsApi(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
+    },
+  });
+};
+
+/**
+ * Hook to update appointment status (with series shift support)
+ */
+export const useUpdateAppointmentStatusMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ appointmentId, status, notes }: { appointmentId: string; status: string; notes?: string }) =>
+      updateAppointmentStatusApi(appointmentId, { status, notes }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });

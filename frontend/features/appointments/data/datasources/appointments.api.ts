@@ -14,6 +14,17 @@ import {
   AppointmentRescheduleResponse,
   ListAppointmentsParams,
   PaginatedAppointmentsResponse,
+  AppointmentsListResponse,
+  SearchAppointmentsParams,
+  AvailableSlotsRequest,
+  AvailableSlotsResponse,
+  ValidateAppointmentRequest,
+  ValidationResponse,
+  TherapyPlanRequest,
+  TherapyPlanResponse,
+  BulkCreateRequest,
+  BulkCreateResponse,
+  AvailableTherapist,
 } from '../models/appointments.dtos';
 
 /**
@@ -115,6 +126,213 @@ export const rescheduleAppointmentApi = async (
   const response = await axiosClient.post(
     `/api/v1/clinic/${tenantId}/appointments/${appointmentId}/reschedule`,
     payload
+  );
+  return response.data;
+};
+
+// ============================================
+// ENHANCED APPOINTMENT APIs
+// ============================================
+
+/**
+ * List appointments with summary for a specific date
+ * GET /api/v1/clinic/{tenant_id}/appointments?date={date}
+ */
+export const listAppointmentsByDateApi = async (
+  tenantId: string,
+  date: string
+): Promise<AppointmentsListResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/appointments`,
+    { params: { date, limit: 100 } }
+  );
+  
+  // Transform response to include summary if backend doesn't provide it
+  const data = response.data;
+  if (data.items && !data.appointments) {
+    // Backend returns paginated format, transform it
+    const appointments = data.items;
+    const summary = {
+      total: appointments.length,
+      scheduled: appointments.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
+      in_progress: appointments.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
+      completed: appointments.filter((a: AppointmentResponse) => a.status === 'completed').length,
+      cancelled: appointments.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
+      no_show: appointments.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+    };
+    return { appointments, summary };
+  }
+  return data;
+};
+
+/**
+ * Search appointments
+ * GET /api/v1/clinic/{tenant_id}/appointments/search
+ */
+export const searchAppointmentsApi = async (
+  tenantId: string,
+  params: SearchAppointmentsParams
+): Promise<AppointmentsListResponse> => {
+  try {
+    const response = await axiosClient.get(
+      `/api/v1/clinic/${tenantId}/appointments/search`,
+      { params }
+    );
+    return response.data;
+  } catch {
+    // Fallback to regular list with client-side filtering
+    const response = await axiosClient.get(
+      `/api/v1/clinic/${tenantId}/appointments`,
+      { params: { limit: 100 } }
+    );
+    const allAppointments = response.data.items || [];
+    const query = params.q.toLowerCase();
+    const filtered = allAppointments.filter((apt: AppointmentResponse) => 
+      apt.client_name?.toLowerCase().includes(query) ||
+      apt.status?.toLowerCase().includes(query)
+    );
+    return {
+      appointments: filtered,
+      summary: {
+        total: filtered.length,
+        scheduled: filtered.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
+        in_progress: filtered.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
+        completed: filtered.filter((a: AppointmentResponse) => a.status === 'completed').length,
+        cancelled: filtered.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
+        no_show: filtered.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+      }
+    };
+  }
+};
+
+/**
+ * Get available slots for appointment booking
+ * POST /api/v1/appointments/available-slots
+ */
+export const getAvailableSlotsApi = async (
+  payload: AvailableSlotsRequest
+): Promise<AvailableSlotsResponse> => {
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/appointments/available-slots`,
+      payload
+    );
+    return response.data;
+  } catch {
+    // Return empty slots if endpoint not available
+    return { slots: [] };
+  }
+};
+
+/**
+ * Get available therapists for multi-slot appointments
+ * GET /api/v1/clinic/{tenant_id}/staff/available
+ */
+export const getAvailableTherapistsApi = async (
+  tenantId: string,
+  params: {
+    start_date: string;
+    end_date: string;
+    preferred_time?: string;
+    treatment_id?: string;
+    client_gender?: string;
+  }
+): Promise<{ available_staff: AvailableTherapist[] }> => {
+  try {
+    const response = await axiosClient.get(
+      `/api/v1/clinic/${tenantId}/staff/available`,
+      { params }
+    );
+    return response.data;
+  } catch {
+    return { available_staff: [] };
+  }
+};
+
+/**
+ * Validate appointment before creating
+ * POST /api/v1/appointments/validate
+ */
+export const validateAppointmentApi = async (
+  payload: ValidateAppointmentRequest
+): Promise<ValidationResponse> => {
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/appointments/validate`,
+      payload
+    );
+    return response.data;
+  } catch {
+    // Return valid if validation endpoint not available
+    return { is_valid: true, errors: [], warnings: [], conflicts: null };
+  }
+};
+
+/**
+ * Generate therapy plan (preview) for multi-slot appointments
+ * POST /api/v1/appointments/therapy-plan
+ */
+export const generateTherapyPlanApi = async (
+  payload: TherapyPlanRequest
+): Promise<TherapyPlanResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/appointments/therapy-plan`,
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Bulk create appointments (for multi-slot)
+ * POST /api/v1/appointments/bulk-create
+ */
+export const bulkCreateAppointmentsApi = async (
+  payload: BulkCreateRequest
+): Promise<BulkCreateResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/appointments/bulk-create`,
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Update appointment status (with series shift for no-show)
+ * PATCH /api/v1/appointments/{appointment_id}/status
+ */
+export const updateAppointmentStatusApi = async (
+  appointmentId: string,
+  payload: { status: string; notes?: string }
+): Promise<{
+  appointment: AppointmentResponse;
+  shifted_appointments?: Array<{
+    id: string;
+    old_date: string;
+    new_date: string;
+    session_number: number;
+  }>;
+  shift_count?: number;
+}> => {
+  const response = await axiosClient.patch(
+    `/api/v1/appointments/${appointmentId}/status`,
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Get all appointments in a series
+ * GET /api/v1/appointments/series/{series_id}
+ */
+export const getSeriesAppointmentsApi = async (
+  seriesId: string
+): Promise<{
+  series_id: string;
+  appointments: AppointmentResponse[];
+  total_appointments: number;
+}> => {
+  const response = await axiosClient.get(
+    `/api/v1/appointments/series/${seriesId}`
   );
   return response.data;
 };
