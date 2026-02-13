@@ -30,6 +30,7 @@ import {
   useStaffListQuery,
   useCreateStaffMutation,
   useDeleteStaffMutation,
+  useSearchStaffQuery,
 } from '../../data/repositories/staff.repository.impl';
 import {
   StaffResponse,
