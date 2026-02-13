@@ -29,6 +29,7 @@ import {
 import {
   AppointmentResponse,
   AppointmentCreate,
+  AppointmentUpdate,
   APPOINTMENT_STATUSES,
   getStatusLabel,
   getStatusColor,
