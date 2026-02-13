@@ -86,3 +86,27 @@ export const deleteTreatmentApi = async (
     `/api/v1/clinic/${tenantId}/treatments/${treatmentId}`
   );
 };
+
+// ============================================
+// SEARCH
+// ============================================
+
+/**
+ * Search treatments by name
+ * GET /api/v1/clinic/{tenant_id}/treatments/search
+ * 
+ * @param tenantId - Clinic tenant ID
+ * @param query - Search query (treatment name)
+ * @param limit - Optional limit for results
+ */
+export const searchTreatmentsApi = async (
+  tenantId: string,
+  query: string,
+  limit?: number
+): Promise<PaginatedTreatmentsResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatments/search`,
+    { params: { query, limit } }
+  );
+  return response.data;
+};
