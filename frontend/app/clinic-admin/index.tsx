@@ -115,34 +115,32 @@ export default function ClinicAdminDashboard() {
         {/* Clinic Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
+          <View style={[styles.statsGrid, isMobile ? styles.statsGridMobile : styles.statsGridWeb]}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Total Appointments"
-                value="42"
+                value="0"
                 icon="calendar"
                 color={colors.primary.main}
-                trend={{ value: '+8 vs yesterday', isPositive: true }}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Active Staff"
-                value="28"
+                value="0"
                 icon="people"
                 color={colors.success.main}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Daily Revenue"
-                value="$3,240"
+                value={formatInrCurrency(0)}
                 icon="cash"
                 color={colors.warning.main}
-                trend={{ value: '+15% vs avg', isPositive: true }}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Inventory Alerts"
                 value={alertsLoading ? '...' : totalAlertCount.toString()}
