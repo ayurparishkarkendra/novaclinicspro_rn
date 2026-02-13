@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://healthdash-fix-2.preview.emergentagent.com/theme-demo
+https://clinic-dash-7.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
