@@ -78,40 +78,64 @@ export const StaffListScreen: React.FC = () => {
     ? debouncedSearchQuery 
     : '';
 
-  // Build query params based on filters
+  // Build query params based on filters (for list API when not searching)
   const queryParams = useMemo(() => ({
     staff_type: selectedType === 'all' ? undefined : selectedType,
     is_active: selectedStatus === 'all' ? undefined : selectedStatus === 'active',
-    search: effectiveSearchQuery || undefined,
     limit: 100, // Load more to enable client-side filtering
-  }), [selectedType, selectedStatus, effectiveSearchQuery]);
+  }), [selectedType, selectedStatus]);
 
-  // Queries
-  const {
-    data: staffData,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useStaffListQuery(tenantId, queryParams);
+  // Use list API when not searching
+  const listQuery = useStaffListQuery(
+    tenantId, 
+    queryParams,
+    { enabled: !!tenantId && effectiveSearchQuery === '' }
+  );
+  
+  // Use search API when searching (>= 3 chars)
+  const searchResultsQuery = useSearchStaffQuery(
+    tenantId,
+    effectiveSearchQuery,
+    100,
+    { enabled: !!tenantId && effectiveSearchQuery.length >= MIN_SEARCH_LENGTH }
+  );
 
-  // Client-side filtering for partial search (< 3 chars)
+  // Combine data sources
+  const staffData = effectiveSearchQuery ? searchResultsQuery.data : listQuery.data;
+  const isLoading = effectiveSearchQuery ? searchResultsQuery.isLoading : listQuery.isLoading;
+  const isError = effectiveSearchQuery ? searchResultsQuery.isError : listQuery.isError;
+  const error = effectiveSearchQuery ? searchResultsQuery.error : listQuery.error;
+  const isRefetching = effectiveSearchQuery ? searchResultsQuery.isRefetching : listQuery.isRefetching;
+  const refetch = effectiveSearchQuery ? searchResultsQuery.refetch : listQuery.refetch;
+
+  // Client-side filtering for partial search (< 3 chars) and type/status filters
   const filteredStaff = useMemo(() => {
-    const staff = staffData?.items || [];
+    let staff = staffData?.items || [];
     
     // If search query is 1-2 characters, filter client-side
     if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
       const lowerQuery = searchQuery.toLowerCase();
-      return staff.filter(s => 
+      staff = staff.filter(s => 
         s.full_name.toLowerCase().includes(lowerQuery) ||
-        s.email.toLowerCase().includes(lowerQuery) ||
+        s.email?.toLowerCase().includes(lowerQuery) ||
         (s.phone && s.phone.includes(searchQuery))
       );
     }
     
+    // Apply type filter (when using search API, filters aren't applied server-side)
+    if (effectiveSearchQuery && selectedType !== 'all') {
+      staff = staff.filter(s => s.staff_type === selectedType);
+    }
+    
+    // Apply status filter (when using search API)
+    if (effectiveSearchQuery && selectedStatus !== 'all') {
+      staff = staff.filter(s => 
+        selectedStatus === 'active' ? s.is_active : !s.is_active
+      );
+    }
+    
     return staff;
-  }, [staffData?.items, searchQuery]);
+  }, [staffData?.items, searchQuery, selectedType, selectedStatus, effectiveSearchQuery]);
 
   // Mutations
   const createMutation = useCreateStaffMutation(tenantId);
