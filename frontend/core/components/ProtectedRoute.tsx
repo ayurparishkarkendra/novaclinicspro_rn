@@ -85,6 +85,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const userRole = (currentUser as any).role;
     const allUserRoles = [...userRoles, userRole].filter(Boolean).map(r => r.toLowerCase());
     
+    // Also check for isOrgAdmin flag
+    if (currentUser.isOrgAdmin) {
+      allUserRoles.push('super_admin', 'org_admin', 'system_admin');
+    }
+    
     const hasRequiredRole = allowedRoles.some(role => 
       allUserRoles.includes(role.toLowerCase())
     );
@@ -92,8 +97,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!hasRequiredRole) {
       return (
         <View style={styles.container}>
+          <Ionicons name="lock-closed" size={64} color={colors.error.main} />
           <Text style={styles.errorText}>Access Denied</Text>
           <Text style={styles.text}>You don't have permission to access this page.</Text>
+          <Text style={styles.roleInfo}>Your roles: {userRoles.length > 0 ? userRoles.join(', ') : 'None assigned'}</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={20} color={colors.primary.main} />
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       );
     }
