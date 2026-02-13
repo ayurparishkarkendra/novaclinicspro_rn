@@ -52,6 +52,8 @@ export const inventoryKeys = {
   details: () => [...inventoryKeys.all, 'detail'] as const,
   detail: (tenantId: string, itemId: string) =>
     [...inventoryKeys.details(), tenantId, itemId] as const,
+  search: (tenantId: string, query: string) =>
+    [...inventoryKeys.all, 'search', tenantId, query] as const,
   // Movements
   movements: () => [...inventoryKeys.all, 'movements'] as const,
   movementsList: (tenantId: string, itemId: string, params?: ListMovementsParams) =>
