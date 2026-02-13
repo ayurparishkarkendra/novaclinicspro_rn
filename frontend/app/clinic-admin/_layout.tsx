@@ -10,7 +10,7 @@ import { ProtectedRoute } from '../../core/components/ProtectedRoute';
 
 export default function ClinicAdminLayout() {
   return (
-    <ProtectedRoute allowedRoles={['clinic_admin', 'admin', 'owner', 'tenant_admin']}>
+    <ProtectedRoute>
       <Stack
         screenOptions={{
           headerShown: false,
