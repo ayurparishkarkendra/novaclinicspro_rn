@@ -480,3 +480,54 @@ export const getDoshaLabels = (dosha: DoshaProperties | null): string[] => {
   if (dosha.kapha) labels.push('Kapha');
   return labels;
 };
+
+/** Format inventory location for display */
+export const formatLocation = (location: InventoryLocation | string | null): string => {
+  if (!location) return '—';
+  
+  // If it's already a string (legacy format), return as is
+  if (typeof location === 'string') return location;
+  
+  // If it's an object, format it nicely
+  const parts: string[] = [];
+  if (location.zone) parts.push(`Zone ${location.zone}`);
+  if (location.shelf) parts.push(`Shelf ${location.shelf}`);
+  if (location.rack) parts.push(`Rack ${location.rack}`);
+  if (location.bin) parts.push(`Bin ${location.bin}`);
+  if (location.notes) parts.push(location.notes);
+  
+  return parts.length > 0 ? parts.join(', ') : '—';
+};
+
+/** Parse string location to InventoryLocation object */
+export const parseLocationString = (locationStr: string | null): InventoryLocation | null => {
+  if (!locationStr || locationStr.trim() === '') return null;
+  
+  // If the string contains common location identifiers, try to parse them
+  const location: InventoryLocation = {};
+  
+  // Try to extract structured data from common patterns like "Shelf A, Rack 2"
+  const shelfMatch = locationStr.match(/shelf\s*([a-z0-9]+)/i);
+  const rackMatch = locationStr.match(/rack\s*([a-z0-9]+)/i);
+  const binMatch = locationStr.match(/bin\s*([a-z0-9]+)/i);
+  const zoneMatch = locationStr.match(/zone\s*([a-z0-9]+)/i);
+  
+  if (shelfMatch) location.shelf = shelfMatch[1];
+  if (rackMatch) location.rack = rackMatch[1];
+  if (binMatch) location.bin = binMatch[1];
+  if (zoneMatch) location.zone = zoneMatch[1];
+  
+  // If no structured data found, store the whole string as notes
+  if (!shelfMatch && !rackMatch && !binMatch && !zoneMatch) {
+    location.notes = locationStr.trim();
+  }
+  
+  return location;
+};
+
+/** Check if location object has any values */
+export const isLocationEmpty = (location: InventoryLocation | null): boolean => {
+  if (!location) return true;
+  return !location.shelf && !location.rack && !location.bin && !location.zone && !location.notes;
+};
+
