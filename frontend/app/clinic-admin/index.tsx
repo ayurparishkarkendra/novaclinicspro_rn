@@ -512,7 +512,7 @@ export default function ClinicAdminDashboard() {
                 ]}>
                   {billingLoading 
                     ? '...' 
-                    : formatCurrency(billingSummary?.outstandingBalance || 0)
+                    : formatInrCurrency(billingSummary?.outstandingBalance || 0)
                   }
                 </Text>
               </View>
