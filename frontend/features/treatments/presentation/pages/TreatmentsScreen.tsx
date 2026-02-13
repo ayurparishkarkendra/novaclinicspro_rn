@@ -261,7 +261,7 @@ export const TreatmentsScreen: React.FC = () => {
           <Ionicons name="search" size={20} color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search treatments..."
+            placeholder={`Search treatments... (min ${MIN_SEARCH_LENGTH} chars)`}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
