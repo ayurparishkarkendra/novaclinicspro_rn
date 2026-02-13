@@ -1,7 +1,10 @@
 /**
  * Protected Route Component
- * Wraps routes that require authentication and optionally specific roles
+ * Wraps routes that require authentication and optionally specific permissions
  * Redirects to login if not authenticated
+ * 
+ * Permission-based access control (not role-based)
+ * The backend uses permissions to control access, roles are dynamic
  */
 
 import React, { useEffect } from 'react';
@@ -15,13 +18,23 @@ import { spacing } from '../theme/spacing';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  /** Required roles to access this route (optional - if not provided, just checks authentication) */
-  allowedRoles?: string[];
+  /** 
+   * Required permissions to access this route (optional)
+   * If not provided, just checks authentication
+   * User needs ANY ONE of the listed permissions to access
+   */
+  requiredPermissions?: string[];
+  /**
+   * If true, user needs ALL listed permissions (AND logic)
+   * If false (default), user needs ANY ONE permission (OR logic)
+   */
+  requireAll?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
-  allowedRoles,
+  requiredPermissions,
+  requireAll = false,
 }) => {
   const router = useRouter();
   const segments = useSegments();
@@ -36,29 +49,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       router.replace('/login');
       return;
     }
-
-    // If roles are required, check if user has appropriate role
-    // Note: We no longer redirect here - we show access denied in the render
-    if (allowedRoles && allowedRoles.length > 0 && currentUser) {
-      const userRoles = currentUser.roles || [];
-      const userRole = (currentUser as any).role;
-      const allUserRoles = [...userRoles, userRole].filter(Boolean).map(r => r.toLowerCase());
-      
-      // Also check for isOrgAdmin flag
-      if (currentUser.isOrgAdmin) {
-        allUserRoles.push('super_admin', 'org_admin', 'system_admin');
-      }
-      
-      const hasRequiredRole = allowedRoles.some(role => 
-        allUserRoles.includes(role.toLowerCase())
-      );
-
-      if (!hasRequiredRole) {
-        console.log('[ProtectedRoute] User lacks required role:', { required: allowedRoles, has: allUserRoles });
-        // Don't redirect - let render show access denied
-      }
-    }
-  }, [isAuthenticated, isLoading, currentUser, allowedRoles, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Show loading while checking auth
   if (isLoading) {
@@ -80,28 +71,49 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check role access
-  if (allowedRoles && allowedRoles.length > 0 && currentUser) {
-    const userRoles = currentUser.roles || [];
-    const userRole = (currentUser as any).role;
-    const allUserRoles = [...userRoles, userRole].filter(Boolean).map(r => r.toLowerCase());
+  // Check permission access
+  if (requiredPermissions && requiredPermissions.length > 0 && currentUser) {
+    const userPermissions = currentUser.permissions || [];
     
-    // Also check for isOrgAdmin flag
+    // isOrgAdmin bypasses all permission checks (super admin access)
     if (currentUser.isOrgAdmin) {
-      allUserRoles.push('super_admin', 'org_admin', 'system_admin');
+      console.log('[ProtectedRoute] User is org admin, granting access');
+      return <>{children}</>;
     }
     
-    const hasRequiredRole = allowedRoles.some(role => 
-      allUserRoles.includes(role.toLowerCase())
-    );
+    let hasAccess = false;
+    
+    if (requireAll) {
+      // User needs ALL permissions
+      hasAccess = requiredPermissions.every(perm => 
+        userPermissions.some(userPerm => 
+          userPerm.toLowerCase() === perm.toLowerCase()
+        )
+      );
+    } else {
+      // User needs ANY ONE permission (OR logic)
+      hasAccess = requiredPermissions.some(perm => 
+        userPermissions.some(userPerm => 
+          userPerm.toLowerCase() === perm.toLowerCase()
+        )
+      );
+    }
 
-    if (!hasRequiredRole) {
+    if (!hasAccess) {
+      console.log('[ProtectedRoute] User lacks required permissions:', { 
+        required: requiredPermissions, 
+        has: userPermissions,
+        requireAll 
+      });
+      
       return (
         <View style={styles.container}>
           <Ionicons name="lock-closed" size={64} color={colors.error.main} />
           <Text style={styles.errorText}>Access Denied</Text>
           <Text style={styles.text}>You don't have permission to access this page.</Text>
-          <Text style={styles.roleInfo}>Your roles: {userRoles.length > 0 ? userRoles.join(', ') : 'None assigned'}</Text>
+          <Text style={styles.permissionInfo}>
+            Required: {requiredPermissions.join(requireAll ? ' AND ' : ' OR ')}
+          </Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color={colors.primary.main} />
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -126,6 +138,7 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: colors.text.secondary,
     marginTop: spacing.md,
+    textAlign: 'center',
   },
   errorText: {
     ...typography.h4,
@@ -133,11 +146,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
-  roleInfo: {
+  permissionInfo: {
     ...typography.body2,
     color: colors.text.disabled,
     marginTop: spacing.sm,
     marginBottom: spacing.lg,
+    textAlign: 'center',
   },
   backButton: {
     flexDirection: 'row',
