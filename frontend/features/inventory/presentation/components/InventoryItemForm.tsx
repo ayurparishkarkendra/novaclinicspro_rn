@@ -33,7 +33,7 @@ import {
 
 interface InventoryItemFormProps {
   initialData?: InventoryItemResponse;
-  onSubmit: (data: InventoryCreateRequest | InventoryUpdateRequest) => void;
+  onSubmit: (data: InventoryCreateRequest | InventoryUpdateRequest) => void | Promise<void>;
   isLoading?: boolean;
   isEdit?: boolean;
 }
