@@ -14,7 +14,7 @@ import { useAuth } from '../../../auth/presentation/hooks/useAuth';
  */
 export function useNotificationBadgeCount(): number {
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
   
   const unreadCount = useUnreadNotificationCount(tenantId);
   

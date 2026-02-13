@@ -28,7 +28,7 @@ import { typography } from '../../../../core/theme/typography';
 export function TenantSettingsScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   const { data: globalSettings, isLoading: globalLoading } = useGlobalSettingsQuery();
   const { data: tenantSettings, isLoading: tenantLoading } = useTenantSettingsQuery(tenantId);

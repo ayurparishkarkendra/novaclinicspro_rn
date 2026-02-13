@@ -31,7 +31,7 @@ export function NotificationDetailScreen() {
   const router = useRouter();
   const { notificationId } = useLocalSearchParams<{ notificationId: string }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   const { data: notification, isLoading } = useNotificationDetailQuery(
     tenantId,

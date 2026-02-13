@@ -37,7 +37,7 @@ const STATUS_FILTERS = [
 export const TenantInvoicesListScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Filter state
   const [selectedStatus, setSelectedStatus] = useState<string>('all');

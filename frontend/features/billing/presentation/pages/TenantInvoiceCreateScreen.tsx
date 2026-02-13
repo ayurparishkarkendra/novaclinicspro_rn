@@ -28,7 +28,7 @@ import { InvoiceCreateRequest } from '../../data/models/billing.dtos';
 export const TenantInvoiceCreateScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // For simplicity, we'll use a placeholder client ID
   // In a real app, you'd have a client selector component

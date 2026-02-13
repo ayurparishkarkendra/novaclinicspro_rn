@@ -38,7 +38,7 @@ const ALERT_TYPES: { value: AlertType | 'all'; label: string; icon: keyof typeof
 export const InventoryAlertsScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Filter state
   const [selectedType, setSelectedType] = useState<AlertType | 'all'>('all');

@@ -29,7 +29,7 @@ import { typography } from '../../../../core/theme/typography';
 export function TenantLocaleSettingsScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   const { data: localesData, isLoading: localesLoading } = useSupportedLocalesQuery();
   const { data: tenantLocale, isLoading: tenantLocaleLoading } = useTenantDefaultLocaleQuery(tenantId);

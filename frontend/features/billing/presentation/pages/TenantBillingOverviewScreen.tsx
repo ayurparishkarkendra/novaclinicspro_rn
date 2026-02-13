@@ -27,7 +27,7 @@ import { formatCurrency } from '../../data/models/billing.dtos';
 export const TenantBillingOverviewScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Fetch subscription summary
   const {

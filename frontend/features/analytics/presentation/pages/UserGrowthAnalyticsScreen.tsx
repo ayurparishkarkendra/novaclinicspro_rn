@@ -28,7 +28,7 @@ import { TimeRangeSelector, TIME_RANGE_DAYS } from '../components/TimeRangeSelec
 export const UserGrowthAnalyticsScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
   
   const [timeRange, setTimeRange] = useState(30);
 
