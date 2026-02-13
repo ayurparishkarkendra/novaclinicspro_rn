@@ -57,26 +57,16 @@ export const StaffDetailScreen: React.FC = () => {
     if (!currentUser || !staffId) return false;
     // Check if the current user's staff ID matches this staff member
     // Note: currentUser.staffId would need to be available from auth context
-    return currentUser.id === staffId || currentUser.staffId === staffId;
+    return currentUser.id === staffId || (currentUser as any).staffId === staffId;
   }, [currentUser, staffId]);
 
   // Check if current user is Clinic Admin (can deactivate)
   const isClinicAdmin = useMemo(() => {
     if (!currentUser) return false;
-    return currentUser.roles?.some(role => 
+    return (currentUser as any).roles?.some((role: string) => 
       role.toLowerCase().includes('admin') || role.toLowerCase().includes('clinic_admin')
-    ) || currentUser.role === 'clinic_admin';
+    ) || (currentUser as any).role === 'clinic_admin';
   }, [currentUser]);
-
-export const StaffDetailScreen: React.FC = () => {
-  const router = useRouter();
-  const { staffId } = useLocalSearchParams<{ staffId: string }>();
-  const { currentUser } = useAuth();
-  const tenantId = currentUser?.tenantId || '';
-
-  // State
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   // Queries
   const {
