@@ -43,6 +43,8 @@ export const staffKeys = {
   details: () => [...staffKeys.all, 'detail'] as const,
   detail: (tenantId: string, staffId: string) =>
     [...staffKeys.details(), tenantId, staffId] as const,
+  search: (tenantId: string, query: string) =>
+    [...staffKeys.all, 'search', tenantId, query] as const,
   // Leave keys
   leaves: () => [...staffKeys.all, 'leaves'] as const,
   leaveList: (tenantId: string, staffId: string, params?: ListStaffLeaveParams) =>
