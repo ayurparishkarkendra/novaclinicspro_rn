@@ -14,6 +14,17 @@ import {
   AppointmentRescheduleResponse,
   ListAppointmentsParams,
   PaginatedAppointmentsResponse,
+  AppointmentsListResponse,
+  SearchAppointmentsParams,
+  AvailableSlotsRequest,
+  AvailableSlotsResponse,
+  ValidateAppointmentRequest,
+  ValidationResponse,
+  TherapyPlanRequest,
+  TherapyPlanResponse,
+  BulkCreateRequest,
+  BulkCreateResponse,
+  AvailableTherapist,
 } from '../models/appointments.dtos';
 
 /**
