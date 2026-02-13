@@ -254,7 +254,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { data: searchedClients, isLoading: isSearchingClients } = useSearchClientsQuery(
     tenantId,
     debouncedClientSearch,
-    { enabled: debouncedClientSearch.length >= 3 }
+    100 // limit
   );
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
   const { data: staffData, isLoading: isLoadingStaff } = useStaffListQuery(tenantId, { limit: 100 });
