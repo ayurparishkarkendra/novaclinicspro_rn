@@ -42,11 +42,25 @@ export interface StaffCreate {
   date_of_birth?: string | null; // ISO date
   staff_code?: string | null;
   designation?: string | null;
+  // Professional details
   specialization?: string | null;
   qualifications?: string | null;
-  address?: string | null;
-  emergency_contact?: string | null;
-  joining_date?: string | null; // ISO date
+  experience_years?: number | null;
+  consultation_fee?: number | null;
+  hourly_rate?: number | null;
+  // Address fields (detailed)
+  address_line?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pin?: string | null;
+  // Emergency contact (detailed)
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relation?: string | null;
+  // Employment dates
+  employment_start_date?: string | null; // ISO date
+  employment_end_date?: string | null; // ISO date
   metadata?: Record<string, any> | null;
 }
 
@@ -60,11 +74,25 @@ export interface StaffUpdate {
   staff_type?: StaffType | null;
   staff_code?: string | null;
   designation?: string | null;
+  // Professional details
   specialization?: string | null;
   qualifications?: string | null;
-  address?: string | null;
-  emergency_contact?: string | null;
-  joining_date?: string | null;
+  experience_years?: number | null;
+  consultation_fee?: number | null;
+  hourly_rate?: number | null;
+  // Address fields (detailed)
+  address_line?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pin?: string | null;
+  // Emergency contact (detailed)
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relation?: string | null;
+  // Employment dates
+  employment_start_date?: string | null;
+  employment_end_date?: string | null;
   is_active?: boolean | null;
   metadata?: Record<string, any> | null;
 }
