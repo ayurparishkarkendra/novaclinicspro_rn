@@ -107,7 +107,7 @@ export const useAuth = (): UseAuthReturn => {
     
     if (user.isOrgAdmin || user.roles.includes('super_admin') || user.roles.includes('org_admin') || user.roles.includes('system_admin')) {
       router.replace('/super-admin');
-    } else if (user.roles.includes('clinic_admin') || user.roles.includes('admin') || user.roles.includes('owner')) {
+    } else if (user.roles.includes('clinic_admin') || user.roles.includes('admin') || user.roles.includes('owner') || user.roles.includes('tenant_admin')) {
       router.replace('/clinic-admin');
     } else if (user.roles.includes('doctor')) {
       router.replace('/doctor');
