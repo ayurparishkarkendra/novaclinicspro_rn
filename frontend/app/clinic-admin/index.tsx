@@ -13,6 +13,8 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,8 +28,9 @@ import { typography } from '../../core/theme/typography';
 import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
 import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../features/inventory/data/repositories/inventory.repository.impl';
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
-import { formatCurrency } from '../../features/billing/data/models/billing.dtos';
 import { useNotificationBadgeCount } from '../../features/notifications/presentation/hooks/useNotificationBadgeCount';
+import { formatInrCurrency } from '../../core/utils/currency';
+import { t, ErrorTokens } from '../../core/localization';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
