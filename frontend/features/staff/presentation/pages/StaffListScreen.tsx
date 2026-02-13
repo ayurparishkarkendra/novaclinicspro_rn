@@ -307,11 +307,11 @@ export const StaffListScreen: React.FC = () => {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Loading staff...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
         <FlatList
-          data={staffData?.items || []}
+          data={filteredStaff}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmptyList}
           renderItem={({ item }) => (
