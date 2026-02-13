@@ -106,7 +106,7 @@ export const searchClientsApi = async (
 ): Promise<PaginatedClientsResponse> => {
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/clients/search`,
-    { params: { query, limit } }
+    { params: { q: query, limit } }  // FIX: Use 'q' instead of 'query' as per backend API
   );
   return response.data;
 };

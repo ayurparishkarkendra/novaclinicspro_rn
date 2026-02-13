@@ -90,6 +90,8 @@ export const InventoryListScreen: React.FC = () => {
   const isLoading = effectiveSearchQuery ? searchQuery_.isLoading : listQuery.isLoading;
   const isRefetching = effectiveSearchQuery ? searchQuery_.isRefetching : listQuery.isRefetching;
   const refetch = effectiveSearchQuery ? searchQuery_.refetch : listQuery.refetch;
+  const isError = effectiveSearchQuery ? searchQuery_.isError : listQuery.isError;
+  const error = effectiveSearchQuery ? searchQuery_.error : listQuery.error;
 
   // Client-side filtering for partial search (< 3 chars) and low stock
   const displayedItems = useMemo(() => {

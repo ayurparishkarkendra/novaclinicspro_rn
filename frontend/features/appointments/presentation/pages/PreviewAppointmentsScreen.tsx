@@ -1,6 +1,9 @@
 /**
  * Multi-Day Appointment Preview Screen
  * Shows therapy plan with conflict indicators and inline alternatives
+ * 
+ * FIXES APPLIED:
+ * 9. Preview data binding - proper client name, phone, dates, staff names
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -39,15 +42,75 @@ import {
 } from '../../data/models/appointments.dtos';
 
 // ============================================
+// SAFE DATE FORMATTER
+// ============================================
+
+const safeFormatDate = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return '—';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '—';
+  }
+};
+
+const safeFormatTime = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return '—';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '—';
+  }
+};
+
+const safeFormatDayOfWeek = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-IN', { weekday: 'short' });
+  } catch {
+    return '';
+  }
+};
+
+const safeFormatShortDate = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return '—';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    });
+  } catch {
+    return '—';
+  }
+};
+
+// ============================================
 // SESSION CARD COMPONENT
 // ============================================
 
 interface SessionCardProps {
-  session: TherapyPlanSession;
+  session: TherapyPlanSession & { selected_alternative?: AlternativeSlot };
   isExpanded: boolean;
   onToggle: () => void;
   onSelectAlternative: (slot: AlternativeSlot) => void;
   treatmentName: string;
+  staffNames: string;
 }
 
 const SessionCard: React.FC<SessionCardProps> = ({
@@ -56,10 +119,14 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onToggle,
   onSelectAlternative,
   treatmentName,
+  staffNames,
 }) => {
   const hasConflict = session.is_conflicted;
   const hasSelectedAlternative = !!session.selected_alternative;
   const displaySlot = session.selected_alternative || session;
+
+  // Use staff name from session, fallback to passed staffNames
+  const displayStaffName = displaySlot.staff_name || staffNames || 'Therapist';
 
   return (
     <View style={[styles.sessionCard, hasConflict && !hasSelectedAlternative && styles.sessionCardConflict]}>
@@ -87,14 +154,14 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <View style={styles.sessionTitleRow}>
             <Text style={styles.sessionNumber}>Session {session.session_number}</Text>
             <Text style={styles.sessionDate}>
-              {formatDayOfWeek(displaySlot.start)}, {formatShortDate(displaySlot.start)}
+              {safeFormatDayOfWeek(displaySlot.start)}, {safeFormatShortDate(displaySlot.start)}
             </Text>
           </View>
           <Text style={styles.sessionTime}>
-            {formatTime(displaySlot.start)} - {formatTime(displaySlot.end)}
+            {safeFormatTime(displaySlot.start)} - {safeFormatTime(displaySlot.end)}
           </Text>
           <Text style={styles.sessionStaff}>
-            👨‍⚕️ {displaySlot.staff_name || 'Staff'}
+            👨‍⚕️ {displayStaffName}
             {displaySlot.room_name && ` • 🏥 ${displaySlot.room_name}`}
           </Text>
         </View>
@@ -121,7 +188,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           </View>
 
           {/* Alternative Slots */}
-          {session.alternative_slots && session.alternative_slots.length > 0 && (
+          {session.alternative_slots && session.alternative_slots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>Select an alternative:</Text>
               {session.alternative_slots.map((alt, index) => {
@@ -137,10 +204,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
-                        {formatTime(alt.start)} - {formatTime(alt.end)}
+                        {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
-                        {alt.staff_name}{alt.room_name && ` • ${alt.room_name}`}
+                        {alt.staff_name || 'Therapist'}{alt.room_name && ` • ${alt.room_name}`}
                       </Text>
                     </View>
                     <View style={styles.alternativeScore}>
@@ -157,6 +224,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          ) : (
+            <View style={styles.noAlternatives}>
+              <Text style={styles.noAlternativesText}>
+                No alternative slots available. Please contact admin to resolve this conflict.
+              </Text>
             </View>
           )}
         </View>
@@ -178,6 +251,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     treatmentId: string;
     treatmentName: string;
     staffIds: string;
+    staffNames: string;
     startDate: string;
     durationDays: string;
     preferredTimeHour: string;
@@ -196,6 +270,15 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const generatePlanMutation = useGenerateTherapyPlanMutation();
   const bulkCreateMutation = useBulkCreateAppointmentsMutation();
 
+  // Extract params with fallbacks
+  const clientName = params.clientName || 'Client';
+  const clientPhone = params.clientPhone || '';
+  const treatmentName = params.treatmentName || 'Therapy';
+  const staffNames = params.staffNames || '';
+  const startDateStr = params.startDate || '';
+  const durationDays = parseInt(params.durationDays || '7', 10);
+  const durationMinutes = parseInt(params.durationMinutes || '60', 10);
+
   // Generate therapy plan on mount
   useEffect(() => {
     const generatePlan = async () => {
@@ -205,8 +288,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           client_id: params.clientId || '',
           treatment_id: params.treatmentId || '',
           staff_ids: staffIds,
-          start_date: params.startDate || new Date().toISOString(),
-          duration_days: parseInt(params.durationDays || '7', 10),
+          start_date: startDateStr || new Date().toISOString(),
+          duration_days: durationDays,
           preferred_time_hour: parseInt(params.preferredTimeHour || '10', 10),
         });
         setTherapyPlan(result);
@@ -221,8 +304,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       }
     };
 
-    generatePlan();
-  }, []);
+    if (params.clientId && params.treatmentId) {
+      generatePlan();
+    }
+  }, [params.clientId, params.treatmentId]);
 
   // Handle alternative selection
   const handleSelectAlternative = (sessionNumber: number, slot: AlternativeSlot) => {
@@ -268,36 +353,36 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       });
 
       // Show success and offer WhatsApp
-      if (params.clientPhone) {
+      if (clientPhone) {
         const firstSession = therapyPlan.sessions[0];
         const message = generateWhatsAppSeriesMessage(
-          params.clientName || 'Client',
+          clientName,
           'Your Clinic',
-          params.treatmentName || 'Therapy',
+          treatmentName,
           therapyPlan.total_sessions,
-          formatDate(firstSession.start),
-          formatTime(firstSession.start),
+          safeFormatDate(firstSession?.start),
+          safeFormatTime(firstSession?.start),
           '+91-XXXXXXXXXX'
         );
-        const whatsappUrl = openWhatsApp(params.clientPhone, message);
+        const whatsappUrl = openWhatsApp(clientPhone, message);
 
         Alert.alert(
           '✅ Appointments Created!',
           `${result.total_created} sessions have been scheduled successfully.`,
           [
-            { text: 'Done', style: 'cancel', onPress: () => router.replace('/clinic-admin/appointments') },
+            { text: 'Done', style: 'cancel', onPress: () => router.replace('/clinic-admin/appointments' as any) },
             {
               text: 'Send WhatsApp',
               onPress: () => {
                 Linking.openURL(whatsappUrl);
-                router.replace('/clinic-admin/appointments');
+                router.replace('/clinic-admin/appointments' as any);
               },
             },
           ]
         );
       } else {
         Alert.alert('Success', `${result.total_created} appointments created successfully`);
-        router.replace('/clinic-admin/appointments');
+        router.replace('/clinic-admin/appointments' as any);
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create appointments');
@@ -336,13 +421,24 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       {/* Plan Content */}
       {therapyPlan && (
         <>
-          {/* Client Info */}
+          {/* Client Info Card - FIXED: Shows actual client name and phone */}
           <View style={styles.clientCard}>
-            <Ionicons name="person" size={20} color={colors.primary.main} />
+            <View style={styles.clientIconContainer}>
+              <Ionicons name="person" size={24} color={colors.primary.main} />
+            </View>
             <View style={styles.clientInfo}>
-              <Text style={styles.clientName}>{params.clientName}</Text>
+              <Text style={styles.clientName}>{clientName}</Text>
+              {clientPhone && (
+                <Text style={styles.clientPhone}>📞 {clientPhone}</Text>
+              )}
               <Text style={styles.clientDetails}>
-                {params.treatmentName} • {therapyPlan.total_sessions} sessions
+                {treatmentName} • {therapyPlan.total_sessions} sessions
+              </Text>
+              <Text style={styles.clientDetails}>
+                👨‍⚕️ {staffNames || 'Therapists assigned'}
+              </Text>
+              <Text style={styles.clientDetails}>
+                📅 Starting {safeFormatDate(startDateStr)} • {durationMinutes} min each
               </Text>
             </View>
           </View>
@@ -364,7 +460,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               ]}>
                 {conflictsRemaining === 0
                   ? 'All conflicts resolved! Ready to confirm.'
-                  : `${conflictsRemaining} conflict${conflictsRemaining > 1 ? 's' : ''} remaining. Select alternatives below.`}
+                  : `${conflictsRemaining} conflict${conflictsRemaining > 1 ? 's' : ''} remaining. Tap to see alternatives.`}
               </Text>
             </View>
           )}
@@ -384,7 +480,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                   expandedSession === session.session_number ? null : session.session_number
                 )}
                 onSelectAlternative={(slot) => handleSelectAlternative(session.session_number, slot)}
-                treatmentName={params.treatmentName || ''}
+                treatmentName={treatmentName}
+                staffNames={staffNames}
               />
             ))}
 
@@ -466,30 +563,43 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 
-  // Client Card
+  // Client Card - ENHANCED
   clientCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: colors.background.default,
     margin: spacing.md,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.light,
     gap: spacing.md,
+  },
+  clientIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.main + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    ...typography.body1,
+    ...typography.h6,
     color: colors.text.primary,
-    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
+  },
+  clientPhone: {
+    ...typography.body2,
+    color: colors.primary.main,
+    marginBottom: spacing.xs,
   },
   clientDetails: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
 
   // Conflict Banner
@@ -499,7 +609,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warning.main + '15',
     marginHorizontal: spacing.md,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
     gap: spacing.sm,
   },
   conflictBannerResolved: {
@@ -526,7 +636,7 @@ const styles = StyleSheet.create({
   // Session Card
   sessionCard: {
     backgroundColor: colors.background.default,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -581,12 +691,12 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.primary.main,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   sessionStaff: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
 
   // Conflict Section
@@ -621,7 +731,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background.default,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
     marginBottom: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -641,7 +751,7 @@ const styles = StyleSheet.create({
   alternativeStaff: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   alternativeTextSelected: {
     color: colors.primary.main,
@@ -658,6 +768,18 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.tertiary,
   },
+  noAlternatives: {
+    padding: spacing.md,
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  noAlternativesText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
 
   // Action Bar
   actionBar: {
@@ -671,7 +793,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.main,
     alignItems: 'center',
@@ -688,7 +810,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
     backgroundColor: colors.primary.main,
-    borderRadius: 12,
+    borderRadius: spacing.sm,
   },
   confirmButtonDisabled: {
     backgroundColor: colors.grey[300],
