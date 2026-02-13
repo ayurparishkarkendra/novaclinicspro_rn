@@ -118,3 +118,32 @@ export const useDeleteTreatmentMutation = (tenantId: string) => {
     },
   });
 };
+
+// ============================================
+// SEARCH HOOKS
+// ============================================
+
+/**
+ * Hook to search treatments by name
+ * Uses the dedicated search endpoint: GET /api/v1/clinic/{tenant_id}/treatments/search
+ * 
+ * @param tenantId - Clinic tenant ID
+ * @param query - Search query (min 3 characters to trigger API call)
+ * @param limit - Optional limit for results
+ */
+export const useSearchTreatmentsQuery = (
+  tenantId: string,
+  query: string,
+  limit?: number,
+  options?: Omit<UseQueryOptions<PaginatedTreatmentsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<PaginatedTreatmentsResponse, Error>({
+    queryKey: treatmentsKeys.search(tenantId, query),
+    queryFn: () => searchTreatmentsApi(tenantId, query, limit),
+    // Only enable when tenantId exists and query has at least 3 characters
+    enabled: !!tenantId && query.length >= 3,
+    // Keep stale data while fetching new results
+    staleTime: 30000, // 30 seconds
+    ...options,
+  });
+};
