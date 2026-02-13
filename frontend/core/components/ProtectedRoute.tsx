@@ -130,7 +130,28 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.h4,
     color: colors.error.main,
+    marginTop: spacing.md,
     marginBottom: spacing.sm,
+  },
+  roleInfo: {
+    ...typography.body2,
+    color: colors.text.disabled,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.primary.main + '15',
+    borderRadius: 8,
+    marginTop: spacing.lg,
+  },
+  backButtonText: {
+    ...typography.button,
+    color: colors.primary.main,
+    marginLeft: spacing.sm,
   },
 });
 
