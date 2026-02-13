@@ -1,280 +1,77 @@
+/**
+ * Index Page - Role-based Dashboard Redirect
+ * Automatically redirects authenticated users to their appropriate dashboard based on role
+ */
+
 import React, { useEffect } from 'react';
-import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { colors } from '../core/theme/colors';
-import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
+import { spacing } from '../core/theme/spacing';
 
 export default function Index() {
   const router = useRouter();
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, isLoading, currentUser } = useAuth();
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Wait for auth to be determined
+    if (isLoading) return;
+
+    // Redirect to login if not authenticated
+    if (!isAuthenticated || !currentUser) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated]);
 
-  // Show loading or nothing while redirecting
-  if (!isAuthenticated || !currentUser) {
-    return null;
-  }
+    // Redirect based on user role
+    const roles = currentUser.roles || [];
+    const isOrgAdmin = currentUser.isOrgAdmin;
 
-  const dashboards = [
-    {
-      id: 'super-admin',
-      title: 'Super Admin',
-      subtitle: 'System-wide management',
-      icon: 'shield-checkmark' as const,
-      color: colors.primary.main,
-      route: '/super-admin',
-    },
-    {
-      id: 'clinic-admin',
-      title: 'Clinic Admin',
-      subtitle: 'Clinic operations & staff',
-      icon: 'business' as const,
-      color: colors.success.main,
-      route: '/clinic-admin',
-    },
-    {
-      id: 'doctor',
-      title: 'Doctor',
-      subtitle: 'Patient consultations',
-      icon: 'medical' as const,
-      color: colors.info.main,
-      route: '/doctor',
-    },
-    {
-      id: 'therapist',
-      title: 'Therapist',
-      subtitle: 'Therapy sessions & plans',
-      icon: 'heart' as const,
-      color: colors.error.main,
-      route: '/therapist',
-    },
-    {
-      id: 'theme-demo',
-      title: 'Theme System Demo',
-      subtitle: 'Multi-clinic theming',
-      icon: 'color-palette' as const,
-      color: colors.secondary.main,
-      route: '/theme-demo',
-    },
-  ];
+    console.log('[Index] Redirecting user based on role:', { roles, isOrgAdmin, email: currentUser.email });
 
+    // Priority: Super Admin > Clinic Admin > Doctor > Therapist > Default
+    if (isOrgAdmin || roles.includes('super_admin') || roles.includes('org_admin') || roles.includes('system_admin')) {
+      console.log('[Index] Redirecting to Super Admin dashboard');
+      router.replace('/super-admin');
+    } else if (roles.includes('clinic_admin') || roles.includes('admin') || roles.includes('owner')) {
+      console.log('[Index] Redirecting to Clinic Admin dashboard');
+      router.replace('/clinic-admin');
+    } else if (roles.includes('doctor')) {
+      console.log('[Index] Redirecting to Doctor dashboard');
+      router.replace('/doctor');
+    } else if (roles.includes('therapist')) {
+      console.log('[Index] Redirecting to Therapist dashboard');
+      router.replace('/therapist');
+    } else {
+      // Default: If no recognized role, show clinic admin (most common)
+      // You can change this to doctor/therapist if that's more appropriate
+      console.log('[Index] No specific role found, defaulting to Clinic Admin dashboard');
+      router.replace('/clinic-admin');
+    }
+  }, [isAuthenticated, isLoading, currentUser, router]);
+
+  // Show loading while determining auth and redirecting
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Ionicons name="medical" size={40} color={colors.primary.main} />
-        </View>
-        <Text style={styles.title}>NovaClinicsPro</Text>
-        <Text style={styles.subtitle}>Healthcare Management Platform</Text>
-        <Text style={styles.userInfo}>Logged in as: {currentUser.email}</Text>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Dashboard</Text>
-          <Text style={styles.sectionSubtitle}>
-            Choose your role to access the appropriate dashboard
-          </Text>
-
-          <View style={styles.dashboardGrid}>
-            {dashboards.map((dashboard) => (
-              <TouchableOpacity
-                key={dashboard.id}
-                style={styles.dashboardCard}
-                onPress={() => router.push(dashboard.route as any)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.iconContainer,
-                    { backgroundColor: dashboard.color + '20' },
-                  ]}
-                >
-                  <Ionicons
-                    name={dashboard.icon}
-                    size={32}
-                    color={dashboard.color}
-                  />
-                </View>
-                <View style={styles.dashboardInfo}>
-                  <Text style={styles.dashboardTitle}>{dashboard.title}</Text>
-                  <Text style={styles.dashboardSubtitle}>
-                    {dashboard.subtitle}
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Platform Features</Text>
-          <View style={styles.featuresList}>
-            {[
-              { icon: 'people', text: 'Client Management' },
-              { icon: 'calendar', text: 'Appointments & Therapy Plans' },
-              { icon: 'document-text', text: 'Prescriptions & Case Sheets' },
-              { icon: 'cube', text: 'Inventory Management' },
-              { icon: 'person', text: 'Staff Management' },
-              { icon: 'bar-chart', text: 'Analytics & Reports' },
-            ].map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
-                <View style={styles.featureIcon}>
-                  <Ionicons
-                    name={feature.icon as any}
-                    size={20}
-                    color={colors.primary.main}
-                  />
-                </View>
-                <Text style={styles.featureText}>{feature.text}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color={colors.primary.main} />
+      <Text style={styles.text}>Loading your dashboard...</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.background.paper,
+    padding: spacing.xl,
   },
-  header: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background.default,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
+  text: {
     ...typography.body1,
     color: colors.text.secondary,
-  },
-  userInfo: {
-    ...typography.caption,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl,
-  },
-  section: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  sectionSubtitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
-  },
-  dashboardGrid: {
-    gap: spacing.md,
-  },
-  dashboardCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 16,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  dashboardInfo: {
-    flex: 1,
-  },
-  dashboardTitle: {
-    ...typography.h5,
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  dashboardSubtitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-  },
-  featuresSection: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xl,
-  },
-  featuresList: {
-    gap: spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  featureText: {
-    ...typography.body1,
-    color: colors.text.primary,
-    fontWeight: '500',
+    marginTop: spacing.md,
   },
 });
