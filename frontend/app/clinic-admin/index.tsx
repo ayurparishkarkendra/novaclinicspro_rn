@@ -112,7 +112,7 @@ export default function ClinicAdminDashboard() {
       <DashboardHeader
         title="Clinic Admin Dashboard"
         subtitle="Springfield Medical Center"
-        userName={currentUser?.fullName || 'Dr. Sarah Johnson'}
+        userName={currentUser?.email || 'Admin'}
         notificationCount={notificationCount}
         onProfilePress={() => console.log('Profile')}
         onLogoutPress={handleLogout}
