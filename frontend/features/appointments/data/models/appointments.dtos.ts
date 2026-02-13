@@ -211,3 +211,365 @@ export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
   'cancelled',
   'no_show',
 ];
+
+// ============================================
+// ENHANCED DTOs FOR WORKFLOW
+// ============================================
+
+/** Appointment type */
+export type AppointmentType = 'SINGLE' | 'MULTI';
+
+/** Staff info in responses */
+export interface StaffInfo {
+  id: string;
+  name: string;
+  gender?: string;
+  role?: string;
+}
+
+/** Room info in responses */
+export interface RoomInfo {
+  id: string;
+  name: string;
+  capacity?: number;
+}
+
+/** Enhanced appointment response with expanded fields */
+export interface AppointmentWithDetails extends AppointmentResponse {
+  client_phone?: string;
+  staff?: StaffInfo[];
+  session_number?: number;
+  total_sessions?: number;
+}
+
+/** Daily summary for appointments */
+export interface AppointmentSummary {
+  total: number;
+  scheduled: number;
+  in_progress: number;
+  completed: number;
+  cancelled: number;
+  no_show: number;
+}
+
+/** List appointments response with summary */
+export interface AppointmentsListResponse {
+  appointments: AppointmentWithDetails[];
+  summary: AppointmentSummary;
+}
+
+/** Available slot */
+export interface AvailableSlot {
+  start: string;
+  end: string;
+  duration_minutes: number;
+  available_staff: StaffInfo[];
+  available_rooms: RoomInfo[];
+}
+
+/** Available slots request */
+export interface AvailableSlotsRequest {
+  start_date: string;
+  end_date: string;
+  treatment_id?: string;
+  duration_minutes: number;
+  client_gender?: string;
+}
+
+/** Available slots response */
+export interface AvailableSlotsResponse {
+  slots: AvailableSlot[];
+}
+
+/** Available therapist for multi-slot */
+export interface AvailableTherapist {
+  id: string;
+  name: string;
+  gender?: string;
+  role: string;
+  availability_score: number;
+  available_days: number;
+  unavailable_dates: string[];
+  qualifications?: string[];
+}
+
+/** Validation request */
+export interface ValidateAppointmentRequest {
+  client_id: string;
+  staff_id: string;
+  room_id?: string;
+  appointment_start: string;
+  appointment_end: string;
+}
+
+/** Conflict info */
+export interface ConflictInfo {
+  conflict_id?: string;
+  conflict_type: string;
+  message: string;
+}
+
+/** Validation response */
+export interface ValidationResponse {
+  is_valid: boolean;
+  errors: string[];
+  warnings: string[];
+  conflicts: {
+    staff_conflict?: ConflictInfo;
+    room_conflict?: ConflictInfo;
+  } | null;
+}
+
+/** Alternative slot for conflict resolution */
+export interface AlternativeSlot {
+  start: string;
+  end: string;
+  staff_id: string;
+  staff_name: string;
+  room_id?: string;
+  room_name?: string;
+  score: number;
+}
+
+/** Session in therapy plan */
+export interface TherapyPlanSession {
+  session_number: number;
+  start: string;
+  end: string;
+  staff_id?: string;
+  staff_name?: string;
+  room_id?: string;
+  room_name?: string;
+  is_conflicted: boolean;
+  conflict?: ConflictInfo;
+  alternative_slots?: AlternativeSlot[];
+  // For user selection
+  selected_alternative?: AlternativeSlot;
+}
+
+/** Therapy plan request */
+export interface TherapyPlanRequest {
+  client_id: string;
+  treatment_id: string;
+  staff_ids: string[];
+  start_date: string;
+  duration_days: number;
+  preferred_time_hour: number;
+  client_gender?: string;
+}
+
+/** Therapy plan response */
+export interface TherapyPlanResponse {
+  series_id: string;
+  sessions: TherapyPlanSession[];
+  has_conflicts: boolean;
+  total_sessions: number;
+  conflicted_sessions: number;
+}
+
+/** Bulk create appointment item */
+export interface BulkAppointmentItem {
+  client_id: string;
+  staff_id: string;
+  room_id?: string;
+  treatment_id: string;
+  appointment_start: string;
+  appointment_end: string;
+  status: string;
+  session_number: number;
+  notes?: string;
+}
+
+/** Bulk create request */
+export interface BulkCreateRequest {
+  series_id: string;
+  appointments: BulkAppointmentItem[];
+}
+
+/** Created appointment summary */
+export interface CreatedAppointmentSummary {
+  id: string;
+  series_id: string;
+  session_number: number;
+  appointment_start: string;
+  status: string;
+}
+
+/** Bulk create response */
+export interface BulkCreateResponse {
+  created_appointments: CreatedAppointmentSummary[];
+  total_created: number;
+}
+
+/** Search appointments params */
+export interface SearchAppointmentsParams {
+  q: string;
+  date?: string;
+  status?: string;
+}
+
+// ============================================
+// WHATSAPP HELPERS
+// ============================================
+
+/** Generate WhatsApp confirmation message */
+export const generateWhatsAppConfirmationMessage = (
+  clientName: string,
+  clinicName: string,
+  date: string,
+  time: string,
+  staffName: string,
+  treatmentName: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+Your appointment has been confirmed! 📅
+
+📍 Clinic: ${clinicName}
+📅 Date: ${date}
+🕐 Time: ${time}
+👨‍⚕️ Doctor/Therapist: ${staffName}
+💆 Treatment: ${treatmentName}
+
+Please arrive 10 minutes early.
+
+For any changes, please call us at ${clinicPhone}.
+
+Thank you!`;
+};
+
+/** Generate WhatsApp cancellation message */
+export const generateWhatsAppCancellationMessage = (
+  clientName: string,
+  date: string,
+  time: string,
+  treatmentName: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+Your appointment has been cancelled. ❌
+
+📅 Date: ${date}
+🕐 Time: ${time}
+💆 Treatment: ${treatmentName}
+
+If you'd like to reschedule, please call us at ${clinicPhone}.
+
+Thank you!`;
+};
+
+/** Generate WhatsApp reschedule message */
+export const generateWhatsAppRescheduleMessage = (
+  clientName: string,
+  oldDate: string,
+  oldTime: string,
+  newDate: string,
+  newTime: string,
+  staffName: string,
+  treatmentName: string
+): string => {
+  return `Hi ${clientName},
+
+Your appointment has been rescheduled. 📅
+
+Previous:
+📅 ${oldDate} at ${oldTime}
+
+New:
+📅 ${newDate} at ${newTime}
+👨‍⚕️ Doctor/Therapist: ${staffName}
+💆 Treatment: ${treatmentName}
+
+Please confirm if this works for you.
+
+Thank you!`;
+};
+
+/** Generate WhatsApp multi-slot confirmation message */
+export const generateWhatsAppSeriesMessage = (
+  clientName: string,
+  clinicName: string,
+  treatmentName: string,
+  totalSessions: number,
+  firstSessionDate: string,
+  firstSessionTime: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+Your therapy plan has been scheduled! 📅
+
+📍 Clinic: ${clinicName}
+💆 Treatment: ${treatmentName}
+📊 Total Sessions: ${totalSessions}
+
+First Session:
+📅 ${firstSessionDate} at ${firstSessionTime}
+
+You will receive reminders before each session.
+
+For any changes, please call us at ${clinicPhone}.
+
+Thank you!`;
+};
+
+/** Open WhatsApp with pre-filled message */
+export const openWhatsApp = (phone: string, message: string): string => {
+  // Clean phone number - remove non-numeric except +
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+};
+
+/** Format short date for display */
+export const formatShortDate = (dateStr: string | null): string => {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+/** Format day of week */
+export const formatDayOfWeek = (dateStr: string): string => {
+  try {
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      weekday: 'short',
+    });
+  } catch {
+    return '';
+  }
+};
+
+/** Check if date is today */
+export const isToday = (dateStr: string): boolean => {
+  const today = new Date();
+  const date = new Date(dateStr);
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+};
+
+/** Generate date range for date slider */
+export const generateDateRange = (centerDate: Date, daysAround: number = 7): Date[] => {
+  const dates: Date[] = [];
+  for (let i = -daysAround; i <= daysAround; i++) {
+    const date = new Date(centerDate);
+    date.setDate(centerDate.getDate() + i);
+    dates.push(date);
+  }
+  return dates;
+};
+
+/** Format ISO date string (YYYY-MM-DD) */
+export const toISODateString = (date: Date): string => {
+  return date.toISOString().split('T')[0];
+};
