@@ -3,7 +3,7 @@
  * Main screen for viewing and managing inventory items
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,13 +21,22 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useInventoryItemsListQuery } from '../../data/repositories/inventory.repository.impl';
+import { useDebounce } from '../../../../core/hooks/useDebounce';
+import { 
+  useInventoryItemsListQuery,
+  useSearchInventoryQuery,
+} from '../../data/repositories/inventory.repository.impl';
 import { InventoryItemListItem } from '../components/InventoryItemListItem';
 import {
   InventoryItemResponse,
   InventoryCategory,
   ListInventoryParams,
 } from '../../data/models/inventory.dtos';
+
+// Minimum characters before triggering search
+const MIN_SEARCH_LENGTH = 3;
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 300;
 
 const CATEGORIES: { value: InventoryCategory | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
