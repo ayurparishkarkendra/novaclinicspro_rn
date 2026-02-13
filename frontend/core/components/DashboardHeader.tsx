@@ -98,6 +98,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         )}
       </View>
       <View style={styles.rightSection}>
+        {rightAction}
         {showNotifications && renderNotificationButton()}
         {onProfilePress && (
           <TouchableOpacity
