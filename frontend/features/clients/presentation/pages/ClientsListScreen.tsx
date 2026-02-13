@@ -3,7 +3,7 @@
  * Displays list of all clients/patients for the clinic
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useDebounce } from '../../../../core/hooks/useDebounce';
+import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useClientsListQuery,
   useCreateClientMutation,
@@ -30,6 +32,11 @@ import {
 import { ClientResponse, ClientCreate } from '../../data/models/clients.dtos';
 import { ClientListItem } from '../components/ClientListItem';
 import { ClientForm } from '../components/ClientForm';
+
+// Minimum characters before triggering search
+const MIN_SEARCH_LENGTH = 3;
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 300;
 
 export const ClientsListScreen: React.FC = () => {
   const router = useRouter();
@@ -40,7 +47,15 @@ export const ClientsListScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Queries
+  // Debounce search query - only trigger API call after user stops typing
+  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
+  
+  // Only use search query if >= 3 characters, otherwise don't send to API
+  const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
+    ? debouncedSearchQuery 
+    : '';
+
+  // Queries - load more for client-side filtering
   const {
     data: clientsData,
     isLoading,
@@ -49,9 +64,26 @@ export const ClientsListScreen: React.FC = () => {
     refetch,
     isRefetching,
   } = useClientsListQuery(tenantId, {
-    search: searchQuery || undefined,
-    limit: 50,
+    search: effectiveSearchQuery || undefined,
+    limit: 100, // Load more to enable client-side filtering
   });
+
+  // Client-side filtering for partial search (< 3 chars)
+  const filteredClients = useMemo(() => {
+    const clients = clientsData?.items || [];
+    
+    // If search query is 1-2 characters, filter client-side
+    if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
+      const lowerQuery = searchQuery.toLowerCase();
+      return clients.filter(c => 
+        c.full_name.toLowerCase().includes(lowerQuery) ||
+        c.email?.toLowerCase().includes(lowerQuery) ||
+        (c.phone && c.phone.includes(searchQuery))
+      );
+    }
+    
+    return clients;
+  }, [clientsData?.items, searchQuery]);
 
   // Mutations
   const createMutation = useCreateClientMutation(tenantId);
@@ -68,9 +100,9 @@ export const ClientsListScreen: React.FC = () => {
       try {
         await createMutation.mutateAsync(data);
         setShowAddModal(false);
-        Alert.alert('Success', 'Client added successfully');
+        Alert.alert(t('common.success'), t('success.created'));
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to add client');
+        Alert.alert(t('common.error'), err.message || t(ErrorTokens.clients.createFailed));
       }
     },
     [createMutation]
