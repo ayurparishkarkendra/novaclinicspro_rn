@@ -10,6 +10,7 @@ import {
   createTreatmentApi,
   updateTreatmentApi,
   deleteTreatmentApi,
+  searchTreatmentsApi,
 } from '../datasources/treatments.api';
 import {
   TreatmentCreate,
