@@ -175,7 +175,12 @@ export const hasTranslation = (key: string): boolean => {
     getNestedValue(resources['en-US'], key) !== undefined;
 };
 
-// Initialize on module load
-initI18n();
+// Initialize on module load (deferred to avoid SSR issues)
+if (typeof window !== 'undefined') {
+  // Only initialize in browser context
+  initI18n().catch((err) => {
+    console.warn('Failed to initialize i18n:', err);
+  });
+}
 
 export default { t, changeLanguage, getCurrentLocale, initI18n };
