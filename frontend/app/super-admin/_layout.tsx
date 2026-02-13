@@ -1,6 +1,7 @@
 /**
  * Super Admin Layout
  * Handles routing for all super admin screens
+ * Protected by authentication - requires super_admin role
  * 
  * Route structure:
  * - index.tsx -> /super-admin
@@ -12,23 +13,26 @@
 
 import { Stack } from 'expo-router';
 import { colors } from '../../core/theme/colors';
+import { ProtectedRoute } from '../../core/components/ProtectedRoute';
 
 export default function SuperAdminLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background.paper },
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="tenants/index" />
-      <Stack.Screen name="tenants/create" />
-      <Stack.Screen name="tenants/[tenantId]" />
-      <Stack.Screen name="applications/index" />
-      <Stack.Screen name="applications/[applicationId]" />
-      <Stack.Screen name="billing" />
-      <Stack.Screen name="system-settings" />
-    </Stack>
+    <ProtectedRoute allowedRoles={['super_admin', 'org_admin', 'system_admin']}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background.paper },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="tenants/index" />
+        <Stack.Screen name="tenants/create" />
+        <Stack.Screen name="tenants/[tenantId]" />
+        <Stack.Screen name="applications/index" />
+        <Stack.Screen name="applications/[applicationId]" />
+        <Stack.Screen name="billing" />
+        <Stack.Screen name="system-settings" />
+      </Stack>
+    </ProtectedRoute>
   );
 }
