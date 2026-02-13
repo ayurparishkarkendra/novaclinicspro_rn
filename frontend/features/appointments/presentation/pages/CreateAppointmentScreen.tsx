@@ -399,7 +399,7 @@ export const CreateAppointmentScreen: React.FC = () => {
 
     // Navigate to preview screen with params
     router.push({
-      pathname: '/clinic-admin/appointments/preview',
+      pathname: '/clinic-admin/appointments/preview' as any,
       params: {
         clientId: selectedClientId,
         clientName: selectedClient?.label || '',
