@@ -178,3 +178,27 @@ export const cancelLeaveApi = async (
   );
   return response.data;
 };
+
+// ============================================
+// SEARCH
+// ============================================
+
+/**
+ * Search staff by phone, email, or name
+ * GET /api/v1/clinic/{tenant_id}/staff/search
+ * 
+ * @param tenantId - Clinic tenant ID
+ * @param query - Search query (phone, email, or name)
+ * @param limit - Optional limit for results
+ */
+export const searchStaffApi = async (
+  tenantId: string,
+  query: string,
+  limit?: number
+): Promise<PaginatedStaffResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/staff/search`,
+    { params: { query, limit } }
+  );
+  return response.data;
+};
