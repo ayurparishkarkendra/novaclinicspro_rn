@@ -632,13 +632,14 @@ const styles = StyleSheet.create({
   statsGridWeb: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
   },
   statItem: {
     marginBottom: spacing.sm,
   },
   statItemWeb: {
-    width: '49%',
+    width: '24%',
+    minWidth: 180,
+    marginRight: '1%',
   },
   quickActions: {
     flexDirection: 'row',
