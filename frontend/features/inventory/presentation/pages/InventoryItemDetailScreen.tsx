@@ -294,7 +294,7 @@ export const InventoryItemDetailScreen: React.FC = () => {
           {item.location && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Location</Text>
-              <Text style={styles.infoValue}>{item.location}</Text>
+              <Text style={styles.infoValue}>{formatLocation(item.location)}</Text>
             </View>
           )}
 
