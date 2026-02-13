@@ -37,6 +37,7 @@ import {
   isLowStock,
   isCriticalStock,
   parseStock,
+  formatLocation,
 } from '../../data/models/inventory.dtos';
 
 export const InventoryItemDetailScreen: React.FC = () => {
