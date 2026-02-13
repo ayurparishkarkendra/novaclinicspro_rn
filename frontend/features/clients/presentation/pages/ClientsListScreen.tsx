@@ -115,7 +115,7 @@ export const ClientsListScreen: React.FC = () => {
         <Ionicons name="search" size={20} color={colors.text.tertiary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search clients by name or phone..."
+          placeholder={`Search clients... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
