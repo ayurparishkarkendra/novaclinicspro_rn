@@ -21,7 +21,7 @@ import { typography } from '../../../core/theme/typography';
 import { useAuth } from '../../../features/auth/presentation/hooks/useAuth';
 import { useCreateInventoryItemMutation } from '../../../features/inventory/data/repositories/inventory.repository.impl';
 import { InventoryItemForm } from '../../../features/inventory/presentation/components/InventoryItemForm';
-import { InventoryCreateRequest } from '../../../features/inventory/data/models/inventory.dtos';
+import { InventoryCreateRequest, InventoryUpdateRequest } from '../../../features/inventory/data/models/inventory.dtos';
 
 export default function CreateInventoryItemRoute() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function CreateInventoryItemRoute() {
 
   const createMutation = useCreateInventoryItemMutation(tenantId);
 
-  const handleSubmit = async (data: InventoryCreateRequest) => {
+  const handleSubmit = async (data: InventoryCreateRequest | InventoryUpdateRequest) => {
     try {
       const result = await createMutation.mutateAsync(data);
       Alert.alert(
