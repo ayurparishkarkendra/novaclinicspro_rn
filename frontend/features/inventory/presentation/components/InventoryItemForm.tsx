@@ -129,6 +129,22 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
 
   const isValid = name.trim().length > 0;
 
+  // Build location object from individual fields
+  const buildLocationObject = (): InventoryLocation | null => {
+    const location: InventoryLocation = {};
+    
+    if (locationShelf.trim()) location.shelf = locationShelf.trim();
+    if (locationRack.trim()) location.rack = locationRack.trim();
+    if (locationBin.trim()) location.bin = locationBin.trim();
+    if (locationZone.trim()) location.zone = locationZone.trim();
+    if (locationNotes.trim()) location.notes = locationNotes.trim();
+    
+    // Return null if no location data provided
+    if (isLocationEmpty(location)) return null;
+    
+    return location;
+  };
+
   const handleSubmit = () => {
     if (!isValid) return;
 
@@ -144,7 +160,7 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
       manufacturer: manufacturer.trim() || null,
       strength: strength.trim() || null,
       composition: composition.trim() || null,
-      location: location.trim() || null,
+      location: buildLocationObject(),  // Now sends proper dictionary object
       barcode: barcode.trim() || null,
       sku: sku.trim() || null,
       hsn_code: hsnCode.trim() || null,
