@@ -151,10 +151,30 @@ export interface StaffResponse {
   staff_type: StaffType;
   staff_code: string | null;
   designation: string | null;
+  // Professional details
   specialization: string | null;
   qualifications: string | null;
+  experience_years: number | null;
+  consultation_fee: number | null;
+  hourly_rate: number | null;
+  // Address fields (detailed)
+  address_line: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pin: string | null;
+  // Legacy address field (for backward compatibility)
   address: string | null;
+  // Emergency contact (detailed)
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relation: string | null;
+  // Legacy emergency contact (for backward compatibility)
   emergency_contact: string | null;
+  // Employment dates
+  employment_start_date: string | null;
+  employment_end_date: string | null;
+  // Legacy joining_date (for backward compatibility)
   joining_date: string | null;
   is_active: boolean;
   has_login: boolean;
