@@ -103,17 +103,20 @@ export const useAuth = (): UseAuthReturn => {
    * Navigate based on user role
    */
   const navigateBasedOnRole = (user: AuthUserSession) => {
-    if (user.isOrgAdmin) {
+    console.log('[useAuth] Navigating based on role:', { roles: user.roles, isOrgAdmin: user.isOrgAdmin });
+    
+    if (user.isOrgAdmin || user.roles.includes('super_admin') || user.roles.includes('org_admin') || user.roles.includes('system_admin')) {
       router.replace('/super-admin');
-    } else if (user.roles.includes('clinic_admin')) {
+    } else if (user.roles.includes('clinic_admin') || user.roles.includes('admin') || user.roles.includes('owner')) {
       router.replace('/clinic-admin');
     } else if (user.roles.includes('doctor')) {
       router.replace('/doctor');
     } else if (user.roles.includes('therapist')) {
       router.replace('/therapist');
     } else {
-      // Default fallback
-      router.replace('/');
+      // Default fallback - go to clinic-admin as most common use case
+      console.log('[useAuth] No specific role found, defaulting to clinic-admin');
+      router.replace('/clinic-admin');
     }
   };
 
