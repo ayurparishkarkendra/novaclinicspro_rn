@@ -21,10 +21,29 @@ export interface Staff {
   staffType: StaffType;
   staffCode: string | null;
   designation: string | null;
+  // Professional details
   specialization: string | null;
   qualifications: string | null;
+  experienceYears: number | null;
+  consultationFee: number | null;
+  hourlyRate: number | null;
+  // Address fields (detailed)
+  addressLine: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pin: string | null;
+  // Legacy address field
   address: string | null;
+  // Emergency contact (detailed)
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelation: string | null;
+  // Legacy emergency contact
   emergencyContact: string | null;
+  // Employment dates
+  employmentStartDate: Date | null;
+  employmentEndDate: Date | null;
   joiningDate: Date | null;
   isActive: boolean;
   hasLogin: boolean;

@@ -1,6 +1,11 @@
 /**
  * Operating Hours Screen
  * Weekly calendar view for managing clinic hours
+ * 
+ * Features:
+ * - "Apply to all days" functionality
+ * - Improved time input UX with time picker modal
+ * - Error sanitization (no raw system errors shown)
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -40,6 +45,295 @@ import {
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
+import { normalizeError } from '../../../../core/api/axiosClient';
+
+// ============================================
+// TIME PICKER MODAL
+// ============================================
+
+interface TimePickerModalProps {
+  visible: boolean;
+  title: string;
+  initialValue: string;
+  onSelect: (time: string) => void;
+  onClose: () => void;
+}
+
+const TimePickerModal: React.FC<TimePickerModalProps> = ({
+  visible,
+  title,
+  initialValue,
+  onSelect,
+  onClose,
+}) => {
+  const [hours, setHours] = useState(() => {
+    const parts = initialValue.split(':');
+    return parts[0] || '09';
+  });
+  const [minutes, setMinutes] = useState(() => {
+    const parts = initialValue.split(':');
+    return parts[1] || '00';
+  });
+
+  // Reset when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      const parts = initialValue.split(':');
+      setHours(parts[0] || '09');
+      setMinutes(parts[1] || '00');
+    }
+  }, [visible, initialValue]);
+
+  const hourOptions = useMemo(() => 
+    Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')),
+  []);
+  
+  const minuteOptions = useMemo(() => 
+    ['00', '15', '30', '45'],
+  []);
+
+  const handleConfirm = () => {
+    onSelect(`${hours}:${minutes}`);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={timePickerStyles.overlay}>
+        <View style={timePickerStyles.container}>
+          <Text style={timePickerStyles.title}>{title}</Text>
+          
+          <View style={timePickerStyles.pickerRow}>
+            {/* Hours */}
+            <View style={timePickerStyles.pickerColumn}>
+              <Text style={timePickerStyles.pickerLabel}>Hour</Text>
+              <ScrollView style={timePickerStyles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {hourOptions.map((h) => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[
+                      timePickerStyles.pickerItem,
+                      hours === h && timePickerStyles.pickerItemSelected,
+                    ]}
+                    onPress={() => setHours(h)}
+                  >
+                    <Text style={[
+                      timePickerStyles.pickerItemText,
+                      hours === h && timePickerStyles.pickerItemTextSelected,
+                    ]}>
+                      {h}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <Text style={timePickerStyles.separator}>:</Text>
+
+            {/* Minutes */}
+            <View style={timePickerStyles.pickerColumn}>
+              <Text style={timePickerStyles.pickerLabel}>Min</Text>
+              <ScrollView style={timePickerStyles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {minuteOptions.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      timePickerStyles.pickerItem,
+                      minutes === m && timePickerStyles.pickerItemSelected,
+                    ]}
+                    onPress={() => setMinutes(m)}
+                  >
+                    <Text style={[
+                      timePickerStyles.pickerItemText,
+                      minutes === m && timePickerStyles.pickerItemTextSelected,
+                    ]}>
+                      {m}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+
+          <View style={timePickerStyles.preview}>
+            <Text style={timePickerStyles.previewText}>{hours}:{minutes}</Text>
+          </View>
+
+          <View style={timePickerStyles.actions}>
+            <TouchableOpacity style={timePickerStyles.cancelBtn} onPress={onClose}>
+              <Text style={timePickerStyles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={timePickerStyles.confirmBtn} onPress={handleConfirm}>
+              <Text style={timePickerStyles.confirmBtnText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const timePickerStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: spacing.lg,
+    width: '80%',
+    maxWidth: 300,
+  },
+  title: {
+    ...typography.h6,
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerColumn: {
+    width: 80,
+  },
+  pickerLabel: {
+    ...typography.caption,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  pickerScroll: {
+    height: 150,
+  },
+  pickerItem: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  pickerItemSelected: {
+    backgroundColor: '#2F6F4E20',
+  },
+  pickerItemText: {
+    ...typography.body1,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  pickerItemTextSelected: {
+    color: '#2F6F4E',
+    fontWeight: '600',
+  },
+  separator: {
+    ...typography.h4,
+    color: '#1F2937',
+    marginHorizontal: spacing.sm,
+  },
+  preview: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    alignItems: 'center',
+  },
+  previewText: {
+    ...typography.h4,
+    color: '#2F6F4E',
+  },
+  actions: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    ...typography.body1,
+    color: '#6B7280',
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: '#2F6F4E',
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    ...typography.body1,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+});
+
+// ============================================
+// TIME INPUT COMPONENT
+// ============================================
+
+interface TimeInputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const TimeInput: React.FC<TimeInputProps> = ({ label, value, onChange }) => {
+  const [pickerVisible, setPickerVisible] = useState(false);
+
+  return (
+    <View style={timeInputStyles.container}>
+      <Text style={timeInputStyles.label}>{label}</Text>
+      <TouchableOpacity
+        style={timeInputStyles.input}
+        onPress={() => setPickerVisible(true)}
+      >
+        <Ionicons name="time-outline" size={18} color="#6B7280" />
+        <Text style={timeInputStyles.inputText}>{value || '--:--'}</Text>
+      </TouchableOpacity>
+      <TimePickerModal
+        visible={pickerVisible}
+        title={`Select ${label} Time`}
+        initialValue={value || '09:00'}
+        onSelect={onChange}
+        onClose={() => setPickerVisible(false)}
+      />
+    </View>
+  );
+};
+
+const timeInputStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  label: {
+    ...typography.caption,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  input: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  inputText: {
+    ...typography.body1,
+    color: '#1F2937',
+  },
+});
 
 // ============================================
 // DAY CARD COMPONENT
@@ -131,6 +425,7 @@ interface EditModalProps {
   onClose: () => void;
   onSave: (data: OperatingHourCreate | OperatingHourUpdate, isUpdate: boolean, hoursId?: string) => Promise<void>;
   onDelete: (hoursId: string) => Promise<void>;
+  onApplyToAll: (data: { openTime: string; closeTime: string; breakStart: string; breakEnd: string; hasBreak: boolean }) => void;
   isSaving: boolean;
 }
 
@@ -141,6 +436,7 @@ const EditModal: React.FC<EditModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  onApplyToAll,
   isSaving,
 }) => {
   const dayName = dayOfWeek !== null ? DAYS_OF_WEEK[dayOfWeek]?.label || '' : '';
@@ -170,43 +466,47 @@ const EditModal: React.FC<EditModalProps> = ({
     return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
   };
 
+  const validateForm = (): string | null => {
+    if (!isOpen) return null; // Closed days are always valid
+
+    if (!validateTime(openTime) || !validateTime(closeTime)) {
+      return 'Please select valid opening and closing times';
+    }
+
+    const openMinutes = parseTimeToMinutes(openTime);
+    const closeMinutes = parseTimeToMinutes(closeTime);
+
+    if (closeMinutes <= openMinutes) {
+      return 'Closing time must be after opening time';
+    }
+
+    if (hasBreak) {
+      if (!validateTime(breakStart) || !validateTime(breakEnd)) {
+        return 'Please select valid break times';
+      }
+
+      const breakStartMinutes = parseTimeToMinutes(breakStart);
+      const breakEndMinutes = parseTimeToMinutes(breakEnd);
+
+      if (breakEndMinutes <= breakStartMinutes) {
+        return 'Break end must be after break start';
+      }
+
+      if (breakStartMinutes < openMinutes || breakEndMinutes > closeMinutes) {
+        return 'Break must be within operating hours';
+      }
+    }
+
+    return null;
+  };
+
   const handleSave = async () => {
     if (dayOfWeek === null) return;
 
-    // Validate times
-    if (isOpen) {
-      if (!validateTime(openTime) || !validateTime(closeTime)) {
-        Alert.alert('Invalid Time', 'Please enter times in HH:MM format (e.g., 09:00)');
-        return;
-      }
-
-      const openMinutes = parseTimeToMinutes(openTime);
-      const closeMinutes = parseTimeToMinutes(closeTime);
-
-      if (closeMinutes <= openMinutes) {
-        Alert.alert('Invalid Times', 'Close time must be after open time');
-        return;
-      }
-
-      if (hasBreak) {
-        if (!validateTime(breakStart) || !validateTime(breakEnd)) {
-          Alert.alert('Invalid Time', 'Please enter break times in HH:MM format');
-          return;
-        }
-
-        const breakStartMinutes = parseTimeToMinutes(breakStart);
-        const breakEndMinutes = parseTimeToMinutes(breakEnd);
-
-        if (breakEndMinutes <= breakStartMinutes) {
-          Alert.alert('Invalid Break Times', 'Break end must be after break start');
-          return;
-        }
-
-        if (breakStartMinutes < openMinutes || breakEndMinutes > closeMinutes) {
-          Alert.alert('Invalid Break Times', 'Break must be within operating hours');
-          return;
-        }
-      }
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert('Validation Error', validationError);
+      return;
     }
 
     const payload: OperatingHourCreate | OperatingHourUpdate = {
@@ -234,6 +534,34 @@ const EditModal: React.FC<EditModalProps> = ({
           text: 'Delete',
           style: 'destructive',
           onPress: () => onDelete(existingHours.id),
+        },
+      ]
+    );
+  };
+
+  const handleApplyToAll = () => {
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert('Validation Error', validationError);
+      return;
+    }
+
+    Alert.alert(
+      'Apply to All Days',
+      'This will copy the current times to all other days. Existing hours will be replaced.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Apply',
+          onPress: () => {
+            onApplyToAll({
+              openTime,
+              closeTime,
+              breakStart,
+              breakEnd,
+              hasBreak,
+            });
+          },
         },
       ]
     );
@@ -276,29 +604,19 @@ const EditModal: React.FC<EditModalProps> = ({
                   <Text style={styles.formSectionTitle}>Operating Hours</Text>
 
                   <View style={styles.timeInputRow}>
-                    <View style={styles.timeInputGroup}>
-                      <Text style={styles.timeInputLabel}>Open</Text>
-                      <TextInput
-                        style={styles.timeInput}
-                        value={openTime}
-                        onChangeText={setOpenTime}
-                        placeholder="09:00"
-                        keyboardType="numbers-and-punctuation"
-                        maxLength={5}
-                      />
+                    <TimeInput
+                      label="Open"
+                      value={openTime}
+                      onChange={setOpenTime}
+                    />
+                    <View style={styles.timeArrow}>
+                      <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
                     </View>
-                    <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
-                    <View style={styles.timeInputGroup}>
-                      <Text style={styles.timeInputLabel}>Close</Text>
-                      <TextInput
-                        style={styles.timeInput}
-                        value={closeTime}
-                        onChangeText={setCloseTime}
-                        placeholder="18:00"
-                        keyboardType="numbers-and-punctuation"
-                        maxLength={5}
-                      />
-                    </View>
+                    <TimeInput
+                      label="Close"
+                      value={closeTime}
+                      onChange={setCloseTime}
+                    />
                   </View>
                 </View>
 
@@ -321,32 +639,31 @@ const EditModal: React.FC<EditModalProps> = ({
                     <Text style={styles.formSectionTitle}>Break Time</Text>
 
                     <View style={styles.timeInputRow}>
-                      <View style={styles.timeInputGroup}>
-                        <Text style={styles.timeInputLabel}>Start</Text>
-                        <TextInput
-                          style={styles.timeInput}
-                          value={breakStart}
-                          onChangeText={setBreakStart}
-                          placeholder="13:00"
-                          keyboardType="numbers-and-punctuation"
-                          maxLength={5}
-                        />
+                      <TimeInput
+                        label="Start"
+                        value={breakStart}
+                        onChange={setBreakStart}
+                      />
+                      <View style={styles.timeArrow}>
+                        <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
                       </View>
-                      <Ionicons name="arrow-forward" size={20} color="#9CA3AF" />
-                      <View style={styles.timeInputGroup}>
-                        <Text style={styles.timeInputLabel}>End</Text>
-                        <TextInput
-                          style={styles.timeInput}
-                          value={breakEnd}
-                          onChangeText={setBreakEnd}
-                          placeholder="14:00"
-                          keyboardType="numbers-and-punctuation"
-                          maxLength={5}
-                        />
-                      </View>
+                      <TimeInput
+                        label="End"
+                        value={breakEnd}
+                        onChange={setBreakEnd}
+                      />
                     </View>
                   </View>
                 )}
+
+                {/* Apply to All Days Button */}
+                <TouchableOpacity
+                  style={styles.applyAllButton}
+                  onPress={handleApplyToAll}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#2F6F4E" />
+                  <Text style={styles.applyAllButtonText}>Apply to All Days</Text>
+                </TouchableOpacity>
               </>
             )}
 
@@ -411,6 +728,7 @@ export const OperatingHoursScreen: React.FC = () => {
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [editingHours, setEditingHours] = useState<OperatingHourResponse | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [applyingToAll, setApplyingToAll] = useState(false);
 
   // Query operating hours
   const hoursQuery = useOperatingHoursListQuery(
@@ -453,6 +771,28 @@ export const OperatingHoursScreen: React.FC = () => {
     setEditingHours(null);
   }, []);
 
+  // Sanitized error handler - no raw system errors shown to user
+  const showUserFriendlyError = useCallback((error: unknown, action: string) => {
+    const normalized = normalizeError(error);
+    
+    // Map error codes to user-friendly messages
+    const userMessages: Record<string, string> = {
+      'CORS_ERROR': 'Unable to connect to server. Please check your connection and try again.',
+      'NETWORK_ERROR': 'Network error. Please check your internet connection.',
+      '401': 'Your session has expired. Please log in again.',
+      '403': 'You do not have permission to perform this action.',
+      '404': 'The requested resource was not found.',
+      '422': 'Invalid data provided. Please check your input.',
+      '500': 'Server error. Please try again later.',
+    };
+
+    const message = userMessages[normalized.code] || 
+                   userMessages[normalized.status?.toString() || ''] ||
+                   `Unable to ${action}. Please try again.`;
+
+    Alert.alert('Error', message);
+  }, []);
+
   const handleSave = useCallback(
     async (
       data: OperatingHourCreate | OperatingHourUpdate,
@@ -471,12 +811,11 @@ export const OperatingHoursScreen: React.FC = () => {
         }
         Alert.alert('Success', 'Operating hours saved successfully');
         handleCloseModal();
-      } catch (error: any) {
-        console.error('Save error:', error);
-        Alert.alert('Error', error?.message || 'Failed to save operating hours');
+      } catch (error) {
+        showUserFriendlyError(error, 'save operating hours');
       }
     },
-    [createMutation, deleteMutation, handleCloseModal]
+    [createMutation, deleteMutation, handleCloseModal, showUserFriendlyError]
   );
 
   const handleDelete = useCallback(
@@ -485,12 +824,52 @@ export const OperatingHoursScreen: React.FC = () => {
         await deleteMutation.mutateAsync(hoursId);
         Alert.alert('Success', 'Operating hours deleted');
         handleCloseModal();
-      } catch (error: any) {
-        console.error('Delete error:', error);
-        Alert.alert('Error', error?.message || 'Failed to delete operating hours');
+      } catch (error) {
+        showUserFriendlyError(error, 'delete operating hours');
       }
     },
-    [deleteMutation, handleCloseModal]
+    [deleteMutation, handleCloseModal, showUserFriendlyError]
+  );
+
+  // Apply to all days functionality
+  const handleApplyToAll = useCallback(
+    async (times: { openTime: string; closeTime: string; breakStart: string; breakEnd: string; hasBreak: boolean }) => {
+      setApplyingToAll(true);
+      
+      try {
+        // Process each day of the week (0-6)
+        for (let day = 0; day < 7; day++) {
+          const existing = hoursByDay.get(day);
+          
+          const payload: OperatingHourCreate = {
+            day_of_week: day,
+            is_open: true,
+            open_time: `${times.openTime}:00`,
+            close_time: `${times.closeTime}:00`,
+            break_start: times.hasBreak ? `${times.breakStart}:00` : null,
+            break_end: times.hasBreak ? `${times.breakEnd}:00` : null,
+            status: 'active',
+          };
+
+          // Delete existing first if it exists
+          if (existing) {
+            await deleteMutation.mutateAsync(existing.id);
+          }
+          
+          // Create new
+          await createMutation.mutateAsync(payload);
+        }
+
+        Alert.alert('Success', 'Applied hours to all days');
+        handleCloseModal();
+        hoursQuery.refetch();
+      } catch (error) {
+        showUserFriendlyError(error, 'apply hours to all days');
+      } finally {
+        setApplyingToAll(false);
+      }
+    },
+    [hoursByDay, createMutation, deleteMutation, handleCloseModal, hoursQuery, showUserFriendlyError]
   );
 
   // Count configured days
@@ -591,10 +970,20 @@ export const OperatingHoursScreen: React.FC = () => {
         <View style={styles.helpSection}>
           <Ionicons name="information-circle-outline" size={18} color="#6B7280" />
           <Text style={styles.helpText}>
-            Operating hours define when your clinic accepts appointments. Staff schedules may vary.
+            Operating hours define when your clinic accepts appointments. Use "Apply to All Days" to quickly set the same hours for every day.
           </Text>
         </View>
       </ScrollView>
+
+      {/* Applying to all overlay */}
+      {applyingToAll && (
+        <View style={styles.applyingOverlay}>
+          <View style={styles.applyingContent}>
+            <ActivityIndicator size="large" color="#2F6F4E" />
+            <Text style={styles.applyingText}>Applying to all days...</Text>
+          </View>
+        </View>
+      )}
 
       {/* Edit Modal */}
       <EditModal
@@ -604,6 +993,7 @@ export const OperatingHoursScreen: React.FC = () => {
         onClose={handleCloseModal}
         onSave={handleSave}
         onDelete={handleDelete}
+        onApplyToAll={handleApplyToAll}
         isSaving={createMutation.isPending || deleteMutation.isPending}
       />
     </SafeAreaView>
@@ -857,28 +1247,28 @@ const styles = StyleSheet.create({
   },
   timeInputRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  timeArrow: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  applyAllButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  timeInputGroup: {
-    flex: 1,
-  },
-  timeInputLabel: {
-    ...typography.caption,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  timeInput: {
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: '#2F6F4E10',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderColor: '#2F6F4E30',
+  },
+  applyAllButtonText: {
     ...typography.body1,
-    color: '#1F2937',
-    textAlign: 'center',
+    color: '#2F6F4E',
+    fontWeight: '600',
   },
   closedNotice: {
     flexDirection: 'row',
@@ -942,6 +1332,23 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  applyingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  applyingContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  applyingText: {
+    ...typography.body1,
+    color: '#1F2937',
   },
 });
 

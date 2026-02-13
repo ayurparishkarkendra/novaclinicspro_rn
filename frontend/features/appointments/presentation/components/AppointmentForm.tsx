@@ -55,7 +55,7 @@ type AppointmentFormData = z.infer<typeof appointmentSchema>;
 
 interface AppointmentFormProps {
   initialData?: AppointmentResponse;
-  onSubmit: (data: AppointmentCreate | AppointmentUpdate) => void;
+  onSubmit: (data: AppointmentCreate | AppointmentUpdate) => void | Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
 }

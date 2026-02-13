@@ -10,6 +10,7 @@ import {
   createTreatmentApi,
   updateTreatmentApi,
   deleteTreatmentApi,
+  searchTreatmentsApi,
 } from '../datasources/treatments.api';
 import {
   TreatmentCreate,
@@ -31,6 +32,8 @@ export const treatmentsKeys = {
   details: () => [...treatmentsKeys.all, 'detail'] as const,
   detail: (tenantId: string, treatmentId: string) =>
     [...treatmentsKeys.details(), tenantId, treatmentId] as const,
+  search: (tenantId: string, query: string) =>
+    [...treatmentsKeys.all, 'search', tenantId, query] as const,
 };
 
 // ============================================
@@ -113,5 +116,34 @@ export const useDeleteTreatmentMutation = (tenantId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentsKeys.lists() });
     },
+  });
+};
+
+// ============================================
+// SEARCH HOOKS
+// ============================================
+
+/**
+ * Hook to search treatments by name
+ * Uses the dedicated search endpoint: GET /api/v1/clinic/{tenant_id}/treatments/search
+ * 
+ * @param tenantId - Clinic tenant ID
+ * @param query - Search query (min 3 characters to trigger API call)
+ * @param limit - Optional limit for results
+ */
+export const useSearchTreatmentsQuery = (
+  tenantId: string,
+  query: string,
+  limit?: number,
+  options?: Omit<UseQueryOptions<PaginatedTreatmentsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<PaginatedTreatmentsResponse, Error>({
+    queryKey: treatmentsKeys.search(tenantId, query),
+    queryFn: () => searchTreatmentsApi(tenantId, query, limit),
+    // Only enable when tenantId exists and query has at least 3 characters
+    enabled: !!tenantId && query.length >= 3,
+    // Keep stale data while fetching new results
+    staleTime: 30000, // 30 seconds
+    ...options,
   });
 };

@@ -25,11 +25,15 @@ import {
   MedicineType,
   InventoryCategory,
   DoshaProperties,
+  InventoryLocation,
+  formatLocation,
+  parseLocationString,
+  isLocationEmpty,
 } from '../../data/models/inventory.dtos';
 
 interface InventoryItemFormProps {
   initialData?: InventoryItemResponse;
-  onSubmit: (data: InventoryCreateRequest | InventoryUpdateRequest) => void;
+  onSubmit: (data: InventoryCreateRequest | InventoryUpdateRequest) => void | Promise<void>;
   isLoading?: boolean;
   isEdit?: boolean;
 }
@@ -64,6 +68,17 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
   isLoading = false,
   isEdit = false,
 }) => {
+  // Helper to extract initial location values
+  const getInitialLocationValue = (field: keyof InventoryLocation): string => {
+    if (!initialData?.location) return '';
+    if (typeof initialData.location === 'string') {
+      // Legacy string format - try to parse it
+      const parsed = parseLocationString(initialData.location);
+      return parsed?.[field]?.toString() || '';
+    }
+    return initialData.location[field]?.toString() || '';
+  };
+
   // Form state
   const [name, setName] = useState(initialData?.name || '');
   const [brand, setBrand] = useState(initialData?.brand || '');
@@ -82,7 +97,14 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
   const [manufacturer, setManufacturer] = useState(initialData?.manufacturer || '');
   const [strength, setStrength] = useState(initialData?.strength || '');
   const [composition, setComposition] = useState(initialData?.composition || '');
-  const [location, setLocation] = useState(initialData?.location || '');
+  
+  // Location fields as separate state (InventoryLocation object)
+  const [locationShelf, setLocationShelf] = useState(getInitialLocationValue('shelf'));
+  const [locationRack, setLocationRack] = useState(getInitialLocationValue('rack'));
+  const [locationBin, setLocationBin] = useState(getInitialLocationValue('bin'));
+  const [locationZone, setLocationZone] = useState(getInitialLocationValue('zone'));
+  const [locationNotes, setLocationNotes] = useState(getInitialLocationValue('notes'));
+  
   const [barcode, setBarcode] = useState(initialData?.barcode || '');
   const [sku, setSku] = useState(initialData?.sku || '');
   const [hsnCode, setHsnCode] = useState(initialData?.hsn_code || '');
@@ -107,6 +129,22 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
 
   const isValid = name.trim().length > 0;
 
+  // Build location object from individual fields
+  const buildLocationObject = (): InventoryLocation | null => {
+    const location: InventoryLocation = {};
+    
+    if (locationShelf.trim()) location.shelf = locationShelf.trim();
+    if (locationRack.trim()) location.rack = locationRack.trim();
+    if (locationBin.trim()) location.bin = locationBin.trim();
+    if (locationZone.trim()) location.zone = locationZone.trim();
+    if (locationNotes.trim()) location.notes = locationNotes.trim();
+    
+    // Return null if no location data provided
+    if (isLocationEmpty(location)) return null;
+    
+    return location;
+  };
+
   const handleSubmit = () => {
     if (!isValid) return;
 
@@ -122,7 +160,7 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
       manufacturer: manufacturer.trim() || null,
       strength: strength.trim() || null,
       composition: composition.trim() || null,
-      location: location.trim() || null,
+      location: buildLocationObject(),  // Now sends proper dictionary object
       barcode: barcode.trim() || null,
       sku: sku.trim() || null,
       hsn_code: hsnCode.trim() || null,
@@ -395,13 +433,63 @@ export const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
             />
           </View>
 
+          {/* Storage Location - Multiple Fields for Backend Dictionary Format */}
+          <Text style={styles.locationSectionLabel}>Storage Location</Text>
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Zone</Text>
+              <TextInput
+                style={styles.input}
+                value={locationZone}
+                onChangeText={setLocationZone}
+                placeholder="e.g., A"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+            <View style={{ width: spacing.md }} />
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Shelf</Text>
+              <TextInput
+                style={styles.input}
+                value={locationShelf}
+                onChangeText={setLocationShelf}
+                placeholder="e.g., 1"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Rack</Text>
+              <TextInput
+                style={styles.input}
+                value={locationRack}
+                onChangeText={setLocationRack}
+                placeholder="e.g., 2"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+            <View style={{ width: spacing.md }} />
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.label}>Bin</Text>
+              <TextInput
+                style={styles.input}
+                value={locationBin}
+                onChangeText={setLocationBin}
+                placeholder="e.g., B3"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Storage Location</Text>
+            <Text style={styles.label}>Location Notes</Text>
             <TextInput
               style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="e.g., Shelf A, Row 2"
+              value={locationNotes}
+              onChangeText={setLocationNotes}
+              placeholder="Additional location details"
               placeholderTextColor={colors.text.tertiary}
             />
           </View>
@@ -521,6 +609,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.xs,
+  },
+  locationSectionLabel: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
   },
   input: {
     backgroundColor: colors.background.default,

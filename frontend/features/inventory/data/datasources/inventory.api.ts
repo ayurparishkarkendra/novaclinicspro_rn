@@ -223,3 +223,27 @@ export const acknowledgeInventoryAlertsApi = async (
     payload
   );
 };
+
+// ============================================
+// SEARCH
+// ============================================
+
+/**
+ * Search inventory by medicine name, expiry date, batch number, or sku number
+ * GET /api/v1/clinic/{tenant_id}/inventory/search
+ * 
+ * @param tenantId - Clinic tenant ID
+ * @param query - Search query (medicine name, batch, sku, etc.)
+ * @param limit - Optional limit for results
+ */
+export const searchInventoryApi = async (
+  tenantId: string,
+  query: string,
+  limit?: number
+): Promise<InventoryListResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/inventory/search`,
+    { params: { query, limit } }
+  );
+  return response.data;
+};
