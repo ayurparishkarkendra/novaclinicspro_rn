@@ -780,8 +780,8 @@ export const CreateAppointmentScreen: React.FC = () => {
       pathname: '/clinic-admin/appointments/preview' as any,
       params: {
         clientId: selectedClientId,
-        clientName: selectedClientInfo?.name || selectedClient?.name || '',
-        clientPhone: selectedClientInfo?.phone || selectedClient?.phone || '',
+        clientName: selectedClientInfo?.name || (selectedClient as any)?.label || '',
+        clientPhone: selectedClientInfo?.phone || (selectedClient as any)?.subtitle || '',
         treatmentId: selectedTreatmentId,
         treatmentName: selectedTreatment?.label || '',
         staffIds: selectedStaffIds.join(','),
