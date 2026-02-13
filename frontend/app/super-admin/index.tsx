@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Pressable,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,25 +31,37 @@ export default function SuperAdminDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      t('confirmations.logout'),
-      t('confirmations.logout'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('navigation.logout'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              Alert.alert(t('common.error'), t(ErrorTokens.auth.logoutFailed));
-            }
+  const handleLogout = async () => {
+    // Use confirm for web, Alert for native
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        try {
+          await logout();
+        } catch (error) {
+          window.alert('Logout failed. Please try again.');
+        }
+      }
+    } else {
+      Alert.alert(
+        t('confirmations.logout'),
+        t('confirmations.logout'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('navigation.logout'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await logout();
+              } catch (error) {
+                Alert.alert(t('common.error'), t(ErrorTokens.auth.logoutFailed));
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   return (
