@@ -1,6 +1,6 @@
 /**
  * Appointment Detail Screen
- * Displays detailed info for a single appointment with actions
+ * Displays detailed info for a single appointment with actions and WhatsApp integration
  */
 
 import React, { useState, useCallback } from 'react';
@@ -12,12 +12,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Modal,
   RefreshControl,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -26,19 +28,85 @@ import {
   useAppointmentDetailQuery,
   useUpdateAppointmentMutation,
   useCancelAppointmentMutation,
-  useDeleteAppointmentMutation,
+  useRescheduleAppointmentMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
+  AppointmentResponse,
   AppointmentUpdate,
   getStatusLabel,
   getStatusColor,
   formatDate,
   formatTime,
-  formatDateTime,
   calculateDuration,
   formatDuration,
+  openWhatsApp,
+  generateWhatsAppConfirmationMessage,
+  generateWhatsAppCancellationMessage,
+  generateWhatsAppRescheduleMessage,
 } from '../../data/models/appointments.dtos';
-import { AppointmentForm } from '../components/AppointmentForm';
+
+// ============================================
+// INFO ROW COMPONENT
+// ============================================
+
+interface InfoRowProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string | null;
+  valueColor?: string;
+  onPress?: () => void;
+}
+
+const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPress }) => (
+  <TouchableOpacity
+    style={styles.infoRow}
+    onPress={onPress}
+    disabled={!onPress}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={styles.infoIcon}>
+      <Ionicons name={icon} size={20} color={colors.primary.main} />
+    </View>
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>
+        {value || '—'}
+      </Text>
+    </View>
+    {onPress && (
+      <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+    )}
+  </TouchableOpacity>
+);
+
+// ============================================
+// ACTION BUTTON COMPONENT
+// ============================================
+
+interface ActionButtonProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color: string;
+  onPress: () => void;
+  disabled?: boolean;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, color, onPress, disabled }) => (
+  <TouchableOpacity
+    style={[styles.actionButton, { backgroundColor: color + '15' }, disabled && styles.actionButtonDisabled]}
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <Ionicons name={icon} size={20} color={disabled ? colors.text.tertiary : color} />
+    <Text style={[styles.actionButtonText, { color: disabled ? colors.text.tertiary : color }]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+// ============================================
+// MAIN SCREEN
+// ============================================
 
 export const AppointmentDetailScreen: React.FC = () => {
   const router = useRouter();
@@ -46,8 +114,11 @@ export const AppointmentDetailScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
 
-  // State
-  const [showEditModal, setShowEditModal] = useState(false);
+  // State for reschedule
+  const [showReschedulePicker, setShowReschedulePicker] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState<Date | null>(null);
+  const [showRescheduleTime, setShowRescheduleTime] = useState(false);
+  const [rescheduleTime, setRescheduleTime] = useState<Date | null>(null);
 
   // Queries
   const {
@@ -62,22 +133,79 @@ export const AppointmentDetailScreen: React.FC = () => {
   // Mutations
   const updateMutation = useUpdateAppointmentMutation(tenantId, appointmentId || '');
   const cancelMutation = useCancelAppointmentMutation(tenantId);
-  const deleteMutation = useDeleteAppointmentMutation(tenantId);
+  const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
-  const handleUpdate = useCallback(
-    async (data: AppointmentUpdate) => {
-      try {
-        await updateMutation.mutateAsync(data);
-        setShowEditModal(false);
-        Alert.alert('Success', 'Appointment updated successfully');
-      } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to update appointment');
-      }
-    },
-    [updateMutation]
-  );
+  // WhatsApp handlers
+  const handleWhatsAppConfirmation = useCallback(() => {
+    if (!appointment) return;
+    const phone = appointment.client_phone || '';
+    if (!phone) {
+      Alert.alert('No Phone Number', 'Client phone number is not available');
+      return;
+    }
+    const message = generateWhatsAppConfirmationMessage(
+      appointment.client_name || 'Client',
+      'Your Clinic',
+      formatDate(appointment.appointment_start),
+      formatTime(appointment.appointment_start),
+      appointment.staff_name || 'Staff',
+      appointment.treatment_name || 'Appointment',
+      '+91-XXXXXXXXXX'
+    );
+    const url = openWhatsApp(phone, message);
+    Linking.openURL(url);
+  }, [appointment]);
 
+  // Handle status update
+  const handleStatusUpdate = useCallback(async (newStatus: string) => {
+    if (!appointment) return;
+
+    const statusMessages: Record<string, string> = {
+      confirmed: 'Mark as Confirmed',
+      in_progress: 'Start Appointment',
+      completed: 'Mark as Completed',
+      no_show: 'Mark as No-Show',
+    };
+
+    Alert.alert(
+      statusMessages[newStatus] || 'Update Status',
+      `Are you sure you want to ${statusMessages[newStatus]?.toLowerCase() || 'update this appointment'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: async () => {
+            try {
+              await updateMutation.mutateAsync({ status: newStatus });
+              Alert.alert('Success', 'Appointment status updated');
+              refetch();
+
+              // Offer WhatsApp notification for confirmation
+              if (newStatus === 'confirmed' && appointment.client_phone) {
+                setTimeout(() => {
+                  Alert.alert(
+                    'Send Confirmation?',
+                    'Would you like to send a WhatsApp confirmation to the client?',
+                    [
+                      { text: 'Skip', style: 'cancel' },
+                      { text: 'Send', onPress: handleWhatsAppConfirmation },
+                    ]
+                  );
+                }, 500);
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to update status');
+            }
+          },
+        },
+      ]
+    );
+  }, [appointment, updateMutation, refetch, handleWhatsAppConfirmation]);
+
+  // Handle cancel
   const handleCancel = useCallback(() => {
+    if (!appointment) return;
+
     Alert.alert(
       'Cancel Appointment',
       'Are you sure you want to cancel this appointment?',
@@ -91,37 +219,94 @@ export const AppointmentDetailScreen: React.FC = () => {
               await cancelMutation.mutateAsync(appointmentId || '');
               Alert.alert('Success', 'Appointment cancelled');
               refetch();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to cancel appointment');
-            }
-          },
-        },
-      ]
-    );
-  }, [cancelMutation, appointmentId, refetch]);
 
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Delete Appointment',
-      'Are you sure you want to delete this appointment? This action cannot be undone.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteMutation.mutateAsync(appointmentId || '');
-              Alert.alert('Success', 'Appointment deleted');
-              router.back();
+              // Offer WhatsApp notification
+              if (appointment.client_phone) {
+                setTimeout(() => {
+                  const message = generateWhatsAppCancellationMessage(
+                    appointment.client_name || 'Client',
+                    formatDate(appointment.appointment_start),
+                    formatTime(appointment.appointment_start),
+                    appointment.treatment_name || 'Appointment',
+                    '+91-XXXXXXXXXX'
+                  );
+                  const url = openWhatsApp(appointment.client_phone || '', message);
+
+                  Alert.alert(
+                    'Notify Client?',
+                    'Would you like to send a WhatsApp cancellation notice?',
+                    [
+                      { text: 'Skip', style: 'cancel' },
+                      { text: 'Send', onPress: () => Linking.openURL(url) },
+                    ]
+                  );
+                }, 500);
+              }
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete appointment');
+              Alert.alert('Error', err.message || 'Failed to cancel');
             }
           },
         },
       ]
     );
-  }, [deleteMutation, appointmentId, router]);
+  }, [appointment, cancelMutation, appointmentId, refetch]);
+
+  // Handle reschedule
+  const handleReschedule = useCallback(() => {
+    if (!appointment) return;
+    setRescheduleDate(new Date(appointment.appointment_start));
+    setShowReschedulePicker(true);
+  }, [appointment]);
+
+  const confirmReschedule = useCallback(async () => {
+    if (!appointment || !rescheduleDate || !rescheduleTime) return;
+
+    const newDateTime = new Date(rescheduleDate);
+    newDateTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes());
+
+    const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
+    const newEndTime = new Date(newDateTime);
+    newEndTime.setMinutes(newEndTime.getMinutes() + duration);
+
+    try {
+      await rescheduleMutation.mutateAsync({
+        new_start: newDateTime.toISOString(),
+        new_end: newEndTime.toISOString(),
+      });
+
+      setShowReschedulePicker(false);
+      setShowRescheduleTime(false);
+      Alert.alert('Success', 'Appointment rescheduled');
+      refetch();
+
+      // Offer WhatsApp notification
+      if (appointment.client_phone) {
+        setTimeout(() => {
+          const message = generateWhatsAppRescheduleMessage(
+            appointment.client_name || 'Client',
+            formatDate(appointment.appointment_start),
+            formatTime(appointment.appointment_start),
+            formatDate(newDateTime.toISOString()),
+            formatTime(newDateTime.toISOString()),
+            appointment.staff_name || 'Staff',
+            appointment.treatment_name || 'Appointment'
+          );
+          const url = openWhatsApp(appointment.client_phone || '', message);
+
+          Alert.alert(
+            'Notify Client?',
+            'Would you like to send a WhatsApp reschedule notice?',
+            [
+              { text: 'Skip', style: 'cancel' },
+              { text: 'Send', onPress: () => Linking.openURL(url) },
+            ]
+          );
+        }, 500);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to reschedule');
+    }
+  }, [appointment, rescheduleDate, rescheduleTime, rescheduleMutation, refetch]);
 
   // Loading state
   if (isLoading) {
@@ -140,7 +325,7 @@ export const AppointmentDetailScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
@@ -160,29 +345,24 @@ export const AppointmentDetailScreen: React.FC = () => {
 
   const statusColor = getStatusColor(appointment.status);
   const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
-  const canCancel = ['scheduled', 'confirmed'].includes(appointment.status);
+  const canModify = ['scheduled', 'confirmed'].includes(appointment.status);
+  const canStart = appointment.status === 'confirmed';
+  const canComplete = appointment.status === 'in_progress';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => setShowEditModal(true)}
-          >
-            <Ionicons name="pencil" size={20} color={colors.primary.main} />
+        <Text style={styles.headerTitle}>Appointment Details</Text>
+        {/* WhatsApp Button */}
+        {appointment.client_phone && (
+          <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsAppConfirmation}>
+            <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleDelete}
-          >
-            <Ionicons name="trash" size={20} color={colors.error.main} />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
       <ScrollView
@@ -190,168 +370,257 @@ export const AppointmentDetailScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            colors={[colors.primary.main]}
-          />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[colors.primary.main]} />
         }
       >
-        {/* Status Card */}
-        <View style={[styles.statusCard, { borderLeftColor: statusColor }]}>
-          <View style={styles.statusHeader}>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-              <Text style={[styles.statusText, { color: statusColor }]}>
-                {getStatusLabel(appointment.status)}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.dateText}>{formatDate(appointment.appointment_start)}</Text>
-          <View style={styles.timeRow}>
-            <Ionicons name="time" size={20} color={colors.text.secondary} />
-            <Text style={styles.timeText}>
-              {formatTime(appointment.appointment_start)}
-              {appointment.appointment_end && ` - ${formatTime(appointment.appointment_end)}`}
+        {/* Status Badge */}
+        <View style={styles.statusSection}>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {getStatusLabel(appointment.status)}
             </Text>
-            {duration && (
-              <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{formatDuration(duration)}</Text>
-              </View>
-            )}
           </View>
+          {appointment.session_number && appointment.total_sessions && (
+            <Text style={styles.sessionBadge}>
+              Session {appointment.session_number}/{appointment.total_sessions}
+            </Text>
+          )}
         </View>
 
-        {/* Client Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Client</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="person" size={20} color={colors.text.secondary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Name</Text>
-                <Text style={styles.infoValue}>
-                  {appointment.client_name || `Client #${appointment.client_id.slice(0, 8)}...`}
-                </Text>
-              </View>
-            </View>
-          </View>
+        {/* Client Info Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Client</Text>
+          <InfoRow
+            icon="person"
+            label="Name"
+            value={appointment.client_name}
+          />
+          {appointment.client_phone && (
+            <InfoRow
+              icon="call"
+              label="Phone"
+              value={appointment.client_phone}
+              valueColor={colors.primary.main}
+              onPress={() => Linking.openURL(`tel:${appointment.client_phone}`)}
+            />
+          )}
         </View>
 
-        {/* Appointment Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appointment Details</Text>
-          <View style={styles.infoCard}>
-            {appointment.treatment_name && (
-              <View style={styles.infoRow}>
-                <Ionicons name="leaf" size={20} color={colors.primary.main} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Treatment</Text>
-                  <Text style={styles.infoValue}>{appointment.treatment_name}</Text>
-                </View>
-              </View>
-            )}
-            {appointment.staff_name && (
-              <View style={styles.infoRow}>
-                <Ionicons name="medkit" size={20} color={colors.text.secondary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Staff</Text>
-                  <Text style={styles.infoValue}>{appointment.staff_name}</Text>
-                </View>
-              </View>
-            )}
-            {appointment.room_name && (
-              <View style={styles.infoRow}>
-                <Ionicons name="location" size={20} color={colors.text.secondary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Room</Text>
-                  <Text style={styles.infoValue}>{appointment.room_name}</Text>
-                </View>
-              </View>
-            )}
-            {appointment.appointment_type && (
-              <View style={styles.infoRow}>
-                <Ionicons name="medical" size={20} color={colors.text.secondary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Type</Text>
-                  <Text style={styles.infoValue}>{appointment.appointment_type}</Text>
-                </View>
-              </View>
-            )}
-          </View>
+        {/* Appointment Info Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Appointment</Text>
+          <InfoRow
+            icon="calendar"
+            label="Date"
+            value={formatDate(appointment.appointment_start)}
+          />
+          <InfoRow
+            icon="time"
+            label="Time"
+            value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
+          />
+          <InfoRow
+            icon="hourglass"
+            label="Duration"
+            value={formatDuration(duration)}
+          />
+          {appointment.treatment_name && (
+            <InfoRow
+              icon="medical"
+              label="Treatment"
+              value={appointment.treatment_name}
+            />
+          )}
+          {appointment.staff_name && (
+            <InfoRow
+              icon="person-circle"
+              label="Staff"
+              value={appointment.staff_name}
+            />
+          )}
+          {appointment.room_name && (
+            <InfoRow
+              icon="business"
+              label="Room"
+              value={appointment.room_name}
+            />
+          )}
         </View>
 
         {/* Notes */}
         {appointment.notes && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <View style={styles.notesCard}>
-              <Text style={styles.notesText}>{appointment.notes}</Text>
-            </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Notes</Text>
+            <Text style={styles.notesText}>{appointment.notes}</Text>
           </View>
         )}
 
-        {/* Record Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Record Info</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="finger-print" size={20} color={colors.text.tertiary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>ID</Text>
-                <Text style={styles.infoValueSmall}>{appointment.id}</Text>
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={20} color={colors.text.tertiary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Created</Text>
-                <Text style={styles.infoValue}>{formatDateTime(appointment.created_at)}</Text>
-              </View>
-            </View>
+        {/* Quick Actions */}
+        <View style={styles.actionsSection}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            {appointment.status === 'scheduled' && (
+              <ActionButton
+                icon="checkmark-circle"
+                label="Confirm"
+                color={colors.success.main}
+                onPress={() => handleStatusUpdate('confirmed')}
+              />
+            )}
+            {canStart && (
+              <ActionButton
+                icon="play-circle"
+                label="Start"
+                color={colors.info.main}
+                onPress={() => handleStatusUpdate('in_progress')}
+              />
+            )}
+            {canComplete && (
+              <ActionButton
+                icon="checkmark-done-circle"
+                label="Complete"
+                color={colors.success.main}
+                onPress={() => handleStatusUpdate('completed')}
+              />
+            )}
+            <ActionButton
+              icon="calendar-outline"
+              label="Reschedule"
+              color={colors.primary.main}
+              onPress={handleReschedule}
+              disabled={!canModify}
+            />
+            <ActionButton
+              icon="close-circle"
+              label="Cancel"
+              color={colors.error.main}
+              onPress={handleCancel}
+              disabled={!canModify}
+            />
+            <ActionButton
+              icon="alert-circle"
+              label="No-Show"
+              color={colors.warning.main}
+              onPress={() => handleStatusUpdate('no_show')}
+              disabled={!canModify}
+            />
           </View>
         </View>
 
-        {/* Action Buttons */}
-        {canCancel && (
-          <View style={styles.actionsSection}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-            >
-              <Ionicons name="close-circle" size={20} color={colors.error.main} />
-              <Text style={styles.cancelButtonText}>Cancel Appointment</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Created/Updated Info */}
+        <View style={styles.metaSection}>
+          {appointment.created_at && (
+            <Text style={styles.metaText}>
+              Created: {formatDate(appointment.created_at)}
+            </Text>
+          )}
+          {appointment.updated_at && (
+            <Text style={styles.metaText}>
+              Updated: {formatDate(appointment.updated_at)}
+            </Text>
+          )}
+        </View>
       </ScrollView>
 
-      {/* Edit Modal */}
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <SafeAreaView style={styles.modalContainer} edges={['top']}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowEditModal(false)}>
-              <Ionicons name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Edit Appointment</Text>
-            <View style={{ width: 24 }} />
+      {/* Reschedule Date Picker */}
+      {showReschedulePicker && (
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContainer}>
+            <Text style={styles.pickerTitle}>Select New Date</Text>
+            <DateTimePicker
+              value={rescheduleDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={(event, date) => {
+                if (event.type === 'dismissed') {
+                  setShowReschedulePicker(false);
+                  return;
+                }
+                if (date) {
+                  setRescheduleDate(date);
+                  if (Platform.OS === 'android') {
+                    setShowReschedulePicker(false);
+                    setRescheduleTime(new Date(appointment.appointment_start));
+                    setShowRescheduleTime(true);
+                  }
+                }
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <View style={styles.pickerButtons}>
+                <TouchableOpacity
+                  style={styles.pickerCancelButton}
+                  onPress={() => setShowReschedulePicker(false)}
+                >
+                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerConfirmButton}
+                  onPress={() => {
+                    setShowReschedulePicker(false);
+                    setRescheduleTime(new Date(appointment.appointment_start));
+                    setShowRescheduleTime(true);
+                  }}
+                >
+                  <Text style={styles.pickerConfirmText}>Next</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-          <AppointmentForm
-            initialData={appointment}
-            onSubmit={handleUpdate}
-            onCancel={() => setShowEditModal(false)}
-            isLoading={updateMutation.isPending}
-          />
-        </SafeAreaView>
-      </Modal>
+        </View>
+      )}
+
+      {/* Reschedule Time Picker */}
+      {showRescheduleTime && (
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContainer}>
+            <Text style={styles.pickerTitle}>Select New Time</Text>
+            <DateTimePicker
+              value={rescheduleTime || new Date()}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, time) => {
+                if (event.type === 'dismissed') {
+                  setShowRescheduleTime(false);
+                  return;
+                }
+                if (time) {
+                  setRescheduleTime(time);
+                  if (Platform.OS === 'android') {
+                    setShowRescheduleTime(false);
+                    confirmReschedule();
+                  }
+                }
+              }}
+            />
+            {Platform.OS === 'ios' && (
+              <View style={styles.pickerButtons}>
+                <TouchableOpacity
+                  style={styles.pickerCancelButton}
+                  onPress={() => setShowRescheduleTime(false)}
+                >
+                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerConfirmButton}
+                  onPress={confirmReschedule}
+                >
+                  <Text style={styles.pickerConfirmText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
+
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   container: {
@@ -361,48 +630,44 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background.default,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  backButton: {
+    padding: spacing.xs,
   },
-  headerButton: {
-    padding: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.grey[50],
+  headerTitle: {
+    flex: 1,
+    ...typography.h6,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  whatsappButton: {
+    padding: spacing.xs,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: spacing.md,
-    paddingBottom: spacing.xl,
   },
-  statusCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderLeftWidth: 4,
-  },
-  statusHeader: {
+
+  // Status Section
+  statusSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 16,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
     gap: spacing.xs,
   },
   statusDot: {
@@ -414,96 +679,115 @@ const styles = StyleSheet.create({
     ...typography.body2,
     fontWeight: '600',
   },
-  dateText: {
-    ...typography.h5,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  timeText: {
-    ...typography.body1,
-    color: colors.text.secondary,
-  },
-  durationBadge: {
-    backgroundColor: colors.grey[100],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  durationText: {
+  sessionBadge: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.primary.main,
+    backgroundColor: colors.primary.main + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  section: {
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h6,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  infoCard: {
+
+  // Card
+  card: {
     backgroundColor: colors.background.default,
     borderRadius: 12,
     padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
   },
+  cardTitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Info Row
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
+  infoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary.main + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
   infoContent: {
     flex: 1,
-    marginLeft: spacing.md,
   },
   infoLabel: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginBottom: 2,
   },
   infoValue: {
     ...typography.body1,
     color: colors.text.primary,
+    marginTop: 2,
   },
-  infoValueSmall: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontFamily: 'monospace',
-  },
-  notesCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-  },
+
+  // Notes
   notesText: {
     ...typography.body1,
     color: colors.text.primary,
     lineHeight: 22,
   },
+
+  // Actions
   actionsSection: {
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
-  cancelButton: {
+  sectionTitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.error.main,
-    backgroundColor: colors.error.main + '10',
+    gap: spacing.xs,
   },
-  cancelButtonText: {
-    ...typography.button,
-    color: colors.error.main,
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
+  actionButtonText: {
+    ...typography.body2,
+    fontWeight: '600',
+  },
+
+  // Meta
+  metaSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  metaText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginBottom: 4,
+  },
+
+  // Loading
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -514,6 +798,8 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.md,
   },
+
+  // Error
   errorContainer: {
     flex: 1,
     alignItems: 'center',
@@ -542,23 +828,50 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background.default,
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.background.paper,
+
+  // Picker Overlay
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+  pickerContainer: {
     backgroundColor: colors.background.default,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
   },
-  modalTitle: {
+  pickerTitle: {
     ...typography.h6,
     color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  pickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  pickerCancelButton: {
+    padding: spacing.md,
+  },
+  pickerCancelText: {
+    ...typography.button,
+    color: colors.text.secondary,
+  },
+  pickerConfirmButton: {
+    padding: spacing.md,
+    backgroundColor: colors.primary.main,
+    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+  },
+  pickerConfirmText: {
+    ...typography.button,
+    color: colors.background.default,
   },
 });
 
