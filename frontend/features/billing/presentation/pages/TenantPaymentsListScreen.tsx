@@ -27,7 +27,7 @@ import { formatCurrency, formatDate, isInvoicePaid } from '../../data/models/bil
 export const TenantPaymentsListScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Fetch invoices to show paid ones
   const {

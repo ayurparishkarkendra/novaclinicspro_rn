@@ -100,19 +100,23 @@ export const useAuth = (): UseAuthReturn => {
   }, [setCurrentUser]);
 
   /**
-   * Navigate based on user role
+   * Navigate based on user context (permission-based, not role-based)
+   * - isOrgAdmin -> Super Admin dashboard
+   * - tenantId exists -> Clinic Admin dashboard
    */
   const navigateBasedOnRole = (user: AuthUserSession) => {
+    console.log('[useAuth] Navigating based on context:', { 
+      isOrgAdmin: user.isOrgAdmin, 
+      tenantId: user.tenantId,
+      permissions: user.permissions 
+    });
+    
     if (user.isOrgAdmin) {
       router.replace('/super-admin');
-    } else if (user.roles.includes('clinic_admin')) {
+    } else if (user.tenantId) {
       router.replace('/clinic-admin');
-    } else if (user.roles.includes('doctor')) {
-      router.replace('/doctor');
-    } else if (user.roles.includes('therapist')) {
-      router.replace('/therapist');
     } else {
-      // Default fallback
+      // User has no tenant assigned - go to index which will show appropriate message
       router.replace('/');
     }
   };

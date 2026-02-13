@@ -3,7 +3,7 @@
  * Displays detailed info for a single staff member with edit/delete actions
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useStaffDetailQuery,
   useUpdateStaffMutation,
@@ -49,6 +50,23 @@ export const StaffDetailScreen: React.FC = () => {
   // State
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  // Check if current user is viewing their own profile (can request leave)
+  // Only the staff member themselves can request leave, not Clinic Admin
+  const isOwnProfile = useMemo(() => {
+    if (!currentUser || !staffId) return false;
+    // Check if the current user's staff ID matches this staff member
+    // Note: currentUser.staffId would need to be available from auth context
+    return currentUser.id === staffId || (currentUser as any).staffId === staffId;
+  }, [currentUser, staffId]);
+
+  // Check if current user is Clinic Admin (can deactivate)
+  const isClinicAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return (currentUser as any).roles?.some((role: string) => 
+      role.toLowerCase().includes('admin') || role.toLowerCase().includes('clinic_admin')
+    ) || (currentUser as any).role === 'clinic_admin';
+  }, [currentUser]);
 
   // Queries
   const {
@@ -337,16 +355,20 @@ export const StaffDetailScreen: React.FC = () => {
         </View>
 
         {/* Leave Requests */}
+        {/* Leave Requests Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Leave Requests</Text>
-            <TouchableOpacity
-              style={styles.addLeaveButton}
-              onPress={() => setShowLeaveModal(true)}
-            >
-              <Ionicons name="add" size={16} color={colors.primary.main} />
-              <Text style={styles.addLeaveText}>Request Leave</Text>
-            </TouchableOpacity>
+            {/* Only show Request Leave button if viewing own profile */}
+            {isOwnProfile && (
+              <TouchableOpacity
+                style={styles.addLeaveButton}
+                onPress={() => setShowLeaveModal(true)}
+              >
+                <Ionicons name="add" size={16} color={colors.primary.main} />
+                <Text style={styles.addLeaveText}>Request Leave</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {leavesData?.items && leavesData.items.length > 0 ? (
             leavesData.items.map((leave) => (

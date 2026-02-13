@@ -40,7 +40,7 @@ const CATEGORIES: { value: InventoryCategory | 'all'; label: string }[] = [
 export const InventoryListScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');

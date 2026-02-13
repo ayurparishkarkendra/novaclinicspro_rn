@@ -185,26 +185,48 @@ export default function DoctorDashboard() {
 
     // Error state
     if (isError) {
-      const errorMessage = error?.message || '';
-      const errorData = (error as any)?.response?.data?.detail || '';
+      const axiosError = error as any;
+      const status = axiosError?.response?.status;
+      const errorMessage = axiosError?.message || '';
+      const errorDetail = axiosError?.response?.data?.detail || '';
       
       // Handle permission errors (403)
-      const isPermissionError = errorMessage.includes('403') || errorData.includes('permission');
+      const isPermissionError = status === 403 || 
+        errorMessage.includes('403') || 
+        errorDetail.toLowerCase().includes('permission') ||
+        errorDetail.toLowerCase().includes('forbidden');
+      
+      // Handle authentication errors (401)
+      const isAuthError = status === 401 || errorMessage.includes('401');
       
       return (
         <View style={styles.section}>
           <EmptyDashboardState
             variant="error"
-            title={isPermissionError ? t(ErrorTokens.dashboard.accessRestricted) : t('common.error')}
+            title={
+              isPermissionError 
+                ? t(ErrorTokens.dashboard.accessRestricted) 
+                : isAuthError 
+                ? 'Session Expired'
+                : t('common.error')
+            }
             message={
               isPermissionError
-                ? t(ErrorTokens.dashboard.permissionRequired)
-                : error?.message?.includes('401')
+                ? t(ErrorTokens.auth.permissionDenied)
+                : isAuthError
                 ? t(ErrorTokens.auth.sessionExpired)
                 : t(ErrorTokens.dashboard.loadFailed)
             }
-            actionLabel={isPermissionError ? t('common.goBack') : t('common.retry')}
-            onActionPress={() => isPermissionError ? router.back() : refetch()}
+            actionLabel={isPermissionError ? t('common.goBack') : isAuthError ? 'Login' : t('common.retry')}
+            onActionPress={() => {
+              if (isPermissionError) {
+                router.back();
+              } else if (isAuthError) {
+                router.replace('/login');
+              } else {
+                refetch();
+              }
+            }}
           />
         </View>
       );

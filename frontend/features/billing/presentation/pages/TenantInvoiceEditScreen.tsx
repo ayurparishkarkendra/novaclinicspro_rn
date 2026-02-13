@@ -30,7 +30,7 @@ export const TenantInvoiceEditScreen: React.FC = () => {
   const router = useRouter();
   const { invoiceId } = useLocalSearchParams<{ invoiceId: string }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Fetch invoice details
   const {

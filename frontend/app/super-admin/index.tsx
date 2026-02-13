@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Pressable,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,30 +24,44 @@ import { colors } from '../../core/theme/colors';
 import { spacing } from '../../core/theme/spacing';
 import { typography } from '../../core/theme/typography';
 import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
+import { formatInrCurrency } from '../../core/utils/currency';
+import { t, ErrorTokens } from '../../core/localization';
 
 export default function SuperAdminDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
+  const handleLogout = async () => {
+    // Use confirm for web, Alert for native
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        try {
+          await logout();
+        } catch (error) {
+          window.alert('Logout failed. Please try again.');
+        }
+      }
+    } else {
+      Alert.alert(
+        t('confirmations.logout'),
+        t('confirmations.logout'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('navigation.logout'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await logout();
+              } catch (error) {
+                Alert.alert(t('common.error'), t(ErrorTokens.auth.logoutFailed));
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   return (
@@ -65,44 +80,40 @@ export default function SuperAdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* System-wide Stats */}
+        {/* System-wide Stats - Show 0 values instead of dummy data */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>System Overview</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <StatCard
                 title="Total Clinics"
-                value="47"
+                value="0"
                 icon="business"
                 color={colors.primary.main}
-                trend={{ value: '+5 this month', isPositive: true }}
               />
             </View>
             <View style={styles.statItem}>
               <StatCard
                 title="Active Subscriptions"
-                value="45"
+                value="0"
                 icon="checkmark-circle"
                 color={colors.success.main}
-                trend={{ value: '95.7% active', isPositive: true }}
               />
             </View>
             <View style={styles.statItem}>
               <StatCard
                 title="Total Revenue"
-                value="$127.5K"
+                value={formatInrCurrency(0)}
                 icon="cash"
                 color={colors.warning.main}
-                trend={{ value: '+12% vs last month', isPositive: true }}
               />
             </View>
             <View style={styles.statItem}>
               <StatCard
                 title="Total Patients"
-                value="8,492"
+                value="0"
                 icon="people"
                 color={colors.info.main}
-                trend={{ value: '+342 this month', isPositive: true }}
               />
             </View>
           </View>
@@ -133,25 +144,25 @@ export default function SuperAdminDashboard() {
             <QuickActionButton
               icon="bar-chart"
               label="Analytics"
-              onPress={() => console.log('Analytics - Coming soon')}
+              onPress={() => Alert.alert(t('common.comingSoon'), t('common.featureUnavailable'))}
               color={colors.info.main}
             />
             <QuickActionButton
               icon="settings"
               label="System Config"
-              onPress={() => console.log('Settings - Coming soon')}
+              onPress={() => Alert.alert(t('common.comingSoon'), t('common.featureUnavailable'))}
               color={colors.warning.main}
             />
             <QuickActionButton
               icon="people"
               label="User Management"
-              onPress={() => console.log('Users - Coming soon')}
+              onPress={() => Alert.alert(t('common.comingSoon'), t('common.featureUnavailable'))}
               color={colors.error.main}
             />
           </View>
         </View>
 
-        {/* Recent Clinic Onboarding */}
+        {/* Recent Clinic Onboarding - Empty State instead of dummy data */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Clinic Onboarding</Text>
@@ -161,72 +172,14 @@ export default function SuperAdminDashboard() {
               </Pressable>
             </Link>
           </View>
-          {[
-            {
-              name: 'Central Healthcare Clinic',
-              location: 'New York, NY',
-              status: 'Completed',
-              date: 'Jan 15, 2025',
-            },
-            {
-              name: 'Wellness Therapy Center',
-              location: 'Los Angeles, CA',
-              status: 'In Progress',
-              date: 'Jan 14, 2025',
-            },
-            {
-              name: 'Advanced Rehab Institute',
-              location: 'Chicago, IL',
-              status: 'Pending',
-              date: 'Jan 13, 2025',
-            },
-          ].map((clinic, index) => (
-            <View key={index} style={styles.clinicCard}>
-              <View style={styles.clinicInfo}>
-                <View style={styles.clinicIconContainer}>
-                  <Ionicons
-                    name="business"
-                    size={24}
-                    color={colors.primary.main}
-                  />
-                </View>
-                <View style={styles.clinicDetails}>
-                  <Text style={styles.clinicName}>{clinic.name}</Text>
-                  <Text style={styles.clinicLocation}>{clinic.location}</Text>
-                  <Text style={styles.clinicDate}>{clinic.date}</Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor:
-                      clinic.status === 'Completed'
-                        ? colors.success.main + '20'
-                        : clinic.status === 'In Progress'
-                        ? colors.warning.main + '20'
-                        : colors.grey[200],
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color:
-                        clinic.status === 'Completed'
-                          ? colors.success.main
-                          : clinic.status === 'In Progress'
-                          ? colors.warning.main
-                          : colors.text.secondary,
-                    },
-                  ]}
-                >
-                  {clinic.status}
-                </Text>
-              </View>
-            </View>
-          ))}
+          {/* Empty state - no dummy data */}
+          <View style={styles.emptyStateCard}>
+            <Ionicons name="business-outline" size={48} color={colors.text.tertiary} />
+            <Text style={styles.emptyStateTitle}>No recent onboarding</Text>
+            <Text style={styles.emptyStateText}>
+              New clinic registrations will appear here
+            </Text>
+          </View>
         </View>
 
         {/* Navigation to Other Dashboards */}
@@ -303,56 +256,25 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  clinicCard: {
+  emptyStateCard: {
     backgroundColor: colors.background.default,
     borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.light,
   },
-  clinicInfo: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  clinicIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  clinicDetails: {
-    flex: 1,
-  },
-  clinicName: {
+  emptyStateTitle: {
     ...typography.body1,
-    color: colors.text.primary,
+    color: colors.text.secondary,
     fontWeight: '600',
-    marginBottom: 4,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
-  clinicLocation: {
+  emptyStateText: {
     ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: 2,
-  },
-  clinicDate: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    ...typography.caption,
-    fontWeight: '600',
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
   dashboardLinks: {
     gap: spacing.sm,

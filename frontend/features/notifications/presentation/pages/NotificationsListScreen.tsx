@@ -29,7 +29,7 @@ type FilterOption = 'all' | 'unread';
 export function NotificationsListScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
   
   const [filter, setFilter] = useState<FilterOption>('all');
   const [refreshing, setRefreshing] = useState(false);

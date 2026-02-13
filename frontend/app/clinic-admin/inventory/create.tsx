@@ -26,7 +26,7 @@ import { InventoryCreateRequest } from '../../../features/inventory/data/models/
 export default function CreateInventoryItemRoute() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   const createMutation = useCreateInventoryItemMutation(tenantId);
 

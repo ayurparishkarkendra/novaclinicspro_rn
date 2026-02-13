@@ -32,7 +32,7 @@ export const TenantPaymentDetailScreen: React.FC = () => {
   const router = useRouter();
   const { paymentId } = useLocalSearchParams<{ paymentId: string }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Fetch payment details
   const {

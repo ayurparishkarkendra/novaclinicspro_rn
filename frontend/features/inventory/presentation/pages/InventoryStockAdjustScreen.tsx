@@ -31,7 +31,7 @@ export const InventoryStockAdjustScreen: React.FC = () => {
   const router = useRouter();
   const { itemId } = useLocalSearchParams<{ itemId: string }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   // Fetch item details
   const {

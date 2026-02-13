@@ -31,7 +31,7 @@ import { typography } from '../../../../core/theme/typography';
 export function TenantBrandingSettingsScreen() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
 
   const { data: brandingData, isLoading } = useTenantBrandingQuery(tenantId);
   const updateMutation = useUpdateTenantBrandingMutation(tenantId);

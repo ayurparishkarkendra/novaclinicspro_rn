@@ -1,280 +1,139 @@
+/**
+ * Index Page - Permission-based Dashboard Redirect
+ * Automatically redirects authenticated users to their appropriate dashboard
+ * 
+ * Logic:
+ * - isOrgAdmin = true -> Super Admin dashboard
+ * - tenantId exists -> Clinic Admin dashboard (user belongs to a tenant/clinic)
+ * - No tenantId -> Show message to contact admin
+ */
+
 import React, { useEffect } from 'react';
-import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { colors } from '../core/theme/colors';
-import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
+import { spacing } from '../core/theme/spacing';
 
 export default function Index() {
   const router = useRouter();
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, isLoading, currentUser, logout } = useAuth();
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated]);
+    // Wait for auth to be determined
+    if (isLoading) return;
 
-  // Show loading or nothing while redirecting
-  if (!isAuthenticated || !currentUser) {
-    return null;
+    // Redirect to login if not authenticated
+    if (!isAuthenticated || !currentUser) {
+      router.replace('/login');
+      return;
+    }
+
+    console.log('[Index] Redirecting user based on context:', { 
+      isOrgAdmin: currentUser.isOrgAdmin, 
+      tenantId: currentUser.tenantId,
+      email: currentUser.email,
+      permissions: currentUser.permissions 
+    });
+
+    // Priority: Org Admin (Super Admin) > Tenant User (Clinic Admin)
+    if (currentUser.isOrgAdmin) {
+      console.log('[Index] User is Org Admin, redirecting to Super Admin dashboard');
+      router.replace('/super-admin');
+    } else if (currentUser.tenantId) {
+      console.log('[Index] User has tenantId, redirecting to Clinic Admin dashboard');
+      router.replace('/clinic-admin');
+    }
+    // If no tenantId and not org admin, show the "no tenant" state in render
+    
+  }, [isAuthenticated, isLoading, currentUser, router]);
+
+  // Show loading while determining auth and redirecting
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+        <Text style={styles.text}>Loading...</Text>
+      </View>
+    );
   }
 
-  const dashboards = [
-    {
-      id: 'super-admin',
-      title: 'Super Admin',
-      subtitle: 'System-wide management',
-      icon: 'shield-checkmark' as const,
-      color: colors.primary.main,
-      route: '/super-admin',
-    },
-    {
-      id: 'clinic-admin',
-      title: 'Clinic Admin',
-      subtitle: 'Clinic operations & staff',
-      icon: 'business' as const,
-      color: colors.success.main,
-      route: '/clinic-admin',
-    },
-    {
-      id: 'doctor',
-      title: 'Doctor',
-      subtitle: 'Patient consultations',
-      icon: 'medical' as const,
-      color: colors.info.main,
-      route: '/doctor',
-    },
-    {
-      id: 'therapist',
-      title: 'Therapist',
-      subtitle: 'Therapy sessions & plans',
-      icon: 'heart' as const,
-      color: colors.error.main,
-      route: '/therapist',
-    },
-    {
-      id: 'theme-demo',
-      title: 'Theme System Demo',
-      subtitle: 'Multi-clinic theming',
-      icon: 'color-palette' as const,
-      color: colors.secondary.main,
-      route: '/theme-demo',
-    },
-  ];
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Ionicons name="medical" size={40} color={colors.primary.main} />
-        </View>
-        <Text style={styles.title}>NovaClinicsPro</Text>
-        <Text style={styles.subtitle}>Healthcare Management Platform</Text>
-        <Text style={styles.userInfo}>Logged in as: {currentUser.email}</Text>
+  // If authenticated but no tenant and not org admin, show message
+  if (isAuthenticated && currentUser && !currentUser.isOrgAdmin && !currentUser.tenantId) {
+    return (
+      <View style={styles.container}>
+        <Ionicons name="alert-circle" size={64} color={colors.warning.main} />
+        <Text style={styles.title}>No Clinic Assigned</Text>
+        <Text style={styles.text}>
+          Your account is not assigned to any clinic. Please contact your administrator to get access.
+        </Text>
+        <Text style={styles.email}>Logged in as: {currentUser.email}</Text>
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={async () => {
+            try {
+              await logout();
+            } catch (e) {
+              console.error('Logout error:', e);
+            }
+          }}
+        >
+          <Ionicons name="log-out-outline" size={20} color={colors.error.main} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </View>
+    );
+  }
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Dashboard</Text>
-          <Text style={styles.sectionSubtitle}>
-            Choose your role to access the appropriate dashboard
-          </Text>
-
-          <View style={styles.dashboardGrid}>
-            {dashboards.map((dashboard) => (
-              <TouchableOpacity
-                key={dashboard.id}
-                style={styles.dashboardCard}
-                onPress={() => router.push(dashboard.route as any)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.iconContainer,
-                    { backgroundColor: dashboard.color + '20' },
-                  ]}
-                >
-                  <Ionicons
-                    name={dashboard.icon}
-                    size={32}
-                    color={dashboard.color}
-                  />
-                </View>
-                <View style={styles.dashboardInfo}>
-                  <Text style={styles.dashboardTitle}>{dashboard.title}</Text>
-                  <Text style={styles.dashboardSubtitle}>
-                    {dashboard.subtitle}
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Platform Features</Text>
-          <View style={styles.featuresList}>
-            {[
-              { icon: 'people', text: 'Client Management' },
-              { icon: 'calendar', text: 'Appointments & Therapy Plans' },
-              { icon: 'document-text', text: 'Prescriptions & Case Sheets' },
-              { icon: 'cube', text: 'Inventory Management' },
-              { icon: 'person', text: 'Staff Management' },
-              { icon: 'bar-chart', text: 'Analytics & Reports' },
-            ].map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
-                <View style={styles.featureIcon}>
-                  <Ionicons
-                    name={feature.icon as any}
-                    size={20}
-                    color={colors.primary.main}
-                  />
-                </View>
-                <Text style={styles.featureText}>{feature.text}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+  // Default loading state while redirecting
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color={colors.primary.main} />
+      <Text style={styles.text}>Loading your dashboard...</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.paper,
-  },
-  header: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background.default,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    padding: spacing.xl,
   },
   title: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    ...typography.body1,
-    color: colors.text.secondary,
-  },
-  userInfo: {
-    ...typography.caption,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl,
-  },
-  section: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xl,
-  },
-  sectionTitle: {
     ...typography.h4,
     color: colors.text.primary,
+    marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
-  sectionSubtitle: {
-    ...typography.body2,
+  text: {
+    ...typography.body1,
     color: colors.text.secondary,
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
+    textAlign: 'center',
+    maxWidth: 300,
   },
-  dashboardGrid: {
-    gap: spacing.md,
+  email: {
+    ...typography.body2,
+    color: colors.text.disabled,
+    marginTop: spacing.lg,
   },
-  dashboardCard: {
-    backgroundColor: colors.background.default,
-    borderRadius: 16,
-    padding: spacing.md,
+  logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  dashboardInfo: {
-    flex: 1,
-  },
-  dashboardTitle: {
-    ...typography.h5,
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  dashboardSubtitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-  },
-  featuresSection: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.error.main + '15',
+    borderRadius: 8,
     marginTop: spacing.xl,
   },
-  featuresList: {
-    gap: spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.primary.main + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  featureText: {
-    ...typography.body1,
-    color: colors.text.primary,
-    fontWeight: '500',
+  logoutText: {
+    ...typography.button,
+    color: colors.error.main,
+    marginLeft: spacing.sm,
   },
 });

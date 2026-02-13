@@ -253,13 +253,24 @@ export default function ApplicationsListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background.default }]}
       edges={['top']}
     >
-      <DashboardHeader
-        title="Tenant Applications"
-        subtitle="Review and manage applications"
-        userName={currentUser?.fullName}
-        onProfilePress={() => console.log('Profile')}
-        onLogoutPress={handleLogout}
-      />
+      {/* Navigation Header */}
+      <View style={[styles.navHeader, { backgroundColor: theme.colors.surface.default }]}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.navTitle, { color: theme.colors.text.primary }]}>
+          Tenant Applications
+        </Text>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => router.push('/super-admin')}
+        >
+          <Ionicons name="home-outline" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+      </View>
 
       {/* Filters */}
       <View style={[styles.filterContainer, { backgroundColor: theme.colors.surface.default }]}>
@@ -357,6 +368,24 @@ export default function ApplicationsListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  navHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  navButton: {
+    padding: spacing.sm,
+  },
+  navTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
   },
   filterContainer: {
     padding: spacing.md,

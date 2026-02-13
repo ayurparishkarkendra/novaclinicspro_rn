@@ -13,6 +13,8 @@ import {
   Alert,
   ActivityIndicator,
   Pressable,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,14 +28,20 @@ import { typography } from '../../core/theme/typography';
 import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
 import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../features/inventory/data/repositories/inventory.repository.impl';
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
-import { formatCurrency } from '../../features/billing/data/models/billing.dtos';
 import { useNotificationBadgeCount } from '../../features/notifications/presentation/hooks/useNotificationBadgeCount';
+import { formatInrCurrency } from '../../core/utils/currency';
+import { t, ErrorTokens } from '../../core/localization';
+import { useStaffListQuery } from '../../features/staff/data/repositories/staff.repository.impl';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
-  const tenantId = currentUser?.activeTenant?.id || '';
+  const tenantId = currentUser?.tenantId || '';
   const notificationCount = useNotificationBadgeCount();
+  const { width } = useWindowDimensions();
+  
+  // Determine if we're on mobile (< 768px) or web
+  const isMobile = width < 768;
 
   // Fetch inventory data for dashboard stats
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItemsListQuery(
@@ -67,25 +75,48 @@ export default function ClinicAdminDashboard() {
     { enabled: !!tenantId }
   );
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
+  // Fetch staff data for Staff Status section
+  const { data: staffData, isLoading: staffLoading } = useStaffListQuery(
+    tenantId,
+    { limit: 10, is_active: true },
+    { enabled: !!tenantId }
+  );
+  
+  // Get staff for display (up to 3)
+  const staffMembers = staffData?.items?.slice(0, 3) || [];
+  const activeStaffCount = staffData?.total || 0;
+
+  const handleLogout = async () => {
+    // Use confirm for web, Alert for native
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        try {
+          await logout();
+        } catch (error) {
+          window.alert('Logout failed. Please try again.');
+        }
+      }
+    } else {
+      Alert.alert(
+        t('confirmations.logout'),
+        t('confirmations.logout'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('navigation.logout'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await logout();
+              } catch (error) {
+                Alert.alert(t('common.error'), t(ErrorTokens.auth.logoutFailed));
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   return (
@@ -93,7 +124,7 @@ export default function ClinicAdminDashboard() {
       <DashboardHeader
         title="Clinic Admin Dashboard"
         subtitle="Springfield Medical Center"
-        userName={currentUser?.fullName || 'Dr. Sarah Johnson'}
+        userName={currentUser?.email || 'Admin'}
         notificationCount={notificationCount}
         onProfilePress={() => console.log('Profile')}
         onLogoutPress={handleLogout}
@@ -108,34 +139,32 @@ export default function ClinicAdminDashboard() {
         {/* Clinic Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
+          <View style={[styles.statsGrid, isMobile ? styles.statsGridMobile : styles.statsGridWeb]}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Total Appointments"
-                value="42"
+                value="0"
                 icon="calendar"
                 color={colors.primary.main}
-                trend={{ value: '+8 vs yesterday', isPositive: true }}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Active Staff"
-                value="28"
+                value={staffLoading ? '...' : activeStaffCount.toString()}
                 icon="people"
                 color={colors.success.main}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Daily Revenue"
-                value="$3,240"
+                value={formatInrCurrency(0)}
                 icon="cash"
                 color={colors.warning.main}
-                trend={{ value: '+15% vs avg', isPositive: true }}
               />
             </View>
-            <View style={styles.statItem}>
+            <View style={[styles.statItem, !isMobile && styles.statItemWeb]}>
               <StatCard
                 title="Inventory Alerts"
                 value={alertsLoading ? '...' : totalAlertCount.toString()}
@@ -282,90 +311,82 @@ export default function ClinicAdminDashboard() {
               </Pressable>
             </Link>
           </View>
-          {[
-            {
-              name: 'Dr. Michael Chen',
-              role: 'Doctor',
-              status: 'In Session',
-              appointments: 8,
-              available: false,
-            },
-            {
-              name: 'Emily Rodriguez',
-              role: 'Therapist',
-              status: 'Available',
-              appointments: 5,
-              available: true,
-            },
-            {
-              name: 'James Wilson',
-              role: 'Pharmacist',
-              status: 'Available',
-              appointments: 0,
-              available: true,
-            },
-          ].map((staff, index) => (
-            <View key={index} style={styles.staffCard}>
-              <View style={styles.staffInfo}>
-                <View
-                  style={[
-                    styles.staffAvatar,
-                    {
-                      backgroundColor: staff.available
-                        ? colors.success.main + '20'
-                        : colors.warning.main + '20',
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="person"
-                    size={24}
-                    color={staff.available ? colors.success.main : colors.warning.main}
-                  />
-                </View>
-                <View style={styles.staffDetails}>
-                  <Text style={styles.staffName}>{staff.name}</Text>
-                  <Text style={styles.staffRole}>{staff.role}</Text>
-                  <Text style={styles.staffAppointments}>
-                    {staff.appointments} appointments today
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.statusIndicator,
-                  {
-                    backgroundColor: staff.available
-                      ? colors.success.main + '20'
-                      : colors.warning.main + '20',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: staff.available
-                        ? colors.success.main
-                        : colors.warning.main,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color: staff.available
-                        ? colors.success.main
-                        : colors.warning.main,
-                    },
-                  ]}
-                >
-                  {staff.status}
-                </Text>
-              </View>
+          {staffLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.primary.main} />
+              <Text style={styles.loadingText}>Loading staff...</Text>
             </View>
-          ))}
+          ) : staffMembers.length > 0 ? (
+            staffMembers.map((staff) => (
+              <Link key={staff.id} href={`/clinic-admin/staff/${staff.id}`} asChild>
+                <Pressable style={styles.staffCard}>
+                  <View style={styles.staffInfo}>
+                    <View
+                      style={[
+                        styles.staffAvatar,
+                        {
+                          backgroundColor: staff.is_active
+                            ? colors.success.main + '20'
+                            : colors.warning.main + '20',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={24}
+                        color={staff.is_active ? colors.success.main : colors.warning.main}
+                      />
+                    </View>
+                    <View style={styles.staffDetails}>
+                      <Text style={styles.staffName}>{staff.full_name}</Text>
+                      <Text style={styles.staffRole}>
+                        {staff.staff_type ? staff.staff_type.charAt(0).toUpperCase() + staff.staff_type.slice(1) : 'Staff'}
+                      </Text>
+                      <Text style={styles.staffAppointments}>{staff.email || 'No email'}</Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusIndicator,
+                      {
+                        backgroundColor: staff.is_active
+                          ? colors.success.main + '20'
+                          : colors.warning.main + '20',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor: staff.is_active
+                            ? colors.success.main
+                            : colors.warning.main,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color: staff.is_active
+                            ? colors.success.main
+                            : colors.warning.main,
+                        },
+                      ]}
+                    >
+                      {staff.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Link>
+            ))
+          ) : (
+            <View style={styles.noAlertsCard}>
+              <Ionicons name="people-outline" size={24} color={colors.text.secondary} />
+              <Text style={styles.noAlertsText}>No staff members found</Text>
+            </View>
+          )}
         </View>
 
         {/* Inventory Alerts */}
@@ -507,7 +528,7 @@ export default function ClinicAdminDashboard() {
                 ]}>
                   {billingLoading 
                     ? '...' 
-                    : formatCurrency(billingSummary?.outstandingBalance || 0)
+                    : formatInrCurrency(billingSummary?.outstandingBalance || 0)
                   }
                 </Text>
               </View>
@@ -617,8 +638,20 @@ const styles = StyleSheet.create({
   statsGrid: {
     gap: spacing.md,
   },
+  statsGridMobile: {
+    flexDirection: 'column',
+  },
+  statsGridWeb: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
   statItem: {
     marginBottom: spacing.sm,
+  },
+  statItemWeb: {
+    width: '24%',
+    minWidth: 180,
+    marginRight: '1%',
   },
   quickActions: {
     flexDirection: 'row',
