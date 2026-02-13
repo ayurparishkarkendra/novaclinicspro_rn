@@ -16,6 +16,7 @@ interface DashboardHeaderProps {
   onLogoutPress?: () => void;
   notificationCount?: number;
   showNotifications?: boolean;
+  rightAction?: React.ReactNode;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -28,6 +29,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onLogoutPress,
   notificationCount = 0,
   showNotifications = true,
+  rightAction,
 }) => {
   const renderNotificationButton = () => {
     const button = (
