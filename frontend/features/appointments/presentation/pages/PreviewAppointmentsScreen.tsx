@@ -434,7 +434,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const hasConflicts = conflictedSessions.length > 0;
 
   // Determine if we can proceed
-  const canProceed = !backendError && sessions.length > 0 && allConflictsResolved;
+  // Allow proceeding if: sessions exist AND (no backend error OR fallback sessions loaded) AND no unresolved conflicts
+  const isFallbackMode = !!backendError && sessions.length > 0;
+  const canProceed = sessions.length > 0 && allConflictsResolved;
+  const showWarning = isFallbackMode;
 
   // Create all appointments
   const handleConfirm = async () => {
