@@ -600,6 +600,13 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
   
+  // BUG FIX #7: State for conflict modal (instead of raw Alert)
+  const [conflictModal, setConflictModal] = useState<{
+    visible: boolean;
+    title: string;
+    messages: string[];
+  }>({ visible: false, title: '', messages: [] });
+  
   // ===== ISOLATED FORM STATES (NO CROSS-TAB LEAKAGE) =====
   // Using state keys to force re-mount when switching modes
   const [doctorFormKey, setDoctorFormKey] = useState(0);
