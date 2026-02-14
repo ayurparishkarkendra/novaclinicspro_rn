@@ -57,6 +57,10 @@ interface AppointmentListItemProps {
   userRole?: string;
   /** Whether quick actions are enabled */
   showActions?: boolean;
+  /** Callback for status updates (e.g., confirm, start, complete, no-show) */
+  onStatusUpdate?: (appointmentId: string, newStatus: string) => void;
+  /** Callback for cancellation */
+  onCancel?: (appointmentId: string) => void;
 }
 
 // ============================================
