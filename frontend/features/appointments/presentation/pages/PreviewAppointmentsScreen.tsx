@@ -194,10 +194,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const displayStartTime = session.selected_alternative?.start || session.appointment_start;
   const displayEndTime = session.selected_alternative?.end || session.appointment_end;
   
-  // ✨ Use staff_name directly from API response, fallback to selected alternative
-  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || t('common.unassigned') || 'Not assigned';
+  // Use getSessionTherapistNames helper for multi-therapist support
+  // If user selected alternative, use that name; otherwise use session therapists
+  const displayStaffName = session.selected_alternative?.staff_name || getSessionTherapistNames(session);
   
-  // ✨ Use room_name directly from API response
+  // Use room_name directly from API response
   const displayRoomName = session.selected_alternative?.room_name || session.room_name || t('common.unassigned') || 'Not assigned';
 
   // Get alternative slots from conflict object (per API spec)
