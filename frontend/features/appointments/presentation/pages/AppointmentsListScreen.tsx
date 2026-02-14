@@ -31,6 +31,9 @@ import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   useAppointmentsByDateQuery,
   useSearchAppointmentsQuery,
+  useUpdateAppointmentStatusMutation,
+  useCancelAppointmentMutation,
+  useRescheduleAppointmentMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentWithDetails,
