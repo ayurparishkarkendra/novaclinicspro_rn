@@ -33,6 +33,9 @@ import {
   getStatusColor,
   formatTime,
   openWhatsApp,
+  getTherapistNames,
+  getTherapistCount,
+  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
