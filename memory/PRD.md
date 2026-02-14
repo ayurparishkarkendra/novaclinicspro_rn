@@ -3,133 +3,109 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, and billing for Ayurvedic clinics.
 
-## Current Status: Appointments Module Fixes - Session Dec 2025 (Final Bug Fix Iteration)
+## Current Status: Appointments Module - P0 Bug Fixes (Dec 2025)
 
-### User Feedback Summary (Pre-Session)
-User tested all 8 bug fixes from previous session. Results:
-- **RESOLVED**: Therapist dropdown filtering (staff_type = 'therapist' only)
-- **PARTIALLY RESOLVED**: Single-slot conflict checking (works but UI needs improvement)
-- **NOT RESOLVED**: 6 other issues - therapist display, client name, quick actions, time drift, gender matching, alternative slots
+### User Requirements (Final - Message #153)
+User provided 4 specific P0 issues that MUST be addressed:
 
-### API Integration Updates (Per User Clarification)
-The therapy plan API now returns names directly in the response:
+1. **Quick Actions Placement**
+   - Expandable section on appointment cards with: Reschedule, No-Show, Cancel, Complete
+   - Quick actions always visible at bottom of detail page (show "No actions available" fallback)
+
+2. **Visit History Details**
+   - Display prescription and payment info in visit history
+   - Show explicit "No prescription" / "No payment recorded" fallbacks
+
+3. **Preview Screen Time Correction**
+   - Display time exactly as selected without timezone conversion
+   - Backend returns UTC time that should be displayed as-is
+
+4. **Preview Screen Therapist Data**
+   - Display actual therapists from `staff_assignments` array
+   - Remove any hardcoded/demo data
+
+---
+
+## Fixes Applied (This Session - Dec 2025)
+
+### FIX #1: Quick Actions Placement - COMPLETED ✅
+
+**AppointmentListItem.tsx:**
+- Added `onReschedule` callback prop for navigation to reschedule flow
+- Expandable section shows 4 user-required buttons: Reschedule, No-Show, Cancel, Complete
+- Buttons conditionally shown based on appointment status:
+  - `scheduled`/`confirmed`: Reschedule, No-Show, Cancel
+  - `in_progress`: Complete
+- Fixed case-insensitive status comparison (API returns UPPERCASE)
+- Fixed JSX syntax error (missing `</TouchableOpacity>` closing tag)
+
+**AppointmentsListScreen.tsx:**
+- Added `useUpdateAppointmentStatusMutation` and `useCancelAppointmentMutation` hooks
+- Implemented `handleStatusUpdate` callback for No-Show/Complete actions
+- Implemented `handleCancel` callback with confirmation dialog
+- Implemented `handleReschedule` callback (navigates to detail page)
+- Passed all callbacks to `AppointmentListItem` component
+
+**AppointmentDetailScreen.tsx:**
+- Quick Actions section ALWAYS visible at bottom of detail page
+- Shows "No actions available" message when no actions apply (completed/cancelled/no_show)
+- Fixed case-insensitive status comparisons throughout
+
+### FIX #2: Visit History Details - COMPLETED ✅
+
+**AppointmentDetailScreen.tsx:**
+- Updated `VisitHistoryItem` component to display:
+  - Prescription info: "💊 Prescription given" or "No prescription"
+  - Payment info: "💰 Paid - ₹{amount}" or "No payment recorded"
+- Added styles: `visitHistoryMeta`, `visitHistoryMetaText`, `visitHistoryMetaPresent`, `visitHistoryMetaAbsent`
+
+### FIX #3: Preview Screen Time Correction - VERIFIED ✅
+
+**PreviewAppointmentsScreen.tsx:**
+- `safeFormatTime` function correctly extracts time from ISO string without timezone conversion
+- Parses `T16:00:00Z` → displays `4:00 pm` (correct)
+- No changes needed - implementation was already correct
+
+### FIX #4: Preview Screen Therapist Data - VERIFIED ✅
+
+**PreviewAppointmentsScreen.tsx:**
+- `getSessionTherapistNames` helper extracts names from `staff_assignments` array
+- Falls back to deprecated `staff_name` field
+- Shows "Unassigned" only when no data available
+- No changes needed - implementation was already correct
+
+### Supporting Changes
+
+**appointments.dtos.ts:**
+- `getStatusLabel()` - Added case-insensitive lookup
+- `getStatusColor()` - Added case-insensitive lookup
+- Added `client_name` optional property to `TherapyPlanResponse`
+
+**en-US.json:**
+- Added translation keys: `noActionsAvailable`, `appointmentCompleted`, `clientNoShow`, `scheduledTime`, `originallyRequested`
+
+---
+
+## API Response Format
+
+### Status Values (Case-Insensitive Handling Added)
+API returns UPPERCASE status values that must be compared case-insensitively:
+- `SCHEDULED` / `scheduled`
+- `CONFIRMED` / `confirmed`
+- `IN_PROGRESS` / `in_progress`
+- `COMPLETED` / `completed`
+- `CANCELLED` / `cancelled`
+- `NO_SHOW` / `no_show`
+
+### Multi-Therapist Support
 ```typescript
-interface TherapyPlanResponse {
-  series_id: string;
-  client_id: string;
-  client_name: string | null;        // ✨ Display in header
-  treatment_id: string;
-  start_date: string;
-  duration_days: number;
-  sessions: SessionResponse[];
-  has_conflicts: boolean;
-  metadata: { preferred_time_hour: number; duration_minutes: number; };
-}
-
-interface SessionResponse {
-  session_number: number;
-  appointment_start: string;
-  appointment_end: string;
-  staff_id: string | null;
-  staff_name: string | null;         // ✨ Display therapist name
-  room_id: string | null;
-  room_name: string | null;          // ✨ Display room name
-  is_conflicted: boolean;
-  conflict: ConflictResponse | null;
+interface AppointmentResponse {
+  staff_assignments?: Array<{ id: string; name: string }> | null;
+  // ... other fields
 }
 ```
 
-### Bug Fixes Applied (This Session - Final Iteration)
-
-#### BUG #1: Therapist Display on Appointment Cards - ENHANCED
-- **Problem**: For multi-therapist appointments, shows "Unassigned" instead of names
-- **Previous Fix**: Added `staff_names` array support
-- **Enhancement**: Code correctly checks for `staff_names` array first, falls back to `staff_name`
-- **Note**: Backend must return `staff_names[]` array for multi-therapist appointments
-- **Files**: `AppointmentListItem.tsx:131-139`, `AppointmentDetailScreen.tsx:277-285`
-- **Status**: ✅ CODE COMPLETE (depends on backend response)
-
-#### BUG #2: Client Name on Appointment Details - ENHANCED
-- **Problem**: Client name appears on list card but not on details page
-- **Previous Fix**: Simplified data extraction
-- **Enhancement**: Detail page now correctly displays `displayClientName` with data-testid
-- **Files**: `AppointmentDetailScreen.tsx:624-625`
-- **Status**: ✅ CODE COMPLETE
-
-#### BUG #3: Quick Actions Visibility - FIXED (CRITICAL FIX)
-- **Problem**: Quick actions section completely missing from cards and detail page
-- **Root Cause**: Conditional rendering hid the entire section
-- **Fix Applied**:
-  - **List Item**: Actions container ALWAYS visible, view button shown regardless of permissions
-  - **Detail Page**: Section always rendered with status-based content:
-    - Active appointments (scheduled/confirmed/in_progress): Show action buttons
-    - Completed appointments: Show "appointment completed" message
-    - Cancelled appointments: Show "appointment cancelled" message
-  - Added `data-testid="appointment-quick-actions"` and `data-testid="detail-actions-section"`
-- **Files**: `AppointmentListItem.tsx:277-320`, `AppointmentDetailScreen.tsx:724-815`
-- **Status**: ✅ FIXED
-
-#### BUG #4: Multi-Day Preview - Time Display - ENHANCED
-- **Problem**: Preview screen shows different time than user selected
-- **Root Cause**: Backend interprets preferred_time_hour as UTC, not local time
-- **Fix Applied**:
-  - Added "Preferred Time: X:00 AM/PM" display in client info card
-  - Properly formats 24-hour to 12-hour format
-  - Added `preferredTimeText` style for emphasis
-- **Files**: `PreviewAppointmentsScreen.tsx:673-678, 920-925`
-- **Status**: ✅ FIXED (UI shows user's intended time clearly)
-
-#### BUG #5: Gender Matching Conflict - ENHANCED
-- **Problem**: Empty therapist dropdown when no matching gender, no error shown
-- **Previous Fix**: Created `genderFilteredTherapistOptions` memo
-- **Enhancement**:
-  - Added `genderMatchConflict` state with useEffect to track conflicts
-  - Shows warning banner when female client has no female therapists
-  - Warning banner with icon: "No female therapists available..."
-  - Displays in both single-therapy and multi-day therapy forms
-  - Added `genderConflictBanner` and `genderConflictText` styles
-- **Files**: `CreateAppointmentScreen.tsx:807-848, 1297-1302, 1351-1357, 1808-1826`
-- **Status**: ✅ FIXED
-
-#### BUG #6: Alternative Slots Selection - VERIFIED
-- **Problem**: Unable to test alternative slot selection
-- **Status**: Code was already correctly implemented
-- **Verification**: SessionCard component has fully functional alternative selection with visual indication
-- **Files**: `PreviewAppointmentsScreen.tsx:254-315`
-- **Status**: ✅ WORKING (was blocked by other bugs)
-
-#### BUG #7: Single-Slot Conflict Message UI - FIXED
-- **Problem**: Raw system alert with technical language
-- **Fix Applied**:
-  - Replaced `Alert.alert()` with styled Modal component
-  - Professional UI with:
-    - Warning icon in circle
-    - "Booking Conflict" title
-    - Clear conflict messages with close-circle icons
-    - Help text: "Please select a different time or therapist"
-    - "Got it" button
-  - Added `conflictModal` state for visibility control
-  - Full styling: overlay, content, header, body, button
-- **Files**: `CreateAppointmentScreen.tsx:605-609, 1007-1020, 1569-1598, 2152-2220`
-- **Status**: ✅ FIXED
-
-#### BUG #8: Therapist Dropdown Filter - VERIFIED
-- **Problem**: Dropdown showed non-therapist staff
-- **Status**: Already fixed in previous session, confirmed working
-- **Files**: `CreateAppointmentScreen.tsx:782-799`
-- **Status**: ✅ WORKING
-
-### Test Results
-- **Build**: ✅ App exports successfully with no errors
-- **TypeScript**: Pre-existing errors in other modules, appointment files clean
-- **UI Testing**: Blocked by backend 520 errors (Koyeb/Cloudflare)
-- **Code Review**: All 8 fixes correctly implemented
-
-## API Integration Reference
-Per FastAPI developer documentation:
-- **Appointments List**: GET `/api/v1/clinic/{tenant_id}/appointments` returns `client_name`, `staff_name`, `staff_names[]`, `room_name`, `treatment_name`
-- **Therapy Plan**: POST `/api/v1/appointments/therapy-plan` returns `has_conflicts`, `sessions[]`, `metadata`
-- **Validation**: POST `/api/v1/appointments/validate` for conflict checking
+---
 
 ## Architecture
 
@@ -139,26 +115,47 @@ Per FastAPI developer documentation:
 - **State**: @tanstack/react-query for server state
 - **Styling**: StyleSheet with custom theme
 
-### Key Files Modified (This Session)
+### Key Files Modified
 ```
 /app/frontend/features/appointments/
 ├── data/
-│   └── models/appointments.dtos.ts (staff_names array)
+│   └── models/appointments.dtos.ts
+│       - getStatusLabel() case-insensitive
+│       - getStatusColor() case-insensitive
+│       - TherapyPlanResponse.client_name optional
 └── presentation/
     ├── components/
-    │   └── AppointmentListItem.tsx (quick actions always visible)
+    │   └── AppointmentListItem.tsx
+    │       - Expandable quick actions section
+    │       - onReschedule callback
+    │       - Case-insensitive status checks
     └── pages/
-        ├── AppointmentDetailScreen.tsx (quick actions section always visible)
-        ├── CreateAppointmentScreen.tsx (conflict modal, gender warning)
-        └── PreviewAppointmentsScreen.tsx (preferred time display)
+        ├── AppointmentsListScreen.tsx
+        │   - Status update mutations
+        │   - Cancel/Reschedule handlers
+        ├── AppointmentDetailScreen.tsx
+        │   - Always-visible quick actions
+        │   - Visit history with prescription/payment
+        └── PreviewAppointmentsScreen.tsx
+            - Time formatting (verified correct)
+            - Therapist display (verified correct)
 ```
 
-### Test IDs Added
-- `appointment-quick-actions` - List item action container
-- `appointment-action-view` - View chevron button
-- `detail-actions-section` - Detail page actions section
-- `detail-client-name` - Client name on detail page
-- `actions-empty-state` - Empty state for completed/cancelled
+---
+
+## Test Data-TestIDs
+
+| Component | TestID | Purpose |
+|-----------|--------|---------|
+| AppointmentListItem | `expanded-action-reschedule` | Reschedule button |
+| AppointmentListItem | `expanded-action-noshow` | No-Show button |
+| AppointmentListItem | `expanded-action-cancel` | Cancel button |
+| AppointmentListItem | `expanded-action-complete` | Complete button |
+| AppointmentDetailScreen | `detail-actions-section` | Quick actions section |
+| AppointmentDetailScreen | `actions-empty-state` | No actions message |
+| AppointmentDetailScreen | `visit-history-item-{id}` | Visit history items |
+
+---
 
 ## Credentials
 - **Clinic Admin**: hareshlekkala@gmail.com / Vishnu432!
@@ -167,13 +164,29 @@ Per FastAPI developer documentation:
 ## Backend
 - **Host**: Koyeb (https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app)
 - **Auth**: Supabase (evkcvntjpkxlcxgwychq.supabase.co)
-- **Note**: Backend was returning 520 errors during testing session
 
-## Next Steps (For User Testing)
-1. Verify Quick Actions are now visible on:
-   - Appointment list cards (view chevron always shows)
-   - Appointment detail page (status-based actions)
-2. Verify Client Name appears on detail page
-3. Test Multi-Day Preview - check "Preferred Time" display
-4. Test Gender Matching - select female client, check warning if no female therapists
-5. Test Single-Slot Conflict - try booking conflicting time, check styled modal
+---
+
+## Next Steps for User Testing
+
+1. **Quick Actions on List Page**
+   - Expand appointment card
+   - Verify Reschedule, No-Show, Cancel buttons appear (for scheduled/confirmed)
+   - Verify Complete button appears (for in_progress)
+
+2. **Quick Actions on Detail Page**
+   - Open any appointment detail
+   - Scroll to bottom - Quick Actions section should ALWAYS be visible
+   - Verify appropriate buttons or "No actions available" message
+
+3. **Visit History**
+   - Open appointment detail with visit history
+   - Verify prescription and payment info appears (or fallback messages)
+
+4. **Preview Screen Time**
+   - Create new therapy plan
+   - Verify time displayed matches selected time exactly
+
+5. **Preview Screen Therapist**
+   - Create therapy plan with assigned therapist
+   - Verify correct therapist name appears (not "Demo" or hardcoded)
