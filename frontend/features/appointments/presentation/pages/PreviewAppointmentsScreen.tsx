@@ -357,7 +357,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     startDate: string;
     durationDays: string;
     preferredTimeHour: string;
-    preferredTimeHourLocal: string;  // NEW: Local hour for UI display
+    preferredTimeHourLocal: string;  // Local hour for UI display
+    preferredTimeMinutesLocal: string;  // Local minutes for UI display
     durationMinutes: string;
     notes: string;
   }>();
