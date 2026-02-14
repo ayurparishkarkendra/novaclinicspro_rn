@@ -418,6 +418,35 @@ export interface SearchAppointmentsParams {
 // WHATSAPP HELPERS
 // ============================================
 
+/** Get role label based on appointment type or staff role */
+export const getRoleLabel = (appointmentType?: string | null, staffRole?: string | null): string => {
+  // If appointment type explicitly indicates doctor consultation
+  if (appointmentType?.toUpperCase() === 'DOCTOR_CONSULTATION' || 
+      appointmentType?.toUpperCase() === 'CONSULTATION' ||
+      appointmentType?.toUpperCase() === 'DOCTOR') {
+    return 'Doctor';
+  }
+  
+  // If appointment type explicitly indicates therapy
+  if (appointmentType?.toUpperCase() === 'THERAPY' || 
+      appointmentType?.toUpperCase() === 'THERAPY_SESSION' ||
+      appointmentType?.toUpperCase() === 'MULTI') {
+    return 'Therapist';
+  }
+  
+  // Check staff role/type
+  const role = (staffRole || '').toLowerCase();
+  if (role.includes('doctor') || role.includes('vaidya') || role.includes('physician')) {
+    return 'Doctor';
+  }
+  if (role.includes('therapist')) {
+    return 'Therapist';
+  }
+  
+  // Default fallback
+  return 'Staff';
+};
+
 /** Generate WhatsApp confirmation message */
 export const generateWhatsAppConfirmationMessage = (
   clientName: string,
@@ -426,8 +455,10 @@ export const generateWhatsAppConfirmationMessage = (
   time: string,
   staffName: string,
   treatmentName: string,
-  clinicPhone: string
+  clinicPhone: string,
+  appointmentType?: string | null
 ): string => {
+  const roleLabel = getRoleLabel(appointmentType);
   return `Hi ${clientName},
 
 Your appointment has been confirmed! 📅
@@ -435,7 +466,7 @@ Your appointment has been confirmed! 📅
 📍 Clinic: ${clinicName}
 📅 Date: ${date}
 🕐 Time: ${time}
-👨‍⚕️ Doctor/Therapist: ${staffName}
+👨‍⚕️ ${roleLabel}: ${staffName}
 💆 Treatment: ${treatmentName}
 
 Please arrive 10 minutes early.
