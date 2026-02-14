@@ -262,23 +262,47 @@ export const AppointmentDetailScreen: React.FC = () => {
   const cancelMutation = useCancelAppointmentMutation(tenantId);
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
+  // ===== EXTRACT DATA WITH FALLBACKS =====
+  const clientName = appointment?.client_name || 
+                    (appointment as any)?.client?.full_name || 
+                    (appointment as any)?.client?.name || 
+                    null;
+  const clientPhone = appointment?.client_phone || 
+                     (appointment as any)?.client?.phone || 
+                     null;
+  const staffName = appointment?.staff_name || 
+                   (appointment as any)?.staff?.full_name || 
+                   (appointment as any)?.staff?.name ||
+                   null;
+  const treatmentName = appointment?.treatment_name || 
+                       (appointment as any)?.treatment?.name ||
+                       null;
+  const roomName = appointment?.room_name || 
+                  (appointment as any)?.room?.name ||
+                  null;
+
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
-  const canModifyAppointment = ['clinic_admin', 'receptionist'].includes(userRole);
-  const canStartSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
-  const canCompleteSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
-  const canMarkNoShow = ['clinic_admin', 'receptionist'].includes(userRole);
-  const canCall = ['clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
-  const canWhatsApp = ['clinic_admin', 'receptionist'].includes(userRole);
+  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
+  const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
+  const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
+                               ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+  const canStartSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
+                          ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canCompleteSession = canStartSession;
+  const canMarkNoShow = canModifyAppointment;
+  const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
+                  ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  const canWhatsApp = canModifyAppointment;
 
   // Call client directly
   const handleCallClient = useCallback(() => {
-    if (!appointment?.client_phone) {
-      Alert.alert(t('common.error'), t('appointments.noPhoneNumber'));
+    if (!clientPhone) {
+      Alert.alert(t('common.error') || 'Error', t('appointments.noPhoneNumber') || 'No phone number available');
       return;
     }
-    Linking.openURL(`tel:${appointment.client_phone}`);
-  }, [appointment, t]);
+    Linking.openURL(`tel:${clientPhone}`);
+  }, [clientPhone, t]);
 
   // ===== WHATSAPP HANDLERS FOR ALL STATUS CHANGES =====
   
@@ -287,7 +311,7 @@ export const AppointmentDetailScreen: React.FC = () => {
     status: string,
     newDateTime?: { date: string; time: string }
   ) => {
-    if (!appointment?.client_phone) return;
+    if (!clientPhone) return;
 
     const phone = appointment.client_phone;
     const clientName = appointment.client_name || t('common.client');
