@@ -1378,7 +1378,6 @@ export const CreateAppointmentScreen: React.FC = () => {
             {/* Spacer for button */}
             <View style={{ height: 100 }} />
           </ScrollView>
-        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
       {/* Action Button */}
