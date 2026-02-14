@@ -1059,6 +1059,12 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
   },
+  // ✨ NEW: Room name display
+  sessionRoom: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs / 2,
+  },
 
   // Conflict Section
   conflictSection: {
