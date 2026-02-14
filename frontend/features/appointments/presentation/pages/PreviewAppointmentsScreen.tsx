@@ -99,7 +99,7 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 };
 
 // ============================================
-// SESSION DATA TYPE
+// SESSION DATA TYPE - Updated per API spec
 // ============================================
 
 interface SessionData {
@@ -107,7 +107,9 @@ interface SessionData {
   appointment_start: string;
   appointment_end: string;
   staff_id: string | null;
+  staff_name: string | null;  // ✨ NEW - Display therapist name directly
   room_id: string | null;
+  room_name: string | null;   // ✨ NEW - Display room name directly
   is_conflicted: boolean;
   conflict?: {
     day_index: number;
@@ -150,7 +152,6 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectAlternative: (staffId: string, staffName: string, roomId: string, roomName: string, start: string, end: string) => void;
-  staffNames: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
@@ -159,7 +160,6 @@ const SessionCard: React.FC<SessionCardProps> = ({
   isExpanded,
   onToggle,
   onSelectAlternative,
-  staffNames,
   t,
 }) => {
   const hasConflict = session.is_conflicted;
@@ -168,7 +168,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
   // Display time from selected alternative if available
   const displayStartTime = session.selected_alternative?.start || session.appointment_start;
   const displayEndTime = session.selected_alternative?.end || session.appointment_end;
-  const displayStaffName = session.selected_alternative?.staff_name || staffNames || t('common.therapist');
+  
+  // ✨ Use staff_name directly from API response, fallback to selected alternative
+  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || t('common.unassigned') || 'Not assigned';
+  
+  // ✨ Use room_name directly from API response
+  const displayRoomName = session.selected_alternative?.room_name || session.room_name || t('common.unassigned') || 'Not assigned';
 
   // Get alternative slots from conflict object (per API spec)
   const alternativeSlots = session.conflict?.alternative_slots || [];
@@ -212,8 +217,13 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <Text style={styles.sessionTime}>
             {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
           </Text>
+          {/* ✨ Display therapist name from API */}
           <Text style={styles.sessionStaff}>
             {displayStaffName}
+          </Text>
+          {/* ✨ Display room name from API */}
+          <Text style={styles.sessionRoom}>
+            {displayRoomName}
           </Text>
         </View>
 
@@ -358,6 +368,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [apiClientName, setApiClientName] = useState<string | null>(null);  // ✨ NEW - from API response
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
@@ -365,7 +376,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
   // Extract params with fallbacks - memoized to prevent re-renders
   const clientId = params.clientId || '';
-  const clientName = params.clientName || t('common.client');
+  const clientNameFromParams = params.clientName || t('common.client');
+  // ✨ Prefer client_name from API response over URL params
+  const clientName = apiClientName || clientNameFromParams;
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
@@ -417,6 +430,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
+        // ✨ Use client_name from API response if available
+        if (response.client_name) {
+          setApiClientName(response.client_name);
+        }
+
         // Map backend response to local state (per API spec)
         if (response.sessions && response.sessions.length > 0) {
           const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
@@ -424,7 +442,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
+            staff_name: session.staff_name || null,  // ✨ NEW - from API
             room_id: session.room_id,
+            room_name: session.room_name || null,    // ✨ NEW - from API
             is_conflicted: session.is_conflicted || false,
             conflict: session.conflict || null,
             selected_alternative: undefined,
@@ -670,6 +690,12 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
+              {/* BUG FIX #4: Show user's preferred time clearly */}
+              <Text style={styles.preferredTimeText}>
+                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHour < 12 
+                  ? `${preferredTimeHour === 0 ? 12 : preferredTimeHour}:00 AM` 
+                  : `${preferredTimeHour === 12 ? 12 : preferredTimeHour - 12}:00 PM`}
+              </Text>
             </View>
           </View>
 
@@ -722,7 +748,6 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 onSelectAlternative={(staffId, staffName, roomId, roomName, start, end) => 
                   handleSelectAlternative(session.session_number, staffId, staffName, roomId, roomName, start, end)
                 }
-                staffNames={staffNames}
                 t={t}
               />
             ))}
@@ -916,6 +941,13 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
   },
+  // BUG FIX #4: Preferred time highlight
+  preferredTimeText: {
+    ...typography.body2,
+    color: colors.primary.main,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
 
   // Banners
   conflictBanner: {
@@ -1025,6 +1057,12 @@ const styles = StyleSheet.create({
   sessionStaff: {
     ...typography.caption,
     color: colors.text.secondary,
+    marginTop: spacing.xs / 2,
+  },
+  // ✨ NEW: Room name display
+  sessionRoom: {
+    ...typography.caption,
+    color: colors.text.tertiary,
     marginTop: spacing.xs / 2,
   },
 

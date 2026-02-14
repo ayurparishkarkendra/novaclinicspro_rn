@@ -600,6 +600,13 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
   
+  // BUG FIX #7: State for conflict modal (instead of raw Alert)
+  const [conflictModal, setConflictModal] = useState<{
+    visible: boolean;
+    title: string;
+    messages: string[];
+  }>({ visible: false, title: '', messages: [] });
+  
   // ===== ISOLATED FORM STATES (NO CROSS-TAB LEAKAGE) =====
   // Using state keys to force re-mount when switching modes
   const [doctorFormKey, setDoctorFormKey] = useState(0);
@@ -796,6 +803,9 @@ export const CreateAppointmentScreen: React.FC = () => {
   }, [therapistsData]);
 
   // BUG FIX #7: Gender-filtered therapist options based on selected client
+  // Track if there's a gender mismatch conflict
+  const [genderMatchConflict, setGenderMatchConflict] = useState<string | null>(null);
+  
   const genderFilteredTherapistOptions: PickerOption[] = useMemo(() => {
     const selectedClient = clientOptions.find(c => c.id === selectedClientId);
     const clientGender = selectedClient?.gender?.toLowerCase();
@@ -813,11 +823,29 @@ export const CreateAppointmentScreen: React.FC = () => {
       );
       // Log for debugging
       console.log('[CreateAppointment] Gender matching - client:', clientGender, 'filtered therapists:', femaleTherapists.length);
-      return femaleTherapists.length > 0 ? femaleTherapists : therapistOptions;
+      
+      // Return empty if no matching therapists
+      if (femaleTherapists.length === 0 && therapistOptions.length > 0) {
+        return []; // Return empty to force user to see the error
+      }
+      
+      return femaleTherapists;
     }
     
     return therapistOptions;
   }, [therapistOptions, selectedClientId, clientOptions]);
+  
+  // BUG FIX #5: Update gender conflict state based on filtered options
+  useEffect(() => {
+    const selectedClient = clientOptions.find(c => c.id === selectedClientId);
+    const clientGender = selectedClient?.gender?.toLowerCase();
+    
+    if (clientGender === 'female' && genderFilteredTherapistOptions.length === 0 && therapistOptions.length > 0) {
+      setGenderMatchConflict('No female therapists available. This female client requires a female therapist.');
+    } else {
+      setGenderMatchConflict(null);
+    }
+  }, [genderFilteredTherapistOptions, selectedClientId, clientOptions, therapistOptions]);
 
   const treatmentOptions: PickerOption[] = useMemo(() => {
     return (treatmentsData?.items || []).map((t: TreatmentResponse) => ({
@@ -996,22 +1024,21 @@ export const CreateAppointmentScreen: React.FC = () => {
           const conflictMessages = [];
           
           if (validationResult.conflicts?.staff_conflict) {
-            conflictMessages.push(`Staff conflict: ${validationResult.conflicts.staff_conflict.message}`);
+            conflictMessages.push(`The selected therapist is already booked at this time.`);
           }
           if (validationResult.conflicts?.room_conflict) {
-            conflictMessages.push(`Room conflict: ${validationResult.conflicts.room_conflict.message}`);
+            conflictMessages.push(`The selected room is not available at this time.`);
           }
           if (validationResult.errors?.length > 0) {
             conflictMessages.push(...validationResult.errors);
           }
           
-          Alert.alert(
-            'Booking Conflict',
-            `Cannot book this appointment:\n\n${conflictMessages.join('\n\n')}\n\nPlease select a different time or therapist.`,
-            [
-              { text: 'OK', style: 'default' }
-            ]
-          );
+          // BUG FIX #7: Use styled modal instead of raw Alert
+          setConflictModal({
+            visible: true,
+            title: 'Booking Conflict',
+            messages: conflictMessages.length > 0 ? conflictMessages : ['This time slot is not available.'],
+          });
           return; // Do NOT proceed with booking
         }
       } catch (err: any) {
@@ -1266,13 +1293,20 @@ export const CreateAppointmentScreen: React.FC = () => {
                 {/* Therapists - Multi-select */}
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Therapists (Max 2)</Text>
+                  {/* BUG FIX #5: Show gender matching conflict warning */}
+                  {genderMatchConflict && (
+                    <View style={styles.genderConflictBanner}>
+                      <Ionicons name="warning" size={18} color={colors.warning.main} />
+                      <Text style={styles.genderConflictText}>{genderMatchConflict}</Text>
+                    </View>
+                  )}
                   <SearchableDropdown
                     title="Select Therapists"
                     options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'therapy')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={genderMatchConflict ? "No matching therapists" : (isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists...")}
                     multiple
                     selectedIds={therapyForm.selectedTherapistIds}
                     maxSelect={2}
@@ -1316,13 +1350,20 @@ export const CreateAppointmentScreen: React.FC = () => {
                 {/* Therapists - Multi-select */}
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Therapists * (Max 2)</Text>
+                  {/* BUG FIX #5: Show gender matching conflict warning */}
+                  {genderMatchConflict && (
+                    <View style={styles.genderConflictBanner}>
+                      <Ionicons name="warning" size={18} color={colors.warning.main} />
+                      <Text style={styles.genderConflictText}>{genderMatchConflict}</Text>
+                    </View>
+                  )}
                   <SearchableDropdown
                     title="Select Therapists"
                     options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={genderMatchConflict ? "No matching therapists" : (isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists...")}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}
@@ -1524,6 +1565,37 @@ export const CreateAppointmentScreen: React.FC = () => {
         onCreated={handleClientCreated}
         tenantId={tenantId}
       />
+
+      {/* BUG FIX #7: Styled Conflict Modal (instead of raw Alert) */}
+      <Modal visible={conflictModal.visible} animationType="fade" transparent>
+        <View style={styles.conflictModalOverlay}>
+          <View style={styles.conflictModalContent}>
+            <View style={styles.conflictModalHeader}>
+              <View style={styles.conflictModalIconContainer}>
+                <Ionicons name="warning" size={32} color={colors.warning.main} />
+              </View>
+              <Text style={styles.conflictModalTitle}>{conflictModal.title}</Text>
+            </View>
+            <View style={styles.conflictModalBody}>
+              {conflictModal.messages.map((message, index) => (
+                <View key={index} style={styles.conflictMessageRow}>
+                  <Ionicons name="close-circle" size={16} color={colors.error.main} />
+                  <Text style={styles.conflictMessageText}>{message}</Text>
+                </View>
+              ))}
+              <Text style={styles.conflictHelpText}>
+                Please select a different time or therapist and try again.
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.conflictModalButton}
+              onPress={() => setConflictModal({ visible: false, title: '', messages: [] })}
+            >
+              <Text style={styles.conflictModalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1761,6 +1833,24 @@ const styles = StyleSheet.create({
   dropdownDoneText: {
     ...typography.button,
     color: colors.background.default,
+  },
+
+  // BUG FIX #5: Gender conflict banner styles
+  genderConflictBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning.main + '15',
+    padding: spacing.sm,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning.main + '30',
+  },
+  genderConflictText: {
+    ...typography.body2,
+    color: colors.warning.main,
+    flex: 1,
   },
 
   // Booked Slots
@@ -2054,6 +2144,77 @@ const styles = StyleSheet.create({
     backgroundColor: colors.grey[300],
   },
   modalConfirmText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
+
+  // BUG FIX #7: Conflict Modal Styles
+  conflictModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  conflictModalContent: {
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.md,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  conflictModalHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  conflictModalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.warning.main + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  conflictModalBody: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  conflictMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  conflictMessageText: {
+    ...typography.body2,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  conflictHelpText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  conflictModalButton: {
+    backgroundColor: colors.primary.main,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    alignItems: 'center',
+  },
+  conflictModalButtonText: {
     ...typography.button,
     color: colors.background.default,
   },

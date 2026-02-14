@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://appt-infinite-loop.preview.emergentagent.com
+**Preview URL:** https://appointments-debug.preview.emergentagent.com
 
 ---
 

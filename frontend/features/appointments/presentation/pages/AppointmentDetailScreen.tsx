@@ -720,85 +720,85 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION - RBAC-based */}
-        {/* BUG FIX #3: Quick actions ALWAYS visible, show disabled/empty state when no actions available */}
+        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (BUG FIX #3) */}
         <View style={styles.section} data-testid="detail-actions-section">
-          <SectionHeader title={t('appointments.quickActions')} icon="flash" />
+          <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
           <View style={styles.actionsContainer}>
-            {/* Primary Actions Row - Status-based actions */}
-            <View style={styles.actionsRow}>
-              {/* Confirm - only for scheduled status */}
-              {appointment.status === 'scheduled' && (
-                <ActionButton
-                  icon="checkmark-circle"
-                  label={t('appointments.confirm')}
-                  color={colors.success.main}
-                  onPress={() => handleStatusUpdate('confirmed')}
-                  disabled={!canModifyAppointment}
-                  variant="filled"
-                  testId="action-confirm"
-                />
-              )}
-              {/* Start Session - only for confirmed status */}
-              {appointment.status === 'confirmed' && (
-                <ActionButton
-                  icon="play-circle"
-                  label={t('appointments.startSession')}
-                  color={colors.info.main}
-                  onPress={() => handleStatusUpdate('in_progress')}
-                  disabled={!canStartSession}
-                  variant="filled"
-                  testId="action-start"
-                />
-              )}
-              {/* Complete - only for in_progress status */}
-              {appointment.status === 'in_progress' && (
-                <ActionButton
-                  icon="checkmark-done-circle"
-                  label={t('appointments.complete')}
-                  color={colors.success.main}
-                  onPress={() => handleStatusUpdate('completed')}
-                  disabled={!canCompleteSession}
-                  variant="filled"
-                  testId="action-complete"
-                />
-              )}
-            </View>
+            {/* Status-specific actions for active appointments */}
+            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
+              <>
+                {/* Primary Actions Row - Status-based actions */}
+                <View style={styles.actionsRow}>
+                  {/* Confirm - only for scheduled status */}
+                  {appointment.status === 'scheduled' && (
+                    <ActionButton
+                      icon="checkmark-circle"
+                      label={t('appointments.confirm') || 'Confirm'}
+                      color={colors.success.main}
+                      onPress={() => handleStatusUpdate('confirmed')}
+                      disabled={!canModifyAppointment}
+                      variant="filled"
+                      testId="action-confirm"
+                    />
+                  )}
+                  {/* Start Session - only for confirmed status */}
+                  {appointment.status === 'confirmed' && (
+                    <ActionButton
+                      icon="play-circle"
+                      label={t('appointments.startSession') || 'Start'}
+                      color={colors.info.main}
+                      onPress={() => handleStatusUpdate('in_progress')}
+                      disabled={!canStartSession}
+                      variant="filled"
+                      testId="action-start"
+                    />
+                  )}
+                  {/* Complete - only for in_progress status */}
+                  {appointment.status === 'in_progress' && (
+                    <ActionButton
+                      icon="checkmark-done-circle"
+                      label={t('appointments.complete') || 'Complete'}
+                      color={colors.success.main}
+                      onPress={() => handleStatusUpdate('completed')}
+                      disabled={!canCompleteSession}
+                      variant="filled"
+                      testId="action-complete"
+                    />
+                  )}
+                </View>
 
-            {/* Secondary Actions Row - Always visible for active appointments */}
-            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) && (
-              <View style={styles.actionsRow}>
-                <ActionButton
-                  icon="calendar-outline"
-                  label={t('appointments.reschedule')}
-                  color={colors.primary.main}
-                  onPress={handleReschedule}
-                  disabled={!canModify}
-                  testId="action-reschedule"
-                />
-                <ActionButton
-                  icon="close-circle-outline"
-                  label={t('common.cancel')}
-                  color={colors.error.main}
-                  onPress={handleCancel}
-                  disabled={!canModify}
-                  testId="action-cancel"
-                />
-                {['scheduled', 'confirmed'].includes(appointment.status) && (
+                {/* Secondary Actions Row */}
+                <View style={styles.actionsRow}>
                   <ActionButton
-                    icon="alert-circle-outline"
-                    label={t('appointments.noShow')}
-                    color={colors.warning.main}
-                    onPress={() => handleStatusUpdate('no_show')}
-                    disabled={!canMarkNoShow}
-                    testId="action-no-show"
+                    icon="calendar-outline"
+                    label={t('appointments.reschedule') || 'Reschedule'}
+                    color={colors.primary.main}
+                    onPress={handleReschedule}
+                    disabled={!canModify}
+                    testId="action-reschedule"
                   />
-                )}
-              </View>
-            )}
-
-            {/* Empty state for completed/cancelled/no_show appointments */}
-            {['completed', 'cancelled', 'no_show'].includes(appointment.status) && (
+                  <ActionButton
+                    icon="close-circle-outline"
+                    label={t('common.cancel') || 'Cancel'}
+                    color={colors.error.main}
+                    onPress={handleCancel}
+                    disabled={!canModify}
+                    testId="action-cancel"
+                  />
+                  {['scheduled', 'confirmed'].includes(appointment.status) && (
+                    <ActionButton
+                      icon="alert-circle-outline"
+                      label={t('appointments.noShow') || 'No Show'}
+                      color={colors.warning.main}
+                      onPress={() => handleStatusUpdate('no_show')}
+                      disabled={!canMarkNoShow}
+                      testId="action-no-show"
+                    />
+                  )}
+                </View>
+              </>
+            ) : (
+              /* Empty/Completed state - BUG FIX #3: Always show section with status message */
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
