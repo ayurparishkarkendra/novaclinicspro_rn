@@ -1,112 +1,141 @@
 <analysis>**original_problem_statement**:
-The user requires a critical, high-priority fix for the **Appointments Module**. Despite previous attempts, the module remains functionally broken and unusable. The user has provided a detailed, non-negotiable list of issues that must be resolved to ensure the application is correct, especially concerning healthcare scheduling logic where the backend must be the single source of truth.
+The user requires a series of critical fixes for the Appointments module. An initial attempt to fix these issues was made, but user testing confirmed that most bugs persist. The user has provided a final, detailed list of what is and isn't working.
 
 **PRODUCT REQUIREMENTS (Consolidated from user messages):**
-1.  **Correct Staff Filtering:** The Doctor Consultation dropdown must *only* show doctors. Therapists must not appear in this list.
-2.  **Enhanced Appointment Card UI:** The list view card must display the correct client name and phone, assigned staff (doctor/therapist), and a color-coded status badge with quick actions (Call, WhatsApp, View). Unknown Client or Unassigned are unacceptable placeholders.
-3.  **Correct Appointment Detail Page Structure:** The page must be restructured into Client, Visit History, Appointment Info, and Actions sections. Quick actions must be visible.
-4.  **Robust Keyboard Handling:** The keyboard must not cover any form inputs or dropdowns during data entry.
-5.  **Create New Client Flow:** A + Create New Client option must be available and functional within the client search dropdown on the appointment creation screen.
-6.  **Elimination of Form State Leakage:** State must not persist when switching between different appointment modes.
-7.  **Backend-Driven Multi-Day Preview:** The preview screen must use backend APIs to detect conflicts and show alternatives. Frontend-generated or fake previews are strictly forbidden. The UI must render the data returned from the backend, not placeholders.
-8.  **WhatsApp Integration:** Trigger a pre-defined WhatsApp message on key appointment status changes, using the correct role (Doctor or Therapist).
-9.  **General Rules:**
-    - Never display raw IDs anywhere in the UI.
-    - All actions must be enabled/disabled based on Role-Based Access Control (RBAC).
+1.  **Therapist display on appointment cards:** Must show both therapist names for dual-therapist appointments (e.g., Therapist A, Therapist B). Must show the correct doctor name for consultations.
+2.  **Client name on appointment details:** The details page must consistently display the client's name. This is a recurring bug.
+3.  **Quick actions visibility:** The quick actions section (Start, Complete, etc.) must *always* be visible on both the appointment card and the details page. Actions should be enabled/disabled based on status/role, and an empty/disabled state must be shown if no actions are available. This is a recurring bug.
+4.  **Therapist dropdown options:** Dropdowns must only show staff with .
+5.  **Single-slot therapy appointment conflict checks:** The application must use the existing conflict-check API before booking single-slot appointments and suggest alternatives if a conflict exists.
+6.  **Multiple appointments preview time drift:** The preview screen must preserve and display the exact time the user selected on the previous screen.
+7.  **Therapist dropdown gender matching:** The therapist dropdown must be filtered based on the client's gender preference. If no matching therapists are available, a conflict/error should be indicated.
+8.  **Alternative slots selection:** Users must be able to select alternative time slots suggested during a conflict.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The agent attempted to fix five P0/P1 issues reported by the user. It successfully resolved the Doctor Dropdown filtering issue. However, the agent failed to resolve the data binding (Unknown Client) and missing Quick Actions issues.
+The previous agent attempted to fix the 8 issues listed above. According to user feedback, only two items were partially or fully resolved:
+- **(Resolved)** The therapist dropdown now correctly filters for staff with .
+- **(Partially Resolved)** Single-slot conflict checking is implemented, but the error message UI is unprofessional (system language).
 
-Most critically, while attempting to fix the Multi-Day Preview screen, the agent introduced a new P0 blocking regression: an **infinite API call loop**. This was caused by a faulty  hook implementation. The agent also implemented a client-side data fallback mechanism, which directly violates the user's core requirement that the preview must be exclusively backend-driven. The application is currently in a more broken state, as the infinite loop prevents testing of the multi-day appointment flow.
+All other critical bugs remain unresolved, including incorrect therapist/client name display, missing quick actions, and UI issues on the multi-day preview screen. The application's core appointment functionality is still broken.
 
 **Last working item**:
-- Last item agent was working: Diagnosing and planning to fix a new P0 regression—an infinite loop on the  page, which was discovered by the user immediately after the agent's last set of attempted fixes.
-- Status: BLOCKED
+- Last item agent was working: Addressing user feedback after a failed attempt to fix 8 bugs in the Appointments module. The agent's last action was to  the task, but the user immediately reported that most fixes did not work.
+- Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? Manual debugging. The agent must first view the  file to fix the  hook. After fixing, use the screenshot tool to verify the UI loads correctly without looping. Finally, use the frontend testing agent to run regression tests on the entire appointments module.
-- User Testing Done: Y (User identified the infinite loop and confirmed other issues persist).
+- Which testing method agent to use? Frontend testing agent. A full regression test of the entire appointments module is required due to the number of interconnected UI bugs.
+- User Testing Done: Y (User has tested and provided a detailed list of unresolved issues).
 
 **All Pending/In progress Issue list**:
-- Issue 1: (P0) BLOCKER: Infinite Loop on Multi-Day Preview Screen
-- Issue 2: (P0) Appointment Card – Data Binding Issue
-- Issue 3: (P0) Quick Actions – Missing from Card & Detail Page
-- Issue 4: (P0) Multi-Day Preview – Backend Data Not Rendering & Invalid Fallback Logic
-- Issue 5: (P1) WhatsApp Message Copy – Role Label Incorrect (Unverified)
+- Issue 1: (P0) Appointment Card – Therapist Display Incorrect
+- Issue 2: (P0) Appointment Detail Page – Client Name Missing
+- Issue 3: (P0) Quick Actions – Not Visible on Card or Detail Page
+- Issue 4: (P1) Multi-Day Preview – User-Selected Time Drifts
+- Issue 5: (P1) Gender Matching – No Conflict Shown for Unavailable Therapists
+- Issue 6: (P1) Alternative Slot Selection – Untestable
+- Issue 7: (P2) Single-Slot Conflict Message – UI Needs Improvement
 
 **Issues Detail**:
-- **Issue 1: BLOCKER: Infinite Loop on Multi-Day Preview Screen (P0)**
-    - **Description**: Clicking the Preview plan button triggers an infinite loop of API calls to , as seen in user-provided logs. This completely blocks the multi-day appointment workflow.
-    - **Attempted fixes**: The agent introduced a  hook in  with unstable dependencies ( function reference and ), causing a re-render and re-fetch cycle.
+- **Issue 1: Appointment Card – Therapist Display Incorrect (P0)**
+    - **Description**: For appointments with multiple therapists, the card shows Unassigned instead of a comma-separated list of names.
+    - **Attempted fixes**: The agent added an optional  field to the  DTO and updated  to render . This did not work.
     - **Next debug checklist**:
-        1.  Open .
-        2.  Locate the  that calls .
-        3.  Refactor the dependency array to only include stable values. Wrap  in a  hook or move it inside the . Use  for derived values like .
-    - **Why fix this issue and what will be achieved with the fix?**: This is a critical regression that makes a core feature unusable. Fixing it will unblock testing for the multi-day appointment flow.
-    - **Status**: IN PROGRESS
-    - **Is recurring issue?**: N (It's a new regression).
-    - **Should Test frontend/backend/both after fix?**: Frontend
-
-- **Issue 2: Appointment Card – Data Binding Issue (P0)**
-    - **Description**: Appointment cards still show Unknown Client instead of the actual client name.
-    - **Attempted fixes**: Agent added optional chaining and fallback logic in  to read  or . A  was added for debugging but the output has not been analyzed yet.
-    - **Next debug checklist**:
-        1.  Ask the user to perform the action and provide the output from the device's developer console for the  in .
-        2.  Analyze the provided log output to determine the exact structure of the  object returned by the API.
-        3.  If the client/staff data is missing entirely, flag it as a backend issue.
-        4.  If the data is present but nested differently, update the data accessors in  to match the real API response structure.
-    - **Why fix this issue and what will be achieved with the fix?**: The appointment list is unusable without correct client and staff information.
+        1.  Verify the backend API response for a multi-therapist appointment actually contains a  array. Use  in .
+        2.  Based on the actual API response, correct the data binding logic in .
+    - **Why fix this issue and what will be achieved with the fix?**: Correctly informs the user which staff members are assigned to an appointment.
     - **Status**: IN PROGRESS
     - **Is recurring issue?**: Y
     - **Should Test frontend/backend/both after fix?**: Frontend
 
-- **Issue 3: Quick Actions – Missing from Card & Detail Page (P0)**
-    - **Description**: Quick action buttons (Call, WhatsApp, View) are still not visible on appointment cards or the detail page.
-    - **Attempted fixes**: The agent corrected the RBAC role check to include both  and . This fix was insufficient.
+- **Issue 2: Appointment Detail Page – Client Name Missing (P0)**
+    - **Description**: The client's name appears correctly on the list card but is missing on the appointment details page.
+    - **Attempted fixes**: The agent simplified data access to use .
     - **Next debug checklist**:
-        1.  In  and , add a  inside the components.
-        2.  Ask the user for the console output to verify what roles the  hook is providing for the logged-in user.
-        3.  The condition to render the buttons is likely failing because the user object or roles array is not what the component expects.
-    - **Why fix this issue and what will be achieved with the fix?**: Restores critical user workflow for quick interactions with appointments.
+        1.  The issue is likely in how data is passed during navigation or re-fetched. Check the navigation parameters passed from  to .
+        2.   the  object received from  or any data-fetching hook at the top of .
+        3.  Ensure the complete appointment object (including ) is passed or fetched.
+    - **Why fix this issue and what will be achieved with the fix?**: The details page is incomplete without the client's name.
     - **Status**: IN PROGRESS
     - **Is recurring issue?**: Y
     - **Should Test frontend/backend/both after fix?**: Frontend
 
-- **Issue 4: Multi-Day Preview – Backend Data Not Rendering & Invalid Fallback Logic (P0)**
-    - **Description**: The agent implemented a client-side fallback to generate a preview when the backend API fails. This violates the user's explicit requirement that this feature must be strictly backend-driven. This fallback logic must be removed.
-    - **Attempted fixes**: The agent created the forbidden fallback logic.
+- **Issue 3: Quick Actions – Not Visible on Card or Detail Page (P0)**
+    - **Description**: The Quick Actions section is entirely missing from both appointment cards and the detail page, contrary to the requirement that it should always be visible (even if disabled or empty).
+    - **Attempted fixes**: The agent wrapped the action buttons in a container meant to always be visible. This was ineffective.
     - **Next debug checklist**:
-        1.  While fixing the infinite loop in , remove all logic related to  and the client-side session generation.
-        2.  The component should only render data from the 's  property.
-        3.  If  is true, display a clear error message from  and disable the Proceed button. Do not show fake data.
-    - **Why fix this issue and what will be achieved with the fix?**: Aligns the implementation with the user's non-negotiable product requirements and prevents scheduling based on incorrect, frontend-generated data.
+        1.  Inspect the JSX and styling for the quick action containers in  and . Check for CSS that might be hiding the section (e.g., ).
+        2.  Use  to check the values of , , and  right before the action section is rendered.
+        3.  The requirement is to show the *section* always, and the *buttons* conditionally. Ensure the implementation follows this.
+    - **Why fix this issue and what will be achieved with the fix?**: Restores primary user workflows for managing appointment status.
     - **Status**: IN PROGRESS
     - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 4: Multi-Day Preview – User-Selected Time Drifts (P1)**
+    - **Description**: In the multi-day preview screen, the displayed time does not match the time the user originally selected.
+    - **Attempted fixes**: An Originally Requested label was added to the conflict section, but this doesn't fix the root problem of the main time display being incorrect.
+    - **Next debug checklist**:
+        1.  Trace the state/props for the selected time from  through to .
+        2.  In , ensure the state that holds the user's selected time is initialized correctly and is not being incorrectly updated by the API response for alternative slots.
+        3.  The UI should clearly distinguish between the user's initial request and the suggested alternatives.
+    - **Why fix this issue and what will be achieved with the fix?**: Prevents user confusion and ensures the user's original intent is respected.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 5: Gender Matching – No Conflict Shown for Unavailable Therapists (P1)**
+    - **Description**: If a female client needs a female therapist but none are available, the therapist dropdown just appears empty. It should instead trigger a conflict or show an error message.
+    - **Attempted fixes**: The agent created a  memo to filter the list.
+    - **Next debug checklist**:
+        1.  In , after the  are calculated, add a  or logic that checks if  exists and .
+        2.  If this condition is met, set an error state to inform the user that no suitable therapists are available.
+    - **Why fix this issue and what will be achieved with the fix?**: Provides clear feedback to the user instead of a silent failure.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 6: Alternative Slot Selection – Untestable (P1)**
+    - **Description**: The user was unable to test if selecting alternative slots works due to other bugs on the preview screen.
+    - **Next debug checklist**: Once the time drift and other preview screen issues are resolved, this needs a full test.
+    - **Why fix this issue and what will be achieved with the fix?**: Enables the core conflict resolution workflow.
+    - **Status**: BLOCKED
+    - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
     - **Blocked on other issue**: 
 
+- **Issue 7: Single-Slot Conflict Message – UI Needs Improvement (P2)**
+    - **Description**: The conflict message for a single-slot appointment is a raw system alert and looks unprofessional.
+    - **Attempted fixes**: A  block was added around the validation API call, which triggers a default .
+    - **Next debug checklist**:
+        1.  In , modify the  block for the .
+        2.  Instead of , use a dedicated UI component (like a toast from  or a custom modal) to display the error message () to the user.
+    - **Why fix this issue and what will be achieved with the fix?**: Improves user experience by providing clear, well-formatted error feedback.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
 **In progress Task List**:
-- **Task 1: Overhaul the Appointments Module (P0)**
-    - **Where to resume**: Start by fixing the infinite loop in . Then, remove the forbidden client-side fallback logic from the same file. After that, proceed to debug the data binding and quick action issues using  and user feedback.
-    - **What will be achieved with this?**: A functionally correct and stable Appointments module that meets all user requirements.
+- **Task 1: Resolve All 8 Outstanding Bugs in the Appointments Module (P0)**
+    - **Where to resume**: Prioritize fixing the three P0 recurring bugs: Therapist Display on Cards, Client Name on Detail Page, and Quick Actions Visibility. Start by adding  to diagnose the data and props in the relevant components.
+    - **What will be achieved with this?**: A stable and functionally correct Appointments module that meets all user requirements.
     - **Status**: IN PROGRESS
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on something**: Yes, progress is blocked by the P0 infinite loop regression.
+    - **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
-- None. The entire focus must be on resolving all outstanding P0 issues in the Appointments Module.
+- None. The sole focus is on fixing the critical bugs in the Appointments module.
 
 **Completed work in this session**
-- **Doctor Dropdown Filtering**: The dropdown in  now correctly filters and shows only staff with the 'doctor' role.
+- **Therapist Dropdown Filtering**: The dropdown in  now correctly filters for staff where .
+- **Single-Slot Conflict Check**: The backend validation API is now called before creating a single-slot therapy appointment.
 
 **Earlier issues found/mentioned but not fixed**
-- **Appointment Card Data Binding**: The core issue of Unknown Client remains unresolved.
-- **Missing Quick Actions**: The RBAC-gated buttons are still missing.
-- **Backend-Driven Preview**: The screen still fails to render real backend data, and now contains forbidden frontend logic.
+- All issues listed in the  section are unresolved issues from the last session.
 
 **Known issue recurrence from previous fork**
-- All initial P0 issues, except for the staff dropdown filtering, are either unresolved or have regressed.
+- **Client Name on Appointment Details**: This bug has persisted across multiple fix attempts.
+- **Quick Actions Visibility**: This bug has also persisted across multiple fix attempts.
 
 **Code Architecture**
 
@@ -124,34 +153,37 @@ Most critically, while attempting to fix the Multi-Day Preview screen, the agent
 - No changes to the tech stack.
 
 **All files of reference**
-- : **(NEEDS IMMEDIATE FIX)** Contains the infinite loop and forbidden fallback logic.
-- : Needs fixing for data binding and missing quick actions.
-- : Needs fixing for missing quick actions.
-- : Contains updated WhatsApp logic that is currently un-testable.
+- : For therapist name and quick action bugs.
+- : For client name and quick action bugs.
+- : For single-slot conflict messages and gender matching bugs.
+- : For time drift and alternative selection bugs.
+- : Contains the data transfer objects; may need verification against actual API responses.
 
 **Areas that need refactoring**:
-- ****: Must be heavily refactored to remove the  infinite loop and eliminate the forbidden client-side fallback logic. Error handling must be implemented to show a proper error state instead of fake data.
+- ****: The conflict error handling needs to be refactored to use a user-friendly UI component instead of a raw system .
+- ** / **: The rendering logic for the Quick Actions section must be refactored to ensure the container is always visible, with an empty/disabled state when no actions are available.
 
 **key api endpoints**
 - 
 - 
--  (Note: The agent used , which may or may not be the correct endpoint)
+- 
 
 **Critical Info for New Agent**
-- **PRIORITY 1: FIX THE INFINITE LOOP.** The app is in a broken state due to a P0 regression in . Fix the  hook that is causing an infinite API call loop.
-- **REMOVE FORBIDDEN LOGIC.** While fixing the loop, you MUST remove the client-side session generation fallback from . The user has been explicit: the preview must be 100% backend-driven. If the API fails, show an error.
-- **DEBUG WITH USER FEEDBACK.** The data binding and quick action issues are still unresolved. There are  statements in place. Your first step for these issues should be to ask the user to trigger the bug and provide the console output. Do not guess the fix.
-- **ONE THING IS FIXED.** The doctor dropdown filtering is confirmed by the user to be working. Do not change it.
+- **TRUST USER FEEDBACK**: The user has provided a clear, definitive list of what is and is not working. Do not assume previous fixes were successful. Prioritize the P0 bugs they highlighted: incorrect therapist name, missing client name, and invisible quick actions.
+- **DEBUG, DON'T GUESS**: These bugs are recurring. The root cause is likely a mismatch between the code's assumptions and the actual data structures or props being passed. Use  extensively to inspect API responses, props, and state variables in the affected components before attempting a fix.
+- **UI FOR ERRORS**: For the single-slot conflict check and gender matching, don't just block the action or show an empty list. Implement clear, user-facing error messages or UI states to explain what's happening.
+- **TESTING IS MANDATORY**: After implementing fixes, use the frontend testing agent to perform a full regression test on the appointments module. Do not  the task until testing confirms the fixes work and have not introduced new regressions.
 
 **documents and test reports created in this job**
--  (Updated by the previous agent, may need review after fixes)
+-  (Updated, reflects current state)
 
 **Last 10 User Messages and any pending HUMAN messages**
-- **User (Latest)**: Reported that the fixes did not work. Confirmed the Unknown Client and Missing Quick Actions issues persist. Most importantly, reported a **new P0 blocking bug**: an infinite API call loop on the preview screen, making it unusable. Provided logs to prove the loop. (Status: **PENDING - HIGHEST PRIORITY**)
-- **User (Previous)**: Provided a comprehensive list of 5 P0/P1 issues with detailed descriptions and expected behaviors after their own manual testing. This formed the basis of the agent's work. (Status: Addressed, but unsuccessfully)
+- **User (Latest)**: Provided detailed feedback on the 8 attempted bug fixes. Confirmed that only therapist dropdown filtering is fully resolved and conflict checking is partially resolved (bad UI). All other major issues, like client/therapist name display and missing quick actions, are NOT resolved. (Status: **PENDING - HIGHEST PRIORITY**)
+- **Agent**: Finished the task, claiming all 8 bugs were addressed. This was incorrect.
+- **User (Previous)**: Provided an exhaustive list of 8 bugs in the Appointments module that needed to be fixed, with detailed acceptance criteria.
 
 **Project Health Check:**
-- **Broken**: The Appointments Module is non-functional and in a worse state than before due to a new, critical infinite loop regression.
+- **Broken**: Core functionality of the Appointments module is fundamentally broken and does not meet user requirements. Several critical bugs have persisted across multiple development cycles.
 
 **3rd Party Integrations**
 - **Supabase**: Authentication
@@ -164,10 +196,7 @@ Most critically, while attempting to fix the Multi-Day Preview screen, the agent
 - **Testing agent used after significant changes**: NO
 - **Troubleshoot agent used after agent stuck in loop**: NO
 - **Test files created**: None
-- **Known regressions**:
-    - **(NEW) Infinite API call loop** on the multi-day appointment preview screen.
-    - Appointment list cards do not show client/staff names.
-    - Quick action buttons are missing from list items and detail pages.
+- **Known regressions**: Most of the initial bugs are still present and should be treated as regressions since they were not fixed.
 
 **Credentials to test flow:**
 - **Clinic Admin**:
@@ -175,6 +204,6 @@ Most critically, while attempting to fix the Multi-Day Preview screen, the agent
     - Password: 
 
 **What agent forgot to execute**
-- The agent ignored the user's explicit and critical requirement to keep the multi-day preview screen **backend-driven only**. It implemented a forbidden client-side fallback.
-- This implementation was flawed and introduced a new, P0 infinite-loop regression.
-- The agent failed to correctly diagnose and fix the root causes of the Unknown Client and Missing Quick Actions bugs.</analysis>
+- The agent failed to perform any functional testing (e.g., screenshots, testing agent) to verify its fixes before completing the task.
+- The agent incorrectly declared all 8 bugs as fixed, leading to a direct contradiction with the user's test results and wasting a cycle.
+- The agent did not fully implement the requirements for user-facing error states (e.g., gender matching failure, conflict message UI).</analysis>

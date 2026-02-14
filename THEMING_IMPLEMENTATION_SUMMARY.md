@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://appt-infinite-loop.preview.emergentagent.com/theme-demo
+https://appointments-debug.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
