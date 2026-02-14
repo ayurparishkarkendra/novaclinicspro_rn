@@ -61,6 +61,9 @@ import {
   generateWhatsAppRescheduleMessage,
   generateWhatsAppNoShowMessage,
   generateWhatsAppCompletedMessage,
+  getTherapistNames,
+  getTherapistCount,
+  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
@@ -263,26 +266,15 @@ export const AppointmentDetailScreen: React.FC = () => {
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
-  // Per API spec: client_name, staff_name, room_name, treatment_name are returned directly
-  // NO nested objects - the backend already resolves names
-  // BUG FIX #2: Ensure client_name is properly extracted and ALWAYS displayed
+  // Per API spec: client_name, staff_assignments, room_name, treatment_name are returned directly
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
   const treatmentName = appointment?.treatment_name || null;
   const roomName = appointment?.room_name || null;
   
-  // BUG FIX #1: Handle both single staff_name and multiple staff_names
-  // For 2 therapists assigned, show "Therapist A, Therapist B"
-  // For doctor consultation, show doctor name
-  const staffName = (() => {
-    // Check for staff_names array first (multi-therapist case)
-    const staffNamesArr = (appointment as any)?.staff_names;
-    if (Array.isArray(staffNamesArr) && staffNamesArr.length > 0) {
-      return staffNamesArr.join(', ');
-    }
-    // Fall back to single staff_name
-    return appointment?.staff_name || null;
-  })();
+  // Use the new helper function to get therapist names from staff_assignments
+  const staffName = appointment ? getTherapistNames(appointment) : null;
+  const therapistCount = appointment ? getTherapistCount(appointment) : 0;
 
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role

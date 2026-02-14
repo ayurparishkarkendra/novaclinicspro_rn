@@ -70,6 +70,12 @@ export interface ListAppointmentsParams {
 // RESPONSE DTOs
 // ============================================
 
+/** Staff assignment for multi-therapist support */
+export interface StaffAssignment {
+  id: string;
+  name: string;
+}
+
 /** Response for an appointment */
 export interface AppointmentResponse {
   id: string;
@@ -92,8 +98,8 @@ export interface AppointmentResponse {
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;
-  staff_name?: string;
-  staff_names?: string[]; // BUG FIX #1: Array for multi-therapist appointments
+  staff_name?: string;  // Deprecated - use staff_assignments
+  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
   treatment_name?: string;
   room_name?: string;
 }
@@ -120,6 +126,50 @@ export interface AppointmentRescheduleResponse {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+/**
+ * Get comma-separated therapist names from staff_assignments
+ * Uses staff_assignments array (preferred) with fallback to deprecated staff_name
+ */
+export const getTherapistNames = (appointment: AppointmentResponse | null): string => {
+  if (!appointment) return 'Unassigned';
+  
+  // Use staff_assignments (new API format)
+  if (appointment.staff_assignments && appointment.staff_assignments.length > 0) {
+    return appointment.staff_assignments.map(staff => staff.name).join(', ');
+  }
+  
+  // Fallback to deprecated staff_name
+  if (appointment.staff_name) {
+    return appointment.staff_name;
+  }
+  
+  return 'Unassigned';
+};
+
+/**
+ * Get therapist count from staff_assignments
+ */
+export const getTherapistCount = (appointment: AppointmentResponse | null): number => {
+  return appointment?.staff_assignments?.length || (appointment?.staff_name ? 1 : 0);
+};
+
+/**
+ * Check if appointment has multiple therapists
+ */
+export const hasMultipleTherapists = (appointment: AppointmentResponse | null): boolean => {
+  return (appointment?.staff_assignments?.length || 0) > 1;
+};
+
+/**
+ * Get all therapist IDs from staff_assignments
+ */
+export const getTherapistIds = (appointment: AppointmentResponse | null): string[] => {
+  if (!appointment?.staff_assignments) {
+    return appointment?.staff_id ? [appointment.staff_id] : [];
+  }
+  return appointment.staff_assignments.map(staff => staff.id);
+};
 
 /** Get display name for appointment status */
 export const getStatusLabel = (status: string): string => {

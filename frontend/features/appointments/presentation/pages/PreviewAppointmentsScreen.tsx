@@ -99,6 +99,15 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 };
 
 // ============================================
+// STAFF ASSIGNMENT TYPE (matching backend)
+// ============================================
+
+interface StaffAssignment {
+  id: string;
+  name: string;
+}
+
+// ============================================
 // SESSION DATA TYPE - Updated per API spec
 // ============================================
 
@@ -107,9 +116,10 @@ interface SessionData {
   appointment_start: string;
   appointment_end: string;
   staff_id: string | null;
-  staff_name: string | null;  // ✨ NEW - Display therapist name directly
+  staff_name: string | null;  // Deprecated - use staff_assignments
+  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
   room_id: string | null;
-  room_name: string | null;   // ✨ NEW - Display room name directly
+  room_name: string | null;
   is_conflicted: boolean;
   conflict?: {
     day_index: number;
@@ -143,6 +153,21 @@ interface SessionData {
   };
 }
 
+/**
+ * Get therapist names from session data
+ */
+const getSessionTherapistNames = (session: SessionData): string => {
+  // Use staff_assignments (new API format)
+  if (session.staff_assignments && session.staff_assignments.length > 0) {
+    return session.staff_assignments.map(staff => staff.name).join(', ');
+  }
+  // Fallback to deprecated staff_name
+  if (session.staff_name) {
+    return session.staff_name;
+  }
+  return 'Unassigned';
+};
+
 // ============================================
 // SESSION CARD COMPONENT
 // ============================================
@@ -169,10 +194,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const displayStartTime = session.selected_alternative?.start || session.appointment_start;
   const displayEndTime = session.selected_alternative?.end || session.appointment_end;
   
-  // ✨ Use staff_name directly from API response, fallback to selected alternative
-  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || t('common.unassigned') || 'Not assigned';
+  // Use getSessionTherapistNames helper for multi-therapist support
+  // If user selected alternative, use that name; otherwise use session therapists
+  const displayStaffName = session.selected_alternative?.staff_name || getSessionTherapistNames(session);
   
-  // ✨ Use room_name directly from API response
+  // Use room_name directly from API response
   const displayRoomName = session.selected_alternative?.room_name || session.room_name || t('common.unassigned') || 'Not assigned';
 
   // Get alternative slots from conflict object (per API spec)
@@ -357,7 +383,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     startDate: string;
     durationDays: string;
     preferredTimeHour: string;
-    preferredTimeHourLocal: string;  // NEW: Local hour for UI display
+    preferredTimeHourLocal: string;  // Local hour for UI display
+    preferredTimeMinutesLocal: string;  // Local minutes for UI display
     durationMinutes: string;
     notes: string;
   }>();
@@ -388,8 +415,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
-  // NEW: Use local hour for display (falls back to UTC hour if not provided)
+  // Local hour and minutes for display (falls back to UTC hour if not provided)
   const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
+  const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
@@ -445,9 +473,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
-            staff_name: session.staff_name || null,  // ✨ NEW - from API
+            staff_name: session.staff_name || null,  // deprecated - fallback
+            staff_assignments: session.staff_assignments || null,  // ✨ NEW - multi-therapist support
             room_id: session.room_id,
-            room_name: session.room_name || null,    // ✨ NEW - from API
+            room_name: session.room_name || null,
             is_conflicted: session.is_conflicted || false,
             conflict: session.conflict || null,
             selected_alternative: undefined,
@@ -455,6 +484,17 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           setSessions(mappedSessions);
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
           console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
+          // DEBUG: Show first session details
+          if (mappedSessions[0]) {
+            const firstSession = mappedSessions[0];
+            console.log('[PreviewAppointments] First session start (raw):', firstSession.appointment_start);
+            console.log('[PreviewAppointments] First session staff_assignments:', firstSession.staff_assignments);
+            console.log('[PreviewAppointments] First session staff_name:', firstSession.staff_name);
+            console.log('[PreviewAppointments] First session therapist display:', getSessionTherapistNames(firstSession));
+            const parsed = new Date(firstSession.appointment_start);
+            console.log('[PreviewAppointments] First session parsed date:', parsed.toString());
+            console.log('[PreviewAppointments] First session formatted:', safeFormatTime(firstSession.appointment_start));
+          }
         }
       } catch (error: any) {
         console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
@@ -693,12 +733,21 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* Display user's preferred time using LOCAL hour for clarity */}
+              {/* Display user's requested time with minutes */}
               <Text style={styles.preferredTimeText}>
-                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHourLocal < 12 
-                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:00 AM` 
-                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:00 PM`}
+                {t('appointments.requestedTime') || 'Requested'}: {preferredTimeHourLocal < 12 
+                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:${preferredTimeMinutesLocal.toString().padStart(2, '0')} AM` 
+                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:${preferredTimeMinutesLocal.toString().padStart(2, '0')} PM`}
               </Text>
+              {/* Note: Backend only supports hourly scheduling */}
+              {sessions.length > 0 && (
+                <Text style={styles.scheduledTimeNote}>
+                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(sessions[0].appointment_start)}
+                  {preferredTimeMinutesLocal !== 0 && (
+                    <Text style={styles.scheduledTimeHint}> ({t('appointments.roundedToHour') || 'rounded to hour'})</Text>
+                  )}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -950,6 +999,19 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
     fontWeight: '600',
     marginTop: spacing.xs,
+  },
+  // Scheduled time note
+  scheduledTimeNote: {
+    ...typography.body2,
+    color: colors.success.main,
+    fontWeight: '600',
+    marginTop: spacing.xs / 2,
+  },
+  scheduledTimeHint: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontWeight: '400',
+    fontStyle: 'italic',
   },
 
   // Banners
