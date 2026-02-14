@@ -61,6 +61,8 @@ interface AppointmentListItemProps {
   onStatusUpdate?: (appointmentId: string, newStatus: string) => void;
   /** Callback for cancellation */
   onCancel?: (appointmentId: string) => void;
+  /** Callback for reschedule - navigates to reschedule flow */
+  onReschedule?: (appointmentId: string) => void;
 }
 
 // ============================================
