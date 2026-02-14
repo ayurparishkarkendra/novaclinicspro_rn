@@ -190,6 +190,12 @@ interface VisitHistoryItemProps {
 const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPress }) => {
   const statusColor = getStatusColor(appointment.status);
   
+  // Extract prescription and payment info from appointment if available
+  const hasPrescription = appointment.prescription_id || appointment.has_prescription;
+  const hasPayment = appointment.payment_id || appointment.payment_status || appointment.has_payment;
+  const paymentAmount = appointment.payment_amount;
+  const paymentStatus = appointment.payment_status;
+  
   return (
     <TouchableOpacity 
       style={styles.visitHistoryItem} 
@@ -209,6 +215,26 @@ const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPres
             {appointment.treatment_name}
           </Text>
         )}
+        {/* Prescription Info (User Requirement #2) */}
+        <View style={styles.visitHistoryMeta}>
+          <Text style={[
+            styles.visitHistoryMetaText,
+            hasPrescription ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
+          ]}>
+            {hasPrescription ? '💊 Prescription given' : 'No prescription'}
+          </Text>
+        </View>
+        {/* Payment Info (User Requirement #2) */}
+        <View style={styles.visitHistoryMeta}>
+          <Text style={[
+            styles.visitHistoryMetaText,
+            hasPayment ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
+          ]}>
+            {hasPayment 
+              ? `💰 ${paymentStatus || 'Paid'}${paymentAmount ? ` - ₹${paymentAmount}` : ''}`
+              : 'No payment recorded'}
+          </Text>
+        </View>
       </View>
       <View style={[styles.visitHistoryStatus, { backgroundColor: statusColor + '15' }]}>
         <Text style={[styles.visitHistoryStatusText, { color: statusColor }]}>
