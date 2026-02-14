@@ -349,48 +349,36 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           </View>
 
           {/* Status Change Actions - based on current status */}
+          {/* User Required: Reschedule, No-Show, Cancel, Complete */}
           {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
             <View style={styles.expandedRow}>
-              {/* Confirm - only for scheduled */}
-              {appointment.status === 'scheduled' && onStatusUpdate && (
+              {/* Reschedule - for scheduled/confirmed (user requirement #1) */}
+              {['scheduled', 'confirmed'].includes(appointment.status) && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'confirmed')}
-                  data-testid="expanded-action-confirm"
+                  onPress={() => onReschedule ? onReschedule(appointment.id) : onPress?.(appointment)}
+                  data-testid="expanded-action-reschedule"
                 >
-                  <Ionicons name="checkmark-circle" size={18} color={colors.success.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
-                    {t('appointments.confirm') || 'Confirm'}
+                  <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.primary.main }]}>
+                    {t('appointments.reschedule') || 'Reschedule'}
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* Start - only for confirmed */}
-              {appointment.status === 'confirmed' && onStatusUpdate && (
+              {/* No-show - for scheduled/confirmed (user requirement #2) */}
+              {['scheduled', 'confirmed'].includes(appointment.status) && onStatusUpdate && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'in_progress')}
-                  data-testid="expanded-action-start"
+                  onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+                  data-testid="expanded-action-noshow"
                 >
-                  <Ionicons name="play-circle" size={18} color={colors.info.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.info.main }]}>
-                    {t('appointments.startSession') || 'Start'}
+                  <Ionicons name="alert-circle" size={18} color={colors.warning.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.warning.main }]}>
+                    {t('appointments.noShow') || 'No-Show'}
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* Complete - only for in_progress */}
-              {appointment.status === 'in_progress' && onStatusUpdate && (
-                <TouchableOpacity 
-                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'completed')}
-                  data-testid="expanded-action-complete"
-                >
-                  <Ionicons name="checkmark-done-circle" size={18} color={colors.success.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
-                    {t('appointments.complete') || 'Complete'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {/* Cancel - for scheduled/confirmed */}
+              {/* Cancel - for scheduled/confirmed (user requirement #3) */}
               {['scheduled', 'confirmed'].includes(appointment.status) && onCancel && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
@@ -403,16 +391,16 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                   </Text>
                 </TouchableOpacity>
               )}
-              {/* No-show - for scheduled/confirmed */}
-              {['scheduled', 'confirmed'].includes(appointment.status) && onStatusUpdate && (
+              {/* Complete - for in_progress (user requirement #4) */}
+              {appointment.status === 'in_progress' && onStatusUpdate && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'no_show')}
-                  data-testid="expanded-action-noshow"
+                  onPress={() => onStatusUpdate(appointment.id, 'completed')}
+                  data-testid="expanded-action-complete"
                 >
-                  <Ionicons name="alert-circle" size={18} color={colors.warning.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.warning.main }]}>
-                    {t('appointments.noShow') || 'No-Show'}
+                  <Ionicons name="checkmark-done-circle" size={18} color={colors.success.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                    {t('appointments.complete') || 'Complete'}
                   </Text>
                 </TouchableOpacity>
               )}
