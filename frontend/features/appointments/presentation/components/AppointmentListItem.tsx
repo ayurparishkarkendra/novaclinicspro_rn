@@ -190,10 +190,19 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // Series info (if part of multi-day)
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
 
-  // DEBUG: Log appointment data for troubleshooting (remove after fix verified)
-  // console.log('[AppointmentListItem] Data:', { 
-  //   id: appointment.id, clientName, staffName, clientPhone, userRole, canCall, canWhatsApp 
-  // });
+  // DEBUG: Log appointment data for troubleshooting - ENABLED for debugging
+  console.log('[AppointmentListItem] Data:', { 
+    id: appointment.id, 
+    client_name: appointment.client_name,
+    client_phone: appointment.client_phone,
+    staff_name: appointment.staff_name,
+    raw_client: (appointment as any).client,
+    raw_staff: (appointment as any).staff,
+    extracted: { clientName, staffName, clientPhone },
+    userRole, 
+    canCall, 
+    canWhatsApp 
+  });
 
   return (
     <TouchableOpacity
