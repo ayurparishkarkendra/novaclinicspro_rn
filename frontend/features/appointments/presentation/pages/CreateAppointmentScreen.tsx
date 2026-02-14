@@ -1122,14 +1122,13 @@ export const CreateAppointmentScreen: React.FC = () => {
     const startDateTime = new Date(multiDayForm.startDate);
     startDateTime.setHours(multiDayForm.preferredTime.getHours(), multiDayForm.preferredTime.getMinutes(), 0, 0);
 
-    // CRITICAL FIX: Convert user's LOCAL time hour to UTC hour for the backend
-    // The backend expects preferred_time_hour in UTC, but user selects in local time
-    // Example: User in IST (UTC+5:30) selects 4 PM (16:00 local) = 10:30 UTC
+    // FIX: Send LOCAL hour to backend, NOT UTC hour
+    // Backend expects preferred_time_hour in the clinic's local timezone
+    // Example: User selects 4 PM local → send 16 → backend schedules at 4 PM local
     const localPreferredDate = new Date(multiDayForm.preferredTime);
-    const utcHour = localPreferredDate.getUTCHours();
     const localHour = localPreferredDate.getHours();
     const localMinutes = localPreferredDate.getMinutes();
-    console.log('[CreateAppointment] Local time:', localHour, ':', localMinutes, 'UTC hour:', utcHour);
+    console.log('[CreateAppointment] Sending LOCAL hour to backend:', localHour, ':', localMinutes);
 
     const selectedStaffNames = therapistOptions
       .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
@@ -1148,9 +1147,9 @@ export const CreateAppointmentScreen: React.FC = () => {
         staffNames: selectedStaffNames,
         startDate: startDateTime.toISOString(),
         durationDays: multiDayForm.numberOfSessions.toString(),
-        preferredTimeHour: utcHour.toString(),  // Send UTC hour for backend API
-        preferredTimeHourLocal: localHour.toString(),  // Send local hour for UI display
-        preferredTimeMinutesLocal: localMinutes.toString(),  // Send minutes for UI display
+        preferredTimeHour: localHour.toString(),  // Send LOCAL hour (not UTC!)
+        preferredTimeHourLocal: localHour.toString(),  // Same as above for UI display
+        preferredTimeMinutesLocal: localMinutes.toString(),  // Minutes for UI display
         durationMinutes: multiDayForm.durationMinutes.toString(),
         notes: multiDayForm.notes,
       },
