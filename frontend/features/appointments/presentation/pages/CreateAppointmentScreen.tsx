@@ -1336,13 +1336,20 @@ export const CreateAppointmentScreen: React.FC = () => {
                 {/* Therapists - Multi-select */}
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Therapists * (Max 2)</Text>
+                  {/* BUG FIX #5: Show gender matching conflict warning */}
+                  {genderMatchConflict && (
+                    <View style={styles.genderConflictBanner}>
+                      <Ionicons name="warning" size={18} color={colors.warning.main} />
+                      <Text style={styles.genderConflictText}>{genderMatchConflict}</Text>
+                    </View>
+                  )}
                   <SearchableDropdown
                     title="Select Therapists"
                     options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={genderMatchConflict ? "No matching therapists" : (isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists...")}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}
