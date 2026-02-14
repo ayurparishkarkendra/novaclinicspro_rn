@@ -744,12 +744,13 @@ export const AppointmentDetailScreen: React.FC = () => {
           <View style={styles.actionsContainer}>
             {/* Status-specific actions for active appointments */}
             {/* User Required: Reschedule, No-Show, Cancel, Complete */}
-            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
+            {/* FIX: Use case-insensitive status comparison */}
+            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
               <>
                 {/* Actions Row - User required buttons in order */}
                 <View style={styles.actionsRow}>
                   {/* Reschedule - for scheduled/confirmed (User Requirement #1) */}
-                  {['scheduled', 'confirmed'].includes(appointment.status) && (
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="calendar-outline"
                       label={t('appointments.reschedule') || 'Reschedule'}
@@ -760,7 +761,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                     />
                   )}
                   {/* No-Show - for scheduled/confirmed (User Requirement #2) */}
-                  {['scheduled', 'confirmed'].includes(appointment.status) && (
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="alert-circle-outline"
                       label={t('appointments.noShow') || 'No-Show'}
@@ -771,7 +772,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                     />
                   )}
                   {/* Cancel - for scheduled/confirmed (User Requirement #3) */}
-                  {['scheduled', 'confirmed'].includes(appointment.status) && (
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="close-circle-outline"
                       label={t('common.cancel') || 'Cancel'}
@@ -782,7 +783,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                     />
                   )}
                   {/* Complete - for in_progress (User Requirement #4) */}
-                  {appointment.status === 'in_progress' && (
+                  {appointment.status?.toLowerCase() === 'in_progress' && (
                     <ActionButton
                       icon="checkmark-done-circle"
                       label={t('appointments.complete') || 'Complete'}
