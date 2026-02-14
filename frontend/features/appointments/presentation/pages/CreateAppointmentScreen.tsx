@@ -1127,15 +1127,15 @@ export const CreateAppointmentScreen: React.FC = () => {
     // Example: User in IST (UTC+5:30) selects 4 PM (16:00 local) = 10:30 UTC
     const localPreferredDate = new Date(multiDayForm.preferredTime);
     const utcHour = localPreferredDate.getUTCHours();
-    console.log('[CreateAppointment] Local hour:', localPreferredDate.getHours(), 'UTC hour:', utcHour);
+    const localHour = localPreferredDate.getHours();
+    const localMinutes = localPreferredDate.getMinutes();
+    console.log('[CreateAppointment] Local time:', localHour, ':', localMinutes, 'UTC hour:', utcHour);
 
     const selectedStaffNames = therapistOptions
       .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
       .map(t => t.label)
       .join(', ');
 
-    const localHour = localPreferredDate.getHours();  // Keep local hour for display
-    
     router.push({
       pathname: '/clinic-admin/appointments/preview' as any,
       params: {
@@ -1150,6 +1150,7 @@ export const CreateAppointmentScreen: React.FC = () => {
         durationDays: multiDayForm.numberOfSessions.toString(),
         preferredTimeHour: utcHour.toString(),  // Send UTC hour for backend API
         preferredTimeHourLocal: localHour.toString(),  // Send local hour for UI display
+        preferredTimeMinutesLocal: localMinutes.toString(),  // Send minutes for UI display
         durationMinutes: multiDayForm.durationMinutes.toString(),
         notes: multiDayForm.notes,
       },
