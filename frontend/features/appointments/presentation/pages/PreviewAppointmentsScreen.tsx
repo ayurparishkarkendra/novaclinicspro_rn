@@ -10,7 +10,7 @@
  * No IDs displayed in UI.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,6 @@ import {
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
-  AlternativeSlot,
-  TherapyPlanSession,
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
@@ -104,8 +102,43 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 // SESSION DATA TYPE
 // ============================================
 
-interface SessionData extends TherapyPlanSession {
-  selected_alternative?: AlternativeSlot;
+interface SessionData {
+  session_number: number;
+  appointment_start: string;
+  appointment_end: string;
+  staff_id: string | null;
+  room_id: string | null;
+  is_conflicted: boolean;
+  conflict?: {
+    day_index: number;
+    requested_time: string;
+    conflict_type: string;
+    message: string;
+    alternative_slots: Array<{
+      start: string;
+      end: string;
+      available_staff: Array<{
+        staff_id: string;
+        full_name: string;
+        staff_type: string;
+      }>;
+      available_rooms: Array<{
+        room_id: string;
+        name: string;
+        room_type: string;
+      }>;
+      score: number;
+    }>;
+  } | null;
+  // User-selected alternative for conflicted sessions
+  selected_alternative?: {
+    start: string;
+    end: string;
+    staff_id: string;
+    staff_name?: string;
+    room_id?: string;
+    room_name?: string;
+  };
 }
 
 // ============================================
@@ -116,7 +149,7 @@ interface SessionCardProps {
   session: SessionData;
   isExpanded: boolean;
   onToggle: () => void;
-  onSelectAlternative: (slot: AlternativeSlot) => void;
+  onSelectAlternative: (staffId: string, staffName: string, roomId: string, roomName: string, start: string, end: string) => void;
   staffNames: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
@@ -133,9 +166,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const hasSelectedAlternative = !!session.selected_alternative;
   
   // Display time from selected alternative if available
-  const displayStartTime = session.selected_alternative?.start || session.start;
-  const displayEndTime = session.selected_alternative?.end || session.end;
-  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || staffNames || t('common.therapist');
+  const displayStartTime = session.selected_alternative?.start || session.appointment_start;
+  const displayEndTime = session.selected_alternative?.end || session.appointment_end;
+  const displayStaffName = session.selected_alternative?.staff_name || staffNames || t('common.therapist');
+
+  // Get alternative slots from conflict object (per API spec)
+  const alternativeSlots = session.conflict?.alternative_slots || [];
 
   return (
     <View 
@@ -170,7 +206,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               {t('appointments.session')} {session.session_number}
             </Text>
             <Text style={styles.sessionDate}>
-              {safeFormatDayOfWeek(session.start)}, {safeFormatShortDate(session.start)}
+              {safeFormatDayOfWeek(session.appointment_start)}, {safeFormatShortDate(session.appointment_start)}
             </Text>
           </View>
           <Text style={styles.sessionTime}>
@@ -202,40 +238,62 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </Text>
           </View>
 
-          {/* Alternative Slots from Backend */}
-          {session.alternative_slots && session.alternative_slots.length > 0 ? (
+          {/* Alternative Slots from Backend - per API spec, alternatives are inside conflict object */}
+          {alternativeSlots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>
                 {t('appointments.selectAlternative')}:
               </Text>
-              {session.alternative_slots.map((alt, index) => {
+              {alternativeSlots.map((alt, altIndex) => {
+                // For each alternative slot, show available staff/room combinations
+                const firstStaff = alt.available_staff?.[0];
+                const firstRoom = alt.available_rooms?.[0];
                 const isSelected = session.selected_alternative?.start === alt.start &&
-                                   session.selected_alternative?.staff_id === alt.staff_id;
-                const scoreColor = alt.score >= 90 ? colors.success.main :
-                                   alt.score >= 70 ? colors.warning.main : colors.text.secondary;
+                                   session.selected_alternative?.staff_id === firstStaff?.staff_id;
+                const scorePercent = Math.round((alt.score || 0) * 100);
+                const scoreColor = scorePercent >= 90 ? colors.success.main :
+                                   scorePercent >= 70 ? colors.warning.main : colors.text.secondary;
+                
                 return (
                   <TouchableOpacity
-                    key={`${alt.start}-${alt.staff_id}-${index}`}
+                    key={`alt-${altIndex}-${alt.start}`}
                     style={[styles.alternativeOption, isSelected && styles.alternativeOptionSelected]}
-                    onPress={() => onSelectAlternative(alt)}
+                    onPress={() => {
+                      if (firstStaff) {
+                        onSelectAlternative(
+                          firstStaff.staff_id,
+                          firstStaff.full_name,
+                          firstRoom?.room_id || '',
+                          firstRoom?.name || '',
+                          alt.start,
+                          alt.end
+                        );
+                      }
+                    }}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: isSelected }}
-                    data-testid={`alternative-slot-${index}`}
+                    data-testid={`alternative-slot-${altIndex}`}
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
                         {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
-                        {alt.staff_name || t('common.therapist')}{alt.room_name && ` • ${alt.room_name}`}
+                        {firstStaff?.full_name || t('common.therapist')}
+                        {firstRoom?.name && ` • ${firstRoom.name}`}
                       </Text>
+                      {alt.available_staff?.length > 1 && (
+                        <Text style={styles.moreOptionsText}>
+                          +{alt.available_staff.length - 1} more staff options
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.alternativeScore}>
                       <Text style={[styles.scoreText, { color: scoreColor }]}>
-                        {alt.score}%
+                        {scorePercent}%
                       </Text>
                       <Text style={styles.scoreLabel}>
-                        {alt.score >= 90 ? t('common.best') : alt.score >= 70 ? t('common.good') : t('common.fair')}
+                        {scorePercent >= 90 ? t('common.best') : scorePercent >= 70 ? t('common.good') : t('common.fair')}
                       </Text>
                     </View>
                     {isSelected && (
@@ -285,21 +343,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // State
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [backendError, setBackendError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
 
-  // Extract params with fallbacks
+  // Extract params with fallbacks - memoized to prevent re-renders
   const clientId = params.clientId || '';
   const clientName = params.clientName || t('common.client');
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
-  const staffIds = params.staffIds?.split(',').filter(Boolean) || [];
+  const staffIdsStr = params.staffIds || '';
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
@@ -307,46 +364,25 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
-  // ===== HELPER: Generate sessions locally (fallback when backend unavailable) =====
-  const generateFallbackSessions = useCallback((): SessionData[] => {
-    const sessions: SessionData[] = [];
-    const startDate = new Date(startDateStr);
-    
-    for (let i = 0; i < durationDays; i++) {
-      const sessionDate = new Date(startDate);
-      sessionDate.setDate(startDate.getDate() + i);
-      
-      // Set preferred time
-      sessionDate.setHours(preferredTimeHour, 0, 0, 0);
-      
-      const endDate = new Date(sessionDate);
-      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
-      
-      sessions.push({
-        session_number: i + 1,
-        start: sessionDate.toISOString(),
-        end: endDate.toISOString(),
-        staff_id: staffIds[i % staffIds.length] || undefined,
-        staff_name: undefined, // Cannot determine from IDs alone
-        is_conflicted: false, // No backend to check conflicts
-        conflict: undefined,
-        alternative_slots: undefined,
-        selected_alternative: undefined,
-      });
-    }
-    
-    return sessions;
-  }, [startDateStr, durationDays, preferredTimeHour, durationMinutes, staffIds]);
+  // Parse staffIds once
+  const staffIds = React.useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
 
-  // ===== BACKEND-DRIVEN SESSION GENERATION =====
+  // ===== BACKEND-DRIVEN SESSION GENERATION (NO FALLBACK) =====
   // CRITICAL: This MUST use the backend API for conflict detection
+  // Runs ONCE on mount when all required params are present
   useEffect(() => {
+    // Prevent multiple calls
+    if (hasFetched) return;
+    
+    // Validate required params
+    if (!clientId || !treatmentId || staffIds.length === 0) {
+      return;
+    }
+
     const fetchTherapyPlan = async () => {
-      setIsGenerating(true);
-      setBackendError(null);
+      setHasFetched(true);
 
       try {
-        // DEBUG: Log the request payload
         console.log('[PreviewAppointments] Fetching therapy plan with:', {
           client_id: clientId,
           treatment_id: treatmentId,
@@ -366,63 +402,57 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           preferred_time_hour: preferredTimeHour,
         });
 
-        // DEBUG: Log the response
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
-        // Map backend response to local state
+        // Map backend response to local state (per API spec)
         if (response.sessions && response.sessions.length > 0) {
-          const mappedSessions: SessionData[] = response.sessions.map((session) => ({
-            ...session,
+          const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
+            session_number: session.session_number,
+            appointment_start: session.appointment_start,
+            appointment_end: session.appointment_end,
+            staff_id: session.staff_id,
+            room_id: session.room_id,
+            is_conflicted: session.is_conflicted || false,
+            conflict: session.conflict || null,
             selected_alternative: undefined,
           }));
           setSessions(mappedSessions);
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
-        } else {
-          // Backend returned empty sessions - use fallback with warning
-          console.warn('[PreviewAppointments] Backend returned empty sessions, using fallback');
-          setBackendError(t('appointments.backendReturnedEmpty') || 'Backend returned no sessions. Showing preview without conflict detection.');
-          setSessions(generateFallbackSessions());
+          console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
         }
       } catch (error: any) {
         console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
         console.error('[PreviewAppointments] Error response:', error?.response?.data);
-        
-        // Check if it's a 404/501 (endpoint not available)
-        if (error?.response?.status === 404 || error?.response?.status === 501) {
-          // Backend API not available - use fallback with warning
-          setBackendError(
-            t('appointments.backendValidationUnavailable') || 
-            'Therapy plan API is unavailable. Showing preview without conflict detection. Please verify manually.'
-          );
-          setSessions(generateFallbackSessions());
-        } else if (error?.response?.status === 401 || error?.response?.status === 403) {
-          setBackendError(t('errors.auth.unauthorized') || 'Unauthorized');
-        } else {
-          // Other error - still show fallback with warning
-          setBackendError(
-            (error?.response?.data?.detail || error?.message || t('appointments.failedToGeneratePlan')) +
-            ' Showing preview without conflict detection.'
-          );
-          setSessions(generateFallbackSessions());
-        }
-      } finally {
-        setIsGenerating(false);
+        // Error is handled by mutation state - no fallback generation allowed
       }
     };
 
-    if (clientId && treatmentId && staffIds.length > 0) {
-      fetchTherapyPlan();
-    } else {
-      setBackendError(t('appointments.missingRequiredFields') || 'Missing required fields');
-      setIsGenerating(false);
-    }
-  }, [clientId, treatmentId, staffIds.join(','), startDateStr, durationDays, preferredTimeHour, generateFallbackSessions]);
+    fetchTherapyPlan();
+  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour]);
 
   // Handle alternative selection
-  const handleSelectAlternative = (sessionNumber: number, slot: AlternativeSlot) => {
+  const handleSelectAlternative = (
+    sessionNumber: number, 
+    staffId: string, 
+    staffName: string, 
+    roomId: string, 
+    roomName: string,
+    start: string,
+    end: string
+  ) => {
     setSessions(prev => prev.map(session => 
       session.session_number === sessionNumber
-        ? { ...session, selected_alternative: slot }
+        ? { 
+            ...session, 
+            selected_alternative: {
+              start,
+              end,
+              staff_id: staffId,
+              staff_name: staffName,
+              room_id: roomId,
+              room_name: roomName,
+            }
+          }
         : session
     ));
   };
@@ -433,11 +463,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const allConflictsResolved = unresolvedConflicts.length === 0;
   const hasConflicts = conflictedSessions.length > 0;
 
-  // Determine if we can proceed
-  // Allow proceeding if: sessions exist AND (no backend error OR fallback sessions loaded) AND no unresolved conflicts
-  const isFallbackMode = !!backendError && sessions.length > 0;
-  const canProceed = sessions.length > 0 && allConflictsResolved;
-  const showWarning = isFallbackMode;
+  // Determine if we can proceed - ONLY if we have backend data and all conflicts are resolved
+  const isLoading = generatePlanMutation.isPending;
+  const hasError = generatePlanMutation.isError;
+  const errorMessage = generatePlanMutation.error?.message || 
+                       (generatePlanMutation.error as any)?.response?.data?.detail ||
+                       t('appointments.failedToGeneratePlan');
+  const canProceed = sessions.length > 0 && allConflictsResolved && !hasError;
 
   // Create all appointments
   const handleConfirm = async () => {
@@ -454,8 +486,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       // Create appointments one by one
       for (const session of sessions) {
         const slot = session.selected_alternative || {
-          start: session.start,
-          end: session.end,
+          start: session.appointment_start,
+          end: session.appointment_end,
           staff_id: session.staff_id || staffIds[0],
         };
 
@@ -463,8 +495,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           client_id: clientId,
           staff_id: slot.staff_id || staffIds[0],
           treatment_id: treatmentId,
-          appointment_start: slot.start || session.start,
-          appointment_end: slot.end || session.end,
+          appointment_start: slot.start || session.appointment_start,
+          appointment_end: slot.end || session.appointment_end,
           status: 'scheduled',
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
           appointment_type: 'MULTI',
@@ -488,8 +520,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             t('common.yourClinic'),
             treatmentName,
             sessions.length,
-            safeFormatDate(firstSession?.start),
-            safeFormatTime(firstSession?.start),
+            safeFormatDate(firstSession?.appointment_start),
+            safeFormatTime(firstSession?.appointment_start),
             '+91-XXXXXXXXXX'
           );
           const whatsappUrl = openWhatsApp(clientPhone, message);
@@ -550,7 +582,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       </View>
 
       {/* Loading State */}
-      {isGenerating && (
+      {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
           <Text style={styles.loadingText}>{t('appointments.generatingPlan')}</Text>
@@ -558,14 +590,41 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Backend Error State - BLOCKS PROGRESSION only if no sessions */}
-      {!isGenerating && backendError && sessions.length === 0 && (
+      {/* Error State - BLOCKS PROGRESSION (NO FALLBACK) */}
+      {!isLoading && hasError && (
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={64} color={colors.error.main} />
           <Text style={styles.errorTitle}>{t('appointments.validationUnavailable') || 'Validation Unavailable'}</Text>
-          <Text style={styles.errorText}>{backendError}</Text>
+          <Text style={styles.errorText}>{errorMessage}</Text>
           <Text style={styles.errorHelp}>
-            {t('appointments.cannotProceedWithoutValidation') || 'Cannot proceed without validation'}
+            {t('appointments.cannotProceedWithoutValidation') || 'Cannot proceed without backend validation. Please try again.'}
+          </Text>
+          <View style={styles.errorButtons}>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => {
+                setHasFetched(false);
+              }}
+            >
+              <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.retryButton, { backgroundColor: colors.grey[400], marginLeft: spacing.md }]}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.retryButtonText}>{t('common.goBack') || 'Go Back'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Missing Required Fields */}
+      {!isLoading && !hasError && sessions.length === 0 && hasFetched && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color={colors.warning.main} />
+          <Text style={styles.errorTitle}>{t('appointments.noSessionsReturned') || 'No Sessions Available'}</Text>
+          <Text style={styles.errorText}>
+            {t('appointments.backendReturnedEmpty') || 'The server returned no sessions for this therapy plan.'}
           </Text>
           <TouchableOpacity 
             style={styles.retryButton}
@@ -576,18 +635,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Plan Content - Show sessions even in fallback mode */}
-      {!isGenerating && sessions.length > 0 && (
+      {/* Plan Content - ONLY when we have backend data */}
+      {!isLoading && !hasError && sessions.length > 0 && (
         <>
-          {/* Fallback Warning Banner */}
-          {showWarning && (
-            <View style={styles.warningBanner}>
-              <Ionicons name="warning" size={20} color={colors.warning.main} />
-              <Text style={styles.warningText}>
-                {t('appointments.fallbackModeWarning') || 'Conflict detection unavailable. Please verify availability manually before confirming.'}
-              </Text>
-            </View>
-          )}
           {/* Client Info Card */}
           <View style={styles.clientCard} data-testid="preview-client-card">
             <View style={styles.clientIconContainer}>
@@ -656,7 +706,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 onToggle={() => setExpandedSession(
                   expandedSession === session.session_number ? null : session.session_number
                 )}
-                onSelectAlternative={(slot) => handleSelectAlternative(session.session_number, slot)}
+                onSelectAlternative={(staffId, staffName, roomId, roomName, start, end) => 
+                  handleSelectAlternative(session.session_number, staffId, staffName, roomId, roomName, start, end)
+                }
                 staffNames={staffNames}
                 t={t}
               />
@@ -788,6 +840,10 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...typography.button,
     color: colors.background.default,
+  },
+  errorButtons: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
   },
 
   // Warning Banner (Fallback Mode)
@@ -1012,6 +1068,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
+  },
+  moreOptionsText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   alternativeTextSelected: {
     color: colors.primary.main,
