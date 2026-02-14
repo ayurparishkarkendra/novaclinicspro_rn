@@ -55,7 +55,6 @@ import {
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
-import { StaffType } from '../../../staff/data/models/staff.dtos';
 
 // ============================================
 // TYPES
