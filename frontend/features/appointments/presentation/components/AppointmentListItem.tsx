@@ -295,7 +295,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             </Text>
           </View>
         )}
-      </View>
+        </View>
+      </TouchableOpacity>
 
       {/* Quick Actions Sidebar - expand toggle + view */}
       <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
