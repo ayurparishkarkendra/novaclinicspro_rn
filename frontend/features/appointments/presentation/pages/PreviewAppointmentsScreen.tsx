@@ -10,7 +10,7 @@
  * No IDs displayed in UI.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,6 @@ import {
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
-  AlternativeSlot,
-  TherapyPlanSession,
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
