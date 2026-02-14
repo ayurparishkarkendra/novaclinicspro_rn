@@ -160,7 +160,6 @@ const SessionCard: React.FC<SessionCardProps> = ({
   isExpanded,
   onToggle,
   onSelectAlternative,
-  staffNames,
   t,
 }) => {
   const hasConflict = session.is_conflicted;
@@ -169,7 +168,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
   // Display time from selected alternative if available
   const displayStartTime = session.selected_alternative?.start || session.appointment_start;
   const displayEndTime = session.selected_alternative?.end || session.appointment_end;
-  const displayStaffName = session.selected_alternative?.staff_name || staffNames || t('common.therapist');
+  
+  // ✨ Use staff_name directly from API response, fallback to selected alternative
+  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || t('common.unassigned') || 'Not assigned';
+  
+  // ✨ Use room_name directly from API response
+  const displayRoomName = session.selected_alternative?.room_name || session.room_name || t('common.unassigned') || 'Not assigned';
 
   // Get alternative slots from conflict object (per API spec)
   const alternativeSlots = session.conflict?.alternative_slots || [];
@@ -213,8 +217,13 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <Text style={styles.sessionTime}>
             {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
           </Text>
+          {/* ✨ Display therapist name from API */}
           <Text style={styles.sessionStaff}>
             {displayStaffName}
+          </Text>
+          {/* ✨ Display room name from API */}
+          <Text style={styles.sessionRoom}>
+            {displayRoomName}
           </Text>
         </View>
 
