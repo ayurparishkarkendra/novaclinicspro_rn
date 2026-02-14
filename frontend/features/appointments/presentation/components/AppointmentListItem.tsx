@@ -127,10 +127,13 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onPress,
   userRole = 'clinic_admin',
   showActions = true,
+  onStatusUpdate,
+  onCancel,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
   // Per API spec: client_name, staff_assignments are returned directly
@@ -141,6 +144,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // Use the new helper function to get therapist names from staff_assignments
   const staffName = getTherapistNames(appointment);
   const therapistCount = getTherapistCount(appointment);
+
+  // ===== EXPAND/COLLAPSE =====
+  const toggleExpand = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  }, [isExpanded]);
 
   // ===== ACTION HANDLERS =====
   
