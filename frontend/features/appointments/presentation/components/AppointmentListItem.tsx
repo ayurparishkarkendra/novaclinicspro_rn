@@ -222,7 +222,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         <View style={styles.clientRow}>
           <View style={styles.clientInfo}>
             <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
-              {clientName}
+              {displayClientName}
             </Text>
             {clientPhone && (
               <Text style={styles.clientPhone} data-testid="appointment-client-phone">
@@ -237,7 +237,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           <View style={styles.detailItem}>
             <Ionicons name="person-circle-outline" size={14} color={colors.text.secondary} />
             <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-staff-name">
-              {staffName}
+              {displayStaffName}
             </Text>
           </View>
           {treatmentName && (
