@@ -117,63 +117,83 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
 
+  // ===== EXTRACT DATA WITH FALLBACKS =====
+  // The API may return data in different structures, handle all cases
+  const clientName = appointment.client_name || 
+                    (appointment as any).client?.full_name || 
+                    (appointment as any).client?.name || 
+                    null;
+  const clientPhone = appointment.client_phone || 
+                     (appointment as any).client?.phone || 
+                     null;
+  const staffName = appointment.staff_name || 
+                   (appointment as any).staff?.full_name || 
+                   (appointment as any).staff?.name ||
+                   null;
+  const treatmentName = appointment.treatment_name || 
+                       (appointment as any).treatment?.name ||
+                       null;
+
   // ===== ACTION HANDLERS =====
   
   const handlePress = useCallback(() => {
     if (onPress) {
       onPress(appointment);
     } else {
-      // Navigate to detail screen - NO ID in URL params display
       router.push(`/clinic-admin/appointments/${appointment.id}` as any);
     }
   }, [appointment, onPress, router]);
 
   const handleCall = useCallback(() => {
-    const phone = appointment.client_phone;
-    if (!phone) {
+    if (!clientPhone) {
       Alert.alert(
-        t('common.error'),
+        t('common.error') || 'Error',
         t('appointments.noPhoneNumber') || 'Client phone number is not available'
       );
       return;
     }
-    Linking.openURL(`tel:${phone}`);
-  }, [appointment.client_phone, t]);
+    Linking.openURL(`tel:${clientPhone}`);
+  }, [clientPhone, t]);
 
   const handleWhatsApp = useCallback(() => {
-    const phone = appointment.client_phone;
-    if (!phone) {
+    if (!clientPhone) {
       Alert.alert(
-        t('common.error'),
+        t('common.error') || 'Error',
         t('appointments.noPhoneNumber') || 'Client phone number is not available'
       );
       return;
     }
     
-    const clientName = appointment.client_name || t('common.client') || 'Client';
+    const name = clientName || t('common.client') || 'Client';
     const time = formatTime(appointment.appointment_start);
-    const message = `Hi ${clientName}, this is a reminder for your appointment at ${time}. Please confirm your attendance. Thank you!`;
-    const url = openWhatsApp(phone, message);
+    const message = `Hi ${name}, this is a reminder for your appointment at ${time}. Please confirm your attendance. Thank you!`;
+    const url = openWhatsApp(clientPhone, message);
     Linking.openURL(url);
-  }, [appointment, t]);
+  }, [appointment, clientName, clientPhone, t]);
 
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
-  const canCall = ['clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
-  const canWhatsApp = ['clinic_admin', 'receptionist'].includes(userRole);
-  const canModify = ['clinic_admin', 'receptionist'].includes(userRole) && 
-    ['scheduled', 'confirmed'].includes(appointment.status);
+  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
+  const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
+  const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
+                  ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  const canWhatsApp = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
+                      ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+  const canModify = (canWhatsApp) && ['scheduled', 'confirmed'].includes(appointment.status);
 
   // ===== DISPLAY VALUES =====
-  const clientName = appointment.client_name || t('common.unknownClient') || 'Unknown Client';
-  const clientPhone = appointment.client_phone;
-  const staffName = appointment.staff_name || t('common.unassigned') || 'Unassigned';
-  const treatmentName = appointment.treatment_name;
+  const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
+  const displayStaffName = staffName || t('common.unassigned') || 'Unassigned';
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
   
   // Series info (if part of multi-day)
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
+
+  // DEBUG: Log appointment data for troubleshooting (remove after fix verified)
+  // console.log('[AppointmentListItem] Data:', { 
+  //   id: appointment.id, clientName, staffName, clientPhone, userRole, canCall, canWhatsApp 
+  // });
 
   return (
     <TouchableOpacity
