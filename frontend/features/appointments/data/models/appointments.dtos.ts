@@ -181,7 +181,8 @@ export const getStatusLabel = (status: string): string => {
     cancelled: 'Cancelled',
     no_show: 'No Show',
   };
-  return labels[status] || status;
+  // FIX: Use case-insensitive status lookup
+  return labels[status?.toLowerCase()] || status;
 };
 
 /** Get color for appointment status */
