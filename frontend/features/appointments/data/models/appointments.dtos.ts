@@ -505,8 +505,10 @@ export const generateWhatsAppRescheduleMessage = (
   newDate: string,
   newTime: string,
   staffName: string,
-  treatmentName: string
+  treatmentName: string,
+  appointmentType?: string | null
 ): string => {
+  const roleLabel = getRoleLabel(appointmentType);
   return `Hi ${clientName},
 
 Your appointment has been rescheduled. 📅
@@ -516,7 +518,7 @@ Previous:
 
 New:
 📅 ${newDate} at ${newTime}
-👨‍⚕️ Doctor/Therapist: ${staffName}
+👨‍⚕️ ${roleLabel}: ${staffName}
 💆 Treatment: ${treatmentName}
 
 Please confirm if this works for you.
