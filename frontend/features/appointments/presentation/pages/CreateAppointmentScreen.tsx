@@ -1102,7 +1102,7 @@ export const CreateAppointmentScreen: React.FC = () => {
                 onSelect={handleClientSelect}
                 isLoading={isLoadingClients || isSearchingClients}
                 emptyText="No clients found"
-                showCreateOption={clientOptions.length === 0 || clientSearchQuery.length >= 2}
+                showCreateOption={true}
                 onCreateNew={() => setShowCreateClientModal(true)}
                 autoCloseOnSelect={true}
               />
