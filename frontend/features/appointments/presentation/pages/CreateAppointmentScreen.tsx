@@ -927,6 +927,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   };
 
   // Create single appointment
+  // BUG FIX #5: Add conflict checking for single-slot therapy appointments
   const handleCreateSingle = async () => {
     if (!selectedClientId) {
       Alert.alert('Required', 'Please select a client');
@@ -934,7 +935,6 @@ export const CreateAppointmentScreen: React.FC = () => {
     }
 
     const isDoctor = sessionType === 'DOCTOR';
-    const form = isDoctor ? doctorForm : therapyForm;
     const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
     const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
 
@@ -948,9 +948,56 @@ export const CreateAppointmentScreen: React.FC = () => {
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
 
+    const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
+
+    // BUG FIX #5: For therapy appointments, validate before creating (conflict check)
+    if (!isDoctor && staffId) {
+      try {
+        const validationPayload: ValidateAppointmentRequest = {
+          client_id: selectedClientId,
+          staff_id: staffId,
+          room_id: therapyForm.selectedRoomId || undefined,
+          appointment_start: startDateTime.toISOString(),
+          appointment_end: endDateTime.toISOString(),
+        };
+        
+        console.log('[CreateAppointment] Validating single therapy appointment:', validationPayload);
+        
+        const validationResult = await validateMutation.mutateAsync(validationPayload);
+        console.log('[CreateAppointment] Validation result:', validationResult);
+        
+        // If validation fails, show conflict message and alternatives
+        if (!validationResult.is_valid) {
+          const conflictMessages = [];
+          
+          if (validationResult.conflicts?.staff_conflict) {
+            conflictMessages.push(`Staff conflict: ${validationResult.conflicts.staff_conflict.message}`);
+          }
+          if (validationResult.conflicts?.room_conflict) {
+            conflictMessages.push(`Room conflict: ${validationResult.conflicts.room_conflict.message}`);
+          }
+          if (validationResult.errors?.length > 0) {
+            conflictMessages.push(...validationResult.errors);
+          }
+          
+          Alert.alert(
+            'Booking Conflict',
+            `Cannot book this appointment:\n\n${conflictMessages.join('\n\n')}\n\nPlease select a different time or therapist.`,
+            [
+              { text: 'OK', style: 'default' }
+            ]
+          );
+          return; // Do NOT proceed with booking
+        }
+      } catch (err: any) {
+        console.log('[CreateAppointment] Validation API error (proceeding anyway):', err.message);
+        // If validation API not available, proceed with booking
+      }
+    }
+
     const payload: AppointmentCreate = {
       client_id: selectedClientId,
-      staff_id: isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null),
+      staff_id: staffId,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
       appointment_start: startDateTime.toISOString(),
