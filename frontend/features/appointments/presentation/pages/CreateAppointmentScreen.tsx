@@ -1268,11 +1268,11 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>Therapists (Max 2)</Text>
                   <SearchableDropdown
                     title="Select Therapists"
-                    options={therapistOptions}
+                    options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'therapy')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={therapyForm.selectedTherapistIds}
                     maxSelect={2}
@@ -1318,11 +1318,11 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>Therapists * (Max 2)</Text>
                   <SearchableDropdown
                     title="Select Therapists"
-                    options={therapistOptions}
+                    options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}
