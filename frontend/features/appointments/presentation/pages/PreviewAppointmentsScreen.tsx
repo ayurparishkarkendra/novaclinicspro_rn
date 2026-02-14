@@ -357,6 +357,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     startDate: string;
     durationDays: string;
     preferredTimeHour: string;
+    preferredTimeHourLocal: string;  // NEW: Local hour for UI display
     durationMinutes: string;
     notes: string;
   }>();
@@ -387,6 +388,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
+  // NEW: Use local hour for display (falls back to UTC hour if not provided)
+  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
@@ -690,11 +693,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* BUG FIX #4: Show user's preferred time clearly */}
+              {/* Display user's preferred time using LOCAL hour for clarity */}
               <Text style={styles.preferredTimeText}>
-                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHour < 12 
-                  ? `${preferredTimeHour === 0 ? 12 : preferredTimeHour}:00 AM` 
-                  : `${preferredTimeHour === 12 ? 12 : preferredTimeHour - 12}:00 PM`}
+                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHourLocal < 12 
+                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:00 AM` 
+                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:00 PM`}
               </Text>
             </View>
           </View>
