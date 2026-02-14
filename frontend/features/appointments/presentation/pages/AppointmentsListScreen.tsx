@@ -404,6 +404,7 @@ export const AppointmentsListScreen: React.FC = () => {
               showActions={true}
               onStatusUpdate={handleStatusUpdate}
               onCancel={handleCancel}
+              onReschedule={handleReschedule}
             />
           )}
           keyExtractor={(item) => item.id}
