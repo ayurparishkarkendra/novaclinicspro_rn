@@ -1016,22 +1016,21 @@ export const CreateAppointmentScreen: React.FC = () => {
           const conflictMessages = [];
           
           if (validationResult.conflicts?.staff_conflict) {
-            conflictMessages.push(`Staff conflict: ${validationResult.conflicts.staff_conflict.message}`);
+            conflictMessages.push(`The selected therapist is already booked at this time.`);
           }
           if (validationResult.conflicts?.room_conflict) {
-            conflictMessages.push(`Room conflict: ${validationResult.conflicts.room_conflict.message}`);
+            conflictMessages.push(`The selected room is not available at this time.`);
           }
           if (validationResult.errors?.length > 0) {
             conflictMessages.push(...validationResult.errors);
           }
           
-          Alert.alert(
-            'Booking Conflict',
-            `Cannot book this appointment:\n\n${conflictMessages.join('\n\n')}\n\nPlease select a different time or therapist.`,
-            [
-              { text: 'OK', style: 'default' }
-            ]
-          );
+          // BUG FIX #7: Use styled modal instead of raw Alert
+          setConflictModal({
+            visible: true,
+            title: 'Booking Conflict',
+            messages: conflictMessages.length > 0 ? conflictMessages : ['This time slot is not available.'],
+          });
           return; // Do NOT proceed with booking
         }
       } catch (err: any) {
