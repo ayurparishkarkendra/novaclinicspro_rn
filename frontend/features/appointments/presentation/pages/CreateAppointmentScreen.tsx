@@ -338,9 +338,10 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                     onCreateNew();
                   }}
                   accessibilityLabel="Create new client"
+                  data-testid="dropdown-create-new-client"
                 >
                   <Ionicons name="add-circle" size={20} color={colors.primary.main} />
-                  <Text style={styles.dropdownCreateText}>Create new client</Text>
+                  <Text style={styles.dropdownCreateText}>+ Create New Client</Text>
                 </TouchableOpacity>
               )}
 
