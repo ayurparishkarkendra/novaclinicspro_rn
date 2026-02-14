@@ -262,23 +262,47 @@ export const AppointmentDetailScreen: React.FC = () => {
   const cancelMutation = useCancelAppointmentMutation(tenantId);
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
+  // ===== EXTRACT DATA WITH FALLBACKS =====
+  const clientName = appointment?.client_name || 
+                    (appointment as any)?.client?.full_name || 
+                    (appointment as any)?.client?.name || 
+                    null;
+  const clientPhone = appointment?.client_phone || 
+                     (appointment as any)?.client?.phone || 
+                     null;
+  const staffName = appointment?.staff_name || 
+                   (appointment as any)?.staff?.full_name || 
+                   (appointment as any)?.staff?.name ||
+                   null;
+  const treatmentName = appointment?.treatment_name || 
+                       (appointment as any)?.treatment?.name ||
+                       null;
+  const roomName = appointment?.room_name || 
+                  (appointment as any)?.room?.name ||
+                  null;
+
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
-  const canModifyAppointment = ['clinic_admin', 'receptionist'].includes(userRole);
-  const canStartSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
-  const canCompleteSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
-  const canMarkNoShow = ['clinic_admin', 'receptionist'].includes(userRole);
-  const canCall = ['clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
-  const canWhatsApp = ['clinic_admin', 'receptionist'].includes(userRole);
+  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
+  const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
+  const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
+                               ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+  const canStartSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
+                          ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canCompleteSession = canStartSession;
+  const canMarkNoShow = canModifyAppointment;
+  const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
+                  ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  const canWhatsApp = canModifyAppointment;
 
   // Call client directly
   const handleCallClient = useCallback(() => {
-    if (!appointment?.client_phone) {
-      Alert.alert(t('common.error'), t('appointments.noPhoneNumber'));
+    if (!clientPhone) {
+      Alert.alert(t('common.error') || 'Error', t('appointments.noPhoneNumber') || 'No phone number available');
       return;
     }
-    Linking.openURL(`tel:${appointment.client_phone}`);
-  }, [appointment, t]);
+    Linking.openURL(`tel:${clientPhone}`);
+  }, [clientPhone, t]);
 
   // ===== WHATSAPP HANDLERS FOR ALL STATUS CHANGES =====
   
@@ -287,73 +311,75 @@ export const AppointmentDetailScreen: React.FC = () => {
     status: string,
     newDateTime?: { date: string; time: string }
   ) => {
-    if (!appointment?.client_phone) return;
+    if (!clientPhone || !appointment) return;
 
-    const phone = appointment.client_phone;
-    const clientName = appointment.client_name || t('common.client');
-    const staffName = appointment.staff_name || t('common.staff');
-    const treatmentName = appointment.treatment_name || t('common.appointment');
-    const clinicPhone = '+91-XXXXXXXXXX';
-    const clinicName = t('common.yourClinic');
+    const displayClientName = clientName || t('common.client') || 'Client';
+    const displayStaffName = staffName || t('common.staff') || 'Staff';
+    const displayTreatment = treatmentName || t('common.appointment') || 'Appointment';
+    const clinicPhoneNum = '+91-XXXXXXXXXX';
+    const clinicName = t('common.yourClinic') || 'Your Clinic';
+    const appointmentType = appointment.appointment_type;
 
     let message = '';
 
     switch (status) {
       case 'confirmed':
         message = generateWhatsAppConfirmationMessage(
-          clientName,
+          displayClientName,
           clinicName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          staffName,
-          treatmentName,
-          clinicPhone
+          displayStaffName,
+          displayTreatment,
+          clinicPhoneNum,
+          appointmentType
         );
         break;
       case 'cancelled':
         message = generateWhatsAppCancellationMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       case 'rescheduled':
         if (newDateTime) {
           message = generateWhatsAppRescheduleMessage(
-            clientName,
+            displayClientName,
             formatDate(appointment.appointment_start),
             formatTime(appointment.appointment_start),
             newDateTime.date,
             newDateTime.time,
-            staffName,
-            treatmentName
+            displayStaffName,
+            displayTreatment,
+            appointmentType
           );
         }
         break;
       case 'no_show':
         message = generateWhatsAppNoShowMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       case 'completed':
         message = generateWhatsAppCompletedMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       default:
         return;
     }
 
-    const url = openWhatsApp(phone, message);
+    const url = openWhatsApp(clientPhone, message);
     
     Alert.alert(
       t('appointments.notifyClient'),
@@ -527,6 +553,13 @@ export const AppointmentDetailScreen: React.FC = () => {
   const canComplete = canCompleteSession && appointment.status === 'in_progress';
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
+  // Display values with fallbacks
+  const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
+  const displayClientPhone = clientPhone;
+  const displayStaffName = staffName;
+  const displayTreatmentName = treatmentName;
+  const displayRoomName = roomName;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -534,18 +567,19 @@ export const AppointmentDetailScreen: React.FC = () => {
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
-          accessibilityLabel={t('common.goBack')}
+          accessibilityLabel={t('common.goBack') || 'Go back'}
           data-testid="detail-back-button"
         >
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('navigation.appointments')}</Text>
-        {/* WhatsApp Button */}
-        {appointment.client_phone && canWhatsApp && (
+        <Text style={styles.headerTitle}>{t('navigation.appointments') || 'Appointments'}</Text>
+        {/* WhatsApp Button - Show if user has permission */}
+        {canWhatsApp && (
           <TouchableOpacity 
-            style={styles.whatsappButton} 
-            onPress={() => sendWhatsAppForStatus('confirmed')}
-            accessibilityLabel={t('appointments.sendWhatsApp')}
+            style={[styles.whatsappButton, !displayClientPhone && { opacity: 0.5 }]} 
+            onPress={() => displayClientPhone && sendWhatsAppForStatus('confirmed')}
+            disabled={!displayClientPhone}
+            accessibilityLabel={t('appointments.sendWhatsApp') || 'Send WhatsApp'}
             data-testid="detail-whatsapp-button"
           >
             <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
@@ -573,7 +607,7 @@ export const AppointmentDetailScreen: React.FC = () => {
             <View style={styles.sessionBadge}>
               <Ionicons name="repeat" size={14} color={colors.primary.main} />
               <Text style={styles.sessionBadgeText}>
-                {t('appointments.session')} {appointment.session_number}/{appointment.total_sessions}
+                {t('appointments.session') || 'Session'} {appointment.session_number}/{appointment.total_sessions}
               </Text>
             </View>
           )}
@@ -581,24 +615,25 @@ export const AppointmentDetailScreen: React.FC = () => {
 
         {/* CLIENT SECTION */}
         <View style={styles.section} data-testid="detail-client-section">
-          <SectionHeader title={t('common.client')} icon="person" />
+          <SectionHeader title={t('common.client') || 'Client'} icon="person" />
           <View style={styles.clientCard}>
             <View style={styles.clientMainInfo}>
               <Text style={styles.clientName} data-testid="detail-client-name">
-                {appointment.client_name || t('common.unknownClient')}
+                {displayClientName}
               </Text>
-              {appointment.client_phone && (
+              {displayClientPhone && (
                 <Text style={styles.clientPhone} data-testid="detail-client-phone">
-                  {appointment.client_phone}
+                  {displayClientPhone}
                 </Text>
               )}
             </View>
-            {/* Quick Call Action */}
-            {appointment.client_phone && canCall && (
+            {/* Quick Call Action - Always show if user has permission */}
+            {canCall && (
               <TouchableOpacity 
-                style={styles.callButton}
+                style={[styles.callButton, !displayClientPhone && { opacity: 0.5, backgroundColor: colors.grey[400] }]}
                 onPress={handleCallClient}
-                accessibilityLabel={t('appointments.callClient')}
+                disabled={!displayClientPhone}
+                accessibilityLabel={t('appointments.callClient') || 'Call client'}
                 data-testid="detail-call-button"
               >
                 <Ionicons name="call" size={20} color={colors.background.default} />
@@ -610,7 +645,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         {/* VISIT HISTORY SECTION */}
         {visitHistory.length > 0 && (
           <View style={styles.section} data-testid="detail-visit-history-section">
-            <SectionHeader title={t('appointments.visitHistory')} icon="time" />
+            <SectionHeader title={t('appointments.visitHistory') || 'Visit History'} icon="time" />
             <View style={styles.visitHistoryCard}>
               {visitHistory.map((historyItem: any) => (
                 <VisitHistoryItem
@@ -625,47 +660,47 @@ export const AppointmentDetailScreen: React.FC = () => {
 
         {/* APPOINTMENT INFO SECTION */}
         <View style={styles.section} data-testid="detail-appointment-info-section">
-          <SectionHeader title={t('appointments.appointmentDetails')} icon="calendar" />
+          <SectionHeader title={t('appointments.appointmentDetails') || 'Appointment Details'} icon="calendar" />
           <View style={styles.card}>
             <InfoRow
               icon="calendar-outline"
-              label={t('common.date')}
+              label={t('common.date') || 'Date'}
               value={formatDate(appointment.appointment_start)}
               testId="detail-date"
             />
             <InfoRow
               icon="time-outline"
-              label={t('common.time')}
+              label={t('common.time') || 'Time'}
               value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
               testId="detail-time"
             />
             <InfoRow
               icon="hourglass-outline"
-              label={t('common.duration')}
+              label={t('common.duration') || 'Duration'}
               value={formatDuration(duration)}
               testId="detail-duration"
             />
-            {appointment.treatment_name && (
+            {displayTreatmentName && (
               <InfoRow
                 icon="medical-outline"
-                label={t('common.treatment')}
-                value={appointment.treatment_name}
+                label={t('common.treatment') || 'Treatment'}
+                value={displayTreatmentName}
                 testId="detail-treatment"
               />
             )}
-            {appointment.staff_name && (
+            {displayStaffName && (
               <InfoRow
                 icon="person-circle-outline"
-                label={t('common.staff')}
-                value={appointment.staff_name}
+                label={t('common.staff') || 'Staff'}
+                value={displayStaffName}
                 testId="detail-staff"
               />
             )}
-            {appointment.room_name && (
+            {displayRoomName && (
               <InfoRow
                 icon="business-outline"
-                label={t('common.room')}
-                value={appointment.room_name}
+                label={t('common.room') || 'Room'}
+                value={displayRoomName}
                 testId="detail-room"
               />
             )}
@@ -675,7 +710,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         {/* Notes Section */}
         {appointment.notes && (
           <View style={styles.section}>
-            <SectionHeader title={t('common.notes')} icon="document-text" />
+            <SectionHeader title={t('common.notes') || 'Notes'} icon="document-text" />
             <View style={styles.notesCard}>
               <Text style={styles.notesText}>{appointment.notes}</Text>
             </View>
