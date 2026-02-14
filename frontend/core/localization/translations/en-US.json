@@ -340,6 +340,8 @@
     "cancelAppointment": "Cancel Appointment",
     "confirmCancel": "Are you sure you want to cancel this appointment?",
     "appointmentCancelled": "Appointment cancelled",
+    "appointmentCompleted": "This appointment has been completed",
+    "clientNoShow": "Client did not show up",
     "appointmentRescheduled": "Appointment rescheduled",
     "selectNewDate": "Select New Date",
     "selectNewTime": "Select New Time",
