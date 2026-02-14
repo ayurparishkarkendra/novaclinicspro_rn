@@ -394,7 +394,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 </TouchableOpacity>
               )}
               {/* Complete - for in_progress (user requirement #4) */}
-              {appointment.status === 'in_progress' && onStatusUpdate && (
+              {appointment.status?.toLowerCase() === 'in_progress' && onStatusUpdate && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
                   onPress={() => onStatusUpdate(appointment.id, 'completed')}
