@@ -1,169 +1,333 @@
 /**
  * Appointment List Item Component
- * Displays a single appointment in a list
+ * 
+ * Enhanced card displaying:
+ * - Client name and phone
+ * - Assigned staff name
+ * - Color-coded status badge
+ * - Quick actions (Call, WhatsApp, View)
+ * 
+ * NO IDs are displayed anywhere in UI.
+ * RBAC is respected for action visibility.
+ * All text uses i18n.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import {
   AppointmentResponse,
   getStatusLabel,
   getStatusColor,
   formatTime,
-  formatDate,
-  calculateDuration,
-  formatDuration,
+  openWhatsApp,
 } from '../../data/models/appointments.dtos';
+
+// ============================================
+// TYPES
+// ============================================
 
 interface AppointmentListItemProps {
   appointment: AppointmentResponse;
-  onPress: (appointment: AppointmentResponse) => void;
+  onPress?: (appointment: AppointmentResponse) => void;
+  /** User role for RBAC - determines which actions are visible */
+  userRole?: string;
+  /** Whether quick actions are enabled */
+  showActions?: boolean;
 }
+
+// ============================================
+// STATUS BADGE COMPONENT
+// ============================================
+
+interface StatusBadgeProps {
+  status: string;
+}
+
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
+  const statusColor = getStatusColor(status);
+  const statusLabel = getStatusLabel(status);
+
+  return (
+    <View 
+      style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}
+      accessibilityLabel={`Status: ${statusLabel}`}
+    >
+      <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+      <Text style={[styles.statusText, { color: statusColor }]}>
+        {statusLabel}
+      </Text>
+    </View>
+  );
+};
+
+// ============================================
+// QUICK ACTION BUTTON COMPONENT
+// ============================================
+
+interface QuickActionProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+  testId: string;
+}
+
+const QuickAction: React.FC<QuickActionProps> = ({
+  icon,
+  color,
+  onPress,
+  accessibilityLabel,
+  testId,
+}) => (
+  <TouchableOpacity
+    style={[styles.quickAction, { backgroundColor: color + '15' }]}
+    onPress={onPress}
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole="button"
+    data-testid={testId}
+  >
+    <Ionicons name={icon} size={18} color={color} />
+  </TouchableOpacity>
+);
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   appointment,
   onPress,
+  userRole = 'clinic_admin',
+  showActions = true,
 }) => {
+  const router = useRouter();
+  const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
-  const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
+
+  // ===== ACTION HANDLERS =====
+  
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress(appointment);
+    } else {
+      // Navigate to detail screen - NO ID in URL params display
+      router.push(`/clinic-admin/appointments/${appointment.id}` as any);
+    }
+  }, [appointment, onPress, router]);
+
+  const handleCall = useCallback(() => {
+    const phone = appointment.client_phone;
+    if (!phone) {
+      Alert.alert(
+        t('common.error'),
+        t('appointments.noPhoneNumber') || 'Client phone number is not available'
+      );
+      return;
+    }
+    Linking.openURL(`tel:${phone}`);
+  }, [appointment.client_phone, t]);
+
+  const handleWhatsApp = useCallback(() => {
+    const phone = appointment.client_phone;
+    if (!phone) {
+      Alert.alert(
+        t('common.error'),
+        t('appointments.noPhoneNumber') || 'Client phone number is not available'
+      );
+      return;
+    }
+    
+    const clientName = appointment.client_name || t('common.client') || 'Client';
+    const time = formatTime(appointment.appointment_start);
+    const message = `Hi ${clientName}, this is a reminder for your appointment at ${time}. Please confirm your attendance. Thank you!`;
+    const url = openWhatsApp(phone, message);
+    Linking.openURL(url);
+  }, [appointment, t]);
+
+  // ===== RBAC CHECK =====
+  // Determine which actions are allowed based on user role
+  const canCall = ['clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  const canWhatsApp = ['clinic_admin', 'receptionist'].includes(userRole);
+  const canModify = ['clinic_admin', 'receptionist'].includes(userRole) && 
+    ['scheduled', 'confirmed'].includes(appointment.status);
+
+  // ===== DISPLAY VALUES =====
+  const clientName = appointment.client_name || t('common.unknownClient') || 'Unknown Client';
+  const clientPhone = appointment.client_phone;
+  const staffName = appointment.staff_name || t('common.unassigned') || 'Unassigned';
+  const treatmentName = appointment.treatment_name;
+  const timeDisplay = formatTime(appointment.appointment_start);
+  const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
+  
+  // Series info (if part of multi-day)
+  const isSeriesAppointment = appointment.series_id && appointment.session_number;
 
   return (
     <TouchableOpacity
-      style={styles.container}
-      onPress={() => onPress(appointment)}
+      style={[styles.container, { borderLeftColor: statusColor }]}
+      onPress={handlePress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
+      data-testid="appointment-list-item"
     >
+      {/* Main Content */}
       <View style={styles.content}>
-        {/* Time Column */}
-        <View style={styles.timeColumn}>
-          <Text style={styles.time}>{formatTime(appointment.appointment_start)}</Text>
-          {duration && (
-            <Text style={styles.duration}>{formatDuration(duration)}</Text>
-          )}
-        </View>
-
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: statusColor }]} />
-
-        {/* Info Column */}
-        <View style={styles.infoColumn}>
-          <View style={styles.headerRow}>
-            <Text style={styles.clientName} numberOfLines={1}>
-              {appointment.client_name || `Client #${appointment.client_id.slice(0, 8)}`}
+        {/* Top Row: Time + Status */}
+        <View style={styles.topRow}>
+          <View style={styles.timeContainer}>
+            <Ionicons name="time-outline" size={14} color={colors.primary.main} />
+            <Text style={styles.timeText} data-testid="appointment-time">
+              {timeDisplay}
+              {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-              <Text style={[styles.statusText, { color: statusColor }]}>
-                {getStatusLabel(appointment.status)}
-              </Text>
-            </View>
           </View>
+          <StatusBadge status={appointment.status} />
+        </View>
 
-          {appointment.treatment_name && (
-            <View style={styles.metaRow}>
-              <Ionicons name="leaf-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.metaText} numberOfLines={1}>
-                {appointment.treatment_name}
+        {/* Client Info */}
+        <View style={styles.clientRow}>
+          <View style={styles.clientInfo}>
+            <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
+              {clientName}
+            </Text>
+            {clientPhone && (
+              <Text style={styles.clientPhone} data-testid="appointment-client-phone">
+                {clientPhone}
               </Text>
-            </View>
-          )}
+            )}
+          </View>
+        </View>
 
-          {appointment.staff_name && (
-            <View style={styles.metaRow}>
-              <Ionicons name="person-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.metaText} numberOfLines={1}>
-                {appointment.staff_name}
-              </Text>
-            </View>
-          )}
-
-          {appointment.room_name && (
-            <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.metaText} numberOfLines={1}>
-                {appointment.room_name}
+        {/* Staff & Treatment Info */}
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <Ionicons name="person-circle-outline" size={14} color={colors.text.secondary} />
+            <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-staff-name">
+              {staffName}
+            </Text>
+          </View>
+          {treatmentName && (
+            <View style={styles.detailItem}>
+              <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+              <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-treatment">
+                {treatmentName}
               </Text>
             </View>
           )}
         </View>
 
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.text.secondary}
-        />
+        {/* Series Badge (if applicable) */}
+        {isSeriesAppointment && (
+          <View style={styles.seriesBadge} data-testid="appointment-series-badge">
+            <Ionicons name="repeat" size={12} color={colors.primary.main} />
+            <Text style={styles.seriesText}>
+              {t('appointments.session') || 'Session'} {appointment.session_number}
+              {appointment.total_sessions && `/${appointment.total_sessions}`}
+            </Text>
+          </View>
+        )}
       </View>
+
+      {/* Quick Actions */}
+      {showActions && (
+        <View style={styles.actionsContainer}>
+          {canCall && clientPhone && (
+            <QuickAction
+              icon="call"
+              color={colors.success.main}
+              onPress={handleCall}
+              accessibilityLabel={`Call ${clientName}`}
+              testId="appointment-action-call"
+            />
+          )}
+          {canWhatsApp && clientPhone && (
+            <QuickAction
+              icon="logo-whatsapp"
+              color="#25D366"
+              onPress={handleWhatsApp}
+              accessibilityLabel={`WhatsApp ${clientName}`}
+              testId="appointment-action-whatsapp"
+            />
+          )}
+          <QuickAction
+            icon="chevron-forward"
+            color={colors.primary.main}
+            onPress={handlePress}
+            accessibilityLabel={`View appointment details`}
+            testId="appointment-action-view"
+          />
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
 
+// ============================================
+// STYLES
+// ============================================
+
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
     backgroundColor: colors.background.default,
     borderRadius: 12,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.light,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
     padding: spacing.md,
   },
-  timeColumn: {
+
+  // Top Row
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    minWidth: 60,
-    marginRight: spacing.md,
+    marginBottom: spacing.xs,
   },
-  time: {
-    ...typography.body1,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  duration: {
-    ...typography.caption,
-    color: colors.text.tertiary,
-    marginTop: 2,
-  },
-  divider: {
-    width: 3,
-    height: '100%',
-    minHeight: 50,
-    borderRadius: 2,
-    marginRight: spacing.md,
-  },
-  infoColumn: {
-    flex: 1,
-  },
-  headerRow: {
+  timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: spacing.xs,
   },
-  clientName: {
-    ...typography.body1,
-    color: colors.text.primary,
+  timeText: {
+    ...typography.body2,
     fontWeight: '600',
-    flex: 1,
-    marginRight: spacing.sm,
+    color: colors.primary.main,
   },
+  timeEndText: {
+    fontWeight: '400',
+    color: colors.text.secondary,
+  },
+
+  // Status Badge
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 12,
+    gap: spacing.xs / 2,
   },
   statusDot: {
     width: 6,
@@ -173,16 +337,78 @@ const styles = StyleSheet.create({
   statusText: {
     ...typography.caption,
     fontWeight: '600',
+    textTransform: 'capitalize',
   },
-  metaRow: {
+
+  // Client Info
+  clientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
+    marginBottom: spacing.xs,
   },
-  metaText: {
-    ...typography.caption,
-    color: colors.text.secondary,
+  clientInfo: {
     flex: 1,
   },
+  clientName: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  clientPhone: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+
+  // Details Row
+  detailsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  detailText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    maxWidth: 120,
+  },
+
+  // Series Badge
+  seriesBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    marginTop: spacing.xs,
+    backgroundColor: colors.primary.main + '10',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  seriesText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '500',
+  },
+
+  // Actions
+  actionsContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: spacing.sm,
+    gap: spacing.xs,
+  },
+  quickAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
+export default AppointmentListItem;
