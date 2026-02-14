@@ -70,6 +70,12 @@ export interface ListAppointmentsParams {
 // RESPONSE DTOs
 // ============================================
 
+/** Staff assignment for multi-therapist support */
+export interface StaffAssignment {
+  id: string;
+  name: string;
+}
+
 /** Response for an appointment */
 export interface AppointmentResponse {
   id: string;
@@ -92,8 +98,8 @@ export interface AppointmentResponse {
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;
-  staff_name?: string;
-  staff_names?: string[]; // BUG FIX #1: Array for multi-therapist appointments
+  staff_name?: string;  // Deprecated - use staff_assignments
+  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
   treatment_name?: string;
   room_name?: string;
 }
