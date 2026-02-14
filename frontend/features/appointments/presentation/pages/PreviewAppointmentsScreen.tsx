@@ -584,7 +584,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       </View>
 
       {/* Loading State */}
-      {isGenerating && (
+      {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
           <Text style={styles.loadingText}>{t('appointments.generatingPlan')}</Text>
@@ -592,14 +592,41 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Backend Error State - BLOCKS PROGRESSION only if no sessions */}
-      {!isGenerating && backendError && sessions.length === 0 && (
+      {/* Error State - BLOCKS PROGRESSION (NO FALLBACK) */}
+      {!isLoading && hasError && (
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={64} color={colors.error.main} />
           <Text style={styles.errorTitle}>{t('appointments.validationUnavailable') || 'Validation Unavailable'}</Text>
-          <Text style={styles.errorText}>{backendError}</Text>
+          <Text style={styles.errorText}>{errorMessage}</Text>
           <Text style={styles.errorHelp}>
-            {t('appointments.cannotProceedWithoutValidation') || 'Cannot proceed without validation'}
+            {t('appointments.cannotProceedWithoutValidation') || 'Cannot proceed without backend validation. Please try again.'}
+          </Text>
+          <View style={styles.errorButtons}>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => {
+                setHasFetched(false);
+              }}
+            >
+              <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.retryButton, { backgroundColor: colors.grey[400], marginLeft: spacing.md }]}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.retryButtonText}>{t('common.goBack') || 'Go Back'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Missing Required Fields */}
+      {!isLoading && !hasError && sessions.length === 0 && hasFetched && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color={colors.warning.main} />
+          <Text style={styles.errorTitle}>{t('appointments.noSessionsReturned') || 'No Sessions Available'}</Text>
+          <Text style={styles.errorText}>
+            {t('appointments.backendReturnedEmpty') || 'The server returned no sessions for this therapy plan.'}
           </Text>
           <TouchableOpacity 
             style={styles.retryButton}
@@ -610,18 +637,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Plan Content - Show sessions even in fallback mode */}
-      {!isGenerating && sessions.length > 0 && (
+      {/* Plan Content - ONLY when we have backend data */}
+      {!isLoading && !hasError && sessions.length > 0 && (
         <>
-          {/* Fallback Warning Banner */}
-          {showWarning && (
-            <View style={styles.warningBanner}>
-              <Ionicons name="warning" size={20} color={colors.warning.main} />
-              <Text style={styles.warningText}>
-                {t('appointments.fallbackModeWarning') || 'Conflict detection unavailable. Please verify availability manually before confirming.'}
-              </Text>
-            </View>
-          )}
           {/* Client Info Card */}
           <View style={styles.clientCard} data-testid="preview-client-card">
             <View style={styles.clientIconContainer}>
@@ -690,7 +708,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 onToggle={() => setExpandedSession(
                   expandedSession === session.session_number ? null : session.session_number
                 )}
-                onSelectAlternative={(slot) => handleSelectAlternative(session.session_number, slot)}
+                onSelectAlternative={(staffId, staffName, roomId, roomName, start, end) => 
+                  handleSelectAlternative(session.session_number, staffId, staffName, roomId, roomName, start, end)
+                }
                 staffNames={staffNames}
                 t={t}
               />
