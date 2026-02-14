@@ -1071,8 +1071,8 @@ export const CreateAppointmentScreen: React.FC = () => {
                     options={doctorOptions}
                     selectedId={doctorForm.selectedDoctorId}
                     onSelect={handleDoctorSelect}
-                    isLoading={isLoadingDoctors}
-                    emptyText={doctorsData?.items?.length === 0 ? "No doctors available in this clinic" : "No doctors found"}
+                    isLoading={isLoadingDoctors && !isDoctorsFetched}
+                    emptyText={isDoctorsFetched && doctorOptions.length === 0 ? "No doctors available in this clinic" : "Loading doctors..."}
                     autoCloseOnSelect={true}
                   />
                 </View>
