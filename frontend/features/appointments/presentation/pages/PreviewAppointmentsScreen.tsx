@@ -99,7 +99,7 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 };
 
 // ============================================
-// SESSION DATA TYPE
+// SESSION DATA TYPE - Updated per API spec
 // ============================================
 
 interface SessionData {
@@ -107,7 +107,9 @@ interface SessionData {
   appointment_start: string;
   appointment_end: string;
   staff_id: string | null;
+  staff_name: string | null;  // ✨ NEW - Display therapist name directly
   room_id: string | null;
+  room_name: string | null;   // ✨ NEW - Display room name directly
   is_conflicted: boolean;
   conflict?: {
     day_index: number;
@@ -150,7 +152,6 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectAlternative: (staffId: string, staffName: string, roomId: string, roomName: string, start: string, end: string) => void;
-  staffNames: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
