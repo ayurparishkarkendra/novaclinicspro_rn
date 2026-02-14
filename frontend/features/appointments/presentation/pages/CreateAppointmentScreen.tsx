@@ -68,6 +68,7 @@ interface PickerOption {
   duration_minutes?: number | null;
   role?: string;
   staff_type?: string;
+  gender?: string; // BUG FIX #7: For gender matching
 }
 
 // Form state for Doctor consultation
