@@ -610,8 +610,10 @@ export const generateWhatsAppCreatedMessage = (
   time: string,
   staffName: string,
   treatmentName: string,
-  clinicPhone: string
+  clinicPhone: string,
+  appointmentType?: string | null
 ): string => {
+  const roleLabel = getRoleLabel(appointmentType);
   return `Hi ${clientName},
 
 Your appointment has been booked! 📅
@@ -619,7 +621,7 @@ Your appointment has been booked! 📅
 📍 Clinic: ${clinicName}
 📅 Date: ${date}
 🕐 Time: ${time}
-👨‍⚕️ Doctor/Therapist: ${staffName}
+👨‍⚕️ ${roleLabel}: ${staffName}
 💆 Treatment: ${treatmentName}
 
 Please arrive 10 minutes early.
