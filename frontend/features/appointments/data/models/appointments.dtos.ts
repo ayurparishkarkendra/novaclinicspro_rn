@@ -337,20 +337,35 @@ export interface AlternativeSlot {
   score: number;
 }
 
-/** Session in therapy plan */
+/** Session in therapy plan - matches API response */
 export interface TherapyPlanSession {
   session_number: number;
-  start: string;
-  end: string;
-  staff_id?: string;
-  staff_name?: string;
-  room_id?: string;
-  room_name?: string;
+  appointment_start: string;
+  appointment_end: string;
+  staff_id: string | null;
+  room_id: string | null;
   is_conflicted: boolean;
-  conflict?: ConflictInfo;
-  alternative_slots?: AlternativeSlot[];
-  // For user selection
-  selected_alternative?: AlternativeSlot;
+  conflict?: {
+    day_index: number;
+    requested_time: string;
+    conflict_type: string;
+    message: string;
+    alternative_slots: Array<{
+      start: string;
+      end: string;
+      available_staff: Array<{
+        staff_id: string;
+        full_name: string;
+        staff_type: string;
+      }>;
+      available_rooms: Array<{
+        room_id: string;
+        name: string;
+        room_type: string;
+      }>;
+      score: number;
+    }>;
+  } | null;
 }
 
 /** Therapy plan request */
@@ -364,13 +379,20 @@ export interface TherapyPlanRequest {
   client_gender?: string;
 }
 
-/** Therapy plan response */
+/** Therapy plan response - matches API spec */
 export interface TherapyPlanResponse {
   series_id: string;
-  sessions: TherapyPlanSession[];
+  client_id: string;
+  treatment_id: string;
+  start_date: string;
+  duration_days: number;
   has_conflicts: boolean;
-  total_sessions: number;
-  conflicted_sessions: number;
+  sessions: TherapyPlanSession[];
+  metadata: {
+    total_sessions: number;
+    conflicted_sessions: number;
+    available_sessions: number;
+  };
 }
 
 /** Bulk create appointment item */
