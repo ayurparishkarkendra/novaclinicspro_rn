@@ -345,21 +345,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // State
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [backendError, setBackendError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
 
-  // Extract params with fallbacks
+  // Extract params with fallbacks - memoized to prevent re-renders
   const clientId = params.clientId || '';
   const clientName = params.clientName || t('common.client');
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
-  const staffIds = params.staffIds?.split(',').filter(Boolean) || [];
+  const staffIdsStr = params.staffIds || '';
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
@@ -367,46 +366,25 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
-  // ===== HELPER: Generate sessions locally (fallback when backend unavailable) =====
-  const generateFallbackSessions = useCallback((): SessionData[] => {
-    const sessions: SessionData[] = [];
-    const startDate = new Date(startDateStr);
-    
-    for (let i = 0; i < durationDays; i++) {
-      const sessionDate = new Date(startDate);
-      sessionDate.setDate(startDate.getDate() + i);
-      
-      // Set preferred time
-      sessionDate.setHours(preferredTimeHour, 0, 0, 0);
-      
-      const endDate = new Date(sessionDate);
-      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
-      
-      sessions.push({
-        session_number: i + 1,
-        start: sessionDate.toISOString(),
-        end: endDate.toISOString(),
-        staff_id: staffIds[i % staffIds.length] || undefined,
-        staff_name: undefined, // Cannot determine from IDs alone
-        is_conflicted: false, // No backend to check conflicts
-        conflict: undefined,
-        alternative_slots: undefined,
-        selected_alternative: undefined,
-      });
-    }
-    
-    return sessions;
-  }, [startDateStr, durationDays, preferredTimeHour, durationMinutes, staffIds]);
+  // Parse staffIds once
+  const staffIds = React.useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
 
-  // ===== BACKEND-DRIVEN SESSION GENERATION =====
+  // ===== BACKEND-DRIVEN SESSION GENERATION (NO FALLBACK) =====
   // CRITICAL: This MUST use the backend API for conflict detection
+  // Runs ONCE on mount when all required params are present
   useEffect(() => {
+    // Prevent multiple calls
+    if (hasFetched) return;
+    
+    // Validate required params
+    if (!clientId || !treatmentId || staffIds.length === 0) {
+      return;
+    }
+
     const fetchTherapyPlan = async () => {
-      setIsGenerating(true);
-      setBackendError(null);
+      setHasFetched(true);
 
       try {
-        // DEBUG: Log the request payload
         console.log('[PreviewAppointments] Fetching therapy plan with:', {
           client_id: clientId,
           treatment_id: treatmentId,
@@ -426,63 +404,57 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           preferred_time_hour: preferredTimeHour,
         });
 
-        // DEBUG: Log the response
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
-        // Map backend response to local state
+        // Map backend response to local state (per API spec)
         if (response.sessions && response.sessions.length > 0) {
-          const mappedSessions: SessionData[] = response.sessions.map((session) => ({
-            ...session,
+          const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
+            session_number: session.session_number,
+            appointment_start: session.appointment_start,
+            appointment_end: session.appointment_end,
+            staff_id: session.staff_id,
+            room_id: session.room_id,
+            is_conflicted: session.is_conflicted || false,
+            conflict: session.conflict || null,
             selected_alternative: undefined,
           }));
           setSessions(mappedSessions);
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
-        } else {
-          // Backend returned empty sessions - use fallback with warning
-          console.warn('[PreviewAppointments] Backend returned empty sessions, using fallback');
-          setBackendError(t('appointments.backendReturnedEmpty') || 'Backend returned no sessions. Showing preview without conflict detection.');
-          setSessions(generateFallbackSessions());
+          console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
         }
       } catch (error: any) {
         console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
         console.error('[PreviewAppointments] Error response:', error?.response?.data);
-        
-        // Check if it's a 404/501 (endpoint not available)
-        if (error?.response?.status === 404 || error?.response?.status === 501) {
-          // Backend API not available - use fallback with warning
-          setBackendError(
-            t('appointments.backendValidationUnavailable') || 
-            'Therapy plan API is unavailable. Showing preview without conflict detection. Please verify manually.'
-          );
-          setSessions(generateFallbackSessions());
-        } else if (error?.response?.status === 401 || error?.response?.status === 403) {
-          setBackendError(t('errors.auth.unauthorized') || 'Unauthorized');
-        } else {
-          // Other error - still show fallback with warning
-          setBackendError(
-            (error?.response?.data?.detail || error?.message || t('appointments.failedToGeneratePlan')) +
-            ' Showing preview without conflict detection.'
-          );
-          setSessions(generateFallbackSessions());
-        }
-      } finally {
-        setIsGenerating(false);
+        // Error is handled by mutation state - no fallback generation allowed
       }
     };
 
-    if (clientId && treatmentId && staffIds.length > 0) {
-      fetchTherapyPlan();
-    } else {
-      setBackendError(t('appointments.missingRequiredFields') || 'Missing required fields');
-      setIsGenerating(false);
-    }
-  }, [clientId, treatmentId, staffIds.join(','), startDateStr, durationDays, preferredTimeHour, generateFallbackSessions]);
+    fetchTherapyPlan();
+  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour]);
 
   // Handle alternative selection
-  const handleSelectAlternative = (sessionNumber: number, slot: AlternativeSlot) => {
+  const handleSelectAlternative = (
+    sessionNumber: number, 
+    staffId: string, 
+    staffName: string, 
+    roomId: string, 
+    roomName: string,
+    start: string,
+    end: string
+  ) => {
     setSessions(prev => prev.map(session => 
       session.session_number === sessionNumber
-        ? { ...session, selected_alternative: slot }
+        ? { 
+            ...session, 
+            selected_alternative: {
+              start,
+              end,
+              staff_id: staffId,
+              staff_name: staffName,
+              room_id: roomId,
+              room_name: roomName,
+            }
+          }
         : session
     ));
   };
@@ -493,11 +465,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const allConflictsResolved = unresolvedConflicts.length === 0;
   const hasConflicts = conflictedSessions.length > 0;
 
-  // Determine if we can proceed
-  // Allow proceeding if: sessions exist AND (no backend error OR fallback sessions loaded) AND no unresolved conflicts
-  const isFallbackMode = !!backendError && sessions.length > 0;
-  const canProceed = sessions.length > 0 && allConflictsResolved;
-  const showWarning = isFallbackMode;
+  // Determine if we can proceed - ONLY if we have backend data and all conflicts are resolved
+  const isLoading = generatePlanMutation.isPending;
+  const hasError = generatePlanMutation.isError;
+  const errorMessage = generatePlanMutation.error?.message || 
+                       (generatePlanMutation.error as any)?.response?.data?.detail ||
+                       t('appointments.failedToGeneratePlan');
+  const canProceed = sessions.length > 0 && allConflictsResolved && !hasError;
 
   // Create all appointments
   const handleConfirm = async () => {
@@ -514,8 +488,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       // Create appointments one by one
       for (const session of sessions) {
         const slot = session.selected_alternative || {
-          start: session.start,
-          end: session.end,
+          start: session.appointment_start,
+          end: session.appointment_end,
           staff_id: session.staff_id || staffIds[0],
         };
 
@@ -523,8 +497,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           client_id: clientId,
           staff_id: slot.staff_id || staffIds[0],
           treatment_id: treatmentId,
-          appointment_start: slot.start || session.start,
-          appointment_end: slot.end || session.end,
+          appointment_start: slot.start || session.appointment_start,
+          appointment_end: slot.end || session.appointment_end,
           status: 'scheduled',
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
           appointment_type: 'MULTI',
@@ -548,8 +522,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             t('common.yourClinic'),
             treatmentName,
             sessions.length,
-            safeFormatDate(firstSession?.start),
-            safeFormatTime(firstSession?.start),
+            safeFormatDate(firstSession?.appointment_start),
+            safeFormatTime(firstSession?.appointment_start),
             '+91-XXXXXXXXXX'
           );
           const whatsappUrl = openWhatsApp(clientPhone, message);
