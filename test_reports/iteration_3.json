@@ -1,0 +1,107 @@
+{
+  "summary": "Frontend code review and UI testing of 4 specific fixes in Appointments module. Code implementations appear correct. UI testing partially blocked by potential status case-sensitivity issue causing Quick Actions to not display for SCHEDULED appointments.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /appointments", "issue": "API may be returning uppercase status values (SCHEDULED) while frontend code expects lowercase (scheduled). This causes Quick Actions conditional rendering to fail.", "priority": "MEDIUM"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AppointmentDetailScreen - Quick Actions",
+        "issue": "Quick Actions section shows 'No actions available' for SCHEDULED appointments instead of showing Reschedule, No-Show, Cancel buttons. Likely caused by status case-sensitivity mismatch (API returns 'SCHEDULED', code checks for 'scheduled').",
+        "selector": "[data-testid='detail-actions-section']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "AppointmentDetailScreen - i18n",
+        "issue": "Raw i18n key 'appointments.noActionsAvailable' displayed instead of translated text in Quick Actions empty state",
+        "selector": "N/A - text content issue",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "AppointmentDetailScreen - Client Name",
+        "issue": "Shows 'Unknown Client' instead of actual client name (Mrs.Vijayalakshmi.T visible in list but not in detail)",
+        "selector": "[data-testid='detail-client-name']",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "AppointmentDetailScreen - Staff Name",
+        "issue": "Shows 'Unassigned' for Staff even though list shows 'Shilpa' as assigned staff",
+        "selector": "[data-testid='detail-staff']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Appointment List Item Expand",
+        "issue": "Expand/collapse toggle button (chevron-down) visible but could not verify expansion in web view. React Native data-testid attributes not propagating to web DOM.",
+        "affected_selectors": ["[data-testid='appointment-action-toggle']", "[data-testid='appointment-expanded-actions']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "AppointmentsListScreen",
+        "issues": ["UI renders correctly - date slider, summary card, appointment cards with status badges all display properly"]
+      },
+      {
+        "screen": "AppointmentDetailScreen", 
+        "issues": ["Sections render (CLIENT, APPOINTMENT DETAILS, QUICK ACTIONS) but data binding issues with client name and staff name"]
+      }
+    ]
+  },
+  "code_review_results": {
+    "feature_1_expandable_quick_actions": {
+      "status": "IMPLEMENTED",
+      "file": "AppointmentListItem.tsx",
+      "lines": "321-419",
+      "details": "Expand/collapse toggle with isExpanded state. Shows Call, WhatsApp (if clientPhone), Reschedule, No-Show, Cancel buttons for scheduled/confirmed. Complete button for in_progress. Code is correct but status check uses lowercase values.",
+      "issue": "Status comparison uses lowercase ('scheduled') but API may return uppercase ('SCHEDULED')"
+    },
+    "feature_2_visit_history_prescription_payment": {
+      "status": "IMPLEMENTED",
+      "file": "AppointmentDetailScreen.tsx",
+      "lines": "190-245",
+      "details": "VisitHistoryItem component shows prescription info ('💊 Prescription given' or 'No prescription') and payment info ('💰 Paid - ₹amount' or 'No payment recorded'). Styled with green for present, italic gray for absent."
+    },
+    "feature_3_preview_time_no_timezone": {
+      "status": "IMPLEMENTED",
+      "file": "PreviewAppointmentsScreen.tsx", 
+      "lines": "66-93",
+      "details": "safeFormatTime() extracts hours/minutes directly from ISO string via regex '/T(\\d{2}):(\\d{2})/' to avoid timezone conversion. Falls back to getUTCHours/Minutes for Date objects. Displays in 12-hour format with am/pm."
+    },
+    "feature_4_therapist_from_staff_assignments": {
+      "status": "IMPLEMENTED",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "lines": "178-188",
+      "details": "getSessionTherapistNames() function checks staff_assignments array first (maps to .name and joins with comma), then falls back to deprecated staff_name field, then 'Unassigned'."
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "CRITICAL: Fix status case-sensitivity - Either normalize status to lowercase in API response handling OR update all status checks to be case-insensitive (.toLowerCase())",
+    "HIGH: Investigate why client_name and staff_name from list items are not populated in detail page API response",
+    "MEDIUM: Fix i18n translation for 'appointments.noActionsAvailable' - check if translation key exists in locale files"
+  ],
+  "critical_code_review_comments": [
+    "Status case-sensitivity: All status comparisons use lowercase ('scheduled', 'confirmed') but getStatusLabel shows 'Scheduled' with capital S. If API returns uppercase, all conditional rendering fails.",
+    "RBAC checks (canModify, canCall, canWhatsApp) properly handle both 'clinic-admin' and 'clinic_admin' role variants",
+    "Visit history only shows if client has previous appointments (visitHistory.length > 0)",
+    "data-testid attributes added but may not propagate to web DOM in React Native Expo web builds"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - External Koyeb backend",
+    "frontend": "Code Review: 100% (all 4 features implemented). UI Verification: 50% (blocked by status case issue)"
+  },
+  "test_credentials": {
+    "email": "sunithalekkala75@gmail.com",
+    "password": "Vishnu432!"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login with sunithalekkala75@gmail.com / Vishnu432! for Clinic Admin access. All 4 requested features are implemented in code. Main issue: Quick Actions not showing for SCHEDULED appointments - likely status case-sensitivity problem. Check if API returns 'SCHEDULED' or 'scheduled'. List view works (shows appointments with expand icons). Detail view shows 'Unknown Client' and 'Unassigned' staff despite data being present in list. To test Preview screen, need to create a multi-day appointment.",
+  "rca_of_the_issue": "PRIMARY ROOT CAUSE: Status value case mismatch between API response and frontend code. Frontend checks for lowercase status values ('scheduled', 'confirmed', 'in_progress') but UI displays 'SCHEDULED' which suggests API returns uppercase. The getStatusLabel function returns 'Scheduled' but includes() check is case-sensitive. FIX: Add .toLowerCase() to status checks OR normalize status in API response handler. SECONDARY: Client/staff data not binding properly from API response to detail view - may be using incorrect field names (client_name vs client.name)."
+}
