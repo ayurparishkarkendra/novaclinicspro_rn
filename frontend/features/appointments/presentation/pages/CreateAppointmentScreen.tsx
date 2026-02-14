@@ -41,6 +41,7 @@ import { useRoomsListQuery } from '../../../rooms/data/repositories/rooms.reposi
 import {
   useCreateAppointmentMutation,
   useAppointmentsByDateQuery,
+  useValidateAppointmentMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
@@ -50,6 +51,7 @@ import {
   openWhatsApp,
   generateWhatsAppConfirmationMessage,
   toISODateString,
+  ValidateAppointmentRequest,
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
