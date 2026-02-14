@@ -2139,6 +2139,77 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background.default,
   },
+
+  // BUG FIX #7: Conflict Modal Styles
+  conflictModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  conflictModalContent: {
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.md,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  conflictModalHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  conflictModalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.warning.main + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  conflictModalBody: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  conflictMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  conflictMessageText: {
+    ...typography.body2,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  conflictHelpText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  conflictModalButton: {
+    backgroundColor: colors.primary.main,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    alignItems: 'center',
+  },
+  conflictModalButtonText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
 });
 
 export default CreateAppointmentScreen;
