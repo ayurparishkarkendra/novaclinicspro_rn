@@ -724,6 +724,8 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
+  // BUG FIX #5: Add validation mutation for single-slot conflict checking
+  const validateMutation = useValidateAppointmentMutation();
 
   // ===== COMPUTED OPTIONS =====
   const clientOptions: PickerOption[] = useMemo(() => {
