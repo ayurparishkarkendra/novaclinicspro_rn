@@ -457,6 +457,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           setSessions(mappedSessions);
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
           console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
+          // DEBUG: Show first session time details
+          if (mappedSessions[0]) {
+            const firstSession = mappedSessions[0];
+            console.log('[PreviewAppointments] First session start (raw):', firstSession.appointment_start);
+            const parsed = new Date(firstSession.appointment_start);
+            console.log('[PreviewAppointments] First session parsed date:', parsed.toString());
+            console.log('[PreviewAppointments] First session formatted:', safeFormatTime(firstSession.appointment_start));
+          }
         }
       } catch (error: any) {
         console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
