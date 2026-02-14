@@ -12,7 +12,7 @@
  * All text uses i18n.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,9 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -37,6 +40,11 @@ import {
   getTherapistCount,
   hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // ============================================
 // TYPES
