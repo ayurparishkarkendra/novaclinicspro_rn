@@ -381,7 +381,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 </TouchableOpacity>
               )}
               {/* Cancel - for scheduled/confirmed (user requirement #3) */}
-              {['scheduled', 'confirmed'].includes(appointment.status) && onCancel && (
+              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && onCancel && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
                   onPress={() => onCancel(appointment.id)}
