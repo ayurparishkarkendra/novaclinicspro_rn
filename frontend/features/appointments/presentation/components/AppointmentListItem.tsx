@@ -351,10 +351,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
           {/* Status Change Actions - based on current status */}
           {/* User Required: Reschedule, No-Show, Cancel, Complete */}
-          {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
+          {/* FIX: Use case-insensitive status comparison */}
+          {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
             <View style={styles.expandedRow}>
               {/* Reschedule - for scheduled/confirmed (user requirement #1) */}
-              {['scheduled', 'confirmed'].includes(appointment.status) && (
+              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                 <TouchableOpacity 
                   style={[styles.expandedActionBtn, styles.statusActionBtn]}
                   onPress={() => onReschedule ? onReschedule(appointment.id) : onPress?.(appointment)}
