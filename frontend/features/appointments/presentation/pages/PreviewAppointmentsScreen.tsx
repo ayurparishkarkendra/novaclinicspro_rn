@@ -962,6 +962,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: spacing.xs,
   },
+  // Scheduled time note
+  scheduledTimeNote: {
+    ...typography.body2,
+    color: colors.success.main,
+    fontWeight: '600',
+    marginTop: spacing.xs / 2,
+  },
+  scheduledTimeHint: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontWeight: '400',
+    fontStyle: 'italic',
+  },
 
   // Banners
   conflictBanner: {
