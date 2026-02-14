@@ -274,30 +274,41 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         )}
       </View>
 
-      {/* Quick Actions - ALWAYS VISIBLE when showActions is true */}
-      {showActions && (
-        <View style={styles.actionsContainer}>
-          {/* Call Button - Only if phone available and user has permission */}
-          {canCall && clientPhone && (
+      {/* Quick Actions - ALWAYS VISIBLE (BUG FIX #3: Section must always show) */}
+      <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
+        {showActions ? (
+          <>
+            {/* Call Button - Only if phone available and user has permission */}
+            {canCall && clientPhone && (
+              <QuickAction
+                icon="call"
+                color={colors.success.main}
+                onPress={handleCall}
+                accessibilityLabel={`Call ${displayClientName}`}
+                testId="appointment-action-call"
+              />
+            )}
+            {/* WhatsApp Button - Only if phone available and user has permission */}
+            {canWhatsApp && clientPhone && (
+              <QuickAction
+                icon="logo-whatsapp"
+                color="#25D366"
+                onPress={handleWhatsApp}
+                accessibilityLabel={`WhatsApp ${displayClientName}`}
+                testId="appointment-action-whatsapp"
+              />
+            )}
+            {/* View Button - ALWAYS visible */}
             <QuickAction
-              icon="call"
-              color={colors.success.main}
-              onPress={handleCall}
-              accessibilityLabel={`Call ${displayClientName}`}
-              testId="appointment-action-call"
+              icon="chevron-forward"
+              color={colors.primary.main}
+              onPress={handlePress}
+              accessibilityLabel={`View appointment details`}
+              testId="appointment-action-view"
             />
-          )}
-          {/* WhatsApp Button - Only if phone available and user has permission */}
-          {canWhatsApp && clientPhone && (
-            <QuickAction
-              icon="logo-whatsapp"
-              color="#25D366"
-              onPress={handleWhatsApp}
-              accessibilityLabel={`WhatsApp ${displayClientName}`}
-              testId="appointment-action-whatsapp"
-            />
-          )}
-          {/* View Button - ALWAYS visible */}
+          </>
+        ) : (
+          /* Empty state - still show view button even when actions disabled */
           <QuickAction
             icon="chevron-forward"
             color={colors.primary.main}
@@ -305,8 +316,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             accessibilityLabel={`View appointment details`}
             testId="appointment-action-view"
           />
-        </View>
-      )}
+        )}
+      </View>
     </TouchableOpacity>
   );
 };
