@@ -61,6 +61,9 @@ import {
   generateWhatsAppRescheduleMessage,
   generateWhatsAppNoShowMessage,
   generateWhatsAppCompletedMessage,
+  getTherapistNames,
+  getTherapistCount,
+  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
