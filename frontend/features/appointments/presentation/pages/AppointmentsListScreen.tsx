@@ -351,9 +351,11 @@ export const AppointmentsListScreen: React.FC = () => {
           data={sortedAppointments}
           ListEmptyComponent={renderEmptyList}
           renderItem={({ item }) => (
-            <AppointmentCard
+            <AppointmentListItem
               appointment={item}
               onPress={() => handleAppointmentPress(item)}
+              userRole={currentUser?.role || 'clinic_admin'}
+              showActions={true}
             />
           )}
           keyExtractor={(item) => item.id}
