@@ -738,7 +738,6 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 onSelectAlternative={(staffId, staffName, roomId, roomName, start, end) => 
                   handleSelectAlternative(session.session_number, staffId, staffName, roomId, roomName, start, end)
                 }
-                staffNames={staffNames}
                 t={t}
               />
             ))}
