@@ -58,16 +58,35 @@ const safeFormatDate = (dateStr: string | Date | undefined | null): string => {
   }
 };
 
+/**
+ * FIX #3: Display time exactly as returned by backend WITHOUT timezone conversion.
+ * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents the user's
+ * intended local time (4 PM). We must NOT convert this to local timezone.
+ */
 const safeFormatTime = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '—';
   try {
+    // If it's a string, extract hours/minutes directly from the ISO string
+    // to avoid timezone conversion that would shift 16:00 to 21:30 in IST
+    if (typeof dateStr === 'string') {
+      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
+      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
+      if (timeMatch) {
+        const hours = parseInt(timeMatch[1], 10);
+        const minutes = parseInt(timeMatch[2], 10);
+        const period = hours >= 12 ? 'pm' : 'am';
+        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+        return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+      }
+    }
+    // Fallback for Date objects - use UTC methods to avoid conversion
     const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
     if (isNaN(date.getTime())) return '—';
-    return date.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const period = hours >= 12 ? 'pm' : 'am';
+    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
   } catch {
     return '—';
   }
