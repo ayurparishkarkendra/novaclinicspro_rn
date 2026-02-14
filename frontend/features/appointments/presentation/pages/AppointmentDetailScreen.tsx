@@ -712,40 +712,50 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (BUG FIX #3) */}
+        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (User Requirement #1) */}
         <View style={styles.section} data-testid="detail-actions-section">
           <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
           <View style={styles.actionsContainer}>
             {/* Status-specific actions for active appointments */}
+            {/* User Required: Reschedule, No-Show, Cancel, Complete */}
             {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
               <>
-                {/* Primary Actions Row - Status-based actions */}
+                {/* Actions Row - User required buttons in order */}
                 <View style={styles.actionsRow}>
-                  {/* Confirm - only for scheduled status */}
-                  {appointment.status === 'scheduled' && (
+                  {/* Reschedule - for scheduled/confirmed (User Requirement #1) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status) && (
                     <ActionButton
-                      icon="checkmark-circle"
-                      label={t('appointments.confirm') || 'Confirm'}
-                      color={colors.success.main}
-                      onPress={() => handleStatusUpdate('confirmed')}
-                      disabled={!canModifyAppointment}
-                      variant="filled"
-                      testId="action-confirm"
+                      icon="calendar-outline"
+                      label={t('appointments.reschedule') || 'Reschedule'}
+                      color={colors.primary.main}
+                      onPress={handleReschedule}
+                      disabled={!canModify}
+                      testId="action-reschedule"
                     />
                   )}
-                  {/* Start Session - only for confirmed status */}
-                  {appointment.status === 'confirmed' && (
+                  {/* No-Show - for scheduled/confirmed (User Requirement #2) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status) && (
                     <ActionButton
-                      icon="play-circle"
-                      label={t('appointments.startSession') || 'Start'}
-                      color={colors.info.main}
-                      onPress={() => handleStatusUpdate('in_progress')}
-                      disabled={!canStartSession}
-                      variant="filled"
-                      testId="action-start"
+                      icon="alert-circle-outline"
+                      label={t('appointments.noShow') || 'No-Show'}
+                      color={colors.warning.main}
+                      onPress={() => handleStatusUpdate('no_show')}
+                      disabled={!canMarkNoShow}
+                      testId="action-no-show"
                     />
                   )}
-                  {/* Complete - only for in_progress status */}
+                  {/* Cancel - for scheduled/confirmed (User Requirement #3) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status) && (
+                    <ActionButton
+                      icon="close-circle-outline"
+                      label={t('common.cancel') || 'Cancel'}
+                      color={colors.error.main}
+                      onPress={handleCancel}
+                      disabled={!canModify}
+                      testId="action-cancel"
+                    />
+                  )}
+                  {/* Complete - for in_progress (User Requirement #4) */}
                   {appointment.status === 'in_progress' && (
                     <ActionButton
                       icon="checkmark-done-circle"
@@ -758,39 +768,9 @@ export const AppointmentDetailScreen: React.FC = () => {
                     />
                   )}
                 </View>
-
-                {/* Secondary Actions Row */}
-                <View style={styles.actionsRow}>
-                  <ActionButton
-                    icon="calendar-outline"
-                    label={t('appointments.reschedule') || 'Reschedule'}
-                    color={colors.primary.main}
-                    onPress={handleReschedule}
-                    disabled={!canModify}
-                    testId="action-reschedule"
-                  />
-                  <ActionButton
-                    icon="close-circle-outline"
-                    label={t('common.cancel') || 'Cancel'}
-                    color={colors.error.main}
-                    onPress={handleCancel}
-                    disabled={!canModify}
-                    testId="action-cancel"
-                  />
-                  {['scheduled', 'confirmed'].includes(appointment.status) && (
-                    <ActionButton
-                      icon="alert-circle-outline"
-                      label={t('appointments.noShow') || 'No Show'}
-                      color={colors.warning.main}
-                      onPress={() => handleStatusUpdate('no_show')}
-                      disabled={!canMarkNoShow}
-                      testId="action-no-show"
-                    />
-                  )}
-                </View>
               </>
             ) : (
-              /* Empty/Completed state - BUG FIX #3: Always show section with status message */
+              /* Empty/Completed state - Always show section with "No actions available" message */
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
@@ -798,7 +778,9 @@ export const AppointmentDetailScreen: React.FC = () => {
                     ? t('appointments.appointmentCompleted') || 'This appointment has been completed'
                     : appointment.status === 'cancelled'
                     ? t('appointments.appointmentCancelled') || 'This appointment has been cancelled'
-                    : t('appointments.clientNoShow') || 'Client did not show up'
+                    : appointment.status === 'no_show'
+                    ? t('appointments.clientNoShow') || 'Client did not show up'
+                    : t('appointments.noActionsAvailable') || 'No actions available'
                   }
                 </Text>
               </View>
