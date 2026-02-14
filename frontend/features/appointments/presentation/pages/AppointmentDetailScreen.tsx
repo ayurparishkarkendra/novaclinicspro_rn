@@ -311,73 +311,72 @@ export const AppointmentDetailScreen: React.FC = () => {
     status: string,
     newDateTime?: { date: string; time: string }
   ) => {
-    if (!clientPhone) return;
+    if (!clientPhone || !appointment) return;
 
-    const phone = appointment.client_phone;
-    const clientName = appointment.client_name || t('common.client');
-    const staffName = appointment.staff_name || t('common.staff');
-    const treatmentName = appointment.treatment_name || t('common.appointment');
-    const clinicPhone = '+91-XXXXXXXXXX';
-    const clinicName = t('common.yourClinic');
+    const displayClientName = clientName || t('common.client') || 'Client';
+    const displayStaffName = staffName || t('common.staff') || 'Staff';
+    const displayTreatment = treatmentName || t('common.appointment') || 'Appointment';
+    const clinicPhoneNum = '+91-XXXXXXXXXX';
+    const clinicName = t('common.yourClinic') || 'Your Clinic';
 
     let message = '';
 
     switch (status) {
       case 'confirmed':
         message = generateWhatsAppConfirmationMessage(
-          clientName,
+          displayClientName,
           clinicName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          staffName,
-          treatmentName,
-          clinicPhone
+          displayStaffName,
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       case 'cancelled':
         message = generateWhatsAppCancellationMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       case 'rescheduled':
         if (newDateTime) {
           message = generateWhatsAppRescheduleMessage(
-            clientName,
+            displayClientName,
             formatDate(appointment.appointment_start),
             formatTime(appointment.appointment_start),
             newDateTime.date,
             newDateTime.time,
-            staffName,
-            treatmentName
+            displayStaffName,
+            displayTreatment
           );
         }
         break;
       case 'no_show':
         message = generateWhatsAppNoShowMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
           formatTime(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       case 'completed':
         message = generateWhatsAppCompletedMessage(
-          clientName,
+          displayClientName,
           formatDate(appointment.appointment_start),
-          treatmentName,
-          clinicPhone
+          displayTreatment,
+          clinicPhoneNum
         );
         break;
       default:
         return;
     }
 
-    const url = openWhatsApp(phone, message);
+    const url = openWhatsApp(clientPhone, message);
     
     Alert.alert(
       t('appointments.notifyClient'),
