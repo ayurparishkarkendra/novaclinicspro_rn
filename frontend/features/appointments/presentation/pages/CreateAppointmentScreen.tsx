@@ -1790,6 +1790,24 @@ const styles = StyleSheet.create({
     color: colors.background.default,
   },
 
+  // BUG FIX #5: Gender conflict banner styles
+  genderConflictBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning.main + '15',
+    padding: spacing.sm,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning.main + '30',
+  },
+  genderConflictText: {
+    ...typography.body2,
+    color: colors.warning.main,
+    flex: 1,
+  },
+
   // Booked Slots
   bookedSlotsContainer: {
     backgroundColor: colors.warning.main + '10',
