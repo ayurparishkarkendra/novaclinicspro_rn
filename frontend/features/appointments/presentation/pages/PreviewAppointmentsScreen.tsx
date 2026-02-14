@@ -922,6 +922,13 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
   },
+  // BUG FIX #4: Preferred time highlight
+  preferredTimeText: {
+    ...typography.body2,
+    color: colors.primary.main,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
 
   // Banners
   conflictBanner: {
