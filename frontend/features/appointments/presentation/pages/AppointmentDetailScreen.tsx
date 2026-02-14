@@ -1096,6 +1096,21 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     marginTop: 2,
   },
+  // Visit History Meta (Prescription/Payment info - User Requirement #2)
+  visitHistoryMeta: {
+    marginTop: 2,
+  },
+  visitHistoryMetaText: {
+    ...typography.caption,
+    fontSize: 11,
+  },
+  visitHistoryMetaPresent: {
+    color: colors.success.main,
+  },
+  visitHistoryMetaAbsent: {
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+  },
   visitHistoryStatus: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
