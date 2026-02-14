@@ -795,6 +795,30 @@ export const CreateAppointmentScreen: React.FC = () => {
     }));
   }, [therapistsData]);
 
+  // BUG FIX #7: Gender-filtered therapist options based on selected client
+  const genderFilteredTherapistOptions: PickerOption[] = useMemo(() => {
+    const selectedClient = clientOptions.find(c => c.id === selectedClientId);
+    const clientGender = selectedClient?.gender?.toLowerCase();
+    
+    // If no client selected or no gender, return all therapists
+    if (!selectedClientId || !clientGender) {
+      return therapistOptions;
+    }
+    
+    // Apply gender matching rules: female clients can only have female therapists
+    // Male clients can have either gender (common practice in Ayurvedic clinics)
+    if (clientGender === 'female') {
+      const femaleTherapists = therapistOptions.filter(t => 
+        t.gender?.toLowerCase() === 'female'
+      );
+      // Log for debugging
+      console.log('[CreateAppointment] Gender matching - client:', clientGender, 'filtered therapists:', femaleTherapists.length);
+      return femaleTherapists.length > 0 ? femaleTherapists : therapistOptions;
+    }
+    
+    return therapistOptions;
+  }, [therapistOptions, selectedClientId, clientOptions]);
+
   const treatmentOptions: PickerOption[] = useMemo(() => {
     return (treatmentsData?.items || []).map((t: TreatmentResponse) => ({
       id: t.id,
