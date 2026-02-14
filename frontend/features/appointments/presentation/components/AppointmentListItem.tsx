@@ -558,6 +558,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // Expanded Section - Issue #1 Fix
+  expandedSection: {
+    width: '100%',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    marginTop: spacing.sm,
+  },
+  expandedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  expandedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.background.paper,
+    gap: spacing.xs,
+  },
+  statusActionBtn: {
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  expandedActionText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  noActionsState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  noActionsText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
 });
 
 export default AppointmentListItem;
