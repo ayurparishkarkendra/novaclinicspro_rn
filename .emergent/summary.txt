@@ -1,85 +1,135 @@
-<analysis>
-<original_problem_statement>
+<analysis>**original_problem_statement**:
 The user requires a critical, high-priority fix for the **Appointments Module**. Despite previous attempts, the module remains functionally broken and unusable. The user has provided a detailed, non-negotiable list of issues that must be resolved to ensure the application is correct, especially concerning healthcare scheduling logic where the backend must be the single source of truth.
 
-The user's latest and most authoritative list of requirements includes:
-1.  **Correct Staff Filtering:** The Doctor Consultation dropdown must *only* show doctors.
-2.  **Enhanced Appointment Card UI:** The list view card must display client name, phone, assigned staff, and a color-coded status badge with quick actions.
-3.  **Correct Appointment Detail Page Structure:** The page must be restructured into specific Client, Visit History, Appointment Info, and Actions sections.
-4.  **Robust Keyboard Handling:** The keyboard must not cover any form inputs or dropdowns.
-5.  **Create New Client Flow:** A + Create New Client option must be added to the client search, allowing in-line client creation.
-6.  **Elimination of Form State Leakage:** State (like duration or selected client) must not persist when switching between different appointment modes (Single-Day vs. Multi-Day, Doctor vs. Therapy).
-7.  **Backend-Driven Multi-Day Preview:** The preview screen must use backend APIs to detect conflicts and show alternatives. Frontend-generated or fake previews are strictly forbidden.
-8.  **WhatsApp Integration:** Trigger a pre-defined WhatsApp message on key appointment status changes.
-</original_problem_statement>
+**PRODUCT REQUIREMENTS (Consolidated from user messages):**
+1.  **Correct Staff Filtering:** The Doctor Consultation dropdown must *only* show doctors. Therapists must not appear in this list.
+2.  **Enhanced Appointment Card UI:** The list view card must display the correct client name and phone, assigned staff (doctor/therapist), and a color-coded status badge with quick actions (Call, WhatsApp, View). Unknown Client or Unassigned are unacceptable placeholders.
+3.  **Correct Appointment Detail Page Structure:** The page must be restructured into Client, Visit History, Appointment Info, and Actions sections. Quick actions must be visible.
+4.  **Robust Keyboard Handling:** The keyboard must not cover any form inputs or dropdowns during data entry.
+5.  **Create New Client Flow:** A + Create New Client option must be available and functional within the client search dropdown on the appointment creation screen.
+6.  **Elimination of Form State Leakage:** State (like duration or selected client) must not persist when switching between different appointment modes (e.g., Single-Day vs. Multi-Day, Doctor vs. Therapy).
+7.  **Backend-Driven Multi-Day Preview:** The preview screen must use backend APIs (, ) to detect conflicts and show alternatives. Frontend-generated or fake previews are strictly forbidden. The UI must render the data returned from the backend, not placeholders.
+8.  **WhatsApp Integration:** Trigger a pre-defined WhatsApp message on key appointment status changes (Created, Rescheduled, Cancelled, Marked No-Show, Completed), using backend statuses only. The message content must show the correct role (Doctor or Therapist), not a generic label.
+9.  **General Rules:**
+    - Never display raw IDs anywhere in the UI.
+    - All actions must be enabled/disabled based on Role-Based Access Control (RBAC).
+    - All new UI text and WhatsApp templates must support i18n (internationalization).
+    - All fixes require mandatory manual device/emulator verification before the task is considered complete.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The project contains a full but functionally incorrect implementation of the Appointments Module. The agent has created and modified all necessary frontend files (), including the list, creation, detail, and preview screens.
+The agent performed a major refactoring of the appointments module, rewriting or modifying several key files (, , , , ). The agent believed it had addressed all 8 of the user's original requirements and added i18n support.
 
-In the last session, the agent attempted to fix several of the reported issues. It implemented logic to filter staff based on  and added functions to reset form state when switching between modes. However, the user's most recent feedback (Message #73) confirms that these fixes were **ineffective** and all major issues persist. The current implementation is not aligned with the user's mandatory requirements.
+However, the user performed manual testing and provided detailed feedback (Message #192), confirming that the implementation is **still broken**. Critical regressions and unfixed issues persist, such as incorrect data binding on appointment cards (Unknown Client), missing quick action buttons, faulty staff filtering, and failure to render backend data on the preview screen. The current codebase does not meet the user's mandatory requirements.
 
 **Last working item**:
-- Last item agent was working: Acknowledging and parsing a new, highly detailed, and critical CRITICAL FIX REQUEST from the user (Message #73). The user re-iterated all the blocking issues, indicating that the agent's previous fixes had failed. The agent's last action was to state its intention to read the authoritative workflow documents ( and the OpenAPI spec).
-- Status: IN PROGRESS
-- Agent Testing Done: N (The agent's own tests, like checking for build compilation, were insufficient. The fixes did not work in practice.)
-- Which testing method agent to use? frontend testing agent. It is critical to create specific tests that validate each of the 8 points from the user's latest request. For example, a test should assert that the  is called with  and that the resulting dropdown does not contain any therapists. Manual testing via QR code is also needed for keyboard behavior.
-- User Testing Done: Y (The user's latest detailed bug report serves as confirmation of extensive testing.)
+- Last item agent was working: The agent had just received critical, detailed feedback from the user (Message #192) after the user's manual device testing. This feedback identified several P0 regressions and incomplete fixes, invalidating the agent's previous work. The agent has not yet acted on this new feedback.
+- Status: BLOCKED
+- Agent Testing Done: Y (The  was called, but its report was insufficient as critical bugs were missed.)
+- Which testing method agent to use? Manual testing by user/agent. The user explicitly requested console logs and screenshots as proof of fixes for the outstanding issues. After fixing the regressions, the frontend testing agent should be used to create a new baseline and prevent future regressions.
+- User Testing Done: Y (The user's latest message is a comprehensive test report.)
 
 **All Pending/In progress Issue list**:
-- Issue 1: (P0) Critical Regressions & Functional Incorrectness in Appointments Module
+- Issue 1: (P0) Appointment Card – Data Binding Issue
+- Issue 2: (P0) Quick Actions – Missing from Card & Detail Page
+- Issue 3: (P0) Doctor Dropdown Still Shows Therapists
+- Issue 4: (P0) Multi-Day Preview – Backend Data Not Rendering
+- Issue 5: (P1) WhatsApp Message Copy – Role Label Incorrect
 
 **Issues Detail**:
-- **Issue 1: Critical Regressions & Functional Incorrectness in Appointments Module (P0)**
-    - **Description**: This is a comprehensive failure of the module to meet requirements. The user has explicitly listed the following sub-issues in Message #73 which MUST be fixed:
-        1.  **Doctor Consultation Staff Filtering (BROKEN):** The dropdown still shows staff other than doctors.
-        2.  **Appointment List Card (MAJOR UX GAP):** The card is missing client phone, assigned staff, and color-coded status badges with quick actions. The agent incorrectly assumed this was fixed.
-        3.  **Appointment Detail Page (STRUCTURE WRONG):** The layout does not match the required Client Section / Visit History structure.
-        4.  **Keyboard Masking (NOT FIXED):** The keyboard continues to obscure form fields, making the form unusable.
-        5.  **Missing Create Client Option:** The workflow to create a new client from the appointment screen is still absent.
-        6.  **Form State Leakage (STILL EXISTS):** The agent's attempt to reset state using factory functions was unsuccessful. State incorrectly persists between form modes.
-        7.  **Multi-Day Preview (INVALID IMPLEMENTATION):** The frontend is inventing its own conflict logic instead of using the required backend APIs, which is a critical failure for a scheduling system.
-        8.  **WhatsApp Trigger (REQUIRED):** This feature is missing and must be implemented.
-    - **Attempted fixes**: The agent modified  to add  filters and state-reset handlers. It also rewrote . These fixes were confirmed by the user to be **ineffective or incomplete**.
+- **Issue 1: Appointment Card – Data Binding Issue (P0)**
+    - **Description**: The appointment card shows Unknown Client and Unassigned instead of the actual client and staff names from the backend.
+    - **Attempted fixes**: A new  component was created, but the data mapping from the API response is incorrect.
     - **Next debug checklist**:
-        1.  **READ THE DOCS:** Start by thoroughly reading  and the OpenAPI spec () as instructed by the user.
-        2.  ****:
-            - Refactor state management again. The previous attempt failed. Use  or a similar robust pattern to ensure complete state isolation for , , and .
-            - Verify the  API call in the network tab to ensure parameters are correct.
-            - Re-implement the  wrapping a  and test it on a device preview.
-            - Implement the + Create New Client navigation flow.
-        3.  ****: Rebuild the  component from scratch to include all required fields and actions as specified by the user.
-        4.  ****: Remove all local conflict detection logic. Re-implement the screen to *only* use the backend APIs (, ) to determine and display conflicts. If an API is missing, display a message and disable the feature as per user instructions.
-        5.  ****: Re-implement the screen layout to match the user's required structure.
-        6.  **WhatsApp Integration**: Implement the logic to open WhatsApp with a pre-filled template on the specified appointment status changes.
-    - **Why fix this issue and what will be achieved with the fix?**: This is the core functionality of the application. Fixing these issues will make the Appointments module correct, reliable, and usable, which is a P0 (blocking) requirement for the user.
+        1.  In ,  the raw API response from the  hook.
+        2.  Verify that the backend is returning client and staff objects/IDs within each appointment object.
+        3.  Trace the data flow from the query hook, through any data transformation/adapter layers, to the props of .
+        4.  Fix the mapping in  to correctly pass , , etc., to the list item component.
+    - **Why fix this issue and what will be achieved with the fix?**: This is a critical data visibility failure. Fixing it will make the appointment list usable and show correct information to the admin.
     - **Status**: IN PROGRESS
-    - **Is recurring issue?**: Y (This is the third attempt to fix this module).
+    - **Is recurring issue?**: Y
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: No.
+
+- **Issue 2: Quick Actions – Missing from Card & Detail Page (P0)**
+    - **Description**: Quick action buttons (Call, WhatsApp, View) are not visible on the appointment list cards or the appointment detail page.
+    - **Attempted fixes**: The agent refactored  and , but the logic to display the buttons is now broken.
+    - **Next debug checklist**:
+        1.  Review the  hook and the  check in both  and .
+        2.   the user's roles and the result of the RBAC check (e.g., ).
+        3.  The condition to render the action buttons is likely incorrect or failing. Simplify the condition to debug, then restore the correct RBAC logic.
+    - **Why fix this issue and what will be achieved with the fix?**: The quick actions are a core part of the user workflow. Restoring them is essential for user efficiency.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: Y (This is a regression).
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 3: Doctor Dropdown Still Shows Therapists (P0)**
+    - **Description**: When creating a Doctor Consultation appointment, the Select Doctor dropdown incorrectly includes staff members who are therapists.
+    - **Attempted fixes**: The agent confirmed the API supports  filtering, but the implementation in  is still faulty.
+    - **Next debug checklist**:
+        1.  In , find the  call for doctors.
+        2.  Add a  to inspect the parameters being passed to the hook, specifically .
+        3.  Check the browser's network tab to confirm the API call is being made with the correct  query parameter.
+        4.  Investigate potential caching issues. Ensure the queries for doctors and therapists use distinct query keys to prevent  from returning stale or mixed data.
+    - **Why fix this issue and what will be achieved with the fix?**: Prevents incorrect staff assignment, which is a critical error in a healthcare scheduling system.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 4: Multi-Day Preview – Backend Data Not Rendering (P0)**
+    - **Description**: The multi-day preview screen calls the backend API but fails to render the response data (conflicts, alternative slots), showing placeholders like -- instead.
+    - **Attempted fixes**: The agent rewrote  to be backend-driven, but the data parsing or rendering logic is broken.
+    - **Next debug checklist**:
+        1.  In ,  the request payload being sent to the .
+        2.   the raw API  in the  or  callback.
+        3.  Verify the structure of the response matches what the component expects for , , etc.
+        4.  Fix the component's rendering logic to correctly iterate over and display the data from the API response.
+    - **Why fix this issue and what will be achieved with the fix?**: The multi-day scheduling feature is unusable without correct conflict and availability information from the backend.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 5: WhatsApp Message Copy – Role Label Incorrect (P1)**
+    - **Description**: The WhatsApp message template uses a generic Doctor/Therapist label instead of specifying the correct role based on the appointment type.
+    - **Attempted fixes**: The agent created helper functions in , but the logic is too generic.
+    - **Next debug checklist**:
+        1.  Modify the WhatsApp generator functions in  (e.g., ).
+        2.  Have them accept the  object as an argument.
+        3.  Inside the function, use a condition like  to select the Doctor label, otherwise use Therapist.
+    - **Why fix this issue and what will be achieved with the fix?**: Provides clearer and more professional communication to clients.
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
 
 **In progress Task List**:
 - **Task 1: Overhaul the Appointments Module (P0)**
-    - **Where to resume**: Start by reading the  file and the OpenAPI specification to fully understand the backend-authoritative logic required, especially for conflict checking. Do not start coding before understanding these.
-    - **What will be achieved with this?**: A functionally correct, stable, and user-friendly Appointments module that adheres to the strict, backend-driven logic required for a healthcare application.
+    - **Where to resume**: Resume by addressing the 5 blocking issues identified in the user's manual test feedback (Message #192), starting with the P0 data binding and quick action regressions.
+    - **What will be achieved with this?**: A functionally correct, stable, and user-friendly Appointments module that adheres to the strict, backend-driven logic required for a healthcare application and passes user verification.
     - **Status**: IN PROGRESS
     - **Should Test frontend/backend/both after fix?**: Frontend
     - **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
-- There are no future tasks. The entire focus must be on completing the corrective work on the Appointments module as detailed in the user's latest request (Message #73).
+- There are no future tasks. The entire focus must be on completing the corrective work on the Appointments module.
 
 **Completed work in this session**
-- Agent attempted to implement fixes for staff filtering and form state leakage in .
-- Agent rewrote  and .
-- **Note:** All of these completed items were deemed insufficient or incorrect by the user and must be revisited and fixed properly.
+- **NOTE:** The following files were modified, but the implementation is functionally incorrect as per user feedback and requires immediate fixes.
+  - Rewrote  (UI correct, data binding broken).
+  - Rewrote  (Now backend-driven, but data rendering is broken).
+  - Rewrote  (Layout updated, but actions are missing).
+  - Updated  to use the new list item.
+  - Attempted to fix state leakage and keyboard handling in .
+  - Added WhatsApp helper functions to .
+  - Added i18n translations to  and .
+  - Fixed a  vs  TypeScript error in  and .
 
 **Earlier issues found/mentioned but not fixed**
-All issues listed under the **** are recurring issues that the agent has repeatedly failed to fix. The user's latest prompt (Message #73) is a comprehensive list of these unfixed problems.
+All issues listed under **** are recurring problems that the agent has repeatedly failed to fix or has introduced as regressions. The user's latest prompt (Message #192) is a comprehensive list of these unfixed problems.
 
 **Known issue recurrence from previous fork**
-- The entire task is about fixing recurring issues. The inability to correctly filter data, manage form state, and implement backend-driven logic has been a persistent problem.
+- **Staff Filtering**: The issue of the doctor dropdown showing therapists persists.
+- **Backend-Driven Logic**: The failure to correctly consume and display backend data on the preview screen continues.
+- **UI/UX Bugs**: Core UI components are either missing data or missing interactive elements (quick actions).
 
 **Code Architecture**
 
@@ -87,65 +137,68 @@ All issues listed under the **** are recurring issues that the agent has repeate
 **Key Technical Concepts**
 - **Frontend**: React Native with Expo, Expo Router v3
 - **Architecture**: Clean Architecture (, , )
-- **State Management**:  for server state. Local form state is managed with , which has proven to be the source of the **state leakage** bug and needs refactoring.
+- **State Management**:  for server state. Local form state is managed with  and a  workaround that needs re-evaluation for the staff filtering bug.
 - **API Client**: 
 
 **key DB schema**
 - No DB schema changes. The work is purely on the frontend consuming existing backend APIs.
 
 **changes in tech stack**
-- No changes to the tech stack. The issue is with the implementation, not the technology.
+- No changes to the tech stack.
 
 **All files of reference**
-- **/app/frontend/features/appointments/presentation/pages/CreateAppointmentScreen.tsx**: Requires a major state management refactor to finally fix state leakage.
-- **/app/frontend/features/appointments/presentation/pages/PreviewAppointmentsScreen.tsx**: Requires a complete logic rewrite to be backend-driven.
-- **/app/frontend/features/appointments/presentation/pages/AppointmentsListScreen.tsx**: The appointment card component within this screen needs a full UI/UX overhaul.
-- **/app/frontend/features/appointments/presentation/pages/AppointmentDetailScreen.tsx**: The layout needs to be completely restructured.
-- **/app/frontend/app/clinic-admin/appointments/create.tsx**: Entry point for the creation flow.
-- ****: Authoritative document for user flows. Must be read first.
+- : Needs fixing for data binding.
+- : Needs fixing for quick actions (RBAC).
+- : Needs fixing for quick actions (RBAC).
+- : Needs fixing for the staff filtering bug.
+- : Needs fixing for backend data rendering.
+- : Needs update for WhatsApp message content.
 
 **Areas that need refactoring**:
-- ** State Management**: This is the highest priority refactoring task. The  approach has failed twice. It must be replaced with a more robust solution like  to strictly isolate state between the different appointment creation modes.
-- ** Logic**: The entire logic needs to be refactored from a frontend-guesswork model to a backend-authoritative model, relying solely on API responses for conflict detection and resolution.
+- ** data mapping**: The logic that passes props from the fetched appointment list to  is broken and needs to be fixed.
+- **RBAC checks**: The role-based access control logic in  and  is too restrictive or incorrect, causing quick actions to disappear.
+- ** staff query**: The  implementation or its surrounding logic is still flawed, leading to incorrect staff filtering. Caching should be investigated.
+- ** data rendering**: The component is not correctly parsing or displaying the response from the .
 
 **key api endpoints**
 - 
 - 
-- **Crucial for Multi-Day flow**:
-    - 
-    - 
-    - 
+- 
+- 
 
 **Critical Info for New Agent**
-- **Your mission is corrective and backend-driven.** The user has explicitly forbidden any frontend-invented logic, especially for scheduling conflicts. Read the user's HARD RULES in Message #73 and follow them without deviation.
-- **Previous fixes failed.** Do not trust that the issues are partially solved. The user has confirmed that state leakage, filtering, and UI gaps still exist. You must re-implement the solutions correctly.
-- **Start with the documentation.** The user has explicitly directed you to read  and the OpenAPI spec. This is your first step before writing any code.
-- **State management is the root cause of many bugs.** The state leakage in  requires a structural change. Do not patch it; refactor it using a more suitable hook like .
-- **The user's list is a checklist.** You must address all 8 points from Message #73. Do not mark the task as complete until every single one is verifiably working.
+- **Your work was rejected by the user.** The previous attempt at fixing the module failed manual verification. The user's feedback in **Message #192** is your new P0 priority list. Do not assume any part of the module is working correctly.
+- **Focus on the regressions first.** The missing data on appointment cards and the missing quick actions are critical regressions that must be fixed immediately.
+- **Debug with **. The user has requested logs as proof. Log API responses, function parameters, and state variables to trace data flow and identify where it breaks.
+- **The backend is the single source of truth.** Do not invent frontend logic for availability or scheduling. If the backend response is not being rendered correctly, fix the rendering logic.
+- **Manual verification is mandatory.** After implementing fixes, you must explain how you verified them on a device/emulator before finishing the task.
 
-**documents created in this job**
--  was updated by the previous agent, but the information about fixes is now outdated and proven incorrect by user feedback.
+**documents and test reports created in this job**
+- 
+- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Msg 73)**: Submitted a new, highly detailed, non-negotiable list of 8 critical bugs and feature gaps in the Appointments Module, expressing that previous fixes failed. This is the current and only source of truth for the task. (Status: In Progress)
-2.  **User (Msg 56)**: Replied proceed to the agent's summary of its (ultimately failed) fixes. (Status: Addressed)
-3.  **User (Msg 5)**: Replied proceed to the agent's initial plan. (Status: Addressed)
+1.  **User (Msg 192)**: Provided detailed, critical feedback from manual device testing. Reported 5 major P0/P1 issues, including broken data binding, missing buttons, incorrect filtering, and failure to render backend data. This message is the current source of truth for all pending work. (Status: **PENDING**)
+2.  **User (Msg 5)**: Approved the initial plan. (Status: Addressed)
+3.  **User (Msg 1)**: Provided addendums to the original handoff summary, which have been incorporated. (Status: Addressed)
 
 **Project Health Check:**
-- **Broken**: The entire Appointments Module is functionally incorrect and does not meet the standards for a healthcare application. Key user flows are blocked or produce incorrect results.
+- **Broken**: The core Appointments Module is non-functional due to critical data binding failures, missing UI elements, and incorrect business logic.
 
 **3rd Party Integrations**
-- **Supabase**: Authentication.
-- **Koyeb**: Backend hosting.
-- **i18next**: For i18n.
-- : Server state management.
-- : Date/time selection UI.
+- **Supabase**: Authentication
+- **Koyeb**: Backend hosting
+- **i18next**: For i18n
+- : Server state management
+- : Date/time selection UI
 
 **Testing status**
-- **Testing agent used after significant changes**: NO
+- **Testing agent used after significant changes**: YES (but it missed critical bugs)
 - **Troubleshoot agent used after agent stuck in loop**: NO
 - **Test files created**: None
-- **Known regressions**: The entire list of 8 issues from the user's latest message are either regressions or features that were never correctly implemented.
+- **Known regressions**:
+    - Appointment list cards no longer show client/staff names.
+    - Quick action buttons have disappeared from list items and detail pages.
 
 **Credentials to test flow:**
 - **Clinic Admin**:
@@ -153,25 +206,9 @@ All issues listed under the **** are recurring issues that the agent has repeate
     - Password: 
 
 **What agent forgot to execute**
-The previous agent fundamentally failed to deliver working fixes for the user's requests. Specifically, it failed to:
-- **Validate its own fixes:** It claimed issues were resolved (e.g., state leakage, enhanced UI card) when they were not.
-- **Adhere to backend-driven logic:** It did not correctly implement the multi-day preview flow using backend APIs.
-- **Fix UI/UX issues:** It ignored or failed to fix the keyboard masking problem and the missing UI elements on the appointment card.
-- **Implement the Create New Client flow.**
-- **Implement the WhatsApp trigger.**
-
-The summary is largely correct, but please update it to explicitly include:
-
-never displaying IDs anywhere in UI,
-
-RBAC-based enablement of appointment actions,
-
-mandatory i18n for all new UI and WhatsApp templates,
-
-strict WhatsApp template rules (fields + triggers),
-
-mandatory manual device verification before marking complete, and
-
-an explicit prohibition on any frontend-generated multi-day previews.
-Once these are added, the summary will fully match the requirements.
-</analysis>
+The agent failed to validate the correctness of its implementation. Specifically, it:
+- Failed to ensure data from API calls was correctly bound to the UI components, leading to Unknown Client errors.
+- Introduced a regression where RBAC-controlled quick action buttons disappeared completely.
+- Did not fix the long-standing bug of therapists appearing in the doctor selection dropdown.
+- Failed to correctly parse and render the backend response on the multi-day preview screen.
+- Delivered code that, while visually refactored, was functionally broken and did not meet any of the user's primary P0 requirements.</analysis>

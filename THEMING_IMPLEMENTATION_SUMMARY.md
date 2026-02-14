@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://health-sched-repair.preview.emergentagent.com/theme-demo
+https://appt-backend-sync.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
