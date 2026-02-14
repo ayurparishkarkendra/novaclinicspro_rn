@@ -699,21 +699,15 @@ export const CreateAppointmentScreen: React.FC = () => {
     }));
   }, [doctorsData]);
 
-  // Therapists (non-doctors)
+  // Therapists only (already filtered by API with staff_type=therapist)
   const therapistOptions: PickerOption[] = useMemo(() => {
     const staff = therapistsData?.items || [];
-    return staff
-      .filter((s: any) => {
-        const staffType = (s.staff_type || '').toLowerCase();
-        // Include therapists and physiotherapists, exclude doctors
-        return staffType !== 'doctor' && staffType !== 'receptionist' && staffType !== 'admin';
-      })
-      .map((s: any) => ({
-        id: s.id,
-        label: s.full_name || s.name || 'Unknown',
-        subtitle: s.designation || s.staff_type || 'Therapist',
-        staff_type: s.staff_type,
-      }));
+    return staff.map((s: any) => ({
+      id: s.id,
+      label: s.full_name || s.name || 'Unknown',
+      subtitle: s.designation || s.staff_type || 'Therapist',
+      staff_type: s.staff_type,
+    }));
   }, [therapistsData]);
 
   const treatmentOptions: PickerOption[] = useMemo(() => {
