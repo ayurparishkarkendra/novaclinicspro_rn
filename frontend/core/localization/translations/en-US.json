@@ -354,6 +354,7 @@
     "complete": "Complete",
     "reschedule": "Reschedule",
     "noShow": "No-Show",
+    "preferredTime": "Preferred Time",
     "previewPlan": "Preview Plan",
     "generatingPlan": "Generating therapy plan...",
     "checkingAvailability": "Checking availability with backend...",
