@@ -1134,6 +1134,8 @@ export const CreateAppointmentScreen: React.FC = () => {
       .map(t => t.label)
       .join(', ');
 
+    const localHour = localPreferredDate.getHours();  // Keep local hour for display
+    
     router.push({
       pathname: '/clinic-admin/appointments/preview' as any,
       params: {
@@ -1146,7 +1148,8 @@ export const CreateAppointmentScreen: React.FC = () => {
         staffNames: selectedStaffNames,
         startDate: startDateTime.toISOString(),
         durationDays: multiDayForm.numberOfSessions.toString(),
-        preferredTimeHour: utcHour.toString(),  // Send UTC hour, not local hour
+        preferredTimeHour: utcHour.toString(),  // Send UTC hour for backend API
+        preferredTimeHourLocal: localHour.toString(),  // Send local hour for UI display
         durationMinutes: multiDayForm.durationMinutes.toString(),
         notes: multiDayForm.notes,
       },
