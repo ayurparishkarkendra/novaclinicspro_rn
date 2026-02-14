@@ -427,6 +427,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
+        // ✨ Use client_name from API response if available
+        if (response.client_name) {
+          setApiClientName(response.client_name);
+        }
+
         // Map backend response to local state (per API spec)
         if (response.sessions && response.sessions.length > 0) {
           const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
@@ -434,7 +439,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
+            staff_name: session.staff_name || null,  // ✨ NEW - from API
             room_id: session.room_id,
+            room_name: session.room_name || null,    // ✨ NEW - from API
             is_conflicted: session.is_conflicted || false,
             conflict: session.conflict || null,
             selected_alternative: undefined,
