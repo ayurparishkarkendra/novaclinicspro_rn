@@ -226,7 +226,7 @@ export const AppointmentDetailScreen: React.FC = () => {
   const { appointmentId } = useLocalSearchParams<{ appointmentId: string }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
-  const userRole = currentUser?.role || 'clinic_admin';
+  const userRole = currentUser?.roles?.[0] || 'clinic_admin';
 
   // State for reschedule
   const [showReschedulePicker, setShowReschedulePicker] = useState(false);
