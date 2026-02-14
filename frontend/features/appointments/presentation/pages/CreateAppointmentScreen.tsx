@@ -738,6 +738,7 @@ export const CreateAppointmentScreen: React.FC = () => {
       label: c.full_name || c.name || 'Unknown',
       subtitle: c.phone || c.email,
       phone: c.phone,
+      gender: c.gender, // BUG FIX #7: Include gender for therapist matching
     }));
   }, [clientsData, searchedClients, debouncedClientSearch]);
 
