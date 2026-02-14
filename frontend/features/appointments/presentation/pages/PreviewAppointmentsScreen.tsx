@@ -104,8 +104,43 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 // SESSION DATA TYPE
 // ============================================
 
-interface SessionData extends TherapyPlanSession {
-  selected_alternative?: AlternativeSlot;
+interface SessionData {
+  session_number: number;
+  appointment_start: string;
+  appointment_end: string;
+  staff_id: string | null;
+  room_id: string | null;
+  is_conflicted: boolean;
+  conflict?: {
+    day_index: number;
+    requested_time: string;
+    conflict_type: string;
+    message: string;
+    alternative_slots: Array<{
+      start: string;
+      end: string;
+      available_staff: Array<{
+        staff_id: string;
+        full_name: string;
+        staff_type: string;
+      }>;
+      available_rooms: Array<{
+        room_id: string;
+        name: string;
+        room_type: string;
+      }>;
+      score: number;
+    }>;
+  } | null;
+  // User-selected alternative for conflicted sessions
+  selected_alternative?: {
+    start: string;
+    end: string;
+    staff_id: string;
+    staff_name?: string;
+    room_id?: string;
+    room_name?: string;
+  };
 }
 
 // ============================================
@@ -116,7 +151,7 @@ interface SessionCardProps {
   session: SessionData;
   isExpanded: boolean;
   onToggle: () => void;
-  onSelectAlternative: (slot: AlternativeSlot) => void;
+  onSelectAlternative: (staffId: string, staffName: string, roomId: string, roomName: string, start: string, end: string) => void;
   staffNames: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
@@ -133,9 +168,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const hasSelectedAlternative = !!session.selected_alternative;
   
   // Display time from selected alternative if available
-  const displayStartTime = session.selected_alternative?.start || session.start;
-  const displayEndTime = session.selected_alternative?.end || session.end;
-  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || staffNames || t('common.therapist');
+  const displayStartTime = session.selected_alternative?.start || session.appointment_start;
+  const displayEndTime = session.selected_alternative?.end || session.appointment_end;
+  const displayStaffName = session.selected_alternative?.staff_name || staffNames || t('common.therapist');
+
+  // Get alternative slots from conflict object (per API spec)
+  const alternativeSlots = session.conflict?.alternative_slots || [];
 
   return (
     <View 
@@ -170,7 +208,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               {t('appointments.session')} {session.session_number}
             </Text>
             <Text style={styles.sessionDate}>
-              {safeFormatDayOfWeek(session.start)}, {safeFormatShortDate(session.start)}
+              {safeFormatDayOfWeek(session.appointment_start)}, {safeFormatShortDate(session.appointment_start)}
             </Text>
           </View>
           <Text style={styles.sessionTime}>
@@ -202,40 +240,62 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </Text>
           </View>
 
-          {/* Alternative Slots from Backend */}
-          {session.alternative_slots && session.alternative_slots.length > 0 ? (
+          {/* Alternative Slots from Backend - per API spec, alternatives are inside conflict object */}
+          {alternativeSlots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>
                 {t('appointments.selectAlternative')}:
               </Text>
-              {session.alternative_slots.map((alt, index) => {
+              {alternativeSlots.map((alt, altIndex) => {
+                // For each alternative slot, show available staff/room combinations
+                const firstStaff = alt.available_staff?.[0];
+                const firstRoom = alt.available_rooms?.[0];
                 const isSelected = session.selected_alternative?.start === alt.start &&
-                                   session.selected_alternative?.staff_id === alt.staff_id;
-                const scoreColor = alt.score >= 90 ? colors.success.main :
-                                   alt.score >= 70 ? colors.warning.main : colors.text.secondary;
+                                   session.selected_alternative?.staff_id === firstStaff?.staff_id;
+                const scorePercent = Math.round((alt.score || 0) * 100);
+                const scoreColor = scorePercent >= 90 ? colors.success.main :
+                                   scorePercent >= 70 ? colors.warning.main : colors.text.secondary;
+                
                 return (
                   <TouchableOpacity
-                    key={`${alt.start}-${alt.staff_id}-${index}`}
+                    key={`alt-${altIndex}-${alt.start}`}
                     style={[styles.alternativeOption, isSelected && styles.alternativeOptionSelected]}
-                    onPress={() => onSelectAlternative(alt)}
+                    onPress={() => {
+                      if (firstStaff) {
+                        onSelectAlternative(
+                          firstStaff.staff_id,
+                          firstStaff.full_name,
+                          firstRoom?.room_id || '',
+                          firstRoom?.name || '',
+                          alt.start,
+                          alt.end
+                        );
+                      }
+                    }}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: isSelected }}
-                    data-testid={`alternative-slot-${index}`}
+                    data-testid={`alternative-slot-${altIndex}`}
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
                         {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
-                        {alt.staff_name || t('common.therapist')}{alt.room_name && ` • ${alt.room_name}`}
+                        {firstStaff?.full_name || t('common.therapist')}
+                        {firstRoom?.name && ` • ${firstRoom.name}`}
                       </Text>
+                      {alt.available_staff?.length > 1 && (
+                        <Text style={styles.moreOptionsText}>
+                          +{alt.available_staff.length - 1} more staff options
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.alternativeScore}>
                       <Text style={[styles.scoreText, { color: scoreColor }]}>
-                        {alt.score}%
+                        {scorePercent}%
                       </Text>
                       <Text style={styles.scoreLabel}>
-                        {alt.score >= 90 ? t('common.best') : alt.score >= 70 ? t('common.good') : t('common.fair')}
+                        {scorePercent >= 90 ? t('common.best') : scorePercent >= 70 ? t('common.good') : t('common.fair')}
                       </Text>
                     </View>
                     {isSelected && (
