@@ -93,6 +93,7 @@ export interface AppointmentResponse {
   client_name?: string;
   client_phone?: string;
   staff_name?: string;
+  staff_names?: string[]; // BUG FIX #1: Array for multi-therapist appointments
   treatment_name?: string;
   room_name?: string;
 }
