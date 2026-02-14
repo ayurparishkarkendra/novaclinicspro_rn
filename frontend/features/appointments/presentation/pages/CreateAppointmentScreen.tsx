@@ -55,7 +55,6 @@ import {
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
-import { StaffType } from '../../../staff/data/models/staff.dtos';
 
 // ============================================
 // TYPES
@@ -600,7 +599,8 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
   
   // ===== ISOLATED FORM STATES (NO CROSS-TAB LEAKAGE) =====
-  const [doctorForm, setDoctorForm] = useState<DoctorFormState>({
+  // Reset form state when switching modes to prevent leakage
+  const createFreshDoctorForm = (): DoctorFormState => ({
     selectedDoctorId: null,
     durationMinutes: 15,
     appointmentDate: new Date(),
@@ -608,7 +608,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     notes: '',
   });
 
-  const [therapyForm, setTherapyForm] = useState<TherapyFormState>({
+  const createFreshTherapyForm = (): TherapyFormState => ({
     selectedTreatmentId: null,
     selectedTherapistIds: [],
     selectedRoomId: null,
@@ -618,7 +618,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     notes: '',
   });
 
-  const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>({
+  const createFreshMultiDayForm = (): MultiDayFormState => ({
     selectedTreatmentId: null,
     selectedTherapistIds: [],
     durationMinutes: 60,
@@ -627,6 +627,33 @@ export const CreateAppointmentScreen: React.FC = () => {
     preferredTime: new Date(),
     notes: '',
   });
+
+  const [doctorForm, setDoctorForm] = useState<DoctorFormState>(createFreshDoctorForm());
+  const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
+  const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
+
+  // Handler for appointment type change - resets forms to prevent leakage
+  const handleAppointmentTypeChange = useCallback((type: AppointmentType) => {
+    setAppointmentType(type);
+    // Reset forms when switching type to prevent state leakage
+    if (type === 'SINGLE') {
+      setMultiDayForm(createFreshMultiDayForm());
+    } else {
+      setDoctorForm(createFreshDoctorForm());
+      setTherapyForm(createFreshTherapyForm());
+    }
+  }, []);
+
+  // Handler for session type change - resets opposite form to prevent leakage
+  const handleSessionTypeChange = useCallback((type: SessionType) => {
+    setSessionType(type);
+    // Reset the opposite form when switching session type
+    if (type === 'DOCTOR') {
+      setTherapyForm(createFreshTherapyForm());
+    } else {
+      setDoctorForm(createFreshDoctorForm());
+    }
+  }, []);
 
   // ===== SEARCH & UI STATE =====
   const [clientSearchQuery, setClientSearchQuery] = useState('');
@@ -645,14 +672,20 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
   
   // Staff queries - SEPARATE for doctors and therapists
-  const { data: doctorsData, isLoading: isLoadingDoctors } = useStaffListQuery(
+  // CRITICAL FIX: Only fetch doctors when in DOCTOR mode
+  const shouldFetchDoctors = appointmentType === 'SINGLE' && sessionType === 'DOCTOR';
+  const { data: doctorsData, isLoading: isLoadingDoctors, isFetched: isDoctorsFetched } = useStaffListQuery(
     tenantId, 
-    { staff_type: 'doctor' as StaffType, is_active: true, limit: 100 }
+    { staff_type: 'doctor', is_active: true, limit: 100 },
+    { enabled: shouldFetchDoctors }
   );
   
-  const { data: therapistsData, isLoading: isLoadingTherapists } = useStaffListQuery(
+  // Fetch therapists for therapy and multi-day modes
+  const shouldFetchTherapists = (appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI';
+  const { data: therapistsData, isLoading: isLoadingTherapists, isFetched: isTherapistsFetched } = useStaffListQuery(
     tenantId, 
-    { is_active: true, limit: 100 }
+    { staff_type: 'therapist', is_active: true, limit: 100 },
+    { enabled: shouldFetchTherapists }
   );
 
   const { data: roomsData, isLoading: isLoadingRooms } = useRoomsListQuery(tenantId);
@@ -693,21 +726,15 @@ export const CreateAppointmentScreen: React.FC = () => {
     }));
   }, [doctorsData]);
 
-  // Therapists (non-doctors)
+  // Therapists only (already filtered by API with staff_type=therapist)
   const therapistOptions: PickerOption[] = useMemo(() => {
     const staff = therapistsData?.items || [];
-    return staff
-      .filter((s: any) => {
-        const staffType = (s.staff_type || '').toLowerCase();
-        // Include therapists and physiotherapists, exclude doctors
-        return staffType !== 'doctor' && staffType !== 'receptionist' && staffType !== 'admin';
-      })
-      .map((s: any) => ({
-        id: s.id,
-        label: s.full_name || s.name || 'Unknown',
-        subtitle: s.designation || s.staff_type || 'Therapist',
-        staff_type: s.staff_type,
-      }));
+    return staff.map((s: any) => ({
+      id: s.id,
+      label: s.full_name || s.name || 'Unknown',
+      subtitle: s.designation || s.staff_type || 'Therapist',
+      staff_type: s.staff_type,
+    }));
   }, [therapistsData]);
 
   const treatmentOptions: PickerOption[] = useMemo(() => {
@@ -1033,14 +1060,14 @@ export const CreateAppointmentScreen: React.FC = () => {
             {/* Appointment Type */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Appointment Type</Text>
-              <TypeSelector value={appointmentType} onChange={setAppointmentType} />
+              <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} />
             </View>
 
             {/* Session Type Toggle (Single day only) */}
             {appointmentType === 'SINGLE' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Session Type</Text>
-                <SessionTypeSelector value={sessionType} onChange={setSessionType} />
+                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} />
               </View>
             )}
 
@@ -1071,8 +1098,8 @@ export const CreateAppointmentScreen: React.FC = () => {
                     options={doctorOptions}
                     selectedId={doctorForm.selectedDoctorId}
                     onSelect={handleDoctorSelect}
-                    isLoading={isLoadingDoctors}
-                    emptyText={doctorsData?.items?.length === 0 ? "No doctors available in this clinic" : "No doctors found"}
+                    isLoading={isLoadingDoctors && !isDoctorsFetched}
+                    emptyText={isDoctorsFetched && doctorOptions.length === 0 ? "No doctors available in this clinic" : "Loading doctors..."}
                     autoCloseOnSelect={true}
                   />
                 </View>
@@ -1115,8 +1142,8 @@ export const CreateAppointmentScreen: React.FC = () => {
                     options={therapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'therapy')}
-                    isLoading={isLoadingTherapists}
-                    emptyText="No therapists available"
+                    isLoading={isLoadingTherapists && !isTherapistsFetched}
+                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={therapyForm.selectedTherapistIds}
                     maxSelect={2}
@@ -1165,8 +1192,8 @@ export const CreateAppointmentScreen: React.FC = () => {
                     options={therapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
-                    isLoading={isLoadingTherapists}
-                    emptyText="No therapists available"
+                    isLoading={isLoadingTherapists && !isTherapistsFetched}
+                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}

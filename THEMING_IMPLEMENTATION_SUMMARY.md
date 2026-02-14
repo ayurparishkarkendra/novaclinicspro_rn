@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://schedule-hub-93.preview.emergentagent.com/theme-demo
+https://appt-critical-fix.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
