@@ -131,6 +131,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   showActions = true,
   onStatusUpdate,
   onCancel,
+  onReschedule,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
