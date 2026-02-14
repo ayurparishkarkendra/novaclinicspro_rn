@@ -1061,14 +1061,14 @@ export const CreateAppointmentScreen: React.FC = () => {
             {/* Appointment Type */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Appointment Type</Text>
-              <TypeSelector value={appointmentType} onChange={setAppointmentType} />
+              <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} />
             </View>
 
             {/* Session Type Toggle (Single day only) */}
             {appointmentType === 'SINGLE' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Session Type</Text>
-                <SessionTypeSelector value={sessionType} onChange={setSessionType} />
+                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} />
               </View>
             )}
 
