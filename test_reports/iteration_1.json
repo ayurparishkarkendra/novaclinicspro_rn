@@ -1,0 +1,75 @@
+{
+  "summary": "Frontend testing of Appointments Module (8 critical issues). Verified component structure, data-testids, and UI elements via Expo web tunnel. Found several critical issues requiring main agent attention.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AppointmentDetailScreen",
+        "issue": "i18n keys NOT translated - showing raw keys like 'APPOINTMENTS.VISITHISTORY', 'APPOINTMENTS.APPOINTMENTDETAILS', 'APPOINTMENTS.QUICKACTIONS', 'appointments.reschedule', 'appointments.noShow'",
+        "selector": "N/A - text content issue",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "AppointmentListItem",
+        "issue": "Client phone NOT visible in list cards - only shows time, client name, staff name, status badge. Quick action buttons (Call, WhatsApp) NOT visible in UI",
+        "selector": "[data-testid='appointment-client-phone'], [data-testid='appointment-action-call'], [data-testid='appointment-action-whatsapp']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "AppointmentDetailScreen",
+        "issue": "WhatsApp button in header NOT visible - code has data-testid='detail-whatsapp-button' but not rendering",
+        "selector": "[data-testid='detail-whatsapp-button']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "AppointmentDetailScreen",
+        "issue": "Treatment and Staff info NOT visible in Appointment Info section - only shows Date, Time, Duration",
+        "selector": "[data-testid='detail-treatment'], [data-testid='detail-staff']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Appointments List",
+        "issue": "Appointments show 'Unknown Client' and 'Unassigned' staff - data not properly populated from backend",
+        "affected_selectors": ["[data-testid='appointment-client-name']", "[data-testid='appointment-staff-name']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "AppointmentsListScreen",
+        "issues": ["Date slider working correctly with proper layout", "Summary card displays correctly", "Search input visible", "Status badges show with correct color coding"]
+      },
+      {
+        "screen": "AppointmentDetailScreen",
+        "issues": ["Sections present (Client, Visit History, Appointment Info, Quick Actions) but i18n broken", "Back button functional", "Quick action buttons (reschedule, cancel, no-show) visible but text not translated"]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "CRITICAL: Fix i18n translation path - translation file has 'errors.appointments.visitHistory' but code calls 't(appointments.visitHistory)'. Either move translations to top-level 'appointments' key OR update all code to use 'errors.appointments.*' path",
+    "HIGH: Verify AppointmentListItem renders client_phone and quick action buttons (Call, WhatsApp) - code has data-testids but buttons not visible in UI",
+    "HIGH: Verify WhatsApp button in AppointmentDetailScreen header is rendering - code has data-testid='detail-whatsapp-button' but not visible",
+    "MEDIUM: Check why Treatment and Staff info not showing in detail page - appointment data may not have treatment_name/staff_name populated"
+  ],
+  "critical_code_review_comments": [
+    "i18n structure mismatch: en-US.json has translations at 'errors.appointments.*' but code references 't(appointments.*)' - causing raw keys to display",
+    "AppointmentListItem.tsx has proper data-testids and code for client_phone display and quick action buttons, but they may not be rendering due to conditional checks (canCall, canWhatsApp based on userRole)",
+    "AppointmentDetailScreen uses useTranslation() hook correctly but translation paths don't match JSON structure",
+    "Backend data issue: All appointments show 'Unknown Client' and 'Unassigned' - either client/staff data not linked or API not returning joined data"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - external backend on Koyeb",
+    "frontend": "40%"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "App accessible via https://health-sched-repair.preview.emergentagent.com. Login with hareshlekkala@gmail.com / Vishnu432!. After login, switch to 'Clinic Admin' dashboard, then navigate to 'Appointments'. Current appointments show 'Unknown Client' and 'Unassigned' staff. i18n is broken - showing raw translation keys. Quick action buttons (Call, WhatsApp) not rendering in list items despite code having them.",
+  "rca_of_the_issue": "PRIMARY ROOT CAUSE: Translation file structure mismatch. The en-US.json has appointments translations nested under 'errors.appointments.*' but the React components call t('appointments.*') without the 'errors' prefix. This causes the i18n system to return the raw key when translation not found. SECONDARY: Quick action buttons have RBAC checks (canCall, canWhatsApp based on userRole) which may be blocking render. Appointment data from backend appears incomplete (no client names, staff names, treatment names populated)."
+}
