@@ -223,6 +223,43 @@ export const AppointmentsListScreen: React.FC = () => {
     { enabled: debouncedQuery.length >= 3 }
   );
 
+  // Mutations for quick actions
+  const updateStatusMutation = useUpdateAppointmentStatusMutation();
+  const cancelMutation = useCancelAppointmentMutation(tenantId);
+
+  // Handler for status updates (Confirm, Start, Complete, No-Show)
+  const handleStatusUpdate = useCallback(async (appointmentId: string, newStatus: string) => {
+    try {
+      await updateStatusMutation.mutateAsync({ appointmentId, status: newStatus });
+      refetch();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update status');
+    }
+  }, [updateStatusMutation, refetch]);
+
+  // Handler for cancellation
+  const handleCancel = useCallback(async (appointmentId: string) => {
+    Alert.alert(
+      'Cancel Appointment',
+      'Are you sure you want to cancel this appointment?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelMutation.mutateAsync(appointmentId);
+              refetch();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to cancel appointment');
+            }
+          },
+        },
+      ]
+    );
+  }, [cancelMutation, refetch]);
+
   // Use search results if searching, otherwise use date-based data
   const isSearchMode = debouncedQuery.length >= 3;
   const displayData = isSearchMode ? searchData : appointmentsData;
