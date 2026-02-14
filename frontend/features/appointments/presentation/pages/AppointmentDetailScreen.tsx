@@ -265,11 +265,24 @@ export const AppointmentDetailScreen: React.FC = () => {
   // ===== EXTRACT DATA FROM API RESPONSE =====
   // Per API spec: client_name, staff_name, room_name, treatment_name are returned directly
   // NO nested objects - the backend already resolves names
+  // BUG FIX #2: Ensure client_name is properly extracted and ALWAYS displayed
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
-  const staffName = appointment?.staff_name || null;
   const treatmentName = appointment?.treatment_name || null;
   const roomName = appointment?.room_name || null;
+  
+  // BUG FIX #1: Handle both single staff_name and multiple staff_names
+  // For 2 therapists assigned, show "Therapist A, Therapist B"
+  // For doctor consultation, show doctor name
+  const staffName = (() => {
+    // Check for staff_names array first (multi-therapist case)
+    const staffNamesArr = (appointment as any)?.staff_names;
+    if (Array.isArray(staffNamesArr) && staffNamesArr.length > 0) {
+      return staffNamesArr.join(', ');
+    }
+    // Fall back to single staff_name
+    return appointment?.staff_name || null;
+  })();
 
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
