@@ -1035,6 +1035,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error.main + '05',
     padding: spacing.md,
   },
+  // BUG FIX #6: Show originally requested time
+  originalTimeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.grey[100],
+    padding: spacing.sm,
+    borderRadius: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  originalTimeLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  originalTimeValue: {
+    ...typography.body2,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
   conflictReason: {
     flexDirection: 'row',
     alignItems: 'center',
