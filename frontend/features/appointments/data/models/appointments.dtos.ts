@@ -194,7 +194,8 @@ export const getStatusColor = (status: string): string => {
     cancelled: '#EF4444', // Red
     no_show: '#6B7280', // Gray
   };
-  return colors[status] || '#6B7280';
+  // FIX: Use case-insensitive status lookup
+  return colors[status?.toLowerCase()] || '#6B7280';
 };
 
 /** Format date for display */
