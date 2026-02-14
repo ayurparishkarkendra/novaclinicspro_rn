@@ -529,6 +529,73 @@ export const openWhatsApp = (phone: string, message: string): string => {
   return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 };
 
+/** Generate WhatsApp no-show message */
+export const generateWhatsAppNoShowMessage = (
+  clientName: string,
+  date: string,
+  time: string,
+  treatmentName: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+We noticed you missed your appointment today.
+
+📅 Date: ${date}
+🕐 Time: ${time}
+💆 Treatment: ${treatmentName}
+
+We hope everything is okay! If you'd like to reschedule, please call us at ${clinicPhone}.
+
+Thank you!`;
+};
+
+/** Generate WhatsApp appointment completed message */
+export const generateWhatsAppCompletedMessage = (
+  clientName: string,
+  date: string,
+  treatmentName: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+Thank you for visiting us today! 🙏
+
+💆 Treatment: ${treatmentName}
+📅 Date: ${date}
+
+We hope you had a great experience. If you have any questions or need to book your next appointment, please call us at ${clinicPhone}.
+
+Take care and see you soon!`;
+};
+
+/** Generate WhatsApp appointment created message */
+export const generateWhatsAppCreatedMessage = (
+  clientName: string,
+  clinicName: string,
+  date: string,
+  time: string,
+  staffName: string,
+  treatmentName: string,
+  clinicPhone: string
+): string => {
+  return `Hi ${clientName},
+
+Your appointment has been booked! 📅
+
+📍 Clinic: ${clinicName}
+📅 Date: ${date}
+🕐 Time: ${time}
+👨‍⚕️ Doctor/Therapist: ${staffName}
+💆 Treatment: ${treatmentName}
+
+Please arrive 10 minutes early.
+
+For any changes, please call us at ${clinicPhone}.
+
+Thank you!`;
+};
+
 /** Format short date for display */
 export const formatShortDate = (dateStr: string | null): string => {
   if (!dateStr) return '—';
