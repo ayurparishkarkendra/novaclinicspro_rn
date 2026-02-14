@@ -99,6 +99,15 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 };
 
 // ============================================
+// STAFF ASSIGNMENT TYPE (matching backend)
+// ============================================
+
+interface StaffAssignment {
+  id: string;
+  name: string;
+}
+
+// ============================================
 // SESSION DATA TYPE - Updated per API spec
 // ============================================
 
@@ -107,9 +116,10 @@ interface SessionData {
   appointment_start: string;
   appointment_end: string;
   staff_id: string | null;
-  staff_name: string | null;  // ✨ NEW - Display therapist name directly
+  staff_name: string | null;  // Deprecated - use staff_assignments
+  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
   room_id: string | null;
-  room_name: string | null;   // ✨ NEW - Display room name directly
+  room_name: string | null;
   is_conflicted: boolean;
   conflict?: {
     day_index: number;
@@ -142,6 +152,21 @@ interface SessionData {
     room_name?: string;
   };
 }
+
+/**
+ * Get therapist names from session data
+ */
+const getSessionTherapistNames = (session: SessionData): string => {
+  // Use staff_assignments (new API format)
+  if (session.staff_assignments && session.staff_assignments.length > 0) {
+    return session.staff_assignments.map(staff => staff.name).join(', ');
+  }
+  // Fallback to deprecated staff_name
+  if (session.staff_name) {
+    return session.staff_name;
+  }
+  return 'Unassigned';
+};
 
 // ============================================
 // SESSION CARD COMPONENT
