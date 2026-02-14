@@ -388,6 +388,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
+  // NEW: Use local hour for display (falls back to UTC hour if not provided)
+  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
