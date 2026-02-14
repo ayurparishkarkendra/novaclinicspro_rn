@@ -290,50 +290,137 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         )}
       </View>
 
-      {/* Quick Actions - ALWAYS VISIBLE (BUG FIX #3: Section must always show) */}
+      {/* Quick Actions Sidebar - expand toggle + view */}
       <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
-        {showActions ? (
-          <>
-            {/* Call Button - Only if phone available and user has permission */}
-            {canCall && clientPhone && (
-              <QuickAction
-                icon="call"
-                color={colors.success.main}
-                onPress={handleCall}
-                accessibilityLabel={`Call ${displayClientName}`}
-                testId="appointment-action-call"
-              />
-            )}
-            {/* WhatsApp Button - Only if phone available and user has permission */}
-            {canWhatsApp && clientPhone && (
-              <QuickAction
-                icon="logo-whatsapp"
-                color="#25D366"
-                onPress={handleWhatsApp}
-                accessibilityLabel={`WhatsApp ${displayClientName}`}
-                testId="appointment-action-whatsapp"
-              />
-            )}
-            {/* View Button - ALWAYS visible */}
-            <QuickAction
-              icon="chevron-forward"
-              color={colors.primary.main}
-              onPress={handlePress}
-              accessibilityLabel={`View appointment details`}
-              testId="appointment-action-view"
-            />
-          </>
-        ) : (
-          /* Empty state - still show view button even when actions disabled */
-          <QuickAction
-            icon="chevron-forward"
-            color={colors.primary.main}
-            onPress={handlePress}
-            accessibilityLabel={`View appointment details`}
-            testId="appointment-action-view"
-          />
-        )}
+        {/* Expand/Collapse Button */}
+        <QuickAction
+          icon={isExpanded ? "chevron-up" : "chevron-down"}
+          color={colors.text.secondary}
+          onPress={toggleExpand}
+          accessibilityLabel={isExpanded ? "Collapse actions" : "Expand actions"}
+          testId="appointment-action-toggle"
+        />
+        {/* View Button - ALWAYS visible */}
+        <QuickAction
+          icon="chevron-forward"
+          color={colors.primary.main}
+          onPress={handlePress}
+          accessibilityLabel={`View appointment details`}
+          testId="appointment-action-view"
+        />
       </View>
+
+      {/* EXPANDABLE QUICK ACTIONS SECTION - Issue #1 Fix */}
+      {isExpanded && (
+        <View style={styles.expandedSection} data-testid="appointment-expanded-actions">
+          {/* Communication Actions Row */}
+          <View style={styles.expandedRow}>
+            {canCall && clientPhone && (
+              <TouchableOpacity 
+                style={styles.expandedActionBtn}
+                onPress={handleCall}
+                data-testid="expanded-action-call"
+              >
+                <Ionicons name="call" size={18} color={colors.success.main} />
+                <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                  {t('common.call') || 'Call'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {canWhatsApp && clientPhone && (
+              <TouchableOpacity 
+                style={styles.expandedActionBtn}
+                onPress={handleWhatsApp}
+                data-testid="expanded-action-whatsapp"
+              >
+                <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+                <Text style={[styles.expandedActionText, { color: '#25D366' }]}>
+                  {t('common.whatsapp') || 'WhatsApp'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Status Change Actions - based on current status */}
+          {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
+            <View style={styles.expandedRow}>
+              {/* Confirm - only for scheduled */}
+              {appointment.status === 'scheduled' && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'confirmed')}
+                  data-testid="expanded-action-confirm"
+                >
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                    {t('appointments.confirm') || 'Confirm'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Start - only for confirmed */}
+              {appointment.status === 'confirmed' && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'in_progress')}
+                  data-testid="expanded-action-start"
+                >
+                  <Ionicons name="play-circle" size={18} color={colors.info.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.info.main }]}>
+                    {t('appointments.startSession') || 'Start'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Complete - only for in_progress */}
+              {appointment.status === 'in_progress' && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'completed')}
+                  data-testid="expanded-action-complete"
+                >
+                  <Ionicons name="checkmark-done-circle" size={18} color={colors.success.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                    {t('appointments.complete') || 'Complete'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Cancel - for scheduled/confirmed */}
+              {['scheduled', 'confirmed'].includes(appointment.status) && onCancel && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onCancel(appointment.id)}
+                  data-testid="expanded-action-cancel"
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.error.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.error.main }]}>
+                    {t('common.cancel') || 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* No-show - for scheduled/confirmed */}
+              {['scheduled', 'confirmed'].includes(appointment.status) && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+                  data-testid="expanded-action-noshow"
+                >
+                  <Ionicons name="alert-circle" size={18} color={colors.warning.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.warning.main }]}>
+                    {t('appointments.noShow') || 'No-Show'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            /* No actions available state */
+            <View style={styles.noActionsState}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.text.tertiary} />
+              <Text style={styles.noActionsText}>
+                {t('appointments.noActionsAvailable') || 'No actions available'}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
