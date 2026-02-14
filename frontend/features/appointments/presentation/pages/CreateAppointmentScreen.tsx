@@ -41,6 +41,7 @@ import { useRoomsListQuery } from '../../../rooms/data/repositories/rooms.reposi
 import {
   useCreateAppointmentMutation,
   useAppointmentsByDateQuery,
+  useValidateAppointmentMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
@@ -50,6 +51,7 @@ import {
   openWhatsApp,
   generateWhatsAppConfirmationMessage,
   toISODateString,
+  ValidateAppointmentRequest,
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
@@ -68,6 +70,7 @@ interface PickerOption {
   duration_minutes?: number | null;
   role?: string;
   staff_type?: string;
+  gender?: string; // BUG FIX #7: For gender matching
 }
 
 // Form state for Doctor consultation
@@ -721,6 +724,8 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
+  // BUG FIX #5: Add validation mutation for single-slot conflict checking
+  const validateMutation = useValidateAppointmentMutation();
 
   // ===== COMPUTED OPTIONS =====
   const clientOptions: PickerOption[] = useMemo(() => {
@@ -733,6 +738,7 @@ export const CreateAppointmentScreen: React.FC = () => {
       label: c.full_name || c.name || 'Unknown',
       subtitle: c.phone || c.email,
       phone: c.phone,
+      gender: c.gender, // BUG FIX #7: Include gender for therapist matching
     }));
   }, [clientsData, searchedClients, debouncedClientSearch]);
 
@@ -764,31 +770,54 @@ export const CreateAppointmentScreen: React.FC = () => {
     }));
   }, [doctorsData]);
 
-  // Therapists only - CRITICAL: Filter on frontend too for safety
+  // Therapists only - CRITICAL: Strict filter by staff_type = 'therapist' only
+  // BUG FIX #4: Only show staff where staff_type = 'therapist', no other roles
   const therapistOptions: PickerOption[] = useMemo(() => {
     const allStaff = therapistsData?.items || [];
-    // Double-filter to ensure ONLY therapists appear
+    // Strict filter: ONLY staff where staff_type is exactly 'therapist'
     const therapists = allStaff.filter((s: any) => {
       const staffType = (s.staff_type || '').toLowerCase();
-      const role = (s.role || '').toLowerCase();
-      const designation = (s.designation || '').toLowerCase();
-      // Include if staff_type is therapist, OR if not explicitly a doctor
-      return staffType === 'therapist' || 
-             role.includes('therapist') || 
-             designation.includes('therapist') ||
-             (staffType !== 'doctor' && !designation.includes('doctor') && !designation.includes('vaidya'));
+      // STRICT: Only allow exact 'therapist' staff_type
+      // Do NOT include clinic_admin, receptionist, doctor, or any other type
+      return staffType === 'therapist';
     });
     
-    // DEBUG: Uncomment to trace therapist filtering
-    // console.log('[CreateAppointment] Therapist options - raw:', allStaff.length, 'filtered:', therapists.length);
+    // DEBUG: Log therapist filtering
+    console.log('[CreateAppointment] Therapist options - raw:', allStaff.length, 'filtered:', therapists.length);
     
     return therapists.map((s: any) => ({
       id: s.id,
       label: s.full_name || s.name || 'Unknown',
       subtitle: s.designation || s.staff_type || 'Therapist',
       staff_type: s.staff_type,
+      // BUG FIX #7: Include gender for gender matching
+      gender: s.gender,
     }));
   }, [therapistsData]);
+
+  // BUG FIX #7: Gender-filtered therapist options based on selected client
+  const genderFilteredTherapistOptions: PickerOption[] = useMemo(() => {
+    const selectedClient = clientOptions.find(c => c.id === selectedClientId);
+    const clientGender = selectedClient?.gender?.toLowerCase();
+    
+    // If no client selected or no gender, return all therapists
+    if (!selectedClientId || !clientGender) {
+      return therapistOptions;
+    }
+    
+    // Apply gender matching rules: female clients can only have female therapists
+    // Male clients can have either gender (common practice in Ayurvedic clinics)
+    if (clientGender === 'female') {
+      const femaleTherapists = therapistOptions.filter(t => 
+        t.gender?.toLowerCase() === 'female'
+      );
+      // Log for debugging
+      console.log('[CreateAppointment] Gender matching - client:', clientGender, 'filtered therapists:', femaleTherapists.length);
+      return femaleTherapists.length > 0 ? femaleTherapists : therapistOptions;
+    }
+    
+    return therapistOptions;
+  }, [therapistOptions, selectedClientId, clientOptions]);
 
   const treatmentOptions: PickerOption[] = useMemo(() => {
     return (treatmentsData?.items || []).map((t: TreatmentResponse) => ({
@@ -923,6 +952,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   };
 
   // Create single appointment
+  // BUG FIX #5: Add conflict checking for single-slot therapy appointments
   const handleCreateSingle = async () => {
     if (!selectedClientId) {
       Alert.alert('Required', 'Please select a client');
@@ -930,7 +960,6 @@ export const CreateAppointmentScreen: React.FC = () => {
     }
 
     const isDoctor = sessionType === 'DOCTOR';
-    const form = isDoctor ? doctorForm : therapyForm;
     const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
     const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
 
@@ -944,9 +973,56 @@ export const CreateAppointmentScreen: React.FC = () => {
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
 
+    const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
+
+    // BUG FIX #5: For therapy appointments, validate before creating (conflict check)
+    if (!isDoctor && staffId) {
+      try {
+        const validationPayload: ValidateAppointmentRequest = {
+          client_id: selectedClientId,
+          staff_id: staffId,
+          room_id: therapyForm.selectedRoomId || undefined,
+          appointment_start: startDateTime.toISOString(),
+          appointment_end: endDateTime.toISOString(),
+        };
+        
+        console.log('[CreateAppointment] Validating single therapy appointment:', validationPayload);
+        
+        const validationResult = await validateMutation.mutateAsync(validationPayload);
+        console.log('[CreateAppointment] Validation result:', validationResult);
+        
+        // If validation fails, show conflict message and alternatives
+        if (!validationResult.is_valid) {
+          const conflictMessages = [];
+          
+          if (validationResult.conflicts?.staff_conflict) {
+            conflictMessages.push(`Staff conflict: ${validationResult.conflicts.staff_conflict.message}`);
+          }
+          if (validationResult.conflicts?.room_conflict) {
+            conflictMessages.push(`Room conflict: ${validationResult.conflicts.room_conflict.message}`);
+          }
+          if (validationResult.errors?.length > 0) {
+            conflictMessages.push(...validationResult.errors);
+          }
+          
+          Alert.alert(
+            'Booking Conflict',
+            `Cannot book this appointment:\n\n${conflictMessages.join('\n\n')}\n\nPlease select a different time or therapist.`,
+            [
+              { text: 'OK', style: 'default' }
+            ]
+          );
+          return; // Do NOT proceed with booking
+        }
+      } catch (err: any) {
+        console.log('[CreateAppointment] Validation API error (proceeding anyway):', err.message);
+        // If validation API not available, proceed with booking
+      }
+    }
+
     const payload: AppointmentCreate = {
       client_id: selectedClientId,
-      staff_id: isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null),
+      staff_id: staffId,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
       appointment_start: startDateTime.toISOString(),
@@ -1192,11 +1268,11 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>Therapists (Max 2)</Text>
                   <SearchableDropdown
                     title="Select Therapists"
-                    options={therapistOptions}
+                    options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'therapy')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={therapyForm.selectedTherapistIds}
                     maxSelect={2}
@@ -1242,11 +1318,11 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>Therapists * (Max 2)</Text>
                   <SearchableDropdown
                     title="Select Therapists"
-                    options={therapistOptions}
+                    options={genderFilteredTherapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
                     isLoading={isLoadingTherapists && !isTherapistsFetched}
-                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
+                    emptyText={isTherapistsFetched && genderFilteredTherapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}

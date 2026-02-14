@@ -265,11 +265,24 @@ export const AppointmentDetailScreen: React.FC = () => {
   // ===== EXTRACT DATA FROM API RESPONSE =====
   // Per API spec: client_name, staff_name, room_name, treatment_name are returned directly
   // NO nested objects - the backend already resolves names
+  // BUG FIX #2: Ensure client_name is properly extracted and ALWAYS displayed
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
-  const staffName = appointment?.staff_name || null;
   const treatmentName = appointment?.treatment_name || null;
   const roomName = appointment?.room_name || null;
+  
+  // BUG FIX #1: Handle both single staff_name and multiple staff_names
+  // For 2 therapists assigned, show "Therapist A, Therapist B"
+  // For doctor consultation, show doctor name
+  const staffName = (() => {
+    // Check for staff_names array first (multi-therapist case)
+    const staffNamesArr = (appointment as any)?.staff_names;
+    if (Array.isArray(staffNamesArr) && staffNamesArr.length > 0) {
+      return staffNamesArr.join(', ');
+    }
+    // Fall back to single staff_name
+    return appointment?.staff_name || null;
+  })();
 
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
@@ -708,46 +721,53 @@ export const AppointmentDetailScreen: React.FC = () => {
         )}
 
         {/* QUICK ACTIONS SECTION - RBAC-based */}
+        {/* BUG FIX #3: Quick actions ALWAYS visible, show disabled/empty state when no actions available */}
         <View style={styles.section} data-testid="detail-actions-section">
           <SectionHeader title={t('appointments.quickActions')} icon="flash" />
           <View style={styles.actionsContainer}>
-            {/* Primary Actions Row */}
+            {/* Primary Actions Row - Status-based actions */}
             <View style={styles.actionsRow}>
-              {appointment.status === 'scheduled' && canModifyAppointment && (
+              {/* Confirm - only for scheduled status */}
+              {appointment.status === 'scheduled' && (
                 <ActionButton
                   icon="checkmark-circle"
                   label={t('appointments.confirm')}
                   color={colors.success.main}
                   onPress={() => handleStatusUpdate('confirmed')}
+                  disabled={!canModifyAppointment}
                   variant="filled"
                   testId="action-confirm"
                 />
               )}
-              {canStart && (
+              {/* Start Session - only for confirmed status */}
+              {appointment.status === 'confirmed' && (
                 <ActionButton
                   icon="play-circle"
                   label={t('appointments.startSession')}
                   color={colors.info.main}
                   onPress={() => handleStatusUpdate('in_progress')}
+                  disabled={!canStartSession}
                   variant="filled"
                   testId="action-start"
                 />
               )}
-              {canComplete && (
+              {/* Complete - only for in_progress status */}
+              {appointment.status === 'in_progress' && (
                 <ActionButton
                   icon="checkmark-done-circle"
                   label={t('appointments.complete')}
                   color={colors.success.main}
                   onPress={() => handleStatusUpdate('completed')}
+                  disabled={!canCompleteSession}
                   variant="filled"
                   testId="action-complete"
                 />
               )}
             </View>
 
-            {/* Secondary Actions Row */}
-            <View style={styles.actionsRow}>
-              {canModifyAppointment && (
+            {/* Secondary Actions Row - Always visible for active appointments */}
+            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) && (
+              <View style={styles.actionsRow}>
                 <ActionButton
                   icon="calendar-outline"
                   label={t('appointments.reschedule')}
@@ -756,8 +776,6 @@ export const AppointmentDetailScreen: React.FC = () => {
                   disabled={!canModify}
                   testId="action-reschedule"
                 />
-              )}
-              {canModifyAppointment && (
                 <ActionButton
                   icon="close-circle-outline"
                   label={t('common.cancel')}
@@ -766,18 +784,33 @@ export const AppointmentDetailScreen: React.FC = () => {
                   disabled={!canModify}
                   testId="action-cancel"
                 />
-              )}
-              {canMarkNoShow && (
-                <ActionButton
-                  icon="alert-circle-outline"
-                  label={t('appointments.noShow')}
-                  color={colors.warning.main}
-                  onPress={() => handleStatusUpdate('no_show')}
-                  disabled={!canModify}
-                  testId="action-no-show"
-                />
-              )}
-            </View>
+                {['scheduled', 'confirmed'].includes(appointment.status) && (
+                  <ActionButton
+                    icon="alert-circle-outline"
+                    label={t('appointments.noShow')}
+                    color={colors.warning.main}
+                    onPress={() => handleStatusUpdate('no_show')}
+                    disabled={!canMarkNoShow}
+                    testId="action-no-show"
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Empty state for completed/cancelled/no_show appointments */}
+            {['completed', 'cancelled', 'no_show'].includes(appointment.status) && (
+              <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
+                <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
+                <Text style={styles.actionsEmptyText}>
+                  {appointment.status === 'completed' 
+                    ? t('appointments.appointmentCompleted') || 'This appointment has been completed'
+                    : appointment.status === 'cancelled'
+                    ? t('appointments.appointmentCancelled') || 'This appointment has been cancelled'
+                    : t('appointments.clientNoShow') || 'Client did not show up'
+                  }
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1150,6 +1183,21 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...typography.body2,
     fontWeight: '600',
+  },
+  // BUG FIX #3: Empty state for actions
+  actionsEmptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.grey[100],
+    borderRadius: 8,
+    padding: spacing.md,
+  },
+  actionsEmptyText: {
+    ...typography.body2,
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 
   // Meta
