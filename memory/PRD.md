@@ -11,6 +11,34 @@ User tested all 8 bug fixes from previous session. Results:
 - **PARTIALLY RESOLVED**: Single-slot conflict checking (works but UI needs improvement)
 - **NOT RESOLVED**: 6 other issues - therapist display, client name, quick actions, time drift, gender matching, alternative slots
 
+### API Integration Updates (Per User Clarification)
+The therapy plan API now returns names directly in the response:
+```typescript
+interface TherapyPlanResponse {
+  series_id: string;
+  client_id: string;
+  client_name: string | null;        // ✨ Display in header
+  treatment_id: string;
+  start_date: string;
+  duration_days: number;
+  sessions: SessionResponse[];
+  has_conflicts: boolean;
+  metadata: { preferred_time_hour: number; duration_minutes: number; };
+}
+
+interface SessionResponse {
+  session_number: number;
+  appointment_start: string;
+  appointment_end: string;
+  staff_id: string | null;
+  staff_name: string | null;         // ✨ Display therapist name
+  room_id: string | null;
+  room_name: string | null;          // ✨ Display room name
+  is_conflicted: boolean;
+  conflict: ConflictResponse | null;
+}
+```
+
 ### Bug Fixes Applied (This Session - Final Iteration)
 
 #### BUG #1: Therapist Display on Appointment Cards - ENHANCED
