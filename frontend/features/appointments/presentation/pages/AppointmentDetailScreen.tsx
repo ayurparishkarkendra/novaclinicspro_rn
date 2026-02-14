@@ -636,22 +636,13 @@ export const AppointmentDetailScreen: React.FC = () => {
                 <Ionicons name="call" size={20} color={colors.background.default} />
               </TouchableOpacity>
             )}
-              <TouchableOpacity 
-                style={styles.callButton}
-                onPress={handleCallClient}
-                accessibilityLabel={t('appointments.callClient')}
-                data-testid="detail-call-button"
-              >
-                <Ionicons name="call" size={20} color={colors.background.default} />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
         {/* VISIT HISTORY SECTION */}
         {visitHistory.length > 0 && (
           <View style={styles.section} data-testid="detail-visit-history-section">
-            <SectionHeader title={t('appointments.visitHistory')} icon="time" />
+            <SectionHeader title={t('appointments.visitHistory') || 'Visit History'} icon="time" />
             <View style={styles.visitHistoryCard}>
               {visitHistory.map((historyItem: any) => (
                 <VisitHistoryItem
@@ -666,47 +657,47 @@ export const AppointmentDetailScreen: React.FC = () => {
 
         {/* APPOINTMENT INFO SECTION */}
         <View style={styles.section} data-testid="detail-appointment-info-section">
-          <SectionHeader title={t('appointments.appointmentDetails')} icon="calendar" />
+          <SectionHeader title={t('appointments.appointmentDetails') || 'Appointment Details'} icon="calendar" />
           <View style={styles.card}>
             <InfoRow
               icon="calendar-outline"
-              label={t('common.date')}
+              label={t('common.date') || 'Date'}
               value={formatDate(appointment.appointment_start)}
               testId="detail-date"
             />
             <InfoRow
               icon="time-outline"
-              label={t('common.time')}
+              label={t('common.time') || 'Time'}
               value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
               testId="detail-time"
             />
             <InfoRow
               icon="hourglass-outline"
-              label={t('common.duration')}
+              label={t('common.duration') || 'Duration'}
               value={formatDuration(duration)}
               testId="detail-duration"
             />
-            {appointment.treatment_name && (
+            {displayTreatmentName && (
               <InfoRow
                 icon="medical-outline"
-                label={t('common.treatment')}
-                value={appointment.treatment_name}
+                label={t('common.treatment') || 'Treatment'}
+                value={displayTreatmentName}
                 testId="detail-treatment"
               />
             )}
-            {appointment.staff_name && (
+            {displayStaffName && (
               <InfoRow
                 icon="person-circle-outline"
-                label={t('common.staff')}
-                value={appointment.staff_name}
+                label={t('common.staff') || 'Staff'}
+                value={displayStaffName}
                 testId="detail-staff"
               />
             )}
-            {appointment.room_name && (
+            {displayRoomName && (
               <InfoRow
                 icon="business-outline"
-                label={t('common.room')}
-                value={appointment.room_name}
+                label={t('common.room') || 'Room'}
+                value={displayRoomName}
                 testId="detail-room"
               />
             )}
@@ -716,7 +707,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         {/* Notes Section */}
         {appointment.notes && (
           <View style={styles.section}>
-            <SectionHeader title={t('common.notes')} icon="document-text" />
+            <SectionHeader title={t('common.notes') || 'Notes'} icon="document-text" />
             <View style={styles.notesCard}>
               <Text style={styles.notesText}>{appointment.notes}</Text>
             </View>
