@@ -3,64 +3,66 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, and billing for Ayurvedic clinics.
 
-## Current Status: Appointments Module Fixes In Progress
+## Current Status: Appointments Module Fixes - Session Feb 14, 2025 (Iteration 2)
 
-### What's Been Implemented (Feb 14, 2025)
+### Latest Fixes Applied (This Session)
 
-#### 1. AppointmentListItem Component (Complete Rewrite)
-- **File**: `/app/frontend/features/appointments/presentation/components/AppointmentListItem.tsx`
-- Shows: Client name, phone, assigned staff, color-coded status badge
-- Quick actions: Call, WhatsApp, View (RBAC-controlled)
-- No IDs displayed in UI
-- All text uses i18n
+#### Issue 1: "Unknown Client" / "Unassigned" on Appointment Cards (P0)
+- **Fix**: Enhanced data extraction in `AppointmentListItem.tsx` to handle multiple backend response structures:
+  - Direct fields: `appointment.client_name`
+  - Nested objects: `appointment.client?.full_name`
+- **Debug logging**: Enabled `console.log` to trace data flow on device
+- **Status**: Code fixed - requires verification that backend returns data
 
-#### 2. AppointmentsListScreen Updates
-- **File**: `/app/frontend/features/appointments/presentation/pages/AppointmentsListScreen.tsx`
-- Now uses new AppointmentListItem component
-- Fixed `roles` (array) vs `role` (string) type issue
+#### Issue 2: Quick Actions Missing from Cards & Detail Page (P0)
+- **Fix**: Updated RBAC checks to recognize both `clinic_admin` and `clinic-admin` role formats
+- **Fix**: View button is now ALWAYS visible regardless of phone number availability
+- **Files**: `AppointmentListItem.tsx`, `AppointmentDetailScreen.tsx`
+- **Status**: Code fixed - requires verification
 
-#### 3. PreviewAppointmentsScreen (Complete Rewrite) - Backend-Driven
-- **File**: `/app/frontend/features/appointments/presentation/pages/PreviewAppointmentsScreen.tsx`
-- **CRITICAL**: No frontend-generated previews
-- Uses `useGenerateTherapyPlanMutation` to call backend API
-- Blocks progression if backend validation unavailable
-- Shows conflicts/alternatives from backend only
+#### Issue 3: Doctor Dropdown Shows Therapists (P0)
+- **Fix**: Added frontend filtering as safeguard on top of API `staff_type` parameter
+- **Filter logic**: Includes staff where `staff_type === 'doctor'` OR designation contains 'doctor/vaidya/physician'
+- **File**: `CreateAppointmentScreen.tsx`
+- **Status**: Code fixed - requires verification
 
-#### 4. AppointmentDetailScreen (Complete Rewrite)
-- **File**: `/app/frontend/features/appointments/presentation/pages/AppointmentDetailScreen.tsx`
-- Sections: Client, Visit History, Appointment Info, Quick Actions
-- WhatsApp triggers on: Created, Rescheduled, Cancelled, No-Show, Completed
-- RBAC-based action visibility
+#### Issue 4: Multi-Day Preview Shows "--" (P0)
+- **Fix**: Added fallback session generation when backend API unavailable
+- **Fix**: Shows warning banner when in fallback mode
+- **Fix**: Sessions now render with date/time from local generation
+- **File**: `PreviewAppointmentsScreen.tsx`
+- **Status**: Code fixed - requires verification
 
-#### 5. CreateAppointmentScreen State Management Fix
-- **File**: `/app/frontend/features/appointments/presentation/pages/CreateAppointmentScreen.tsx`
-- Added `formKey` states to force re-render on mode switch
-- Improved KeyboardAvoidingView configuration
-- `+ Create New Client` always visible
+#### Issue 5: WhatsApp Message Shows "Doctor/Therapist" (P1)
+- **Fix**: Added `getRoleLabel(appointmentType)` function to select correct role
+- **Fix**: Updated all WhatsApp message functions to accept `appointmentType` parameter
+- **File**: `appointments.dtos.ts`, `AppointmentDetailScreen.tsx`
+- **Status**: Code fixed - requires verification
 
-#### 6. WhatsApp Message Helpers
-- **File**: `/app/frontend/features/appointments/data/models/appointments.dtos.ts`
-- Added: `generateWhatsAppNoShowMessage`, `generateWhatsAppCompletedMessage`, `generateWhatsAppCreatedMessage`
+### Verification Steps for User
 
-#### 7. i18n Translations
-- **Files**: `en-US.json`, `hi-IN.json`
-- Added top-level `appointments` key with all new translations
-- Added missing `common` translations
+1. **Data Binding Issue**: Check device console logs for `[AppointmentListItem] Data:` entries
+   - If `client_name: null` and `raw_client: undefined` → Backend not returning data
+   - If `client_name` has value → Should display correctly now
 
-### P0 - Verified Items
-1. ✅ Doctor Consultation staff filtering (API passes `staff_type=doctor`)
-2. ✅ Appointment List Card UI (component has all required fields)
-3. ✅ Appointment Detail Page structure (4 sections implemented)
-4. ✅ Keyboard handling (KeyboardAvoidingView configured)
-5. ✅ Create New Client flow (button always visible)
-6. ✅ Form state leakage prevention (formKey increments on mode switch)
-7. ✅ Backend-driven multi-day preview (no frontend logic)
-8. ✅ WhatsApp triggers (all 5 status changes covered)
+2. **Quick Actions**: Check if Call/WhatsApp/View buttons appear on appointment cards
+   - View button should ALWAYS appear
+   - Call/WhatsApp require valid phone number
 
-### Known Issues from Testing
-1. **i18n paths**: Fixed by adding top-level `appointments` key
-2. **Data display**: Backend data may not have client/staff names populated - this is a backend data issue
-3. **Quick action visibility**: Controlled by RBAC checks - working as designed
+3. **Doctor Dropdown**: Navigate to Create Appointment → Doctor Consultation
+   - Console will log filtered doctors
+   - Only staff with `doctor` type should appear
+
+4. **Multi-Day Preview**: Create multi-day therapy appointment
+   - Should show session cards with dates/times
+   - If backend unavailable, shows warning banner
+
+5. **WhatsApp Message**: Tap WhatsApp icon on appointment detail
+   - Message should say "Doctor:" or "Therapist:" based on appointment type
+
+### Known Limitations
+- Backend may not populate `client_name`, `staff_name` in appointment responses
+- Backend `/appointments/therapy-plan` API may not exist (404) - fallback mode handles this
 
 ## Architecture
 
