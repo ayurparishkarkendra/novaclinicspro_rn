@@ -693,11 +693,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* BUG FIX #4: Show user's preferred time clearly */}
+              {/* Display user's preferred time using LOCAL hour for clarity */}
               <Text style={styles.preferredTimeText}>
-                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHour < 12 
-                  ? `${preferredTimeHour === 0 ? 12 : preferredTimeHour}:00 AM` 
-                  : `${preferredTimeHour === 12 ? 12 : preferredTimeHour - 12}:00 PM`}
+                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHourLocal < 12 
+                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:00 AM` 
+                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:00 PM`}
               </Text>
             </View>
           </View>
