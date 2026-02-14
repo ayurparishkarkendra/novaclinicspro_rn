@@ -261,6 +261,11 @@ export const AppointmentsListScreen: React.FC = () => {
     );
   }, [cancelMutation, refetch]);
 
+  // Handler for reschedule - navigates to detail page where reschedule flow exists
+  const handleReschedule = useCallback((appointmentId: string) => {
+    router.push(`/clinic-admin/appointments/${appointmentId}` as any);
+  }, [router]);
+
   // Use search results if searching, otherwise use date-based data
   const isSearchMode = debouncedQuery.length >= 3;
   const displayData = isSearchMode ? searchData : appointmentsData;
