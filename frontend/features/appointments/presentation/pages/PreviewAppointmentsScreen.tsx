@@ -307,6 +307,37 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
+  // ===== HELPER: Generate sessions locally (fallback when backend unavailable) =====
+  const generateFallbackSessions = useCallback((): SessionData[] => {
+    const sessions: SessionData[] = [];
+    const startDate = new Date(startDateStr);
+    
+    for (let i = 0; i < durationDays; i++) {
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      
+      // Set preferred time
+      sessionDate.setHours(preferredTimeHour, 0, 0, 0);
+      
+      const endDate = new Date(sessionDate);
+      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
+      
+      sessions.push({
+        session_number: i + 1,
+        start: sessionDate.toISOString(),
+        end: endDate.toISOString(),
+        staff_id: staffIds[i % staffIds.length] || undefined,
+        staff_name: undefined, // Cannot determine from IDs alone
+        is_conflicted: false, // No backend to check conflicts
+        conflict: undefined,
+        alternative_slots: undefined,
+        selected_alternative: undefined,
+      });
+    }
+    
+    return sessions;
+  }, [startDateStr, durationDays, preferredTimeHour, durationMinutes, staffIds]);
+
   // ===== BACKEND-DRIVEN SESSION GENERATION =====
   // CRITICAL: This MUST use the backend API for conflict detection
   useEffect(() => {
@@ -315,6 +346,16 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       setBackendError(null);
 
       try {
+        // DEBUG: Log the request payload
+        console.log('[PreviewAppointments] Fetching therapy plan with:', {
+          client_id: clientId,
+          treatment_id: treatmentId,
+          staff_ids: staffIds,
+          start_date: startDateStr,
+          duration_days: durationDays,
+          preferred_time_hour: preferredTimeHour,
+        });
+
         // Call backend to generate therapy plan with conflict detection
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
@@ -325,23 +366,44 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           preferred_time_hour: preferredTimeHour,
         });
 
-        // Map backend response to local state
-        const mappedSessions: SessionData[] = response.sessions.map((session) => ({
-          ...session,
-          selected_alternative: undefined,
-        }));
+        // DEBUG: Log the response
+        console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
-        setSessions(mappedSessions);
+        // Map backend response to local state
+        if (response.sessions && response.sessions.length > 0) {
+          const mappedSessions: SessionData[] = response.sessions.map((session) => ({
+            ...session,
+            selected_alternative: undefined,
+          }));
+          setSessions(mappedSessions);
+          console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
+        } else {
+          // Backend returned empty sessions - use fallback with warning
+          console.warn('[PreviewAppointments] Backend returned empty sessions, using fallback');
+          setBackendError(t('appointments.backendReturnedEmpty') || 'Backend returned no sessions. Showing preview without conflict detection.');
+          setSessions(generateFallbackSessions());
+        }
       } catch (error: any) {
-        console.error('Failed to generate therapy plan:', error);
+        console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
+        console.error('[PreviewAppointments] Error response:', error?.response?.data);
         
         // Check if it's a 404/501 (endpoint not available)
         if (error?.response?.status === 404 || error?.response?.status === 501) {
-          setBackendError(t('appointments.backendValidationUnavailable'));
+          // Backend API not available - use fallback with warning
+          setBackendError(
+            t('appointments.backendValidationUnavailable') || 
+            'Therapy plan API is unavailable. Showing preview without conflict detection. Please verify manually.'
+          );
+          setSessions(generateFallbackSessions());
         } else if (error?.response?.status === 401 || error?.response?.status === 403) {
-          setBackendError(t('errors.auth.unauthorized'));
+          setBackendError(t('errors.auth.unauthorized') || 'Unauthorized');
         } else {
-          setBackendError(error?.message || t('appointments.failedToGeneratePlan'));
+          // Other error - still show fallback with warning
+          setBackendError(
+            (error?.response?.data?.detail || error?.message || t('appointments.failedToGeneratePlan')) +
+            ' Showing preview without conflict detection.'
+          );
+          setSessions(generateFallbackSessions());
         }
       } finally {
         setIsGenerating(false);
@@ -351,10 +413,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     if (clientId && treatmentId && staffIds.length > 0) {
       fetchTherapyPlan();
     } else {
-      setBackendError(t('appointments.missingRequiredFields'));
+      setBackendError(t('appointments.missingRequiredFields') || 'Missing required fields');
       setIsGenerating(false);
     }
-  }, [clientId, treatmentId, staffIds.join(','), startDateStr, durationDays, preferredTimeHour]);
+  }, [clientId, treatmentId, staffIds.join(','), startDateStr, durationDays, preferredTimeHour, generateFallbackSessions]);
 
   // Handle alternative selection
   const handleSelectAlternative = (sessionNumber: number, slot: AlternativeSlot) => {
