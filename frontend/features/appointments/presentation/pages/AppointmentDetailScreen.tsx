@@ -1184,6 +1184,21 @@ const styles = StyleSheet.create({
     ...typography.body2,
     fontWeight: '600',
   },
+  // BUG FIX #3: Empty state for actions
+  actionsEmptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.grey[100],
+    borderRadius: 8,
+    padding: spacing.md,
+  },
+  actionsEmptyText: {
+    ...typography.body2,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+  },
 
   // Meta
   metaSection: {
