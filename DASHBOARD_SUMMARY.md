@@ -133,6 +133,6 @@ The foundation is ready! You can now:
 
 ## 📱 Access the App
 
-**Web Preview**: https://appt-critical-fix.preview.emergentagent.com
+**Web Preview**: https://health-sched-repair.preview.emergentagent.com
 
 The app is live and fully functional with navigation between all 4 dashboards!

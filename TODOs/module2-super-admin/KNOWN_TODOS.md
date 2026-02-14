@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://appt-critical-fix.preview.emergentagent.com
+**Preview URL:** https://health-sched-repair.preview.emergentagent.com
 
 ---
 

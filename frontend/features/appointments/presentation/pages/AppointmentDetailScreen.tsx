@@ -1,10 +1,21 @@
 /**
  * Appointment Detail Screen
- * RESTRUCTURED with proper sections:
+ * 
+ * STRUCTURE:
  * - Client Section (name, phone, quick call action)
- * - Visit/Appointment Info Section
- * - Quick Actions with role-based visibility
- * - WhatsApp integration
+ * - Visit History Section (previous appointments for this client)
+ * - Appointment Info Section
+ * - Quick Actions Section (RBAC-based)
+ * 
+ * WHATSAPP TRIGGERS on status changes:
+ * - Created (on creation)
+ * - Rescheduled
+ * - Cancelled
+ * - No-Show
+ * - Completed
+ * 
+ * NO IDs displayed in UI.
+ * All text uses i18n.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -19,6 +30,7 @@ import {
   RefreshControl,
   Linking,
   Platform,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,12 +39,14 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   useAppointmentDetailQuery,
   useUpdateAppointmentMutation,
   useCancelAppointmentMutation,
   useRescheduleAppointmentMutation,
+  useAppointmentsListQuery,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   getStatusLabel,
@@ -45,6 +59,8 @@ import {
   generateWhatsAppConfirmationMessage,
   generateWhatsAppCancellationMessage,
   generateWhatsAppRescheduleMessage,
+  generateWhatsAppNoShowMessage,
+  generateWhatsAppCompletedMessage,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
@@ -74,14 +90,24 @@ interface InfoRowProps {
   valueColor?: string;
   onPress?: () => void;
   showChevron?: boolean;
+  testId?: string;
 }
 
-const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPress, showChevron = false }) => (
+const InfoRow: React.FC<InfoRowProps> = ({ 
+  icon, 
+  label, 
+  value, 
+  valueColor, 
+  onPress, 
+  showChevron = false,
+  testId,
+}) => (
   <TouchableOpacity
     style={styles.infoRow}
     onPress={onPress}
     disabled={!onPress}
     activeOpacity={onPress ? 0.7 : 1}
+    data-testid={testId}
   >
     <View style={styles.infoIcon}>
       <Ionicons name={icon} size={18} color={colors.primary.main} />
@@ -109,6 +135,7 @@ interface ActionButtonProps {
   onPress: () => void;
   disabled?: boolean;
   variant?: 'filled' | 'outlined';
+  testId?: string;
 }
 
 const ActionButton: React.FC<ActionButtonProps> = ({ 
@@ -117,7 +144,8 @@ const ActionButton: React.FC<ActionButtonProps> = ({
   color, 
   onPress, 
   disabled,
-  variant = 'outlined' 
+  variant = 'outlined',
+  testId,
 }) => (
   <TouchableOpacity
     style={[
@@ -129,6 +157,9 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     ]}
     onPress={onPress}
     disabled={disabled}
+    accessibilityRole="button"
+    accessibilityState={{ disabled }}
+    data-testid={testId}
   >
     <Ionicons 
       name={icon} 
@@ -145,14 +176,57 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 );
 
 // ============================================
+// VISIT HISTORY ITEM COMPONENT
+// ============================================
+
+interface VisitHistoryItemProps {
+  appointment: any;
+  onPress: () => void;
+}
+
+const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPress }) => {
+  const statusColor = getStatusColor(appointment.status);
+  
+  return (
+    <TouchableOpacity 
+      style={styles.visitHistoryItem} 
+      onPress={onPress}
+      data-testid={`visit-history-item-${appointment.id}`}
+    >
+      <View style={[styles.visitHistoryDot, { backgroundColor: statusColor }]} />
+      <View style={styles.visitHistoryContent}>
+        <Text style={styles.visitHistoryDate}>
+          {formatDate(appointment.appointment_start)}
+        </Text>
+        <Text style={styles.visitHistoryTime}>
+          {formatTime(appointment.appointment_start)}
+        </Text>
+        {appointment.treatment_name && (
+          <Text style={styles.visitHistoryTreatment} numberOfLines={1}>
+            {appointment.treatment_name}
+          </Text>
+        )}
+      </View>
+      <View style={[styles.visitHistoryStatus, { backgroundColor: statusColor + '15' }]}>
+        <Text style={[styles.visitHistoryStatusText, { color: statusColor }]}>
+          {getStatusLabel(appointment.status)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ============================================
 // MAIN SCREEN
 // ============================================
 
 export const AppointmentDetailScreen: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation();
   const { appointmentId } = useLocalSearchParams<{ appointmentId: string }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const userRole = currentUser?.roles?.[0] || 'clinic_admin';
 
   // State for reschedule
   const [showReschedulePicker, setShowReschedulePicker] = useState(false);
@@ -170,143 +244,207 @@ export const AppointmentDetailScreen: React.FC = () => {
     isRefetching,
   } = useAppointmentDetailQuery(tenantId, appointmentId || '');
 
+  // Query for visit history (previous appointments for this client)
+  const clientId = appointment?.client_id;
+  const { data: clientAppointments } = useAppointmentsListQuery(
+    tenantId,
+    { client_id: clientId, limit: 10 },
+    { enabled: !!clientId }
+  );
+
+  // Filter visit history to exclude current appointment
+  const visitHistory = (clientAppointments?.items || [])
+    .filter((apt: any) => apt.id !== appointmentId)
+    .slice(0, 5);
+
   // Mutations
   const updateMutation = useUpdateAppointmentMutation(tenantId, appointmentId || '');
   const cancelMutation = useCancelAppointmentMutation(tenantId);
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
+  // ===== RBAC CHECK =====
+  // Determine which actions are allowed based on user role
+  const canModifyAppointment = ['clinic_admin', 'receptionist'].includes(userRole);
+  const canStartSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canCompleteSession = ['clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canMarkNoShow = ['clinic_admin', 'receptionist'].includes(userRole);
+  const canCall = ['clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  const canWhatsApp = ['clinic_admin', 'receptionist'].includes(userRole);
+
   // Call client directly
   const handleCallClient = useCallback(() => {
     if (!appointment?.client_phone) {
-      Alert.alert('No Phone Number', 'Client phone number is not available');
+      Alert.alert(t('common.error'), t('appointments.noPhoneNumber'));
       return;
     }
     Linking.openURL(`tel:${appointment.client_phone}`);
-  }, [appointment]);
+  }, [appointment, t]);
 
-  // WhatsApp handlers
-  const handleWhatsAppConfirmation = useCallback(() => {
-    if (!appointment) return;
-    const phone = appointment.client_phone || '';
-    if (!phone) {
-      Alert.alert('No Phone Number', 'Client phone number is not available');
-      return;
+  // ===== WHATSAPP HANDLERS FOR ALL STATUS CHANGES =====
+  
+  // Generic WhatsApp sender with status-specific message
+  const sendWhatsAppForStatus = useCallback((
+    status: string,
+    newDateTime?: { date: string; time: string }
+  ) => {
+    if (!appointment?.client_phone) return;
+
+    const phone = appointment.client_phone;
+    const clientName = appointment.client_name || t('common.client');
+    const staffName = appointment.staff_name || t('common.staff');
+    const treatmentName = appointment.treatment_name || t('common.appointment');
+    const clinicPhone = '+91-XXXXXXXXXX';
+    const clinicName = t('common.yourClinic');
+
+    let message = '';
+
+    switch (status) {
+      case 'confirmed':
+        message = generateWhatsAppConfirmationMessage(
+          clientName,
+          clinicName,
+          formatDate(appointment.appointment_start),
+          formatTime(appointment.appointment_start),
+          staffName,
+          treatmentName,
+          clinicPhone
+        );
+        break;
+      case 'cancelled':
+        message = generateWhatsAppCancellationMessage(
+          clientName,
+          formatDate(appointment.appointment_start),
+          formatTime(appointment.appointment_start),
+          treatmentName,
+          clinicPhone
+        );
+        break;
+      case 'rescheduled':
+        if (newDateTime) {
+          message = generateWhatsAppRescheduleMessage(
+            clientName,
+            formatDate(appointment.appointment_start),
+            formatTime(appointment.appointment_start),
+            newDateTime.date,
+            newDateTime.time,
+            staffName,
+            treatmentName
+          );
+        }
+        break;
+      case 'no_show':
+        message = generateWhatsAppNoShowMessage(
+          clientName,
+          formatDate(appointment.appointment_start),
+          formatTime(appointment.appointment_start),
+          treatmentName,
+          clinicPhone
+        );
+        break;
+      case 'completed':
+        message = generateWhatsAppCompletedMessage(
+          clientName,
+          formatDate(appointment.appointment_start),
+          treatmentName,
+          clinicPhone
+        );
+        break;
+      default:
+        return;
     }
-    const message = generateWhatsAppConfirmationMessage(
-      appointment.client_name || 'Client',
-      'Your Clinic',
-      formatDate(appointment.appointment_start),
-      formatTime(appointment.appointment_start),
-      appointment.staff_name || 'Staff',
-      appointment.treatment_name || 'Appointment',
-      '+91-XXXXXXXXXX'
-    );
-    const url = openWhatsApp(phone, message);
-    Linking.openURL(url);
-  }, [appointment]);
 
-  // Handle status update
+    const url = openWhatsApp(phone, message);
+    
+    Alert.alert(
+      t('appointments.notifyClient'),
+      t('appointments.sendWhatsAppConfirmation'),
+      [
+        { text: t('common.skip'), style: 'cancel' },
+        { text: t('appointments.sendWhatsApp'), onPress: () => Linking.openURL(url) },
+      ]
+    );
+  }, [appointment, t]);
+
+  // Handle status update with WhatsApp trigger
   const handleStatusUpdate = useCallback(async (newStatus: string) => {
     if (!appointment) return;
 
     const statusMessages: Record<string, string> = {
-      confirmed: 'Mark as Confirmed',
-      in_progress: 'Start Appointment',
-      completed: 'Mark as Completed',
-      no_show: 'Mark as No-Show',
+      confirmed: t('appointments.markAsConfirmed'),
+      in_progress: t('appointments.startAppointment'),
+      completed: t('appointments.markAsCompleted'),
+      no_show: t('appointments.markAsNoShow'),
     };
 
     Alert.alert(
-      statusMessages[newStatus] || 'Update Status',
-      `Are you sure you want to ${statusMessages[newStatus]?.toLowerCase() || 'update this appointment'}?`,
+      statusMessages[newStatus] || t('appointments.updateStatus'),
+      t('appointments.confirmStatusChange'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Yes',
+          text: t('common.yes'),
           onPress: async () => {
             try {
               await updateMutation.mutateAsync({ status: newStatus });
-              Alert.alert('Success', 'Appointment status updated');
+              Alert.alert(t('common.success'), t('appointments.statusUpdated'));
               refetch();
 
-              // Offer WhatsApp notification for confirmation
-              if (newStatus === 'confirmed' && appointment.client_phone) {
+              // Offer WhatsApp notification for status changes
+              if (appointment.client_phone && canWhatsApp) {
                 setTimeout(() => {
-                  Alert.alert(
-                    'Send Confirmation?',
-                    'Would you like to send a WhatsApp confirmation to the client?',
-                    [
-                      { text: 'Skip', style: 'cancel' },
-                      { text: 'Send', onPress: handleWhatsAppConfirmation },
-                    ]
-                  );
+                  sendWhatsAppForStatus(newStatus);
                 }, 500);
               }
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to update status');
+              Alert.alert(t('common.error'), err.message || t('appointments.updateFailed'));
             }
           },
         },
       ]
     );
-  }, [appointment, updateMutation, refetch, handleWhatsAppConfirmation]);
+  }, [appointment, updateMutation, refetch, sendWhatsAppForStatus, t, canWhatsApp]);
 
-  // Handle cancel
+  // Handle cancel with WhatsApp trigger
   const handleCancel = useCallback(() => {
     if (!appointment) return;
 
     Alert.alert(
-      'Cancel Appointment',
-      'Are you sure you want to cancel this appointment?',
+      t('appointments.cancelAppointment'),
+      t('appointments.confirmCancel'),
       [
-        { text: 'No', style: 'cancel' },
+        { text: t('common.no'), style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: t('common.yesCancel'),
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelMutation.mutateAsync(appointmentId || '');
-              Alert.alert('Success', 'Appointment cancelled');
+              Alert.alert(t('common.success'), t('appointments.appointmentCancelled'));
               refetch();
 
-              // Offer WhatsApp notification
-              if (appointment.client_phone) {
+              // Offer WhatsApp notification for cancellation
+              if (appointment.client_phone && canWhatsApp) {
                 setTimeout(() => {
-                  const message = generateWhatsAppCancellationMessage(
-                    appointment.client_name || 'Client',
-                    formatDate(appointment.appointment_start),
-                    formatTime(appointment.appointment_start),
-                    appointment.treatment_name || 'Appointment',
-                    '+91-XXXXXXXXXX'
-                  );
-                  const url = openWhatsApp(appointment.client_phone || '', message);
-
-                  Alert.alert(
-                    'Notify Client?',
-                    'Would you like to send a WhatsApp cancellation notice?',
-                    [
-                      { text: 'Skip', style: 'cancel' },
-                      { text: 'Send', onPress: () => Linking.openURL(url) },
-                    ]
-                  );
+                  sendWhatsAppForStatus('cancelled');
                 }, 500);
               }
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to cancel');
+              Alert.alert(t('common.error'), err.message || t('appointments.cancelFailed'));
             }
           },
         },
       ]
     );
-  }, [appointment, cancelMutation, appointmentId, refetch]);
+  }, [appointment, cancelMutation, appointmentId, refetch, sendWhatsAppForStatus, t, canWhatsApp]);
 
-  // Handle reschedule
+  // Handle reschedule initiation
   const handleReschedule = useCallback(() => {
     if (!appointment) return;
     setRescheduleDate(new Date(appointment.appointment_start));
     setShowReschedulePicker(true);
   }, [appointment]);
 
+  // Confirm reschedule with WhatsApp trigger
   const confirmReschedule = useCallback(async () => {
     if (!appointment || !rescheduleDate || !rescheduleTime) return;
 
@@ -325,37 +463,27 @@ export const AppointmentDetailScreen: React.FC = () => {
 
       setShowReschedulePicker(false);
       setShowRescheduleTime(false);
-      Alert.alert('Success', 'Appointment rescheduled');
+      Alert.alert(t('common.success'), t('appointments.appointmentRescheduled'));
       refetch();
 
-      // Offer WhatsApp notification
-      if (appointment.client_phone) {
+      // Offer WhatsApp notification for rescheduling
+      if (appointment.client_phone && canWhatsApp) {
         setTimeout(() => {
-          const message = generateWhatsAppRescheduleMessage(
-            appointment.client_name || 'Client',
-            formatDate(appointment.appointment_start),
-            formatTime(appointment.appointment_start),
-            formatDate(newDateTime.toISOString()),
-            formatTime(newDateTime.toISOString()),
-            appointment.staff_name || 'Staff',
-            appointment.treatment_name || 'Appointment'
-          );
-          const url = openWhatsApp(appointment.client_phone || '', message);
-
-          Alert.alert(
-            'Notify Client?',
-            'Would you like to send a WhatsApp reschedule notice?',
-            [
-              { text: 'Skip', style: 'cancel' },
-              { text: 'Send', onPress: () => Linking.openURL(url) },
-            ]
-          );
+          sendWhatsAppForStatus('rescheduled', {
+            date: formatDate(newDateTime.toISOString()),
+            time: formatTime(newDateTime.toISOString()),
+          });
         }, 500);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to reschedule');
+      Alert.alert(t('common.error'), err.message || t('appointments.rescheduleFailed'));
     }
-  }, [appointment, rescheduleDate, rescheduleTime, rescheduleMutation, refetch]);
+  }, [appointment, rescheduleDate, rescheduleTime, rescheduleMutation, refetch, sendWhatsAppForStatus, t, canWhatsApp]);
+
+  // Navigate to visit history item
+  const handleVisitHistoryPress = useCallback((historyAppointmentId: string) => {
+    router.push(`/clinic-admin/appointments/${historyAppointmentId}` as any);
+  }, [router]);
 
   // Loading state
   if (isLoading) {
@@ -363,7 +491,7 @@ export const AppointmentDetailScreen: React.FC = () => {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Loading appointment...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -380,12 +508,12 @@ export const AppointmentDetailScreen: React.FC = () => {
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={colors.error.main} />
-          <Text style={styles.errorTitle}>Could not load appointment</Text>
+          <Text style={styles.errorTitle}>{t('appointments.loadFailed')}</Text>
           <Text style={styles.errorText}>
-            {error?.message || 'Appointment not found'}
+            {error?.message || t('appointments.notFound')}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -394,22 +522,32 @@ export const AppointmentDetailScreen: React.FC = () => {
 
   const statusColor = getStatusColor(appointment.status);
   const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
-  const canModify = ['scheduled', 'confirmed'].includes(appointment.status);
-  const canStart = appointment.status === 'confirmed';
-  const canComplete = appointment.status === 'in_progress';
+  const canModify = canModifyAppointment && ['scheduled', 'confirmed'].includes(appointment.status);
+  const canStart = canStartSession && appointment.status === 'confirmed';
+  const canComplete = canCompleteSession && appointment.status === 'in_progress';
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          accessibilityLabel={t('common.goBack')}
+          data-testid="detail-back-button"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Appointment</Text>
+        <Text style={styles.headerTitle}>{t('navigation.appointments')}</Text>
         {/* WhatsApp Button */}
-        {appointment.client_phone && (
-          <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsAppConfirmation}>
+        {appointment.client_phone && canWhatsApp && (
+          <TouchableOpacity 
+            style={styles.whatsappButton} 
+            onPress={() => sendWhatsAppForStatus('confirmed')}
+            accessibilityLabel={t('appointments.sendWhatsApp')}
+            data-testid="detail-whatsapp-button"
+          >
             <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
           </TouchableOpacity>
         )}
@@ -435,27 +573,33 @@ export const AppointmentDetailScreen: React.FC = () => {
             <View style={styles.sessionBadge}>
               <Ionicons name="repeat" size={14} color={colors.primary.main} />
               <Text style={styles.sessionBadgeText}>
-                Session {appointment.session_number}/{appointment.total_sessions}
+                {t('appointments.session')} {appointment.session_number}/{appointment.total_sessions}
               </Text>
             </View>
           )}
         </View>
 
         {/* CLIENT SECTION */}
-        <View style={styles.section}>
-          <SectionHeader title="Client" icon="person" />
+        <View style={styles.section} data-testid="detail-client-section">
+          <SectionHeader title={t('common.client')} icon="person" />
           <View style={styles.clientCard}>
             <View style={styles.clientMainInfo}>
-              <Text style={styles.clientName}>{appointment.client_name || 'Unknown Client'}</Text>
+              <Text style={styles.clientName} data-testid="detail-client-name">
+                {appointment.client_name || t('common.unknownClient')}
+              </Text>
               {appointment.client_phone && (
-                <Text style={styles.clientPhone}>📞 {appointment.client_phone}</Text>
+                <Text style={styles.clientPhone} data-testid="detail-client-phone">
+                  {appointment.client_phone}
+                </Text>
               )}
             </View>
             {/* Quick Call Action */}
-            {appointment.client_phone && (
+            {appointment.client_phone && canCall && (
               <TouchableOpacity 
                 style={styles.callButton}
                 onPress={handleCallClient}
+                accessibilityLabel={t('appointments.callClient')}
+                data-testid="detail-call-button"
               >
                 <Ionicons name="call" size={20} color={colors.background.default} />
               </TouchableOpacity>
@@ -463,44 +607,66 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         </View>
 
+        {/* VISIT HISTORY SECTION */}
+        {visitHistory.length > 0 && (
+          <View style={styles.section} data-testid="detail-visit-history-section">
+            <SectionHeader title={t('appointments.visitHistory')} icon="time" />
+            <View style={styles.visitHistoryCard}>
+              {visitHistory.map((historyItem: any) => (
+                <VisitHistoryItem
+                  key={historyItem.id}
+                  appointment={historyItem}
+                  onPress={() => handleVisitHistoryPress(historyItem.id)}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* APPOINTMENT INFO SECTION */}
-        <View style={styles.section}>
-          <SectionHeader title="Appointment Details" icon="calendar" />
+        <View style={styles.section} data-testid="detail-appointment-info-section">
+          <SectionHeader title={t('appointments.appointmentDetails')} icon="calendar" />
           <View style={styles.card}>
             <InfoRow
               icon="calendar-outline"
-              label="Date"
+              label={t('common.date')}
               value={formatDate(appointment.appointment_start)}
+              testId="detail-date"
             />
             <InfoRow
               icon="time-outline"
-              label="Time"
+              label={t('common.time')}
               value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
+              testId="detail-time"
             />
             <InfoRow
               icon="hourglass-outline"
-              label="Duration"
+              label={t('common.duration')}
               value={formatDuration(duration)}
+              testId="detail-duration"
             />
             {appointment.treatment_name && (
               <InfoRow
                 icon="medical-outline"
-                label="Treatment"
+                label={t('common.treatment')}
                 value={appointment.treatment_name}
+                testId="detail-treatment"
               />
             )}
             {appointment.staff_name && (
               <InfoRow
                 icon="person-circle-outline"
-                label="Staff"
+                label={t('common.staff')}
                 value={appointment.staff_name}
+                testId="detail-staff"
               />
             )}
             {appointment.room_name && (
               <InfoRow
                 icon="business-outline"
-                label="Room"
+                label={t('common.room')}
                 value={appointment.room_name}
+                testId="detail-room"
               />
             )}
           </View>
@@ -509,71 +675,83 @@ export const AppointmentDetailScreen: React.FC = () => {
         {/* Notes Section */}
         {appointment.notes && (
           <View style={styles.section}>
-            <SectionHeader title="Notes" icon="document-text" />
+            <SectionHeader title={t('common.notes')} icon="document-text" />
             <View style={styles.notesCard}>
               <Text style={styles.notesText}>{appointment.notes}</Text>
             </View>
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION */}
-        <View style={styles.section}>
-          <SectionHeader title="Quick Actions" icon="flash" />
+        {/* QUICK ACTIONS SECTION - RBAC-based */}
+        <View style={styles.section} data-testid="detail-actions-section">
+          <SectionHeader title={t('appointments.quickActions')} icon="flash" />
           <View style={styles.actionsContainer}>
             {/* Primary Actions Row */}
             <View style={styles.actionsRow}>
-              {appointment.status === 'scheduled' && (
+              {appointment.status === 'scheduled' && canModifyAppointment && (
                 <ActionButton
                   icon="checkmark-circle"
-                  label="Confirm"
+                  label={t('appointments.confirm')}
                   color={colors.success.main}
                   onPress={() => handleStatusUpdate('confirmed')}
                   variant="filled"
+                  testId="action-confirm"
                 />
               )}
               {canStart && (
                 <ActionButton
                   icon="play-circle"
-                  label="Start Session"
+                  label={t('appointments.startSession')}
                   color={colors.info.main}
                   onPress={() => handleStatusUpdate('in_progress')}
                   variant="filled"
+                  testId="action-start"
                 />
               )}
               {canComplete && (
                 <ActionButton
                   icon="checkmark-done-circle"
-                  label="Complete"
+                  label={t('appointments.complete')}
                   color={colors.success.main}
                   onPress={() => handleStatusUpdate('completed')}
                   variant="filled"
+                  testId="action-complete"
                 />
               )}
             </View>
 
             {/* Secondary Actions Row */}
             <View style={styles.actionsRow}>
-              <ActionButton
-                icon="calendar-outline"
-                label="Reschedule"
-                color={colors.primary.main}
-                onPress={handleReschedule}
-                disabled={!canModify}
-              />
-              <ActionButton
-                icon="close-circle-outline"
-                label="Cancel"
-                color={colors.error.main}
-                onPress={handleCancel}
-                disabled={!canModify}
-              />
-              <ActionButton
-                icon="alert-circle-outline"
-                label="No-Show"
-                color={colors.warning.main}
-                onPress={() => handleStatusUpdate('no_show')}
-                disabled={!canModify}
-              />
+              {canModifyAppointment && (
+                <ActionButton
+                  icon="calendar-outline"
+                  label={t('appointments.reschedule')}
+                  color={colors.primary.main}
+                  onPress={handleReschedule}
+                  disabled={!canModify}
+                  testId="action-reschedule"
+                />
+              )}
+              {canModifyAppointment && (
+                <ActionButton
+                  icon="close-circle-outline"
+                  label={t('common.cancel')}
+                  color={colors.error.main}
+                  onPress={handleCancel}
+                  disabled={!canModify}
+                  testId="action-cancel"
+                />
+              )}
+              {canMarkNoShow && (
+                <ActionButton
+                  icon="alert-circle-outline"
+                  label={t('appointments.noShow')}
+                  color={colors.warning.main}
+                  onPress={() => handleStatusUpdate('no_show')}
+                  disabled={!canModify}
+                  testId="action-no-show"
+                />
+              )}
             </View>
           </View>
         </View>
@@ -582,12 +760,12 @@ export const AppointmentDetailScreen: React.FC = () => {
         <View style={styles.metaSection}>
           {appointment.created_at && (
             <Text style={styles.metaText}>
-              Created: {formatDate(appointment.created_at)}
+              {t('common.created')}: {formatDate(appointment.created_at)}
             </Text>
           )}
           {appointment.updated_at && (
             <Text style={styles.metaText}>
-              Updated: {formatDate(appointment.updated_at)}
+              {t('common.updated')}: {formatDate(appointment.updated_at)}
             </Text>
           )}
         </View>
@@ -597,7 +775,7 @@ export const AppointmentDetailScreen: React.FC = () => {
       {showReschedulePicker && (
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerTitle}>Select New Date</Text>
+            <Text style={styles.pickerTitle}>{t('appointments.selectNewDate')}</Text>
             <DateTimePicker
               value={rescheduleDate || new Date()}
               mode="date"
@@ -624,7 +802,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                   style={styles.pickerCancelButton}
                   onPress={() => setShowReschedulePicker(false)}
                 >
-                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                  <Text style={styles.pickerCancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.pickerConfirmButton}
@@ -634,7 +812,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                     setShowRescheduleTime(true);
                   }}
                 >
-                  <Text style={styles.pickerConfirmText}>Next</Text>
+                  <Text style={styles.pickerConfirmText}>{t('common.next')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -646,7 +824,7 @@ export const AppointmentDetailScreen: React.FC = () => {
       {showRescheduleTime && (
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerTitle}>Select New Time</Text>
+            <Text style={styles.pickerTitle}>{t('appointments.selectNewTime')}</Text>
             <DateTimePicker
               value={rescheduleTime || new Date()}
               mode="time"
@@ -671,13 +849,13 @@ export const AppointmentDetailScreen: React.FC = () => {
                   style={styles.pickerCancelButton}
                   onPress={() => setShowRescheduleTime(false)}
                 >
-                  <Text style={styles.pickerCancelText}>Cancel</Text>
+                  <Text style={styles.pickerCancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.pickerConfirmButton}
                   onPress={confirmReschedule}
                 >
-                  <Text style={styles.pickerConfirmText}>Confirm</Text>
+                  <Text style={styles.pickerConfirmText}>{t('common.confirm')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -820,6 +998,54 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success.main,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Visit History
+  visitHistoryCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    overflow: 'hidden',
+  },
+  visitHistoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+  },
+  visitHistoryDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: spacing.md,
+  },
+  visitHistoryContent: {
+    flex: 1,
+  },
+  visitHistoryDate: {
+    ...typography.body2,
+    color: colors.text.primary,
+    fontWeight: '500',
+  },
+  visitHistoryTime: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  visitHistoryTreatment: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    marginTop: 2,
+  },
+  visitHistoryStatus: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 8,
+  },
+  visitHistoryStatusText: {
+    ...typography.caption,
+    fontWeight: '500',
   },
 
   // Card
