@@ -790,6 +790,25 @@ const styles = StyleSheet.create({
     color: colors.background.default,
   },
 
+  // Warning Banner (Fallback Mode)
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning.light || '#FFF3E0',
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: spacing.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning.main,
+    gap: spacing.sm,
+  },
+  warningText: {
+    flex: 1,
+    ...typography.body2,
+    color: colors.warning.dark || colors.text.primary,
+  },
+
   // Client Card
   clientCard: {
     flexDirection: 'row',
