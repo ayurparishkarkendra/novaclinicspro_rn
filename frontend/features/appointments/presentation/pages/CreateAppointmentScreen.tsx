@@ -645,14 +645,20 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
   
   // Staff queries - SEPARATE for doctors and therapists
-  const { data: doctorsData, isLoading: isLoadingDoctors } = useStaffListQuery(
+  // CRITICAL FIX: Only fetch doctors when in DOCTOR mode
+  const shouldFetchDoctors = appointmentType === 'SINGLE' && sessionType === 'DOCTOR';
+  const { data: doctorsData, isLoading: isLoadingDoctors, isFetched: isDoctorsFetched } = useStaffListQuery(
     tenantId, 
-    { staff_type: 'doctor' as StaffType, is_active: true, limit: 100 }
+    { staff_type: 'doctor', is_active: true, limit: 100 },
+    { enabled: shouldFetchDoctors }
   );
   
-  const { data: therapistsData, isLoading: isLoadingTherapists } = useStaffListQuery(
+  // Fetch therapists for therapy and multi-day modes
+  const shouldFetchTherapists = (appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI';
+  const { data: therapistsData, isLoading: isLoadingTherapists, isFetched: isTherapistsFetched } = useStaffListQuery(
     tenantId, 
-    { is_active: true, limit: 100 }
+    { staff_type: 'therapist', is_active: true, limit: 100 },
+    { enabled: shouldFetchTherapists }
   );
 
   const { data: roomsData, isLoading: isLoadingRooms } = useRoomsListQuery(tenantId);
