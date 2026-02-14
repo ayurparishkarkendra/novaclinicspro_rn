@@ -550,6 +550,13 @@ export const AppointmentDetailScreen: React.FC = () => {
   const canComplete = canCompleteSession && appointment.status === 'in_progress';
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
+  // Display values with fallbacks
+  const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
+  const displayClientPhone = clientPhone;
+  const displayStaffName = staffName;
+  const displayTreatmentName = treatmentName;
+  const displayRoomName = roomName;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -557,18 +564,19 @@ export const AppointmentDetailScreen: React.FC = () => {
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
-          accessibilityLabel={t('common.goBack')}
+          accessibilityLabel={t('common.goBack') || 'Go back'}
           data-testid="detail-back-button"
         >
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('navigation.appointments')}</Text>
-        {/* WhatsApp Button */}
-        {appointment.client_phone && canWhatsApp && (
+        <Text style={styles.headerTitle}>{t('navigation.appointments') || 'Appointments'}</Text>
+        {/* WhatsApp Button - Show if user has permission */}
+        {canWhatsApp && (
           <TouchableOpacity 
-            style={styles.whatsappButton} 
-            onPress={() => sendWhatsAppForStatus('confirmed')}
-            accessibilityLabel={t('appointments.sendWhatsApp')}
+            style={[styles.whatsappButton, !displayClientPhone && { opacity: 0.5 }]} 
+            onPress={() => displayClientPhone && sendWhatsAppForStatus('confirmed')}
+            disabled={!displayClientPhone}
+            accessibilityLabel={t('appointments.sendWhatsApp') || 'Send WhatsApp'}
             data-testid="detail-whatsapp-button"
           >
             <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
@@ -596,7 +604,7 @@ export const AppointmentDetailScreen: React.FC = () => {
             <View style={styles.sessionBadge}>
               <Ionicons name="repeat" size={14} color={colors.primary.main} />
               <Text style={styles.sessionBadgeText}>
-                {t('appointments.session')} {appointment.session_number}/{appointment.total_sessions}
+                {t('appointments.session') || 'Session'} {appointment.session_number}/{appointment.total_sessions}
               </Text>
             </View>
           )}
@@ -604,20 +612,30 @@ export const AppointmentDetailScreen: React.FC = () => {
 
         {/* CLIENT SECTION */}
         <View style={styles.section} data-testid="detail-client-section">
-          <SectionHeader title={t('common.client')} icon="person" />
+          <SectionHeader title={t('common.client') || 'Client'} icon="person" />
           <View style={styles.clientCard}>
             <View style={styles.clientMainInfo}>
               <Text style={styles.clientName} data-testid="detail-client-name">
-                {appointment.client_name || t('common.unknownClient')}
+                {displayClientName}
               </Text>
-              {appointment.client_phone && (
+              {displayClientPhone && (
                 <Text style={styles.clientPhone} data-testid="detail-client-phone">
-                  {appointment.client_phone}
+                  {displayClientPhone}
                 </Text>
               )}
             </View>
-            {/* Quick Call Action */}
-            {appointment.client_phone && canCall && (
+            {/* Quick Call Action - Always show if user has permission */}
+            {canCall && (
+              <TouchableOpacity 
+                style={[styles.callButton, !displayClientPhone && { opacity: 0.5, backgroundColor: colors.grey[400] }]}
+                onPress={handleCallClient}
+                disabled={!displayClientPhone}
+                accessibilityLabel={t('appointments.callClient') || 'Call client'}
+                data-testid="detail-call-button"
+              >
+                <Ionicons name="call" size={20} color={colors.background.default} />
+              </TouchableOpacity>
+            )}
               <TouchableOpacity 
                 style={styles.callButton}
                 onPress={handleCallClient}
