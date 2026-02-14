@@ -600,7 +600,8 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
   
   // ===== ISOLATED FORM STATES (NO CROSS-TAB LEAKAGE) =====
-  const [doctorForm, setDoctorForm] = useState<DoctorFormState>({
+  // Reset form state when switching modes to prevent leakage
+  const createFreshDoctorForm = (): DoctorFormState => ({
     selectedDoctorId: null,
     durationMinutes: 15,
     appointmentDate: new Date(),
@@ -608,7 +609,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     notes: '',
   });
 
-  const [therapyForm, setTherapyForm] = useState<TherapyFormState>({
+  const createFreshTherapyForm = (): TherapyFormState => ({
     selectedTreatmentId: null,
     selectedTherapistIds: [],
     selectedRoomId: null,
@@ -618,7 +619,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     notes: '',
   });
 
-  const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>({
+  const createFreshMultiDayForm = (): MultiDayFormState => ({
     selectedTreatmentId: null,
     selectedTherapistIds: [],
     durationMinutes: 60,
@@ -627,6 +628,33 @@ export const CreateAppointmentScreen: React.FC = () => {
     preferredTime: new Date(),
     notes: '',
   });
+
+  const [doctorForm, setDoctorForm] = useState<DoctorFormState>(createFreshDoctorForm());
+  const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
+  const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
+
+  // Handler for appointment type change - resets forms to prevent leakage
+  const handleAppointmentTypeChange = useCallback((type: AppointmentType) => {
+    setAppointmentType(type);
+    // Reset forms when switching type to prevent state leakage
+    if (type === 'SINGLE') {
+      setMultiDayForm(createFreshMultiDayForm());
+    } else {
+      setDoctorForm(createFreshDoctorForm());
+      setTherapyForm(createFreshTherapyForm());
+    }
+  }, []);
+
+  // Handler for session type change - resets opposite form to prevent leakage
+  const handleSessionTypeChange = useCallback((type: SessionType) => {
+    setSessionType(type);
+    // Reset the opposite form when switching session type
+    if (type === 'DOCTOR') {
+      setTherapyForm(createFreshTherapyForm());
+    } else {
+      setDoctorForm(createFreshDoctorForm());
+    }
+  }, []);
 
   // ===== SEARCH & UI STATE =====
   const [clientSearchQuery, setClientSearchQuery] = useState('');
