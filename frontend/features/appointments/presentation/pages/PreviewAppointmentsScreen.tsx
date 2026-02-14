@@ -230,6 +230,18 @@ const SessionCard: React.FC<SessionCardProps> = ({
       {/* Conflict Details & Alternatives */}
       {hasConflict && isExpanded && (
         <View style={styles.conflictSection}>
+          {/* BUG FIX #6: Show the user's originally requested time clearly */}
+          {session.conflict?.requested_time && (
+            <View style={styles.originalTimeSection}>
+              <Text style={styles.originalTimeLabel}>
+                {t('appointments.originallyRequested') || 'Originally Requested'}:
+              </Text>
+              <Text style={styles.originalTimeValue}>
+                {safeFormatTime(session.conflict.requested_time)}
+              </Text>
+            </View>
+          )}
+          
           {/* Conflict Reason */}
           <View style={styles.conflictReason}>
             <Ionicons name="alert-circle" size={16} color={colors.error.main} />
@@ -238,7 +250,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </Text>
           </View>
 
-          {/* Alternative Slots from Backend - per API spec, alternatives are inside conflict object */}
+          {/* BUG FIX #8: Alternative Slots - fully selectable with visual indication */}
+          {/* Per API spec, alternatives are inside conflict object */}
           {alternativeSlots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>
