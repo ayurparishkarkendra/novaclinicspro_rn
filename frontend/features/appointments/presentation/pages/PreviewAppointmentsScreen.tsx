@@ -1,12 +1,13 @@
 /**
  * Multi-Day Appointment Preview Screen
- * Shows therapy plan with conflict indicators and inline alternatives
  * 
- * FIXED:
- * - Correctly handles API response for conflicts
- * - Only shows conflict when API explicitly returns is_conflicted: true
- * - Shows alternatives from API response
- * - Proper data binding for client name, phone, dates, staff names
+ * CRITICAL: This screen MUST be backend-driven.
+ * - NO frontend-generated availability/conflict logic
+ * - If backend cannot validate, UI blocks progression
+ * - Uses /check-availability and /alternative-slots APIs only
+ * 
+ * All text uses i18n.
+ * No IDs displayed in UI.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,33 +27,19 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   useCreateAppointmentMutation,
+  useGenerateTherapyPlanMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
   AlternativeSlot,
-  formatDate,
-  formatTime,
+  TherapyPlanSession,
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
-
-// ============================================
-// TYPES
-// ============================================
-
-interface SessionData {
-  session_number: number;
-  date: Date;
-  start_time: string;
-  end_time: string;
-  is_conflicted: boolean;
-  conflict_reason?: string;
-  alternative_slots?: AlternativeSlot[];
-  selected_alternative?: AlternativeSlot;
-}
 
 // ============================================
 // SAFE DATE FORMATTERS
@@ -114,6 +101,14 @@ const safeFormatShortDate = (dateStr: string | Date | undefined | null): string 
 };
 
 // ============================================
+// SESSION DATA TYPE
+// ============================================
+
+interface SessionData extends TherapyPlanSession {
+  selected_alternative?: AlternativeSlot;
+}
+
+// ============================================
 // SESSION CARD COMPONENT
 // ============================================
 
@@ -123,6 +118,7 @@ interface SessionCardProps {
   onToggle: () => void;
   onSelectAlternative: (slot: AlternativeSlot) => void;
   staffNames: string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const SessionCard: React.FC<SessionCardProps> = ({
@@ -131,22 +127,28 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onToggle,
   onSelectAlternative,
   staffNames,
+  t,
 }) => {
   const hasConflict = session.is_conflicted;
   const hasSelectedAlternative = !!session.selected_alternative;
   
   // Display time from selected alternative if available
-  const displayStartTime = session.selected_alternative?.start || session.start_time;
-  const displayEndTime = session.selected_alternative?.end || session.end_time;
-  const displayStaffName = session.selected_alternative?.staff_name || staffNames || 'Therapist';
+  const displayStartTime = session.selected_alternative?.start || session.start;
+  const displayEndTime = session.selected_alternative?.end || session.end;
+  const displayStaffName = session.selected_alternative?.staff_name || session.staff_name || staffNames || t('common.therapist');
 
   return (
-    <View style={[styles.sessionCard, hasConflict && !hasSelectedAlternative && styles.sessionCardConflict]}>
+    <View 
+      style={[styles.sessionCard, hasConflict && !hasSelectedAlternative && styles.sessionCardConflict]}
+      data-testid={`session-card-${session.session_number}`}
+    >
       {/* Session Header */}
       <TouchableOpacity
         style={styles.sessionHeader}
         onPress={hasConflict ? onToggle : undefined}
         activeOpacity={hasConflict ? 0.7 : 1}
+        accessibilityRole="button"
+        accessibilityLabel={`Session ${session.session_number}${hasConflict ? ', has conflict' : ''}`}
       >
         {/* Status Icon */}
         <View style={styles.sessionStatus}>
@@ -164,16 +166,18 @@ const SessionCard: React.FC<SessionCardProps> = ({
         {/* Session Info */}
         <View style={styles.sessionInfo}>
           <View style={styles.sessionTitleRow}>
-            <Text style={styles.sessionNumber}>Session {session.session_number}</Text>
+            <Text style={styles.sessionNumber}>
+              {t('appointments.session')} {session.session_number}
+            </Text>
             <Text style={styles.sessionDate}>
-              {safeFormatDayOfWeek(session.date)}, {safeFormatShortDate(session.date)}
+              {safeFormatDayOfWeek(session.start)}, {safeFormatShortDate(session.start)}
             </Text>
           </View>
           <Text style={styles.sessionTime}>
             {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
           </Text>
           <Text style={styles.sessionStaff}>
-            👨‍⚕️ {displayStaffName}
+            {displayStaffName}
           </Text>
         </View>
 
@@ -194,14 +198,16 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <View style={styles.conflictReason}>
             <Ionicons name="alert-circle" size={16} color={colors.error.main} />
             <Text style={styles.conflictReasonText}>
-              {session.conflict_reason || 'Scheduling conflict detected - staff/room unavailable'}
+              {session.conflict?.message || t('appointments.conflictDetected')}
             </Text>
           </View>
 
-          {/* Alternative Slots */}
+          {/* Alternative Slots from Backend */}
           {session.alternative_slots && session.alternative_slots.length > 0 ? (
             <View style={styles.alternativesSection}>
-              <Text style={styles.alternativesTitle}>Select an alternative:</Text>
+              <Text style={styles.alternativesTitle}>
+                {t('appointments.selectAlternative')}:
+              </Text>
               {session.alternative_slots.map((alt, index) => {
                 const isSelected = session.selected_alternative?.start === alt.start &&
                                    session.selected_alternative?.staff_id === alt.staff_id;
@@ -212,13 +218,16 @@ const SessionCard: React.FC<SessionCardProps> = ({
                     key={`${alt.start}-${alt.staff_id}-${index}`}
                     style={[styles.alternativeOption, isSelected && styles.alternativeOptionSelected]}
                     onPress={() => onSelectAlternative(alt)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                    data-testid={`alternative-slot-${index}`}
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
                         {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
-                        {alt.staff_name || 'Therapist'}{alt.room_name && ` • ${alt.room_name}`}
+                        {alt.staff_name || t('common.therapist')}{alt.room_name && ` • ${alt.room_name}`}
                       </Text>
                     </View>
                     <View style={styles.alternativeScore}>
@@ -226,7 +235,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                         {alt.score}%
                       </Text>
                       <Text style={styles.scoreLabel}>
-                        {alt.score >= 90 ? 'Best' : alt.score >= 70 ? 'Good' : 'Fair'}
+                        {alt.score >= 90 ? t('common.best') : alt.score >= 70 ? t('common.good') : t('common.fair')}
                       </Text>
                     </View>
                     {isSelected && (
@@ -239,7 +248,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           ) : (
             <View style={styles.noAlternatives}>
               <Text style={styles.noAlternativesText}>
-                No alternative slots available. Please adjust the start date or contact admin.
+                {t('appointments.noAlternativesAvailable')}
               </Text>
             </View>
           )}
@@ -255,6 +264,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
 export const PreviewAppointmentsScreen: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{
     clientId: string;
     clientName: string;
@@ -277,16 +287,18 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
 
-  // Mutation for creating individual appointments
+  // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
+  const generatePlanMutation = useGenerateTherapyPlanMutation();
 
   // Extract params with fallbacks
   const clientId = params.clientId || '';
-  const clientName = params.clientName || 'Client';
+  const clientName = params.clientName || t('common.client');
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
-  const treatmentName = params.treatmentName || 'Therapy';
+  const treatmentName = params.treatmentName || t('common.therapy');
   const staffIds = params.staffIds?.split(',').filter(Boolean) || [];
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
@@ -295,42 +307,54 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
-  // Generate sessions locally (without calling backend therapy-plan endpoint)
-  // This is a simpler approach that creates session slots without conflict checking
+  // ===== BACKEND-DRIVEN SESSION GENERATION =====
+  // CRITICAL: This MUST use the backend API for conflict detection
   useEffect(() => {
-    const generateSessions = () => {
-      const startDate = new Date(startDateStr);
-      const generatedSessions: SessionData[] = [];
+    const fetchTherapyPlan = async () => {
+      setIsGenerating(true);
+      setBackendError(null);
 
-      for (let i = 0; i < durationDays; i++) {
-        const sessionDate = new Date(startDate);
-        sessionDate.setDate(startDate.getDate() + i);
-        
-        // Set the preferred time
-        const sessionStart = new Date(sessionDate);
-        sessionStart.setHours(preferredTimeHour, 0, 0, 0);
-        
-        const sessionEnd = new Date(sessionStart);
-        sessionEnd.setMinutes(sessionStart.getMinutes() + durationMinutes);
-
-        generatedSessions.push({
-          session_number: i + 1,
-          date: sessionDate,
-          start_time: sessionStart.toISOString(),
-          end_time: sessionEnd.toISOString(),
-          is_conflicted: false, // No conflicts by default - backend will check during creation
-          conflict_reason: undefined,
-          alternative_slots: undefined,
-          selected_alternative: undefined,
+      try {
+        // Call backend to generate therapy plan with conflict detection
+        const response = await generatePlanMutation.mutateAsync({
+          client_id: clientId,
+          treatment_id: treatmentId,
+          staff_ids: staffIds,
+          start_date: startDateStr,
+          duration_days: durationDays,
+          preferred_time_hour: preferredTimeHour,
         });
-      }
 
-      setSessions(generatedSessions);
-      setIsGenerating(false);
+        // Map backend response to local state
+        const mappedSessions: SessionData[] = response.sessions.map((session) => ({
+          ...session,
+          selected_alternative: undefined,
+        }));
+
+        setSessions(mappedSessions);
+      } catch (error: any) {
+        console.error('Failed to generate therapy plan:', error);
+        
+        // Check if it's a 404/501 (endpoint not available)
+        if (error?.response?.status === 404 || error?.response?.status === 501) {
+          setBackendError(t('appointments.backendValidationUnavailable'));
+        } else if (error?.response?.status === 401 || error?.response?.status === 403) {
+          setBackendError(t('errors.auth.unauthorized'));
+        } else {
+          setBackendError(error?.message || t('appointments.failedToGeneratePlan'));
+        }
+      } finally {
+        setIsGenerating(false);
+      }
     };
 
-    generateSessions();
-  }, [startDateStr, durationDays, preferredTimeHour, durationMinutes]);
+    if (clientId && treatmentId && staffIds.length > 0) {
+      fetchTherapyPlan();
+    } else {
+      setBackendError(t('appointments.missingRequiredFields'));
+      setIsGenerating(false);
+    }
+  }, [clientId, treatmentId, staffIds.join(','), startDateStr, durationDays, preferredTimeHour]);
 
   // Handle alternative selection
   const handleSelectAlternative = (sessionNumber: number, slot: AlternativeSlot) => {
@@ -347,10 +371,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const allConflictsResolved = unresolvedConflicts.length === 0;
   const hasConflicts = conflictedSessions.length > 0;
 
+  // Determine if we can proceed
+  const canProceed = !backendError && sessions.length > 0 && allConflictsResolved;
+
   // Create all appointments
   const handleConfirm = async () => {
-    if (!clientId || !treatmentId || staffIds.length === 0) {
-      Alert.alert('Error', 'Missing required information');
+    if (!canProceed) {
+      Alert.alert(t('common.error'), t('appointments.cannotProceedWithConflicts'));
       return;
     }
 
@@ -362,19 +389,19 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       // Create appointments one by one
       for (const session of sessions) {
         const slot = session.selected_alternative || {
-          start: session.start_time,
-          end: session.end_time,
-          staff_id: staffIds[0],
+          start: session.start,
+          end: session.end,
+          staff_id: session.staff_id || staffIds[0],
         };
 
         const payload: AppointmentCreate = {
           client_id: clientId,
           staff_id: slot.staff_id || staffIds[0],
           treatment_id: treatmentId,
-          appointment_start: slot.start || session.start_time,
-          appointment_end: slot.end || session.end_time,
+          appointment_start: slot.start || session.start,
+          appointment_end: slot.end || session.end,
           status: 'scheduled',
-          notes: notes || `Session ${session.session_number} of ${sessions.length}`,
+          notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
           appointment_type: 'MULTI',
         };
 
@@ -382,33 +409,37 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           await createMutation.mutateAsync(payload);
           createdCount++;
         } catch (err: any) {
-          errors.push(`Session ${session.session_number}: ${err.message || 'Failed'}`);
+          errors.push(`${t('appointments.session')} ${session.session_number}: ${err.message || t('common.failed')}`);
         }
       }
 
       // Show result
       if (createdCount === sessions.length) {
-        // All succeeded - offer WhatsApp
+        // All succeeded - offer WhatsApp (for CREATED status)
         if (clientPhone) {
           const firstSession = sessions[0];
           const message = generateWhatsAppSeriesMessage(
             clientName,
-            'Your Clinic',
+            t('common.yourClinic'),
             treatmentName,
             sessions.length,
-            safeFormatDate(firstSession?.date),
-            safeFormatTime(firstSession?.start_time),
+            safeFormatDate(firstSession?.start),
+            safeFormatTime(firstSession?.start),
             '+91-XXXXXXXXXX'
           );
           const whatsappUrl = openWhatsApp(clientPhone, message);
 
           Alert.alert(
-            '✅ Appointments Created!',
-            `${createdCount} sessions have been scheduled successfully.`,
+            t('appointments.appointmentsCreated'),
+            `${createdCount} ${t('appointments.sessionsScheduled')}`,
             [
-              { text: 'Done', style: 'cancel', onPress: () => router.replace('/clinic-admin/appointments' as any) },
+              { 
+                text: t('common.done'), 
+                style: 'cancel', 
+                onPress: () => router.replace('/clinic-admin/appointments' as any) 
+              },
               {
-                text: 'Send WhatsApp',
+                text: t('appointments.sendWhatsApp'),
                 onPress: () => {
                   Linking.openURL(whatsappUrl);
                   router.replace('/clinic-admin/appointments' as any);
@@ -417,22 +448,22 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             ]
           );
         } else {
-          Alert.alert('Success', `${createdCount} appointments created successfully`);
+          Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
           router.replace('/clinic-admin/appointments' as any);
         }
       } else if (createdCount > 0) {
         // Partial success
         Alert.alert(
-          'Partial Success',
-          `Created ${createdCount} of ${sessions.length} appointments.\n\nErrors:\n${errors.join('\n')}`,
-          [{ text: 'OK', onPress: () => router.replace('/clinic-admin/appointments' as any) }]
+          t('appointments.partialSuccess'),
+          `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
+          [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
         );
       } else {
         // All failed
-        Alert.alert('Error', `Failed to create appointments:\n${errors.join('\n')}`);
+        Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create appointments');
+      Alert.alert(t('common.error'), err.message || t('appointments.failedToCreate'));
     } finally {
       setIsCreating(false);
     }
@@ -442,10 +473,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          accessibilityLabel={t('common.goBack')}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Preview Plan</Text>
+        <Text style={styles.headerTitle}>{t('appointments.previewPlan')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -453,36 +488,55 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       {isGenerating && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Generating therapy plan...</Text>
+          <Text style={styles.loadingText}>{t('appointments.generatingPlan')}</Text>
+          <Text style={styles.loadingSubtext}>{t('appointments.checkingAvailability')}</Text>
+        </View>
+      )}
+
+      {/* Backend Error State - BLOCKS PROGRESSION */}
+      {!isGenerating && backendError && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline" size={64} color={colors.error.main} />
+          <Text style={styles.errorTitle}>{t('appointments.validationUnavailable')}</Text>
+          <Text style={styles.errorText}>{backendError}</Text>
+          <Text style={styles.errorHelp}>
+            {t('appointments.cannotProceedWithoutValidation')}
+          </Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.retryButtonText}>{t('common.goBack')}</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       {/* Plan Content */}
-      {!isGenerating && sessions.length > 0 && (
+      {!isGenerating && !backendError && sessions.length > 0 && (
         <>
           {/* Client Info Card */}
-          <View style={styles.clientCard}>
+          <View style={styles.clientCard} data-testid="preview-client-card">
             <View style={styles.clientIconContainer}>
               <Ionicons name="person" size={24} color={colors.primary.main} />
             </View>
             <View style={styles.clientInfo}>
               <Text style={styles.clientName}>{clientName}</Text>
               {clientPhone && (
-                <Text style={styles.clientPhone}>📞 {clientPhone}</Text>
+                <Text style={styles.clientPhone}>{clientPhone}</Text>
               )}
               <Text style={styles.clientDetails}>
-                {treatmentName} • {sessions.length} sessions
+                {treatmentName} • {sessions.length} {t('appointments.sessions')}
               </Text>
               <Text style={styles.clientDetails}>
-                👨‍⚕️ {staffNames || 'Therapists assigned'}
+                {staffNames || t('appointments.therapistsAssigned')}
               </Text>
               <Text style={styles.clientDetails}>
-                📅 Starting {safeFormatDate(startDateStr)} • {durationMinutes} min each
+                {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
             </View>
           </View>
 
-          {/* Conflict Summary - only show if there are actual conflicts */}
+          {/* Conflict Summary */}
           {hasConflicts && (
             <View style={[
               styles.conflictBanner,
@@ -498,18 +552,18 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 allConflictsResolved && styles.conflictBannerTextResolved,
               ]}>
                 {allConflictsResolved
-                  ? 'All conflicts resolved! Ready to confirm.'
-                  : `${unresolvedConflicts.length} conflict${unresolvedConflicts.length > 1 ? 's' : ''} remaining. Tap to see alternatives.`}
+                  ? t('appointments.allConflictsResolved')
+                  : `${unresolvedConflicts.length} ${t('appointments.conflictsRemaining')}`}
               </Text>
             </View>
           )}
 
           {/* No Conflicts Banner */}
           {!hasConflicts && (
-            <View style={styles.successBanner}>
+            <View style={styles.successBanner} data-testid="no-conflicts-banner">
               <Ionicons name="checkmark-circle" size={20} color={colors.success.main} />
               <Text style={styles.successBannerText}>
-                All {sessions.length} sessions are available! Ready to confirm.
+                {t('appointments.allSessionsAvailable', { count: sessions.length })}
               </Text>
             </View>
           )}
@@ -530,6 +584,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 )}
                 onSelectAlternative={(slot) => handleSelectAlternative(session.session_number, slot)}
                 staffNames={staffNames}
+                t={t}
               />
             ))}
 
@@ -542,16 +597,18 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => router.back()}
+              data-testid="preview-back-button"
             >
-              <Text style={styles.cancelButtonText}>Back</Text>
+              <Text style={styles.cancelButtonText}>{t('common.back')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.confirmButton,
-                (hasConflicts && !allConflictsResolved) && styles.confirmButtonDisabled,
+                !canProceed && styles.confirmButtonDisabled,
               ]}
               onPress={handleConfirm}
-              disabled={isCreating || (hasConflicts && !allConflictsResolved)}
+              disabled={isCreating || !canProceed}
+              data-testid="preview-confirm-button"
             >
               {isCreating ? (
                 <ActivityIndicator size="small" color={colors.background.default} />
@@ -559,7 +616,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 <>
                   <Ionicons name="checkmark" size={20} color={colors.background.default} />
                   <Text style={styles.confirmButtonText}>
-                    Confirm {sessions.length} Sessions
+                    {t('appointments.confirmSessions', { count: sessions.length })}
                   </Text>
                 </>
               )}
@@ -591,6 +648,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
@@ -604,11 +665,55 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: spacing.xl,
   },
   loadingText: {
+    ...typography.body1,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+  },
+  loadingSubtext: {
     ...typography.body2,
     color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+
+  // Error - Backend validation unavailable
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  errorTitle: {
+    ...typography.h6,
+    color: colors.error.main,
     marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  errorText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  errorHelp: {
+    ...typography.body2,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    fontStyle: 'italic',
+  },
+  retryButton: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary.main,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...typography.button,
+    color: colors.background.default,
   },
 
   // Client Card
@@ -859,6 +964,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.main,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   cancelButtonText: {
     ...typography.button,
@@ -873,6 +980,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.primary.main,
     borderRadius: spacing.sm,
+    minHeight: 48,
   },
   confirmButtonDisabled: {
     backgroundColor: colors.grey[300],
