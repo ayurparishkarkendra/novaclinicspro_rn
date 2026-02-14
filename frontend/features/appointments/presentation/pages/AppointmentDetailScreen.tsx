@@ -801,11 +801,11 @@ export const AppointmentDetailScreen: React.FC = () => {
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
-                  {appointment.status === 'completed' 
+                  {appointment.status?.toLowerCase() === 'completed' 
                     ? t('appointments.appointmentCompleted') || 'This appointment has been completed'
-                    : appointment.status === 'cancelled'
+                    : appointment.status?.toLowerCase() === 'cancelled'
                     ? t('appointments.appointmentCancelled') || 'This appointment has been cancelled'
-                    : appointment.status === 'no_show'
+                    : appointment.status?.toLowerCase() === 'no_show'
                     ? t('appointments.clientNoShow') || 'Client did not show up'
                     : t('appointments.noActionsAvailable') || 'No actions available'
                   }
