@@ -1557,6 +1557,37 @@ export const CreateAppointmentScreen: React.FC = () => {
         onCreated={handleClientCreated}
         tenantId={tenantId}
       />
+
+      {/* BUG FIX #7: Styled Conflict Modal (instead of raw Alert) */}
+      <Modal visible={conflictModal.visible} animationType="fade" transparent>
+        <View style={styles.conflictModalOverlay}>
+          <View style={styles.conflictModalContent}>
+            <View style={styles.conflictModalHeader}>
+              <View style={styles.conflictModalIconContainer}>
+                <Ionicons name="warning" size={32} color={colors.warning.main} />
+              </View>
+              <Text style={styles.conflictModalTitle}>{conflictModal.title}</Text>
+            </View>
+            <View style={styles.conflictModalBody}>
+              {conflictModal.messages.map((message, index) => (
+                <View key={index} style={styles.conflictMessageRow}>
+                  <Ionicons name="close-circle" size={16} color={colors.error.main} />
+                  <Text style={styles.conflictMessageText}>{message}</Text>
+                </View>
+              ))}
+              <Text style={styles.conflictHelpText}>
+                Please select a different time or therapist and try again.
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.conflictModalButton}
+              onPress={() => setConflictModal({ visible: false, title: '', messages: [] })}
+            >
+              <Text style={styles.conflictModalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
