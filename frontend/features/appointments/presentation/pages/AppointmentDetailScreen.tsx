@@ -318,6 +318,7 @@ export const AppointmentDetailScreen: React.FC = () => {
     const displayTreatment = treatmentName || t('common.appointment') || 'Appointment';
     const clinicPhoneNum = '+91-XXXXXXXXXX';
     const clinicName = t('common.yourClinic') || 'Your Clinic';
+    const appointmentType = appointment.appointment_type;
 
     let message = '';
 
@@ -330,7 +331,8 @@ export const AppointmentDetailScreen: React.FC = () => {
           formatTime(appointment.appointment_start),
           displayStaffName,
           displayTreatment,
-          clinicPhoneNum
+          clinicPhoneNum,
+          appointmentType
         );
         break;
       case 'cancelled':
@@ -351,7 +353,8 @@ export const AppointmentDetailScreen: React.FC = () => {
             newDateTime.date,
             newDateTime.time,
             displayStaffName,
-            displayTreatment
+            displayTreatment,
+            appointmentType
           );
         }
         break;
