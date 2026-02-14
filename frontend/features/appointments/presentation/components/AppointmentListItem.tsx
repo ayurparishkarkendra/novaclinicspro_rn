@@ -224,39 +224,43 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   });
 
   return (
-    <TouchableOpacity
+    <View
       style={[styles.container, { borderLeftColor: statusColor }]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
       data-testid="appointment-list-item"
     >
-      {/* Main Content */}
-      <View style={styles.content}>
-        {/* Top Row: Time + Status */}
-        <View style={styles.topRow}>
-          <View style={styles.timeContainer}>
-            <Ionicons name="time-outline" size={14} color={colors.primary.main} />
-            <Text style={styles.timeText} data-testid="appointment-time">
-              {timeDisplay}
-              {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
-            </Text>
-          </View>
-          <StatusBadge status={appointment.status} />
-        </View>
-
-        {/* Client Info */}
-        <View style={styles.clientRow}>
-          <View style={styles.clientInfo}>
-            <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
-              {displayClientName}
-            </Text>
-            {clientPhone && (
-              <Text style={styles.clientPhone} data-testid="appointment-client-phone">
-                {clientPhone}
+      {/* Main Row - clickable area */}
+      <TouchableOpacity
+        style={styles.mainRow}
+        onPress={handlePress}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
+      >
+        {/* Main Content */}
+        <View style={styles.content}>
+          {/* Top Row: Time + Status */}
+          <View style={styles.topRow}>
+            <View style={styles.timeContainer}>
+              <Ionicons name="time-outline" size={14} color={colors.primary.main} />
+              <Text style={styles.timeText} data-testid="appointment-time">
+                {timeDisplay}
+                {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
               </Text>
-            )}
+            </View>
+            <StatusBadge status={appointment.status} />
+          </View>
+
+          {/* Client Info */}
+          <View style={styles.clientRow}>
+            <View style={styles.clientInfo}>
+              <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
+                {displayClientName}
+              </Text>
+              {clientPhone && (
+                <Text style={styles.clientPhone} data-testid="appointment-client-phone">
+                  {clientPhone}
+                </Text>
+              )}
           </View>
         </View>
 
