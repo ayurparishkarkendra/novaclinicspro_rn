@@ -425,7 +425,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           )}
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -435,7 +435,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     backgroundColor: colors.background.default,
     borderRadius: 12,
     marginBottom: spacing.sm,
@@ -445,6 +445,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    overflow: 'hidden',
+  },
+  mainRow: {
+    flexDirection: 'row',
   },
   content: {
     flex: 1,
