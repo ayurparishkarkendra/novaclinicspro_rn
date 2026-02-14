@@ -473,9 +473,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
-            staff_name: session.staff_name || null,  // ✨ NEW - from API
+            staff_name: session.staff_name || null,  // deprecated - fallback
+            staff_assignments: session.staff_assignments || null,  // ✨ NEW - multi-therapist support
             room_id: session.room_id,
-            room_name: session.room_name || null,    // ✨ NEW - from API
+            room_name: session.room_name || null,
             is_conflicted: session.is_conflicted || false,
             conflict: session.conflict || null,
             selected_alternative: undefined,
@@ -483,10 +484,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           setSessions(mappedSessions);
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
           console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
-          // DEBUG: Show first session time details
+          // DEBUG: Show first session details
           if (mappedSessions[0]) {
             const firstSession = mappedSessions[0];
             console.log('[PreviewAppointments] First session start (raw):', firstSession.appointment_start);
+            console.log('[PreviewAppointments] First session staff_assignments:', firstSession.staff_assignments);
+            console.log('[PreviewAppointments] First session staff_name:', firstSession.staff_name);
+            console.log('[PreviewAppointments] First session therapist display:', getSessionTherapistNames(firstSession));
             const parsed = new Date(firstSession.appointment_start);
             console.log('[PreviewAppointments] First session parsed date:', parsed.toString());
             console.log('[PreviewAppointments] First session formatted:', safeFormatTime(firstSession.appointment_start));
