@@ -796,12 +796,16 @@ export const CreateAppointmentScreen: React.FC = () => {
   }, [therapistsData]);
 
   // BUG FIX #7: Gender-filtered therapist options based on selected client
+  // Track if there's a gender mismatch conflict
+  const [genderMatchConflict, setGenderMatchConflict] = useState<string | null>(null);
+  
   const genderFilteredTherapistOptions: PickerOption[] = useMemo(() => {
     const selectedClient = clientOptions.find(c => c.id === selectedClientId);
     const clientGender = selectedClient?.gender?.toLowerCase();
     
     // If no client selected or no gender, return all therapists
     if (!selectedClientId || !clientGender) {
+      setGenderMatchConflict(null);
       return therapistOptions;
     }
     
@@ -813,9 +817,18 @@ export const CreateAppointmentScreen: React.FC = () => {
       );
       // Log for debugging
       console.log('[CreateAppointment] Gender matching - client:', clientGender, 'filtered therapists:', femaleTherapists.length);
-      return femaleTherapists.length > 0 ? femaleTherapists : therapistOptions;
+      
+      // BUG FIX #5: Show conflict when no matching therapists available
+      if (femaleTherapists.length === 0 && therapistOptions.length > 0) {
+        setGenderMatchConflict('No female therapists available. This female client requires a female therapist.');
+        return []; // Return empty to force user to see the error
+      }
+      
+      setGenderMatchConflict(null);
+      return femaleTherapists;
     }
     
+    setGenderMatchConflict(null);
     return therapistOptions;
   }, [therapistOptions, selectedClientId, clientOptions]);
 
