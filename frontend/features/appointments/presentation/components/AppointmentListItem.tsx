@@ -117,22 +117,13 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
 
-  // ===== EXTRACT DATA WITH FALLBACKS =====
-  // The API may return data in different structures, handle all cases
-  const clientName = appointment.client_name || 
-                    (appointment as any).client?.full_name || 
-                    (appointment as any).client?.name || 
-                    null;
-  const clientPhone = appointment.client_phone || 
-                     (appointment as any).client?.phone || 
-                     null;
-  const staffName = appointment.staff_name || 
-                   (appointment as any).staff?.full_name || 
-                   (appointment as any).staff?.name ||
-                   null;
-  const treatmentName = appointment.treatment_name || 
-                       (appointment as any).treatment?.name ||
-                       null;
+  // ===== EXTRACT DATA FROM API RESPONSE =====
+  // Per API spec: client_name, staff_name, room_name, treatment_name are returned directly
+  // NO nested objects - the backend already resolves names
+  const clientName = appointment.client_name || null;
+  const clientPhone = appointment.client_phone || null;
+  const staffName = appointment.staff_name || null;
+  const treatmentName = appointment.treatment_name || null;
 
   // ===== ACTION HANDLERS =====
   
@@ -190,15 +181,14 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // Series info (if part of multi-day)
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
 
-  // DEBUG: Log appointment data for troubleshooting - ENABLED for debugging
+  // DEBUG: Log appointment data for troubleshooting
   console.log('[AppointmentListItem] Data:', { 
     id: appointment.id, 
     client_name: appointment.client_name,
     client_phone: appointment.client_phone,
     staff_name: appointment.staff_name,
-    raw_client: (appointment as any).client,
-    raw_staff: (appointment as any).staff,
-    extracted: { clientName, staffName, clientPhone },
+    treatment_name: appointment.treatment_name,
+    status: appointment.status,
     userRole, 
     canCall, 
     canWhatsApp 
