@@ -1,16 +1,17 @@
 /**
  * Create Appointment Screen
- * Simplified single-screen flow for both single and multi-day appointments
+ * Complete rewrite with all bug fixes:
  * 
- * FIXES APPLIED:
- * 4. Client dropdown - "Create client" option when no results
- * 5. Single-day: Doctor vs Therapy toggle, 15-min duration, booked slots
- * 6. Dropdown auto-close on selection (except multi-select staff)
- * 7. Multi-day: Treatment above duration, auto-select duration from treatment
- * 8. All dropdowns searchable
+ * 1. Doctor Consultation - proper staff filtering, booked slots display
+ * 2. Therapy Session - multi-select therapists, auto-duration from treatment
+ * 3. KeyboardAvoidingView for mobile UX
+ * 4. Isolated form state per tab (no cross-tab leakage)
+ * 5. Single-Day to Multi-Day state isolation
+ * 6. API calls with proper staff_type filter
+ * 7. Proper data binding and client info display
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +24,9 @@ import {
   Platform,
   Linking,
   Modal,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,6 +55,7 @@ import {
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
+import { StaffType } from '../../../staff/data/models/staff.dtos';
 
 // ============================================
 // TYPES
@@ -62,8 +67,41 @@ interface PickerOption {
   id: string;
   label: string;
   subtitle?: string;
+  phone?: string;
   duration_minutes?: number | null;
   role?: string;
+  staff_type?: string;
+}
+
+// Form state for Doctor consultation
+interface DoctorFormState {
+  selectedDoctorId: string | null;
+  durationMinutes: number;
+  appointmentDate: Date;
+  appointmentTime: Date;
+  notes: string;
+}
+
+// Form state for Therapy session
+interface TherapyFormState {
+  selectedTreatmentId: string | null;
+  selectedTherapistIds: string[];
+  selectedRoomId: string | null;
+  durationMinutes: number;
+  appointmentDate: Date;
+  appointmentTime: Date;
+  notes: string;
+}
+
+// Form state for Multi-day
+interface MultiDayFormState {
+  selectedTreatmentId: string | null;
+  selectedTherapistIds: string[];
+  durationMinutes: number;
+  numberOfSessions: number;
+  startDate: Date;
+  preferredTime: Date;
+  notes: string;
 }
 
 // ============================================
@@ -76,10 +114,13 @@ interface TypeSelectorProps {
 }
 
 const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
-  <View style={styles.typeSelector}>
+  <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Appointment Type">
     <TouchableOpacity
       style={[styles.typeOption, value === 'SINGLE' && styles.typeOptionSelected]}
       onPress={() => onChange('SINGLE')}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: value === 'SINGLE' }}
+      accessibilityLabel="Single Day appointment"
     >
       <Ionicons
         name="calendar-outline"
@@ -94,6 +135,9 @@ const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
     <TouchableOpacity
       style={[styles.typeOption, value === 'MULTI' && styles.typeOptionSelected]}
       onPress={() => onChange('MULTI')}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: value === 'MULTI' }}
+      accessibilityLabel="Multi Day therapy series"
     >
       <Ionicons
         name="calendar"
@@ -118,10 +162,13 @@ interface SessionTypeSelectorProps {
 }
 
 const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange }) => (
-  <View style={styles.sessionTypeSelector}>
+  <View style={styles.sessionTypeSelector} accessibilityRole="radiogroup" accessibilityLabel="Session Type">
     <TouchableOpacity
       style={[styles.sessionTypeOption, value === 'DOCTOR' && styles.sessionTypeOptionSelected]}
       onPress={() => onChange('DOCTOR')}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: value === 'DOCTOR' }}
+      accessibilityLabel="Doctor Consultation"
     >
       <Ionicons
         name="medkit"
@@ -135,6 +182,9 @@ const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChan
     <TouchableOpacity
       style={[styles.sessionTypeOption, value === 'THERAPY' && styles.sessionTypeOptionSelected]}
       onPress={() => onChange('THERAPY')}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: value === 'THERAPY' }}
+      accessibilityLabel="Therapy Session"
     >
       <Ionicons
         name="fitness"
@@ -158,8 +208,6 @@ interface SearchableDropdownProps {
   options: PickerOption[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
   isLoading?: boolean;
   emptyText?: string;
   showCreateOption?: boolean;
@@ -168,6 +216,7 @@ interface SearchableDropdownProps {
   selectedIds?: string[];
   maxSelect?: number;
   autoCloseOnSelect?: boolean;
+  disabled?: boolean;
 }
 
 const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
@@ -176,8 +225,6 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   options,
   selectedId,
   onSelect,
-  searchQuery,
-  onSearchChange,
   isLoading,
   emptyText = 'No options available',
   showCreateOption,
@@ -186,31 +233,59 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   selectedIds = [],
   maxSelect = 2,
   autoCloseOnSelect = true,
+  disabled = false,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedOption = options.find(o => o.id === selectedId);
   const selectedCount = selectedIds.length;
   const selectedLabels = options.filter(o => selectedIds.includes(o.id)).map(o => o.label).join(', ');
 
+  // Filter options by search
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery) return options;
+    const query = searchQuery.toLowerCase();
+    return options.filter(o => 
+      o.label.toLowerCase().includes(query) ||
+      (o.subtitle?.toLowerCase().includes(query))
+    );
+  }, [options, searchQuery]);
+
   const handleSelect = (id: string) => {
     onSelect(id);
-    // Auto-close on selection for single select
     if (autoCloseOnSelect && !multiple) {
       setExpanded(false);
+      setSearchQuery('');
     }
   };
 
   const handleClose = () => {
     setExpanded(false);
-    onSearchChange(''); // Clear search on close
+    setSearchQuery('');
   };
+
+  if (disabled) {
+    return (
+      <View style={[styles.dropdownContainer, styles.dropdownDisabled]}>
+        <View style={styles.dropdownHeader}>
+          <View style={styles.dropdownHeaderContent}>
+            <Text style={styles.dropdownTitle}>{title}</Text>
+            <Text style={[styles.dropdownValue, styles.dropdownValueDisabled]}>{placeholder}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.dropdownContainer}>
       <TouchableOpacity
         style={styles.dropdownHeader}
         onPress={() => setExpanded(!expanded)}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}: ${multiple ? selectedLabels || placeholder : selectedOption?.label || placeholder}`}
+        accessibilityHint="Double tap to open selection"
       >
         <View style={styles.dropdownHeaderContent}>
           <Text style={styles.dropdownTitle}>{title}</Text>
@@ -241,11 +316,12 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               placeholder="Search..."
               placeholderTextColor={colors.text.tertiary}
               value={searchQuery}
-              onChangeText={onSearchChange}
+              onChangeText={setSearchQuery}
               autoFocus
+              accessibilityLabel="Search options"
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => onSearchChange('')}>
+              <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityLabel="Clear search">
                 <Ionicons name="close-circle" size={18} color={colors.text.tertiary} />
               </TouchableOpacity>
             )}
@@ -264,16 +340,17 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                     handleClose();
                     onCreateNew();
                   }}
+                  accessibilityLabel="Create new client"
                 >
                   <Ionicons name="add-circle" size={20} color={colors.primary.main} />
                   <Text style={styles.dropdownCreateText}>Create new client</Text>
                 </TouchableOpacity>
               )}
 
-              {options.length === 0 && !showCreateOption ? (
+              {filteredOptions.length === 0 && !showCreateOption ? (
                 <Text style={styles.dropdownEmpty}>{emptyText}</Text>
               ) : (
-                options.map((option) => {
+                filteredOptions.map((option) => {
                   const isSelected = multiple
                     ? selectedIds.includes(option.id)
                     : selectedId === option.id;
@@ -289,6 +366,9 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                       ]}
                       onPress={() => canSelect && handleSelect(option.id)}
                       disabled={!canSelect}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isSelected }}
+                      accessibilityLabel={option.label}
                     >
                       <View style={styles.dropdownOptionContent}>
                         <Text style={[
@@ -313,7 +393,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 
           {/* Done Button for multi-select */}
           {multiple && (
-            <TouchableOpacity style={styles.dropdownDoneButton} onPress={handleClose}>
+            <TouchableOpacity style={styles.dropdownDoneButton} onPress={handleClose} accessibilityLabel="Done selecting">
               <Text style={styles.dropdownDoneText}>Done ({selectedCount} selected)</Text>
             </TouchableOpacity>
           )}
@@ -324,19 +404,30 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 };
 
 // ============================================
-// BOOKED SLOTS DISPLAY
+// BOOKED SLOTS DISPLAY (for Doctor)
 // ============================================
 
 interface BookedSlotsProps {
   appointments: any[];
   selectedDate: Date;
+  isLoading?: boolean;
 }
 
-const BookedSlots: React.FC<BookedSlotsProps> = ({ appointments, selectedDate }) => {
+const BookedSlots: React.FC<BookedSlotsProps> = ({ appointments, selectedDate, isLoading }) => {
+  if (isLoading) {
+    return (
+      <View style={styles.bookedSlotsLoading}>
+        <ActivityIndicator size="small" color={colors.primary.main} />
+        <Text style={styles.bookedSlotsLoadingText}>Loading schedule...</Text>
+      </View>
+    );
+  }
+
   if (appointments.length === 0) {
     return (
       <View style={styles.bookedSlotsEmpty}>
-        <Text style={styles.bookedSlotsEmptyText}>No booked slots for this date</Text>
+        <Ionicons name="checkmark-circle" size={20} color={colors.success.main} />
+        <Text style={styles.bookedSlotsEmptyText}>No booked slots - Doctor is available</Text>
       </View>
     );
   }
@@ -347,17 +438,21 @@ const BookedSlots: React.FC<BookedSlotsProps> = ({ appointments, selectedDate })
       <View style={styles.bookedSlotsList}>
         {appointments.slice(0, 5).map((apt) => (
           <View key={apt.id} style={styles.bookedSlot}>
-            <Text style={styles.bookedSlotTime}>
-              {formatTime(apt.appointment_start)}
-              {apt.appointment_end && ` - ${formatTime(apt.appointment_end)}`}
-            </Text>
+            <View style={styles.bookedSlotTimeContainer}>
+              <Text style={styles.bookedSlotTime}>
+                {formatTime(apt.appointment_start)}
+              </Text>
+              {apt.appointment_end && (
+                <Text style={styles.bookedSlotTimeSeparator}> - {formatTime(apt.appointment_end)}</Text>
+              )}
+            </View>
             <Text style={styles.bookedSlotClient} numberOfLines={1}>
               {apt.client_name || 'Client'}
             </Text>
           </View>
         ))}
         {appointments.length > 5 && (
-          <Text style={styles.bookedSlotsMore}>+{appointments.length - 5} more</Text>
+          <Text style={styles.bookedSlotsMore}>+{appointments.length - 5} more appointments</Text>
         )}
       </View>
     </View>
@@ -388,7 +483,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter client name');
+      Alert.alert('Required', 'Please enter client name');
       return;
     }
 
@@ -411,16 +506,19 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={styles.modalOverlay}
+      >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Create New Client</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={onClose} accessibilityLabel="Close">
               <Ionicons name="close" size={24} color={colors.text.primary} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalBody}>
+          <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Name *</Text>
               <TextInput
@@ -429,6 +527,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 onChangeText={setName}
                 placeholder="Enter client name"
                 placeholderTextColor={colors.text.tertiary}
+                accessibilityLabel="Client name"
               />
             </View>
 
@@ -441,6 +540,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 placeholder="Enter phone number"
                 placeholderTextColor={colors.text.tertiary}
                 keyboardType="phone-pad"
+                accessibilityLabel="Client phone"
               />
             </View>
 
@@ -454,9 +554,10 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 placeholderTextColor={colors.text.tertiary}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                accessibilityLabel="Client email"
               />
             </View>
-          </View>
+          </ScrollView>
 
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.modalCancelButton} onPress={onClose}>
@@ -475,7 +576,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -488,36 +589,53 @@ export const CreateAppointmentScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const scrollRef = useRef<ScrollView>(null);
 
-  // Form state
+  // ===== TOP-LEVEL STATE =====
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('SINGLE');
   const [sessionType, setSessionType] = useState<SessionType>('DOCTOR');
+  
+  // Client (shared across all forms)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
-  const [selectedTreatmentId, setSelectedTreatmentId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [appointmentDate, setAppointmentDate] = useState<Date>(new Date());
-  const [appointmentTime, setAppointmentTime] = useState<Date>(new Date());
-  const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [numberOfSessions, setNumberOfSessions] = useState<number>(7);
-  const [notes, setNotes] = useState('');
+  
+  // ===== ISOLATED FORM STATES (NO CROSS-TAB LEAKAGE) =====
+  const [doctorForm, setDoctorForm] = useState<DoctorFormState>({
+    selectedDoctorId: null,
+    durationMinutes: 15,
+    appointmentDate: new Date(),
+    appointmentTime: new Date(),
+    notes: '',
+  });
 
-  // Search states
+  const [therapyForm, setTherapyForm] = useState<TherapyFormState>({
+    selectedTreatmentId: null,
+    selectedTherapistIds: [],
+    selectedRoomId: null,
+    durationMinutes: 60,
+    appointmentDate: new Date(),
+    appointmentTime: new Date(),
+    notes: '',
+  });
+
+  const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>({
+    selectedTreatmentId: null,
+    selectedTherapistIds: [],
+    durationMinutes: 60,
+    numberOfSessions: 7,
+    startDate: new Date(),
+    preferredTime: new Date(),
+    notes: '',
+  });
+
+  // ===== SEARCH & UI STATE =====
   const [clientSearchQuery, setClientSearchQuery] = useState('');
-  const [treatmentSearchQuery, setTreatmentSearchQuery] = useState('');
-  const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const debouncedClientSearch = useDebounce(clientSearchQuery, 300);
-
-  // Modal state
   const [showCreateClientModal, setShowCreateClientModal] = useState(false);
-
-  // Date/Time picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Queries
+  // ===== QUERIES =====
   const { data: clientsData, isLoading: isLoadingClients } = useClientsListQuery(tenantId, { limit: 100 });
   const { data: searchedClients, isLoading: isSearchingClients } = useSearchClientsQuery(
     tenantId,
@@ -525,94 +643,81 @@ export const CreateAppointmentScreen: React.FC = () => {
     100
   );
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
-  const { data: staffData, isLoading: isLoadingStaff } = useStaffListQuery(tenantId, { limit: 100 });
+  
+  // Staff queries - SEPARATE for doctors and therapists
+  const { data: doctorsData, isLoading: isLoadingDoctors } = useStaffListQuery(
+    tenantId, 
+    { staff_type: 'doctor' as StaffType, is_active: true, limit: 100 }
+  );
+  
+  const { data: therapistsData, isLoading: isLoadingTherapists } = useStaffListQuery(
+    tenantId, 
+    { is_active: true, limit: 100 }
+  );
+
   const { data: roomsData, isLoading: isLoadingRooms } = useRoomsListQuery(tenantId);
   
-  // Booked appointments for selected date and doctor
-  const { data: bookedData } = useAppointmentsByDateQuery(
+  // Booked appointments for selected doctor and date
+  const doctorDateStr = toISODateString(doctorForm.appointmentDate);
+  const { data: bookedData, isLoading: isLoadingBooked } = useAppointmentsByDateQuery(
     tenantId,
-    toISODateString(appointmentDate)
+    doctorDateStr,
+    { enabled: appointmentType === 'SINGLE' && sessionType === 'DOCTOR' && !!doctorForm.selectedDoctorId }
   );
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
 
-  // Filter clients based on search
+  // ===== COMPUTED OPTIONS =====
   const clientOptions: PickerOption[] = useMemo(() => {
-    const clients = debouncedClientSearch.length >= 3 && searchedClients?.items
+    const clients = debouncedClientSearch.length >= 2 && searchedClients?.items
       ? searchedClients.items
       : clientsData?.items || [];
     
-    return clients
-      .filter((c: any) => {
-        if (!clientSearchQuery) return true;
-        const query = clientSearchQuery.toLowerCase();
-        return (
-          (c.full_name || c.name || '').toLowerCase().includes(query) ||
-          (c.phone || '').toLowerCase().includes(query) ||
-          (c.email || '').toLowerCase().includes(query)
-        );
-      })
-      .map((c: any) => ({
-        id: c.id,
-        label: c.full_name || c.name || 'Unknown',
-        subtitle: c.phone || c.email,
-      }));
-  }, [clientsData, searchedClients, debouncedClientSearch, clientSearchQuery]);
+    return clients.map((c: any) => ({
+      id: c.id,
+      label: c.full_name || c.name || 'Unknown',
+      subtitle: c.phone || c.email,
+      phone: c.phone,
+    }));
+  }, [clientsData, searchedClients, debouncedClientSearch]);
 
-  // Filter treatments based on search
-  const treatmentOptions: PickerOption[] = useMemo(() => {
-    return (treatmentsData?.items || [])
-      .filter((t: TreatmentResponse) => {
-        if (!treatmentSearchQuery) return true;
-        const query = treatmentSearchQuery.toLowerCase();
-        return t.name.toLowerCase().includes(query);
-      })
-      .map((t: TreatmentResponse) => ({
-        id: t.id,
-        label: t.name,
-        subtitle: t.duration_minutes ? `${t.duration_minutes} min` : undefined,
-        duration_minutes: t.duration_minutes,
-      }));
-  }, [treatmentsData, treatmentSearchQuery]);
+  // Doctors only
+  const doctorOptions: PickerOption[] = useMemo(() => {
+    const doctors = doctorsData?.items || [];
+    return doctors.map((d: any) => ({
+      id: d.id,
+      label: d.full_name || d.name || 'Unknown',
+      subtitle: d.specialization || d.designation || 'Doctor',
+      staff_type: d.staff_type,
+    }));
+  }, [doctorsData]);
 
-  // Filter staff based on search and role (doctor vs therapist)
-  const staffOptions: PickerOption[] = useMemo(() => {
-    const allStaff = staffData?.items || [];
-    
-    return allStaff
+  // Therapists (non-doctors)
+  const therapistOptions: PickerOption[] = useMemo(() => {
+    const staff = therapistsData?.items || [];
+    return staff
       .filter((s: any) => {
-        // Filter by role based on session type
-        const role = (s.role || s.designation || '').toLowerCase();
-        if (appointmentType === 'SINGLE' && sessionType === 'DOCTOR') {
-          // Only doctors for doctor consultation
-          return role.includes('doctor') || role.includes('physician') || role.includes('consultant');
-        }
-        // Therapists for therapy sessions
-        if (appointmentType === 'SINGLE' && sessionType === 'THERAPY') {
-          return role.includes('therapist') || role.includes('therapy') || !role.includes('doctor');
-        }
-        // Multi-day always shows therapists
-        if (appointmentType === 'MULTI') {
-          return role.includes('therapist') || role.includes('therapy') || !role.includes('doctor');
-        }
-        return true;
-      })
-      .filter((s: any) => {
-        if (!staffSearchQuery) return true;
-        const query = staffSearchQuery.toLowerCase();
-        return (
-          (s.full_name || s.name || '').toLowerCase().includes(query) ||
-          (s.role || s.designation || '').toLowerCase().includes(query)
-        );
+        const staffType = (s.staff_type || '').toLowerCase();
+        // Include therapists and physiotherapists, exclude doctors
+        return staffType !== 'doctor' && staffType !== 'receptionist' && staffType !== 'admin';
       })
       .map((s: any) => ({
         id: s.id,
         label: s.full_name || s.name || 'Unknown',
-        subtitle: s.role || s.designation,
-        role: s.role || s.designation,
+        subtitle: s.designation || s.staff_type || 'Therapist',
+        staff_type: s.staff_type,
       }));
-  }, [staffData, staffSearchQuery, appointmentType, sessionType]);
+  }, [therapistsData]);
+
+  const treatmentOptions: PickerOption[] = useMemo(() => {
+    return (treatmentsData?.items || []).map((t: TreatmentResponse) => ({
+      id: t.id,
+      label: t.name,
+      subtitle: t.duration_minutes ? `${t.duration_minutes} min` : undefined,
+      duration_minutes: t.duration_minutes,
+    }));
+  }, [treatmentsData]);
 
   const roomOptions: PickerOption[] = (roomsData?.items || []).map((r: any) => ({
     id: r.id,
@@ -620,62 +725,33 @@ export const CreateAppointmentScreen: React.FC = () => {
     subtitle: r.capacity ? `Capacity: ${r.capacity}` : undefined,
   }));
 
-  // Get selected entities
-  const selectedClient = clientOptions.find(c => c.id === selectedClientId) || selectedClientInfo;
-  const selectedTreatment = treatmentOptions.find(t => t.id === selectedTreatmentId);
-  const selectedStaff = staffOptions.find(s => s.id === selectedStaffId);
-
-  // Doctor's booked appointments for the selected date
+  // Doctor's booked appointments filtered by selected doctor
   const doctorBookedAppointments = useMemo(() => {
-    if (!selectedStaffId || sessionType !== 'DOCTOR') return [];
+    if (!doctorForm.selectedDoctorId) return [];
     return (bookedData?.appointments || []).filter(
-      (apt) => apt.staff_id === selectedStaffId
+      (apt) => apt.staff_id === doctorForm.selectedDoctorId
     );
-  }, [bookedData, selectedStaffId, sessionType]);
+  }, [bookedData, doctorForm.selectedDoctorId]);
 
-  // Duration options - include 15 min for doctor consultations
-  const durationOptions = useMemo(() => {
-    if (appointmentType === 'SINGLE' && sessionType === 'DOCTOR') {
-      return [15, 30, 45, 60, 90];
-    }
-    return [30, 45, 60, 90, 120];
-  }, [appointmentType, sessionType]);
+  // Duration options per form type
+  const doctorDurations = [15, 30, 45, 60];
+  const therapyDurations = [30, 45, 60, 90, 120];
 
-  // Auto-set duration when treatment is selected (for multi-day)
-  const treatmentHasDuration = selectedTreatment?.duration_minutes;
+  // Get selected entities for display
+  const selectedClient = clientOptions.find(c => c.id === selectedClientId);
+  const selectedDoctor = doctorOptions.find(d => d.id === doctorForm.selectedDoctorId);
+  const selectedTreatment = appointmentType === 'SINGLE' 
+    ? treatmentOptions.find(t => t.id === therapyForm.selectedTreatmentId)
+    : treatmentOptions.find(t => t.id === multiDayForm.selectedTreatmentId);
 
+  // ===== HANDLERS =====
+  
   // Handle client selection
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
     const client = clientOptions.find(c => c.id === clientId);
     if (client) {
-      setSelectedClientInfo({ name: client.label, phone: client.subtitle || '' });
-    }
-  };
-
-  // Handle treatment selection - auto-set duration if available
-  const handleTreatmentSelect = (treatmentId: string) => {
-    setSelectedTreatmentId(treatmentId);
-    const treatment = treatmentOptions.find(t => t.id === treatmentId);
-    if (treatment?.duration_minutes) {
-      setDurationMinutes(treatment.duration_minutes);
-    }
-  };
-
-  // Handle staff selection for multi-day
-  const handleStaffSelect = (staffId: string) => {
-    if (appointmentType === 'MULTI') {
-      setSelectedStaffIds(prev => {
-        if (prev.includes(staffId)) {
-          return prev.filter(id => id !== staffId);
-        }
-        if (prev.length < 2) {
-          return [...prev, staffId];
-        }
-        return prev;
-      });
-    } else {
-      setSelectedStaffId(staffId);
+      setSelectedClientInfo({ name: client.label, phone: client.phone || client.subtitle || '' });
     }
   };
 
@@ -685,45 +761,139 @@ export const CreateAppointmentScreen: React.FC = () => {
     setSelectedClientInfo({ name: clientName, phone: clientPhone });
   };
 
+  // Handle doctor selection
+  const handleDoctorSelect = (doctorId: string) => {
+    setDoctorForm(prev => ({ ...prev, selectedDoctorId: doctorId }));
+  };
+
+  // Handle treatment selection with auto-duration
+  const handleTreatmentSelect = (treatmentId: string, formType: 'therapy' | 'multiday') => {
+    const treatment = treatmentOptions.find(t => t.id === treatmentId);
+    if (formType === 'therapy') {
+      setTherapyForm(prev => ({
+        ...prev,
+        selectedTreatmentId: treatmentId,
+        durationMinutes: treatment?.duration_minutes || prev.durationMinutes,
+      }));
+    } else {
+      setMultiDayForm(prev => ({
+        ...prev,
+        selectedTreatmentId: treatmentId,
+        durationMinutes: treatment?.duration_minutes || prev.durationMinutes,
+      }));
+    }
+  };
+
+  // Handle therapist multi-select
+  const handleTherapistSelect = (therapistId: string, formType: 'therapy' | 'multiday') => {
+    if (formType === 'therapy') {
+      setTherapyForm(prev => {
+        const ids = prev.selectedTherapistIds;
+        if (ids.includes(therapistId)) {
+          return { ...prev, selectedTherapistIds: ids.filter(id => id !== therapistId) };
+        }
+        if (ids.length < 2) {
+          return { ...prev, selectedTherapistIds: [...ids, therapistId] };
+        }
+        return prev;
+      });
+    } else {
+      setMultiDayForm(prev => {
+        const ids = prev.selectedTherapistIds;
+        if (ids.includes(therapistId)) {
+          return { ...prev, selectedTherapistIds: ids.filter(id => id !== therapistId) };
+        }
+        if (ids.length < 2) {
+          return { ...prev, selectedTherapistIds: [...ids, therapistId] };
+        }
+        return prev;
+      });
+    }
+  };
+
+  // Get current date/time based on form
+  const getCurrentDate = () => {
+    if (appointmentType === 'MULTI') return multiDayForm.startDate;
+    return sessionType === 'DOCTOR' ? doctorForm.appointmentDate : therapyForm.appointmentDate;
+  };
+
+  const getCurrentTime = () => {
+    if (appointmentType === 'MULTI') return multiDayForm.preferredTime;
+    return sessionType === 'DOCTOR' ? doctorForm.appointmentTime : therapyForm.appointmentTime;
+  };
+
+  const setCurrentDate = (date: Date) => {
+    if (appointmentType === 'MULTI') {
+      setMultiDayForm(prev => ({ ...prev, startDate: date }));
+    } else if (sessionType === 'DOCTOR') {
+      setDoctorForm(prev => ({ ...prev, appointmentDate: date }));
+    } else {
+      setTherapyForm(prev => ({ ...prev, appointmentDate: date }));
+    }
+  };
+
+  const setCurrentTime = (time: Date) => {
+    if (appointmentType === 'MULTI') {
+      setMultiDayForm(prev => ({ ...prev, preferredTime: time }));
+    } else if (sessionType === 'DOCTOR') {
+      setDoctorForm(prev => ({ ...prev, appointmentTime: time }));
+    } else {
+      setTherapyForm(prev => ({ ...prev, appointmentTime: time }));
+    }
+  };
+
   // Create single appointment
   const handleCreateSingle = async () => {
     if (!selectedClientId) {
-      Alert.alert('Error', 'Please select a client');
+      Alert.alert('Required', 'Please select a client');
+      return;
+    }
+
+    const isDoctor = sessionType === 'DOCTOR';
+    const form = isDoctor ? doctorForm : therapyForm;
+    const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
+    const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
+
+    if (isDoctor && !doctorForm.selectedDoctorId) {
+      Alert.alert('Required', 'Please select a doctor');
       return;
     }
 
     const startDateTime = new Date(appointmentDate);
     startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
     const endDateTime = new Date(startDateTime);
-    endDateTime.setMinutes(endDateTime.getMinutes() + durationMinutes);
+    endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
 
     const payload: AppointmentCreate = {
       client_id: selectedClientId,
-      staff_id: selectedStaffId,
-      room_id: selectedRoomId,
-      treatment_id: sessionType === 'THERAPY' ? selectedTreatmentId : null,
+      staff_id: isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null),
+      room_id: isDoctor ? null : therapyForm.selectedRoomId,
+      treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
       appointment_start: startDateTime.toISOString(),
       appointment_end: endDateTime.toISOString(),
       status: 'scheduled',
-      notes: notes || null,
+      notes: isDoctor ? doctorForm.notes : therapyForm.notes,
       appointment_type: 'SINGLE',
     };
 
     try {
       await createMutation.mutateAsync(payload);
 
-      // Open WhatsApp
-      const clientPhone = (selectedClient as any)?.subtitle || selectedClientInfo?.phone;
-      const clientName = (selectedClient as any)?.label || selectedClientInfo?.name || 'Client';
+      const clientPhone = selectedClientInfo?.phone;
+      const clientName = selectedClientInfo?.name || 'Client';
       
       if (clientPhone) {
+        const staffName = isDoctor 
+          ? selectedDoctor?.label || 'Doctor'
+          : therapistOptions.find(t => t.id === therapyForm.selectedTherapistIds[0])?.label || 'Therapist';
+        
         const message = generateWhatsAppConfirmationMessage(
           clientName,
           'Your Clinic',
           formatDate(startDateTime.toISOString()),
           formatTime(startDateTime.toISOString()),
-          selectedStaff?.label || 'Doctor',
-          selectedTreatment?.label || (sessionType === 'DOCTOR' ? 'Consultation' : 'Therapy'),
+          staffName,
+          isDoctor ? 'Consultation' : (selectedTreatment?.label || 'Therapy'),
           '+91-XXXXXXXXXX'
         );
         const whatsappUrl = openWhatsApp(clientPhone, message);
@@ -751,304 +921,416 @@ export const CreateAppointmentScreen: React.FC = () => {
     }
   };
 
-  // Generate and preview multi-day plan
+  // Navigate to preview for multi-day
   const handlePreviewMultiDay = async () => {
     if (!selectedClientId) {
-      Alert.alert('Error', 'Please select a client');
+      Alert.alert('Required', 'Please select a client');
       return;
     }
-    if (!selectedTreatmentId) {
-      Alert.alert('Error', 'Please select a treatment');
+    if (!multiDayForm.selectedTreatmentId) {
+      Alert.alert('Required', 'Please select a treatment');
       return;
     }
-    if (selectedStaffIds.length === 0) {
-      Alert.alert('Error', 'Please select at least one therapist');
+    if (multiDayForm.selectedTherapistIds.length === 0) {
+      Alert.alert('Required', 'Please select at least one therapist');
       return;
     }
 
-    const startDateTime = new Date(appointmentDate);
-    startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
+    const startDateTime = new Date(multiDayForm.startDate);
+    startDateTime.setHours(multiDayForm.preferredTime.getHours(), multiDayForm.preferredTime.getMinutes(), 0, 0);
 
-    // Get selected staff names
-    const selectedStaffNames = staffOptions
-      .filter(s => selectedStaffIds.includes(s.id))
-      .map(s => s.label)
+    const selectedStaffNames = therapistOptions
+      .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
+      .map(t => t.label)
       .join(', ');
 
-    // Navigate to preview screen with params
     router.push({
       pathname: '/clinic-admin/appointments/preview' as any,
       params: {
         clientId: selectedClientId,
-        clientName: selectedClientInfo?.name || (selectedClient as any)?.label || '',
-        clientPhone: selectedClientInfo?.phone || (selectedClient as any)?.subtitle || '',
-        treatmentId: selectedTreatmentId,
+        clientName: selectedClientInfo?.name || '',
+        clientPhone: selectedClientInfo?.phone || '',
+        treatmentId: multiDayForm.selectedTreatmentId,
         treatmentName: selectedTreatment?.label || '',
-        staffIds: selectedStaffIds.join(','),
+        staffIds: multiDayForm.selectedTherapistIds.join(','),
         staffNames: selectedStaffNames,
         startDate: startDateTime.toISOString(),
-        durationDays: numberOfSessions.toString(),
-        preferredTimeHour: appointmentTime.getHours().toString(),
-        durationMinutes: durationMinutes.toString(),
-        notes: notes,
+        durationDays: multiDayForm.numberOfSessions.toString(),
+        preferredTimeHour: multiDayForm.preferredTime.getHours().toString(),
+        durationMinutes: multiDayForm.durationMinutes.toString(),
+        notes: multiDayForm.notes,
       },
     });
   };
 
+  // Form validation
   const isFormValid = () => {
     if (!selectedClientId) return false;
-    if (appointmentType === 'MULTI') {
-      return selectedTreatmentId && selectedStaffIds.length > 0;
+    if (appointmentType === 'SINGLE') {
+      if (sessionType === 'DOCTOR') {
+        return !!doctorForm.selectedDoctorId;
+      }
+      return true; // Therapy form has optional fields
     }
-    return true;
+    // Multi-day
+    return multiDayForm.selectedTreatmentId && multiDayForm.selectedTherapistIds.length > 0;
   };
+
+  // Current duration and setter
+  const getCurrentDuration = () => {
+    if (appointmentType === 'MULTI') return multiDayForm.durationMinutes;
+    return sessionType === 'DOCTOR' ? doctorForm.durationMinutes : therapyForm.durationMinutes;
+  };
+
+  const setCurrentDuration = (mins: number) => {
+    if (appointmentType === 'MULTI') {
+      setMultiDayForm(prev => ({ ...prev, durationMinutes: mins }));
+    } else if (sessionType === 'DOCTOR') {
+      setDoctorForm(prev => ({ ...prev, durationMinutes: mins }));
+    } else {
+      setTherapyForm(prev => ({ ...prev, durationMinutes: mins }));
+    }
+  };
+
+  // Check if duration is locked by treatment
+  const isDurationLocked = appointmentType === 'MULTI' 
+    ? !!treatmentOptions.find(t => t.id === multiDayForm.selectedTreatmentId)?.duration_minutes
+    : (sessionType === 'THERAPY' && !!treatmentOptions.find(t => t.id === therapyForm.selectedTreatmentId)?.duration_minutes);
+
+  const currentDurationOptions = appointmentType === 'SINGLE' && sessionType === 'DOCTOR' 
+    ? doctorDurations 
+    : therapyDurations;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          accessibilityLabel="Close"
+          accessibilityHint="Go back to appointments list"
+        >
           <Ionicons name="close" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Appointment</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Appointment Type */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appointment Type</Text>
-          <TypeSelector value={appointmentType} onChange={setAppointmentType} />
-        </View>
-
-        {/* Session Type Toggle (Single day only) */}
-        {appointmentType === 'SINGLE' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Session Type</Text>
-            <SessionTypeSelector value={sessionType} onChange={setSessionType} />
-          </View>
-        )}
-
-        {/* Client Selection with Create option */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Client *</Text>
-          <SearchableDropdown
-            title="Select Client"
-            options={clientOptions}
-            selectedId={selectedClientId}
-            onSelect={handleClientSelect}
-            searchQuery={clientSearchQuery}
-            onSearchChange={setClientSearchQuery}
-            isLoading={isLoadingClients || isSearchingClients}
-            emptyText="No clients found"
-            showCreateOption={clientOptions.length === 0 || clientSearchQuery.length >= 2}
-            onCreateNew={() => setShowCreateClientModal(true)}
-            autoCloseOnSelect={true}
-          />
-        </View>
-
-        {/* Treatment (Multi-day: ABOVE duration; Single therapy: show) */}
-        {(appointmentType === 'MULTI' || (appointmentType === 'SINGLE' && sessionType === 'THERAPY')) && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Treatment {appointmentType === 'MULTI' ? '*' : '(Optional)'}
-            </Text>
-            <SearchableDropdown
-              title="Select Treatment"
-              options={treatmentOptions}
-              selectedId={selectedTreatmentId}
-              onSelect={handleTreatmentSelect}
-              searchQuery={treatmentSearchQuery}
-              onSearchChange={setTreatmentSearchQuery}
-              isLoading={isLoadingTreatments}
-              emptyText="No treatments available"
-              autoCloseOnSelect={true}
-            />
-          </View>
-        )}
-
-        {/* Date & Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {appointmentType === 'SINGLE' ? 'Date & Time' : 'Start Date & Preferred Time'}
-          </Text>
-          <View style={styles.dateTimeRow}>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color={colors.primary.main} />
-              <Text style={styles.dateTimeText}>{formatDate(appointmentDate.toISOString())}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time-outline" size={20} color={colors.primary.main} />
-              <Text style={styles.dateTimeText}>
-                {appointmentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showDatePicker && (
-            <DateTimePicker
-              value={appointmentDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              minimumDate={new Date()}
-              onChange={(event: DateTimePickerEvent, date?: Date) => {
-                setShowDatePicker(Platform.OS === 'ios');
-                if (date) setAppointmentDate(date);
-              }}
-            />
-          )}
-
-          {showTimePicker && (
-            <DateTimePicker
-              value={appointmentTime}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event: DateTimePickerEvent, time?: Date) => {
-                setShowTimePicker(Platform.OS === 'ios');
-                if (time) setAppointmentTime(time);
-              }}
-            />
-          )}
-        </View>
-
-        {/* Duration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {appointmentType === 'SINGLE' ? 'Duration' : 'Session Duration'}
-            {treatmentHasDuration && ' (from treatment)'}
-          </Text>
-          <View style={styles.durationRow}>
-            {durationOptions.map((mins) => (
-              <TouchableOpacity
-                key={mins}
-                style={[
-                  styles.durationButton,
-                  durationMinutes === mins && styles.durationButtonSelected,
-                  !!(treatmentHasDuration && mins !== treatmentHasDuration) && styles.durationButtonDisabled,
-                ]}
-                onPress={() => !treatmentHasDuration && setDurationMinutes(mins)}
-                disabled={!!treatmentHasDuration && mins !== treatmentHasDuration}
-              >
-                <Text
-                  style={[
-                    styles.durationText,
-                    durationMinutes === mins && styles.durationTextSelected,
-                  ]}
-                >
-                  {mins} min
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Number of Sessions (Multi-day only) */}
-        {appointmentType === 'MULTI' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Number of Sessions</Text>
-            <View style={styles.sessionsRow}>
-              <TouchableOpacity
-                style={styles.sessionControl}
-                onPress={() => setNumberOfSessions(Math.max(1, numberOfSessions - 1))}
-              >
-                <Ionicons name="remove" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-              <Text style={styles.sessionsValue}>{numberOfSessions}</Text>
-              <TouchableOpacity
-                style={styles.sessionControl}
-                onPress={() => setNumberOfSessions(Math.min(30, numberOfSessions + 1))}
-              >
-                <Ionicons name="add" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Appointment Type */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Appointment Type</Text>
+              <TypeSelector value={appointmentType} onChange={setAppointmentType} />
             </View>
-            <Text style={styles.sessionsHint}>
-              Sessions will be scheduled daily starting from the selected date
-            </Text>
-          </View>
-        )}
 
-        {/* Staff/Therapist Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {appointmentType === 'SINGLE' && sessionType === 'DOCTOR' 
-              ? 'Doctor *' 
-              : appointmentType === 'MULTI' 
-                ? 'Therapists * (Max 2)' 
-                : 'Therapist (Optional)'}
-          </Text>
-          <SearchableDropdown
-            title={appointmentType === 'MULTI' ? 'Select Therapists' : sessionType === 'DOCTOR' ? 'Select Doctor' : 'Select Therapist'}
-            options={staffOptions}
-            selectedId={appointmentType === 'SINGLE' ? selectedStaffId : null}
-            onSelect={handleStaffSelect}
-            searchQuery={staffSearchQuery}
-            onSearchChange={setStaffSearchQuery}
-            isLoading={isLoadingStaff}
-            emptyText={sessionType === 'DOCTOR' ? 'No doctors available' : 'No therapists available'}
-            multiple={appointmentType === 'MULTI'}
-            selectedIds={selectedStaffIds}
-            maxSelect={2}
-            autoCloseOnSelect={appointmentType !== 'MULTI'}
-          />
-        </View>
+            {/* Session Type Toggle (Single day only) */}
+            {appointmentType === 'SINGLE' && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Session Type</Text>
+                <SessionTypeSelector value={sessionType} onChange={setSessionType} />
+              </View>
+            )}
 
-        {/* Booked Slots (Doctor consultation only) */}
-        {appointmentType === 'SINGLE' && sessionType === 'DOCTOR' && selectedStaffId && (
-          <View style={styles.section}>
-            <BookedSlots 
-              appointments={doctorBookedAppointments} 
-              selectedDate={appointmentDate} 
-            />
-          </View>
-        )}
+            {/* Client Selection */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Client *</Text>
+              <SearchableDropdown
+                title="Select Client"
+                options={clientOptions}
+                selectedId={selectedClientId}
+                onSelect={handleClientSelect}
+                isLoading={isLoadingClients || isSearchingClients}
+                emptyText="No clients found"
+                showCreateOption={clientOptions.length === 0 || clientSearchQuery.length >= 2}
+                onCreateNew={() => setShowCreateClientModal(true)}
+                autoCloseOnSelect={true}
+              />
+            </View>
 
-        {/* Room (Single day therapy only) */}
-        {appointmentType === 'SINGLE' && sessionType === 'THERAPY' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Room (Optional)</Text>
-            <SearchableDropdown
-              title="Select Room"
-              options={roomOptions}
-              selectedId={selectedRoomId}
-              onSelect={setSelectedRoomId}
-              searchQuery=""
-              onSearchChange={() => {}}
-              isLoading={isLoadingRooms}
-              emptyText="No rooms available"
-              autoCloseOnSelect={true}
-            />
-          </View>
-        )}
+            {/* ===== DOCTOR CONSULTATION FORM ===== */}
+            {appointmentType === 'SINGLE' && sessionType === 'DOCTOR' && (
+              <>
+                {/* Doctor Selection */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Doctor *</Text>
+                  <SearchableDropdown
+                    title="Select Doctor"
+                    options={doctorOptions}
+                    selectedId={doctorForm.selectedDoctorId}
+                    onSelect={handleDoctorSelect}
+                    isLoading={isLoadingDoctors}
+                    emptyText={doctorsData?.items?.length === 0 ? "No doctors available in this clinic" : "No doctors found"}
+                    autoCloseOnSelect={true}
+                  />
+                </View>
 
-        {/* Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes (Optional)</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="Add any notes about this appointment..."
-            placeholderTextColor={colors.text.tertiary}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-        </View>
+                {/* Booked Slots Display */}
+                {doctorForm.selectedDoctorId && (
+                  <View style={styles.section}>
+                    <BookedSlots 
+                      appointments={doctorBookedAppointments} 
+                      selectedDate={doctorForm.appointmentDate}
+                      isLoading={isLoadingBooked}
+                    />
+                  </View>
+                )}
+              </>
+            )}
 
-        {/* Spacer for button */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+            {/* ===== THERAPY SESSION FORM ===== */}
+            {appointmentType === 'SINGLE' && sessionType === 'THERAPY' && (
+              <>
+                {/* Treatment */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Treatment (Optional)</Text>
+                  <SearchableDropdown
+                    title="Select Treatment"
+                    options={treatmentOptions}
+                    selectedId={therapyForm.selectedTreatmentId}
+                    onSelect={(id) => handleTreatmentSelect(id, 'therapy')}
+                    isLoading={isLoadingTreatments}
+                    emptyText="No treatments available"
+                    autoCloseOnSelect={true}
+                  />
+                </View>
+
+                {/* Therapists - Multi-select */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Therapists (Max 2)</Text>
+                  <SearchableDropdown
+                    title="Select Therapists"
+                    options={therapistOptions}
+                    selectedId={null}
+                    onSelect={(id) => handleTherapistSelect(id, 'therapy')}
+                    isLoading={isLoadingTherapists}
+                    emptyText="No therapists available"
+                    multiple
+                    selectedIds={therapyForm.selectedTherapistIds}
+                    maxSelect={2}
+                    autoCloseOnSelect={false}
+                  />
+                </View>
+
+                {/* Room */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Room (Optional)</Text>
+                  <SearchableDropdown
+                    title="Select Room"
+                    options={roomOptions}
+                    selectedId={therapyForm.selectedRoomId}
+                    onSelect={(id) => setTherapyForm(prev => ({ ...prev, selectedRoomId: id }))}
+                    isLoading={isLoadingRooms}
+                    emptyText="No rooms available"
+                    autoCloseOnSelect={true}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* ===== MULTI-DAY FORM ===== */}
+            {appointmentType === 'MULTI' && (
+              <>
+                {/* Treatment (ABOVE duration) */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Treatment *</Text>
+                  <SearchableDropdown
+                    title="Select Treatment"
+                    options={treatmentOptions}
+                    selectedId={multiDayForm.selectedTreatmentId}
+                    onSelect={(id) => handleTreatmentSelect(id, 'multiday')}
+                    isLoading={isLoadingTreatments}
+                    emptyText="No treatments available"
+                    autoCloseOnSelect={true}
+                  />
+                </View>
+
+                {/* Therapists - Multi-select */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Therapists * (Max 2)</Text>
+                  <SearchableDropdown
+                    title="Select Therapists"
+                    options={therapistOptions}
+                    selectedId={null}
+                    onSelect={(id) => handleTherapistSelect(id, 'multiday')}
+                    isLoading={isLoadingTherapists}
+                    emptyText="No therapists available"
+                    multiple
+                    selectedIds={multiDayForm.selectedTherapistIds}
+                    maxSelect={2}
+                    autoCloseOnSelect={false}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* Date & Time */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {appointmentType === 'SINGLE' ? 'Date & Time' : 'Start Date & Preferred Time'}
+              </Text>
+              <View style={styles.dateTimeRow}>
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowDatePicker(true)}
+                  accessibilityLabel={`Date: ${formatDate(getCurrentDate().toISOString())}`}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary.main} />
+                  <Text style={styles.dateTimeText}>{formatDate(getCurrentDate().toISOString())}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowTimePicker(true)}
+                  accessibilityLabel={`Time: ${getCurrentTime().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`}
+                >
+                  <Ionicons name="time-outline" size={20} color={colors.primary.main} />
+                  <Text style={styles.dateTimeText}>
+                    {getCurrentTime().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={getCurrentDate()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minimumDate={new Date()}
+                  onChange={(event: DateTimePickerEvent, date?: Date) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (date) setCurrentDate(date);
+                  }}
+                />
+              )}
+
+              {showTimePicker && (
+                <DateTimePicker
+                  value={getCurrentTime()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event: DateTimePickerEvent, time?: Date) => {
+                    setShowTimePicker(Platform.OS === 'ios');
+                    if (time) setCurrentTime(time);
+                  }}
+                />
+              )}
+            </View>
+
+            {/* Duration */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Duration {isDurationLocked && '(from treatment)'}
+              </Text>
+              <View style={styles.durationRow}>
+                {currentDurationOptions.map((mins) => {
+                  const isSelected = getCurrentDuration() === mins;
+                  const isDisabled = isDurationLocked && !isSelected;
+                  return (
+                    <TouchableOpacity
+                      key={mins}
+                      style={[
+                        styles.durationButton,
+                        isSelected && styles.durationButtonSelected,
+                        isDisabled && styles.durationButtonDisabled,
+                      ]}
+                      onPress={() => !isDurationLocked && setCurrentDuration(mins)}
+                      disabled={isDisabled}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      accessibilityLabel={`${mins} minutes`}
+                    >
+                      <Text
+                        style={[
+                          styles.durationText,
+                          isSelected && styles.durationTextSelected,
+                        ]}
+                      >
+                        {mins} min
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Number of Sessions (Multi-day only) */}
+            {appointmentType === 'MULTI' && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Number of Sessions</Text>
+                <View style={styles.sessionsRow}>
+                  <TouchableOpacity
+                    style={styles.sessionControl}
+                    onPress={() => setMultiDayForm(prev => ({ 
+                      ...prev, 
+                      numberOfSessions: Math.max(1, prev.numberOfSessions - 1) 
+                    }))}
+                    accessibilityLabel="Decrease sessions"
+                  >
+                    <Ionicons name="remove" size={24} color={colors.text.primary} />
+                  </TouchableOpacity>
+                  <Text style={styles.sessionsValue} accessibilityLabel={`${multiDayForm.numberOfSessions} sessions`}>
+                    {multiDayForm.numberOfSessions}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.sessionControl}
+                    onPress={() => setMultiDayForm(prev => ({ 
+                      ...prev, 
+                      numberOfSessions: Math.min(30, prev.numberOfSessions + 1) 
+                    }))}
+                    accessibilityLabel="Increase sessions"
+                  >
+                    <Ionicons name="add" size={24} color={colors.text.primary} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.sessionsHint}>
+                  Sessions will be scheduled daily starting from the selected date
+                </Text>
+              </View>
+            )}
+
+            {/* Notes */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Add any notes about this appointment..."
+                placeholderTextColor={colors.text.tertiary}
+                value={appointmentType === 'MULTI' 
+                  ? multiDayForm.notes 
+                  : (sessionType === 'DOCTOR' ? doctorForm.notes : therapyForm.notes)}
+                onChangeText={(text) => {
+                  if (appointmentType === 'MULTI') {
+                    setMultiDayForm(prev => ({ ...prev, notes: text }));
+                  } else if (sessionType === 'DOCTOR') {
+                    setDoctorForm(prev => ({ ...prev, notes: text }));
+                  } else {
+                    setTherapyForm(prev => ({ ...prev, notes: text }));
+                  }
+                }}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                accessibilityLabel="Appointment notes"
+              />
+            </View>
+
+            {/* Spacer for button */}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
 
       {/* Action Button */}
       <View style={styles.actionBar}>
@@ -1059,6 +1341,9 @@ export const CreateAppointmentScreen: React.FC = () => {
           ]}
           onPress={appointmentType === 'SINGLE' ? handleCreateSingle : handlePreviewMultiDay}
           disabled={!isFormValid() || createMutation.isPending}
+          accessibilityRole="button"
+          accessibilityLabel={appointmentType === 'SINGLE' ? 'Create Appointment' : 'Preview Plan'}
+          accessibilityState={{ disabled: !isFormValid() || createMutation.isPending }}
         >
           {createMutation.isPending ? (
             <ActivityIndicator size="small" color={colors.background.default} />
@@ -1105,15 +1390,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.default,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+    minHeight: 56,
   },
   backButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     ...typography.h6,
     color: colors.text.primary,
     textAlign: 'center',
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -1144,6 +1437,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     borderWidth: 2,
     borderColor: colors.border.light,
+    minHeight: 100,
   },
   typeOptionSelected: {
     borderColor: colors.primary.main,
@@ -1162,6 +1456,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
+    textAlign: 'center',
   },
 
   // Session Type Selector
@@ -1182,6 +1477,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: spacing.xs,
+    minHeight: 44,
   },
   sessionTypeOptionSelected: {
     backgroundColor: colors.primary.main,
@@ -1203,10 +1499,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border.light,
     overflow: 'hidden',
   },
+  dropdownDisabled: {
+    opacity: 0.5,
+  },
   dropdownHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
+    minHeight: 56,
   },
   dropdownHeaderContent: {
     flex: 1,
@@ -1219,6 +1519,9 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: colors.text.primary,
     marginTop: spacing.xs / 2,
+  },
+  dropdownValueDisabled: {
+    color: colors.text.tertiary,
   },
   dropdownContent: {
     borderTopWidth: 1,
@@ -1246,6 +1549,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+    minHeight: 56,
   },
   dropdownOptionSelected: {
     backgroundColor: colors.primary.main + '10',
@@ -1285,6 +1589,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
     gap: spacing.sm,
+    minHeight: 56,
   },
   dropdownCreateText: {
     ...typography.body1,
@@ -1295,6 +1600,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.primary.main,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   dropdownDoneText: {
     ...typography.button,
@@ -1308,6 +1615,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.warning.main + '30',
+  },
+  bookedSlotsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  bookedSlotsLoadingText: {
+    ...typography.body2,
+    color: colors.text.secondary,
   },
   bookedSlotsTitle: {
     ...typography.caption,
@@ -1326,10 +1648,18 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: spacing.xs,
   },
+  bookedSlotTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   bookedSlotTime: {
     ...typography.body2,
     color: colors.warning.main,
     fontWeight: '600',
+  },
+  bookedSlotTimeSeparator: {
+    ...typography.body2,
+    color: colors.warning.main,
   },
   bookedSlotClient: {
     ...typography.caption,
@@ -1345,6 +1675,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   bookedSlotsEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.success.main + '10',
     borderRadius: spacing.sm,
     padding: spacing.md,
@@ -1354,7 +1688,6 @@ const styles = StyleSheet.create({
   bookedSlotsEmptyText: {
     ...typography.body2,
     color: colors.success.main,
-    textAlign: 'center',
   },
 
   // Date Time
@@ -1373,6 +1706,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.light,
+    minHeight: 48,
   },
   dateTimeText: {
     ...typography.body1,
@@ -1393,6 +1727,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.light,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   durationButtonSelected: {
     borderColor: colors.primary.main,
@@ -1419,9 +1755,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   sessionControl: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.background.default,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -1472,6 +1808,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: colors.primary.main,
     borderRadius: spacing.sm,
+    minHeight: 52,
   },
   actionButtonDisabled: {
     backgroundColor: colors.grey[300],
@@ -1500,6 +1837,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+    minHeight: 56,
   },
   modalTitle: {
     ...typography.h6,
@@ -1525,6 +1863,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...typography.body1,
     color: colors.text.primary,
+    minHeight: 48,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1540,6 +1879,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.main,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   modalCancelText: {
     ...typography.button,
@@ -1551,6 +1892,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.main,
     borderRadius: spacing.sm,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   modalButtonDisabled: {
     backgroundColor: colors.grey[300],
