@@ -434,6 +434,7 @@ export interface TherapyPlanRequest {
 export interface TherapyPlanResponse {
   series_id: string;
   client_id: string;
+  client_name?: string;  // Optional - returned by some API versions
   treatment_id: string;
   start_date: string;
   duration_days: number;
