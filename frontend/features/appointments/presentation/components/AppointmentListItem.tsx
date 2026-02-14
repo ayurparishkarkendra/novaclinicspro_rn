@@ -262,27 +262,30 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         )}
       </View>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - ALWAYS VISIBLE when showActions is true */}
       {showActions && (
         <View style={styles.actionsContainer}>
+          {/* Call Button - Only if phone available and user has permission */}
           {canCall && clientPhone && (
             <QuickAction
               icon="call"
               color={colors.success.main}
               onPress={handleCall}
-              accessibilityLabel={`Call ${clientName}`}
+              accessibilityLabel={`Call ${displayClientName}`}
               testId="appointment-action-call"
             />
           )}
+          {/* WhatsApp Button - Only if phone available and user has permission */}
           {canWhatsApp && clientPhone && (
             <QuickAction
               icon="logo-whatsapp"
               color="#25D366"
               onPress={handleWhatsApp}
-              accessibilityLabel={`WhatsApp ${clientName}`}
+              accessibilityLabel={`WhatsApp ${displayClientName}`}
               testId="appointment-action-whatsapp"
             />
           )}
+          {/* View Button - ALWAYS visible */}
           <QuickAction
             icon="chevron-forward"
             color={colors.primary.main}
