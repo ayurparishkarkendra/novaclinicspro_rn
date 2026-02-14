@@ -368,6 +368,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [apiClientName, setApiClientName] = useState<string | null>(null);  // ✨ NEW - from API response
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
@@ -375,7 +376,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
   // Extract params with fallbacks - memoized to prevent re-renders
   const clientId = params.clientId || '';
-  const clientName = params.clientName || t('common.client');
+  const clientNameFromParams = params.clientName || t('common.client');
+  // ✨ Prefer client_name from API response over URL params
+  const clientName = apiClientName || clientNameFromParams;
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
