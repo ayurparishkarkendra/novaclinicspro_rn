@@ -262,24 +262,14 @@ export const AppointmentDetailScreen: React.FC = () => {
   const cancelMutation = useCancelAppointmentMutation(tenantId);
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
-  // ===== EXTRACT DATA WITH FALLBACKS =====
-  const clientName = appointment?.client_name || 
-                    (appointment as any)?.client?.full_name || 
-                    (appointment as any)?.client?.name || 
-                    null;
-  const clientPhone = appointment?.client_phone || 
-                     (appointment as any)?.client?.phone || 
-                     null;
-  const staffName = appointment?.staff_name || 
-                   (appointment as any)?.staff?.full_name || 
-                   (appointment as any)?.staff?.name ||
-                   null;
-  const treatmentName = appointment?.treatment_name || 
-                       (appointment as any)?.treatment?.name ||
-                       null;
-  const roomName = appointment?.room_name || 
-                  (appointment as any)?.room?.name ||
-                  null;
+  // ===== EXTRACT DATA FROM API RESPONSE =====
+  // Per API spec: client_name, staff_name, room_name, treatment_name are returned directly
+  // NO nested objects - the backend already resolves names
+  const clientName = appointment?.client_name || null;
+  const clientPhone = appointment?.client_phone || null;
+  const staffName = appointment?.staff_name || null;
+  const treatmentName = appointment?.treatment_name || null;
+  const roomName = appointment?.room_name || null;
 
   // ===== RBAC CHECK =====
   // Determine which actions are allowed based on user role
