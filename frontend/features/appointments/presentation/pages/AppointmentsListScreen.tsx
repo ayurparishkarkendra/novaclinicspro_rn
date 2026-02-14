@@ -44,6 +44,7 @@ import {
   generateDateRange,
   toISODateString,
 } from '../../data/models/appointments.dtos';
+import { AppointmentListItem } from '../components/AppointmentListItem';
 
 // ============================================
 // DATE SLIDER COMPONENT - FIXED LAYOUT
