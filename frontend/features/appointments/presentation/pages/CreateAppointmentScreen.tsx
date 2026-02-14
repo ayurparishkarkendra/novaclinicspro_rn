@@ -764,29 +764,28 @@ export const CreateAppointmentScreen: React.FC = () => {
     }));
   }, [doctorsData]);
 
-  // Therapists only - CRITICAL: Filter on frontend too for safety
+  // Therapists only - CRITICAL: Strict filter by staff_type = 'therapist' only
+  // BUG FIX #4: Only show staff where staff_type = 'therapist', no other roles
   const therapistOptions: PickerOption[] = useMemo(() => {
     const allStaff = therapistsData?.items || [];
-    // Double-filter to ensure ONLY therapists appear
+    // Strict filter: ONLY staff where staff_type is exactly 'therapist'
     const therapists = allStaff.filter((s: any) => {
       const staffType = (s.staff_type || '').toLowerCase();
-      const role = (s.role || '').toLowerCase();
-      const designation = (s.designation || '').toLowerCase();
-      // Include if staff_type is therapist, OR if not explicitly a doctor
-      return staffType === 'therapist' || 
-             role.includes('therapist') || 
-             designation.includes('therapist') ||
-             (staffType !== 'doctor' && !designation.includes('doctor') && !designation.includes('vaidya'));
+      // STRICT: Only allow exact 'therapist' staff_type
+      // Do NOT include clinic_admin, receptionist, doctor, or any other type
+      return staffType === 'therapist';
     });
     
-    // DEBUG: Uncomment to trace therapist filtering
-    // console.log('[CreateAppointment] Therapist options - raw:', allStaff.length, 'filtered:', therapists.length);
+    // DEBUG: Log therapist filtering
+    console.log('[CreateAppointment] Therapist options - raw:', allStaff.length, 'filtered:', therapists.length);
     
     return therapists.map((s: any) => ({
       id: s.id,
       label: s.full_name || s.name || 'Unknown',
       subtitle: s.designation || s.staff_type || 'Therapist',
       staff_type: s.staff_type,
+      // BUG FIX #7: Include gender for gender matching
+      gender: s.gender,
     }));
   }, [therapistsData]);
 
