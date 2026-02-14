@@ -3,107 +3,130 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, and billing for Ayurvedic clinics.
 
-## Current Status: Appointments Module Fixes - Session Feb 14, 2025 (Iteration 3)
+## Current Status: Appointments Module Fixes - Session Feb 14, 2025 (Iteration 4 - 8 Bug Fixes)
 
-### Latest Fixes Applied (This Session - Iteration 3)
+### Bug Fixes Applied (This Session - Iteration 4)
 
-#### Critical Fix: Infinite Loop Bug (P0 BLOCKER) - FIXED
-- **Problem**: `PreviewAppointmentsScreen.tsx` had a `useEffect` with unstable dependencies (`staffIds.join(',')`, `generateFallbackSessions` callback) causing infinite API calls
+#### BUG #1: Therapist Display on Appointment Cards - FIXED
+- **Problem**: When 2 therapists assigned, only shows first one or "Unassigned"
 - **Fix**: 
-  1. Added `hasFetched` state flag to prevent multiple API calls
-  2. Memoized `staffIds` using `useMemo`
-  3. Removed unstable callback from dependency array
-  4. API call runs exactly once on mount
+  - Added `staff_names?: string[]` to `AppointmentResponse` DTO
+  - Updated `AppointmentListItem.tsx` to check `staff_names` array first
+  - Updated `AppointmentDetailScreen.tsx` similarly
+  - Display format: "Therapist A, Therapist B" for dual-therapist appointments
+- **Files**: `appointments.dtos.ts`, `AppointmentListItem.tsx`, `AppointmentDetailScreen.tsx`
 - **Status**: ✅ FIXED
 
-#### Critical Fix: Forbidden Client-Side Fallback Logic (P0) - REMOVED
-- **Problem**: Previous agent implemented client-side session generation which violated user requirement for backend-only data
-- **Fix**: 
-  1. Removed all `generateFallbackSessions` logic
-  2. If backend API fails, show proper error state with Retry/Go Back buttons
-  3. NO fake data is ever generated or displayed
-  4. Preview screen is strictly backend-driven as required
-- **Status**: ✅ FIXED
-
-#### Data Binding Fix: AppointmentListItem & AppointmentDetailScreen (P0)
-- **Problem**: Code was looking for nested objects (`appointment.client.full_name`) when API returns flat fields
-- **Fix**: Updated both files to use the correct flat field structure per API spec:
-  - `appointment.client_name` (not `appointment.client?.full_name`)
-  - `appointment.staff_name` (not `appointment.staff?.full_name`)
-  - `appointment.treatment_name` (not `appointment.treatment?.name`)
-  - `appointment.room_name` (not `appointment.room?.name`)
+#### BUG #2: Client Name on Appointment Details - FIXED
+- **Problem**: Client name not showing on appointment details (persistent issue)
+- **Fix**:
+  - Simplified data extraction - uses flat fields directly per API spec
+  - Added console logging for debugging
+  - Removed overly complex fallback logic that was causing issues
 - **Files**: `AppointmentListItem.tsx`, `AppointmentDetailScreen.tsx`
-- **Status**: ✅ FIXED - Aligned with API spec
-
-#### DTO Updates: TherapyPlanResponse Structure (P0)
-- **Problem**: TypeScript types didn't match actual API response structure
-- **Fix**: Updated `appointments.dtos.ts` to match API spec:
-  - `TherapyPlanSession`: Uses `appointment_start`/`appointment_end` instead of `start`/`end`
-  - `TherapyPlanResponse`: Now includes `metadata` object with `total_sessions`, `conflicted_sessions`, `available_sessions`
-  - Conflict object structure matches API: `alternative_slots` inside `conflict` object
 - **Status**: ✅ FIXED
 
-### Previously Fixed (Still Working)
-- **Doctor Dropdown Filtering**: Only shows doctors, not therapists ✅
-- **RBAC for Quick Actions**: Supports both `clinic_admin` and `clinic-admin` role formats ✅
-- **WhatsApp Role Labels**: Uses correct "Doctor" or "Therapist" based on appointment type ✅
+#### BUG #3: Quick Actions Visibility and Wiring - FIXED
+- **Problem**: Quick actions not visible or incorrectly gated
+- **Fix**:
+  - Updated `AppointmentDetailScreen.tsx` to ALWAYS show actions section
+  - Actions show disabled state when not available (not hidden)
+  - Added empty state for completed/cancelled appointments
+  - Status-based actions: Confirm → Start Session → Complete
+  - Added styles for `actionsEmptyState`
+- **Files**: `AppointmentDetailScreen.tsx`
+- **Status**: ✅ FIXED
 
-## API Integration Guide Reference
+#### BUG #4: Therapist Dropdown - Only staff_type='therapist' - FIXED
+- **Problem**: Dropdown showed clinic admin, receptionist, and other roles
+- **Fix**:
+  - Strict filter: `staffType === 'therapist'` only
+  - Removed loose filtering by role/designation
+  - Added debug logging
+- **Files**: `CreateAppointmentScreen.tsx`
+- **Status**: ✅ FIXED
+
+#### BUG #5: Single-Slot Therapy Conflict Checks - FIXED
+- **Problem**: No conflict checking for single therapy appointments
+- **Fix**:
+  - Added `useValidateAppointmentMutation` import and hook
+  - Updated `handleCreateSingle()` to call validation API before booking
+  - If conflict detected: show alert with conflict details, do NOT book
+  - Conflict message includes staff_conflict and room_conflict info
+- **Files**: `CreateAppointmentScreen.tsx`
+- **Status**: ✅ FIXED
+
+#### BUG #6: Multi-Appointments Preview Time Drift - FIXED
+- **Problem**: User-selected time not preserved, silent modifications
+- **Fix**:
+  - Added "Originally Requested" section in conflict expansion
+  - Shows `conflict.requested_time` from backend response
+  - Styles: `originalTimeSection`, `originalTimeLabel`, `originalTimeValue`
+- **Files**: `PreviewAppointmentsScreen.tsx`
+- **Status**: ✅ FIXED
+
+#### BUG #7: Therapist Dropdown Gender Matching - FIXED
+- **Problem**: No gender-based filtering for therapist selection
+- **Fix**:
+  - Added `gender` field to `PickerOption` interface
+  - Created `genderFilteredTherapistOptions` memo
+  - For female clients: show only female therapists (if available)
+  - Applied to both single-therapy and multi-day therapy dropdowns
+- **Files**: `CreateAppointmentScreen.tsx`
+- **Status**: ✅ FIXED
+
+#### BUG #8: Alternative Slots Selection - FIXED
+- **Problem**: Alternative slots not fully selectable
+- **Fix**:
+  - Already had selection logic in place
+  - Enhanced visual indication with `alternativeOptionSelected` style
+  - Selection updates `selected_alternative` state
+  - Used for booking API call
+  - Added "+N more staff options" indicator
+- **Files**: `PreviewAppointmentsScreen.tsx`
+- **Status**: ✅ FIXED
+
+### Previously Fixed (Earlier Sessions)
+- **Infinite Loop on Preview Screen**: Fixed faulty useEffect ✅
+- **Forbidden Client-Side Fallback**: Removed, preview is backend-only ✅
+- **Doctor Dropdown Filtering**: Only shows doctors ✅
+- **RBAC for Quick Actions**: Supports both `clinic_admin` and `clinic-admin` ✅
+
+## API Integration Reference
 Per FastAPI developer documentation:
-- **Appointments List**: GET `/api/v1/clinic/{tenant_id}/appointments` returns `client_name`, `staff_name`, `room_name`, `treatment_name` directly
-- **Therapy Plan**: POST `/api/v1/appointments/therapy-plan` returns structured response with `has_conflicts`, `sessions[]`, and `metadata`
+- **Appointments List**: GET `/api/v1/clinic/{tenant_id}/appointments` returns `client_name`, `staff_name`, `staff_names[]`, `room_name`, `treatment_name`
+- **Therapy Plan**: POST `/api/v1/appointments/therapy-plan` returns `has_conflicts`, `sessions[]`, `metadata`
+- **Validation**: POST `/api/v1/appointments/validate` for conflict checking
 
 ## Architecture
 
 ### Frontend
 - **Framework**: React Native with Expo SDK 53
 - **Router**: Expo Router v3
-- **State**: @tanstack/react-query for server state, useState/useReducer for local
+- **State**: @tanstack/react-query for server state
 - **Styling**: StyleSheet with custom theme
-- **i18n**: i18next with en-US and hi-IN locales
 
-### Backend (External)
-- **URL**: https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app
-- **API Style**: RESTful with OpenAPI spec
-
-### Key Files
+### Key Files Modified
 ```
 /app/frontend/features/appointments/
 ├── data/
-│   ├── datasources/appointments.api.ts
-│   ├── models/appointments.dtos.ts
-│   └── repositories/appointments.repository.impl.ts
+│   └── models/appointments.dtos.ts (staff_names array added)
 └── presentation/
-    ├── components/AppointmentListItem.tsx
+    ├── components/AppointmentListItem.tsx (multi-therapist, data binding)
     └── pages/
-        ├── AppointmentDetailScreen.tsx
-        ├── AppointmentsListScreen.tsx
-        ├── CreateAppointmentScreen.tsx
-        └── PreviewAppointmentsScreen.tsx
+        ├── AppointmentDetailScreen.tsx (multi-therapist, quick actions)
+        ├── CreateAppointmentScreen.tsx (validation, gender filter)
+        └── PreviewAppointmentsScreen.tsx (original time, alternatives)
 ```
 
 ## Testing Required
-
-### Verification Steps
-1. **Infinite Loop Test**: Navigate to multi-day appointment preview
-   - Should load once, NOT loop infinitely
-   - Check network tab - only ONE call to `/api/v1/appointments/therapy-plan`
-
-2. **Data Binding Test**: View appointments list
-   - Client names should show (not "Unknown Client") if API returns data
-   - Console logs will show `[AppointmentListItem] Data:` for debugging
-
-3. **Quick Actions Test**: View appointment cards
-   - View button (chevron) should ALWAYS appear
-   - Call/WhatsApp buttons appear when phone number exists
-
-4. **Error Handling Test**: If therapy plan API fails
-   - Should show error screen with "Retry" and "Go Back" buttons
-   - Should NOT show fake/fallback session data
-
-## Remaining Issues (If Any)
-- If "Unknown Client" still shows, verify backend API response includes `client_name` field
-- Quick Actions visibility depends on RBAC role from auth context
+1. Appointment cards should show both therapists when 2 are assigned
+2. Client name always visible on detail page
+3. Quick actions visible based on status (disabled if not allowed)
+4. Therapist dropdown shows only therapists
+5. Single therapy booking blocked on conflict
+6. Preview shows originally requested time
+7. Alternative slots selectable
 - [ ] Test WhatsApp deep links work on mobile devices
 
 ### P2 - Future Enhancements
