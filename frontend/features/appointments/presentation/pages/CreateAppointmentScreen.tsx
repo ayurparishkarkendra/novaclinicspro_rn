@@ -1165,8 +1165,8 @@ export const CreateAppointmentScreen: React.FC = () => {
                     options={therapistOptions}
                     selectedId={null}
                     onSelect={(id) => handleTherapistSelect(id, 'multiday')}
-                    isLoading={isLoadingTherapists}
-                    emptyText="No therapists available"
+                    isLoading={isLoadingTherapists && !isTherapistsFetched}
+                    emptyText={isTherapistsFetched && therapistOptions.length === 0 ? "No therapists available in this clinic" : "Loading therapists..."}
                     multiple
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}
