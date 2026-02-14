@@ -843,6 +843,10 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background.default,
   },
+  errorButtons: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+  },
 
   // Warning Banner (Fallback Mode)
   warningBanner: {
@@ -1066,6 +1070,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
+  },
+  moreOptionsText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   alternativeTextSelected: {
     color: colors.primary.main,
