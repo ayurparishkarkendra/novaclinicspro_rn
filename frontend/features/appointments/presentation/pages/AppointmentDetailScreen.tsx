@@ -1,6 +1,10 @@
 /**
  * Appointment Detail Screen
- * Displays detailed info for a single appointment with actions and WhatsApp integration
+ * RESTRUCTURED with proper sections:
+ * - Client Section (name, phone, quick call action)
+ * - Visit/Appointment Info Section
+ * - Quick Actions with role-based visibility
+ * - WhatsApp integration
  */
 
 import React, { useState, useCallback } from 'react';
@@ -31,8 +35,6 @@ import {
   useRescheduleAppointmentMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
-  AppointmentResponse,
-  AppointmentUpdate,
   getStatusLabel,
   getStatusColor,
   formatDate,
@@ -46,6 +48,22 @@ import {
 } from '../../data/models/appointments.dtos';
 
 // ============================================
+// SECTION HEADER COMPONENT
+// ============================================
+
+interface SectionHeaderProps {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const SectionHeader: React.FC<SectionHeaderProps> = ({ title, icon }) => (
+  <View style={styles.sectionHeader}>
+    <Ionicons name={icon} size={18} color={colors.primary.main} />
+    <Text style={styles.sectionTitle}>{title}</Text>
+  </View>
+);
+
+// ============================================
 // INFO ROW COMPONENT
 // ============================================
 
@@ -55,9 +73,10 @@ interface InfoRowProps {
   value: string | null;
   valueColor?: string;
   onPress?: () => void;
+  showChevron?: boolean;
 }
 
-const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPress }) => (
+const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPress, showChevron = false }) => (
   <TouchableOpacity
     style={styles.infoRow}
     onPress={onPress}
@@ -65,7 +84,7 @@ const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPre
     activeOpacity={onPress ? 0.7 : 1}
   >
     <View style={styles.infoIcon}>
-      <Ionicons name={icon} size={20} color={colors.primary.main} />
+      <Ionicons name={icon} size={18} color={colors.primary.main} />
     </View>
     <View style={styles.infoContent}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -73,8 +92,8 @@ const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, valueColor, onPre
         {value || '—'}
       </Text>
     </View>
-    {onPress && (
-      <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
+    {(onPress || showChevron) && (
+      <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
     )}
   </TouchableOpacity>
 );
@@ -89,16 +108,37 @@ interface ActionButtonProps {
   color: string;
   onPress: () => void;
   disabled?: boolean;
+  variant?: 'filled' | 'outlined';
 }
 
-const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, color, onPress, disabled }) => (
+const ActionButton: React.FC<ActionButtonProps> = ({ 
+  icon, 
+  label, 
+  color, 
+  onPress, 
+  disabled,
+  variant = 'outlined' 
+}) => (
   <TouchableOpacity
-    style={[styles.actionButton, { backgroundColor: color + '15' }, disabled && styles.actionButtonDisabled]}
+    style={[
+      styles.actionButton,
+      variant === 'filled' 
+        ? { backgroundColor: color } 
+        : { backgroundColor: color + '15', borderWidth: 1, borderColor: color + '30' },
+      disabled && styles.actionButtonDisabled,
+    ]}
     onPress={onPress}
     disabled={disabled}
   >
-    <Ionicons name={icon} size={20} color={disabled ? colors.text.tertiary : color} />
-    <Text style={[styles.actionButtonText, { color: disabled ? colors.text.tertiary : color }]}>
+    <Ionicons 
+      name={icon} 
+      size={18} 
+      color={disabled ? colors.text.tertiary : (variant === 'filled' ? colors.background.default : color)} 
+    />
+    <Text style={[
+      styles.actionButtonText, 
+      { color: disabled ? colors.text.tertiary : (variant === 'filled' ? colors.background.default : color) }
+    ]}>
       {label}
     </Text>
   </TouchableOpacity>
@@ -134,6 +174,15 @@ export const AppointmentDetailScreen: React.FC = () => {
   const updateMutation = useUpdateAppointmentMutation(tenantId, appointmentId || '');
   const cancelMutation = useCancelAppointmentMutation(tenantId);
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
+
+  // Call client directly
+  const handleCallClient = useCallback(() => {
+    if (!appointment?.client_phone) {
+      Alert.alert('No Phone Number', 'Client phone number is not available');
+      return;
+    }
+    Linking.openURL(`tel:${appointment.client_phone}`);
+  }, [appointment]);
 
   // WhatsApp handlers
   const handleWhatsAppConfirmation = useCallback(() => {
@@ -348,6 +397,7 @@ export const AppointmentDetailScreen: React.FC = () => {
   const canModify = ['scheduled', 'confirmed'].includes(appointment.status);
   const canStart = appointment.status === 'confirmed';
   const canComplete = appointment.status === 'in_progress';
+  const isPartOfSeries = appointment.series_id && appointment.session_number;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -356,7 +406,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Appointment Details</Text>
+        <Text style={styles.headerTitle}>Appointment</Text>
         {/* WhatsApp Button */}
         {appointment.client_phone && (
           <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsAppConfirmation}>
@@ -373,7 +423,7 @@ export const AppointmentDetailScreen: React.FC = () => {
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[colors.primary.main]} />
         }
       >
-        {/* Status Badge */}
+        {/* Status Badge Row */}
         <View style={styles.statusSection}>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -381,134 +431,154 @@ export const AppointmentDetailScreen: React.FC = () => {
               {getStatusLabel(appointment.status)}
             </Text>
           </View>
-          {appointment.session_number && appointment.total_sessions && (
-            <Text style={styles.sessionBadge}>
-              Session {appointment.session_number}/{appointment.total_sessions}
-            </Text>
+          {isPartOfSeries && (
+            <View style={styles.sessionBadge}>
+              <Ionicons name="repeat" size={14} color={colors.primary.main} />
+              <Text style={styles.sessionBadgeText}>
+                Session {appointment.session_number}/{appointment.total_sessions}
+              </Text>
+            </View>
           )}
         </View>
 
-        {/* Client Info Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Client</Text>
-          <InfoRow
-            icon="person"
-            label="Name"
-            value={appointment.client_name || null}
-          />
-          {appointment.client_phone && (
-            <InfoRow
-              icon="call"
-              label="Phone"
-              value={appointment.client_phone}
-              valueColor={colors.primary.main}
-              onPress={() => Linking.openURL(`tel:${appointment.client_phone}`)}
-            />
-          )}
+        {/* CLIENT SECTION */}
+        <View style={styles.section}>
+          <SectionHeader title="Client" icon="person" />
+          <View style={styles.clientCard}>
+            <View style={styles.clientMainInfo}>
+              <Text style={styles.clientName}>{appointment.client_name || 'Unknown Client'}</Text>
+              {appointment.client_phone && (
+                <Text style={styles.clientPhone}>📞 {appointment.client_phone}</Text>
+              )}
+            </View>
+            {/* Quick Call Action */}
+            {appointment.client_phone && (
+              <TouchableOpacity 
+                style={styles.callButton}
+                onPress={handleCallClient}
+              >
+                <Ionicons name="call" size={20} color={colors.background.default} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* Appointment Info Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Appointment</Text>
-          <InfoRow
-            icon="calendar"
-            label="Date"
-            value={formatDate(appointment.appointment_start)}
-          />
-          <InfoRow
-            icon="time"
-            label="Time"
-            value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
-          />
-          <InfoRow
-            icon="hourglass"
-            label="Duration"
-            value={formatDuration(duration)}
-          />
-          {appointment.treatment_name && (
-            <InfoRow
-              icon="medical"
-              label="Treatment"
-              value={appointment.treatment_name}
-            />
-          )}
-          {appointment.staff_name && (
-            <InfoRow
-              icon="person-circle"
-              label="Staff"
-              value={appointment.staff_name}
-            />
-          )}
-          {appointment.room_name && (
-            <InfoRow
-              icon="business"
-              label="Room"
-              value={appointment.room_name}
-            />
-          )}
-        </View>
-
-        {/* Notes */}
-        {appointment.notes && (
+        {/* APPOINTMENT INFO SECTION */}
+        <View style={styles.section}>
+          <SectionHeader title="Appointment Details" icon="calendar" />
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Notes</Text>
-            <Text style={styles.notesText}>{appointment.notes}</Text>
+            <InfoRow
+              icon="calendar-outline"
+              label="Date"
+              value={formatDate(appointment.appointment_start)}
+            />
+            <InfoRow
+              icon="time-outline"
+              label="Time"
+              value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
+            />
+            <InfoRow
+              icon="hourglass-outline"
+              label="Duration"
+              value={formatDuration(duration)}
+            />
+            {appointment.treatment_name && (
+              <InfoRow
+                icon="medical-outline"
+                label="Treatment"
+                value={appointment.treatment_name}
+              />
+            )}
+            {appointment.staff_name && (
+              <InfoRow
+                icon="person-circle-outline"
+                label="Staff"
+                value={appointment.staff_name}
+              />
+            )}
+            {appointment.room_name && (
+              <InfoRow
+                icon="business-outline"
+                label="Room"
+                value={appointment.room_name}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* Notes Section */}
+        {appointment.notes && (
+          <View style={styles.section}>
+            <SectionHeader title="Notes" icon="document-text" />
+            <View style={styles.notesCard}>
+              <Text style={styles.notesText}>{appointment.notes}</Text>
+            </View>
           </View>
         )}
 
-        {/* Quick Actions */}
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {appointment.status === 'scheduled' && (
+        {/* QUICK ACTIONS SECTION */}
+        <View style={styles.section}>
+          <SectionHeader title="Quick Actions" icon="flash" />
+          <View style={styles.actionsContainer}>
+            {/* Primary Actions Row */}
+            <View style={styles.actionsRow}>
+              {appointment.status === 'scheduled' && (
+                <ActionButton
+                  icon="checkmark-circle"
+                  label="Confirm"
+                  color={colors.success.main}
+                  onPress={() => handleStatusUpdate('confirmed')}
+                  variant="filled"
+                />
+              )}
+              {canStart && (
+                <ActionButton
+                  icon="play-circle"
+                  label="Start Session"
+                  color={colors.info.main}
+                  onPress={() => handleStatusUpdate('in_progress')}
+                  variant="filled"
+                />
+              )}
+              {canComplete && (
+                <ActionButton
+                  icon="checkmark-done-circle"
+                  label="Complete"
+                  color={colors.success.main}
+                  onPress={() => handleStatusUpdate('completed')}
+                  variant="filled"
+                />
+              )}
+            </View>
+
+            {/* Secondary Actions Row */}
+            <View style={styles.actionsRow}>
               <ActionButton
-                icon="checkmark-circle"
-                label="Confirm"
-                color={colors.success.main}
-                onPress={() => handleStatusUpdate('confirmed')}
+                icon="calendar-outline"
+                label="Reschedule"
+                color={colors.primary.main}
+                onPress={handleReschedule}
+                disabled={!canModify}
               />
-            )}
-            {canStart && (
               <ActionButton
-                icon="play-circle"
-                label="Start"
-                color={colors.info.main}
-                onPress={() => handleStatusUpdate('in_progress')}
+                icon="close-circle-outline"
+                label="Cancel"
+                color={colors.error.main}
+                onPress={handleCancel}
+                disabled={!canModify}
               />
-            )}
-            {canComplete && (
               <ActionButton
-                icon="checkmark-done-circle"
-                label="Complete"
-                color={colors.success.main}
-                onPress={() => handleStatusUpdate('completed')}
+                icon="alert-circle-outline"
+                label="No-Show"
+                color={colors.warning.main}
+                onPress={() => handleStatusUpdate('no_show')}
+                disabled={!canModify}
               />
-            )}
-            <ActionButton
-              icon="calendar-outline"
-              label="Reschedule"
-              color={colors.primary.main}
-              onPress={handleReschedule}
-              disabled={!canModify}
-            />
-            <ActionButton
-              icon="close-circle"
-              label="Cancel"
-              color={colors.error.main}
-              onPress={handleCancel}
-              disabled={!canModify}
-            />
-            <ActionButton
-              icon="alert-circle"
-              label="No-Show"
-              color={colors.warning.main}
-              onPress={() => handleStatusUpdate('no_show')}
-              disabled={!canModify}
-            />
+            </View>
           </View>
         </View>
 
-        {/* Created/Updated Info */}
+        {/* Timestamps */}
         <View style={styles.metaSection}>
           {appointment.created_at && (
             <Text style={styles.metaText}>
@@ -638,6 +708,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
@@ -647,12 +721,17 @@ const styles = StyleSheet.create({
   },
   whatsappButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
 
   // Status Section
@@ -680,44 +759,90 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sessionBadge: {
-    ...typography.caption,
-    color: colors.primary.main,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     backgroundColor: colors.primary.main + '15',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: 12,
+  },
+  sessionBadgeText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '500',
+  },
+
+  // Sections
+  section: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Client Card
+  clientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  clientMainInfo: {
+    flex: 1,
+  },
+  clientName: {
+    ...typography.h6,
+    color: colors.text.primary,
+    marginBottom: spacing.xs / 2,
+  },
+  clientPhone: {
+    ...typography.body2,
+    color: colors.primary.main,
+  },
+  callButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.success.main,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Card
   card: {
     backgroundColor: colors.background.default,
     borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.light,
-  },
-  cardTitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
   // Info Row
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
   infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primary.main + '10',
     alignItems: 'center',
     justifyContent: 'center',
@@ -736,7 +861,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Notes
+  // Notes Card
+  notesCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
   notesText: {
     ...typography.body1,
     color: colors.text.primary,
@@ -744,16 +876,10 @@ const styles = StyleSheet.create({
   },
 
   // Actions
-  actionsSection: {
-    marginBottom: spacing.md,
+  actionsContainer: {
+    gap: spacing.sm,
   },
-  sectionTitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  actionsGrid: {
+  actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
@@ -765,6 +891,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: 8,
     gap: spacing.xs,
+    minHeight: 44,
   },
   actionButtonDisabled: {
     opacity: 0.5,
@@ -858,6 +985,8 @@ const styles = StyleSheet.create({
   },
   pickerCancelButton: {
     padding: spacing.md,
+    minWidth: 80,
+    alignItems: 'center',
   },
   pickerCancelText: {
     ...typography.button,
@@ -868,6 +997,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.main,
     borderRadius: 8,
     paddingHorizontal: spacing.lg,
+    minWidth: 100,
+    alignItems: 'center',
   },
   pickerConfirmText: {
     ...typography.button,
