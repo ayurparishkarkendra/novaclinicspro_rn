@@ -695,12 +695,21 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* Display user's preferred time using LOCAL hour for clarity */}
+              {/* Display user's requested time with minutes */}
               <Text style={styles.preferredTimeText}>
-                {t('appointments.preferredTime') || 'Preferred Time'}: {preferredTimeHourLocal < 12 
-                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:00 AM` 
-                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:00 PM`}
+                {t('appointments.requestedTime') || 'Requested'}: {preferredTimeHourLocal < 12 
+                  ? `${preferredTimeHourLocal === 0 ? 12 : preferredTimeHourLocal}:${preferredTimeMinutesLocal.toString().padStart(2, '0')} AM` 
+                  : `${preferredTimeHourLocal === 12 ? 12 : preferredTimeHourLocal - 12}:${preferredTimeMinutesLocal.toString().padStart(2, '0')} PM`}
               </Text>
+              {/* Note: Backend only supports hourly scheduling */}
+              {sessions.length > 0 && (
+                <Text style={styles.scheduledTimeNote}>
+                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(sessions[0].appointment_start)}
+                  {preferredTimeMinutesLocal !== 0 && (
+                    <Text style={styles.scheduledTimeHint}> ({t('appointments.roundedToHour') || 'rounded to hour'})</Text>
+                  )}
+                </Text>
+              )}
             </View>
           </View>
 
