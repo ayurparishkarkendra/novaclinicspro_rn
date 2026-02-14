@@ -179,7 +179,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
   // ===== DISPLAY VALUES =====
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
-  const displayStaffName = staffName || t('common.unassigned') || 'Unassigned';
+  const displayStaffName = staffName;  // Already uses getTherapistNames which handles "Unassigned"
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
   
@@ -191,7 +191,10 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
     id: appointment.id, 
     client_name: appointment.client_name,
     client_phone: appointment.client_phone,
-    staff_name: appointment.staff_name,
+    staff_assignments: appointment.staff_assignments,
+    staff_name: appointment.staff_name,  // deprecated
+    displayStaffName,
+    therapistCount,
     treatment_name: appointment.treatment_name,
     status: appointment.status,
     userRole, 
