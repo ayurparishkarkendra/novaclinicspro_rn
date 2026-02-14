@@ -354,7 +354,7 @@ export const AppointmentsListScreen: React.FC = () => {
             <AppointmentListItem
               appointment={item}
               onPress={() => handleAppointmentPress(item)}
-              userRole={currentUser?.role || 'clinic_admin'}
+              userRole={currentUser?.roles?.[0] || 'clinic_admin'}
               showActions={true}
             />
           )}
