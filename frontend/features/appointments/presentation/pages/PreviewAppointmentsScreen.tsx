@@ -558,27 +558,36 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Backend Error State - BLOCKS PROGRESSION */}
-      {!isGenerating && backendError && (
+      {/* Backend Error State - BLOCKS PROGRESSION only if no sessions */}
+      {!isGenerating && backendError && sessions.length === 0 && (
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={64} color={colors.error.main} />
-          <Text style={styles.errorTitle}>{t('appointments.validationUnavailable')}</Text>
+          <Text style={styles.errorTitle}>{t('appointments.validationUnavailable') || 'Validation Unavailable'}</Text>
           <Text style={styles.errorText}>{backendError}</Text>
           <Text style={styles.errorHelp}>
-            {t('appointments.cannotProceedWithoutValidation')}
+            {t('appointments.cannotProceedWithoutValidation') || 'Cannot proceed without validation'}
           </Text>
           <TouchableOpacity 
             style={styles.retryButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.retryButtonText}>{t('common.goBack')}</Text>
+            <Text style={styles.retryButtonText}>{t('common.goBack') || 'Go Back'}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Plan Content */}
-      {!isGenerating && !backendError && sessions.length > 0 && (
+      {/* Plan Content - Show sessions even in fallback mode */}
+      {!isGenerating && sessions.length > 0 && (
         <>
+          {/* Fallback Warning Banner */}
+          {showWarning && (
+            <View style={styles.warningBanner}>
+              <Ionicons name="warning" size={20} color={colors.warning.main} />
+              <Text style={styles.warningText}>
+                {t('appointments.fallbackModeWarning') || 'Conflict detection unavailable. Please verify availability manually before confirming.'}
+              </Text>
+            </View>
+          )}
           {/* Client Info Card */}
           <View style={styles.clientCard} data-testid="preview-client-card">
             <View style={styles.clientIconContainer}>
