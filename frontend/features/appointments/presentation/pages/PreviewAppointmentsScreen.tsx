@@ -265,44 +265,125 @@ const getSessionTherapistDisplay = (session: SessionData, isConflicted: boolean)
 };
 
 // ============================================
+// GLOBAL ALTERNATIVES SECTION COMPONENT
+// ============================================
+
+interface GlobalAlternativesSectionProps {
+  planLevelAlternatives: PlanLevelAlternative[];
+  onApplyGlobal: (alternative: PlanLevelAlternative) => void;
+  selectedGlobalPattern: string | null;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+const GlobalAlternativesSection: React.FC<GlobalAlternativesSectionProps> = ({
+  planLevelAlternatives,
+  onApplyGlobal,
+  selectedGlobalPattern,
+  t,
+}) => {
+  if (planLevelAlternatives.length === 0) return null;
+
+  return (
+    <View style={styles.globalAlternativesSection} data-testid="global-alternatives-section">
+      <Text style={styles.globalAlternativesTitle}>
+        {t('appointments.applyToAllSlots') || 'Apply to all sessions'}
+      </Text>
+      <Text style={styles.globalAlternativesSubtitle}>
+        {t('appointments.highCoverageOptions') || 'These times work for most sessions'}
+      </Text>
+      {planLevelAlternatives.map((alt, index) => {
+        const isSelected = selectedGlobalPattern === alt.time_pattern;
+        const coverageText = `${alt.coverage_count}/${alt.total_sessions}`;
+        
+        return (
+          <TouchableOpacity
+            key={`global-alt-${index}-${alt.time_pattern}`}
+            style={[
+              styles.globalAlternativeOption,
+              isSelected && styles.globalAlternativeOptionSelected,
+            ]}
+            onPress={() => onApplyGlobal(alt)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isSelected }}
+            data-testid={`global-alternative-${index}`}
+          >
+            <View style={styles.globalAlternativeContent}>
+              <View style={styles.globalAlternativeTimeRow}>
+                <Ionicons 
+                  name="time-outline" 
+                  size={18} 
+                  color={isSelected ? colors.primary.main : colors.text.secondary} 
+                />
+                <Text style={[
+                  styles.globalAlternativeTime,
+                  isSelected && styles.globalAlternativeTimeSelected,
+                ]}>
+                  {formatTimeFromParts(alt.start_hour, alt.start_minute)}
+                </Text>
+              </View>
+              <Text style={styles.globalAlternativeCoverage}>
+                {t('appointments.worksForSessions', { count: alt.coverage_count, total: alt.total_sessions }) || 
+                  `Works for ${coverageText} sessions`}
+              </Text>
+            </View>
+            {isSelected ? (
+              <Ionicons name="checkmark-circle" size={24} color={colors.primary.main} />
+            ) : (
+              <View style={styles.globalAlternativeRadio} />
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
+// ============================================
 // SESSION CARD COMPONENT
 // ============================================
 
 interface SessionCardProps {
   session: SessionData;
+  effectiveTime: EffectiveTime;
   isExpanded: boolean;
   onToggle: () => void;
-  onSelectAlternative: (staffId: string, staffName: string, roomId: string, roomName: string, start: string, end: string) => void;
+  onSelectAlternative: (alt: AlternativeSlot) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
+  effectiveTime,
   isExpanded,
   onToggle,
   onSelectAlternative,
   t,
 }) => {
   const hasConflict = session.is_conflicted;
-  const hasSelectedAlternative = !!session.selected_alternative;
+  const isResolved = effectiveTime.is_resolved;
   
-  // Display time from selected alternative if available
-  const displayStartTime = session.selected_alternative?.start || session.appointment_start;
-  const displayEndTime = session.selected_alternative?.end || session.appointment_end;
+  // SINGLE SOURCE OF TRUTH: Always read display values from effectiveTime
+  const displayStartTime = effectiveTime.start;
+  const displayEndTime = effectiveTime.end;
   
-  // Use getSessionTherapistNames helper for multi-therapist support
-  // If user selected alternative, use that name; otherwise use session therapists
-  const displayStaffName = session.selected_alternative?.staff_name || getSessionTherapistNames(session);
+  // BUG FIX #1: Use getSessionTherapistDisplay for proper conflict messaging
+  const displayStaffName = effectiveTime.staff_name || 
+    getSessionTherapistDisplay(session, hasConflict && !isResolved);
   
-  // Use room_name directly from API response
-  const displayRoomName = session.selected_alternative?.room_name || session.room_name || t('common.unassigned') || 'Not assigned';
+  const displayRoomName = effectiveTime.room_name || session.room_name || 'Not assigned';
 
   // Get alternative slots from conflict object (per API spec)
-  const alternativeSlots = session.conflict?.alternative_slots || [];
+  // Filter out plan_level alternatives - those are shown globally
+  const alternativeSlots = (session.conflict?.alternative_slots || [])
+    .filter(alt => !alt.plan_level);
+
+  // BUG FIX #3: Only show conflict message ONCE in the expanded section
+  // The main card shows the conflict icon, the expanded section shows the message
+  const conflictMessage = session.conflict?.message;
 
   return (
     <View 
-      style={[styles.sessionCard, hasConflict && !hasSelectedAlternative && styles.sessionCardConflict]}
+      style={[styles.sessionCard, hasConflict && !isResolved && styles.sessionCardConflict]}
       data-testid={`session-card-${session.session_number}`}
     >
       {/* Session Header */}
@@ -311,11 +392,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
         onPress={hasConflict ? onToggle : undefined}
         activeOpacity={hasConflict ? 0.7 : 1}
         accessibilityRole="button"
-        accessibilityLabel={`Session ${session.session_number}${hasConflict ? ', has conflict' : ''}`}
+        accessibilityLabel={`Session ${session.session_number}${hasConflict && !isResolved ? ', has conflict' : ''}`}
       >
         {/* Status Icon */}
         <View style={styles.sessionStatus}>
-          {hasConflict && !hasSelectedAlternative ? (
+          {hasConflict && !isResolved ? (
             <View style={styles.conflictIcon}>
               <Ionicons name="warning" size={20} color={colors.error.main} />
             </View>
@@ -339,11 +420,14 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <Text style={styles.sessionTime}>
             {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
           </Text>
-          {/* ✨ Display therapist name from API */}
-          <Text style={styles.sessionStaff}>
+          {/* Display therapist - BUG FIX #1: No duplicate "Unassigned" */}
+          <Text style={[
+            styles.sessionStaff,
+            hasConflict && !isResolved && styles.sessionStaffConflict,
+          ]}>
             {displayStaffName}
           </Text>
-          {/* ✨ Display room name from API */}
+          {/* Display room name */}
           <Text style={styles.sessionRoom}>
             {displayRoomName}
           </Text>
@@ -359,42 +443,31 @@ const SessionCard: React.FC<SessionCardProps> = ({
         )}
       </TouchableOpacity>
 
-      {/* Conflict Details & Alternatives */}
+      {/* Conflict Details & Alternatives - Only when expanded */}
       {hasConflict && isExpanded && (
         <View style={styles.conflictSection}>
-          {/* BUG FIX #6: Show the user's originally requested time clearly */}
-          {session.conflict?.requested_time && (
-            <View style={styles.originalTimeSection}>
-              <Text style={styles.originalTimeLabel}>
-                {t('appointments.originallyRequested') || 'Originally Requested'}:
-              </Text>
-              <Text style={styles.originalTimeValue}>
-                {safeFormatTime(session.conflict.requested_time)}
+          {/* BUG FIX #3: Single conflict message - only in expanded section */}
+          {conflictMessage && (
+            <View style={styles.conflictReason}>
+              <Ionicons name="alert-circle" size={16} color={colors.error.main} />
+              <Text style={styles.conflictReasonText}>
+                {conflictMessage}
               </Text>
             </View>
           )}
-          
-          {/* Conflict Reason */}
-          <View style={styles.conflictReason}>
-            <Ionicons name="alert-circle" size={16} color={colors.error.main} />
-            <Text style={styles.conflictReasonText}>
-              {session.conflict?.message || t('appointments.conflictDetected')}
-            </Text>
-          </View>
 
-          {/* BUG FIX #8: Alternative Slots - fully selectable with visual indication */}
-          {/* Per API spec, alternatives are inside conflict object */}
+          {/* BUG FIX #4: Alternative Slots - fully selectable */}
           {alternativeSlots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>
-                {t('appointments.selectAlternative')}:
+                {t('appointments.selectAlternative') || 'Select an alternative'}:
               </Text>
               {alternativeSlots.map((alt, altIndex) => {
-                // For each alternative slot, show available staff/room combinations
                 const firstStaff = alt.available_staff?.[0];
                 const firstRoom = alt.available_rooms?.[0];
-                const isSelected = session.selected_alternative?.start === alt.start &&
-                                   session.selected_alternative?.staff_id === firstStaff?.staff_id;
+                // Check if this alternative is currently selected by comparing times
+                const isSelected = effectiveTime.is_resolved && 
+                  extractTimePattern(effectiveTime.start) === extractTimePattern(alt.start);
                 const scorePercent = Math.round((alt.score || 0) * 100);
                 const scoreColor = scorePercent >= 90 ? colors.success.main :
                                    scorePercent >= 70 ? colors.warning.main : colors.text.secondary;
@@ -403,28 +476,17 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   <TouchableOpacity
                     key={`alt-${altIndex}-${alt.start}`}
                     style={[styles.alternativeOption, isSelected && styles.alternativeOptionSelected]}
-                    onPress={() => {
-                      if (firstStaff) {
-                        onSelectAlternative(
-                          firstStaff.staff_id,
-                          firstStaff.full_name,
-                          firstRoom?.room_id || '',
-                          firstRoom?.name || '',
-                          alt.start,
-                          alt.end
-                        );
-                      }
-                    }}
+                    onPress={() => onSelectAlternative(alt)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: isSelected }}
-                    data-testid={`alternative-slot-${altIndex}`}
+                    data-testid={`alternative-slot-${session.session_number}-${altIndex}`}
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
                         {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
-                        {firstStaff?.full_name || t('common.therapist')}
+                        {firstStaff?.full_name || t('common.therapist') || 'Therapist'}
                         {firstRoom?.name && ` • ${firstRoom.name}`}
                       </Text>
                       {alt.available_staff?.length > 1 && (
@@ -438,7 +500,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
                         {scorePercent}%
                       </Text>
                       <Text style={styles.scoreLabel}>
-                        {scorePercent >= 90 ? t('common.best') : scorePercent >= 70 ? t('common.good') : t('common.fair')}
+                        {scorePercent >= 90 ? (t('common.best') || 'Best') : 
+                         scorePercent >= 70 ? (t('common.good') || 'Good') : (t('common.fair') || 'Fair')}
                       </Text>
                     </View>
                     {isSelected && (
@@ -451,7 +514,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           ) : (
             <View style={styles.noAlternatives}>
               <Text style={styles.noAlternativesText}>
-                {t('appointments.noAlternativesAvailable')}
+                {t('appointments.noAlternativesAvailable') || 'No alternatives available for this slot'}
               </Text>
             </View>
           )}
