@@ -141,6 +141,7 @@ interface VisitHistoryCardProps {
 }
 
 const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPress, t }) => {
+  const router = useRouter();
   const statusColor = getStatusColor(appointment.status);
   
   // Extract data from appointment
@@ -150,12 +151,34 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
     ? (t('common.treatment') || 'Treatment') 
     : (t('common.consultation') || 'Consultation');
   
-  // Check for links/records
-  const hasCaseSheet = appointment.case_sheet_id || appointment.has_case_sheet;
-  const hasPrescription = appointment.prescription_id || appointment.has_prescription;
+  // FIX #3: Check for Case Sheet and Prescription existence
+  const hasCaseSheet = !!(appointment.case_sheet_id || appointment.has_case_sheet);
+  const hasPrescription = !!(appointment.prescription_id || appointment.has_prescription);
   const hasPayment = appointment.payment_id || appointment.payment_status;
   const paymentAmount = appointment.payment_amount;
   const paymentStatus = appointment.payment_status;
+
+  // Handler for Case Sheet action
+  const handleCaseSheetPress = useCallback(() => {
+    if (hasCaseSheet) {
+      // View existing case sheet
+      router.push(`/clinic-admin/case-sheets/${appointment.case_sheet_id || appointment.id}` as any);
+    } else {
+      // Add new case sheet
+      router.push(`/clinic-admin/case-sheets/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+    }
+  }, [hasCaseSheet, appointment, router]);
+
+  // Handler for Prescription action
+  const handlePrescriptionPress = useCallback(() => {
+    if (hasPrescription) {
+      // View existing prescription
+      router.push(`/clinic-admin/prescriptions/${appointment.prescription_id || appointment.id}` as any);
+    } else {
+      // Add new prescription
+      router.push(`/clinic-admin/prescriptions/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+    }
+  }, [hasPrescription, appointment, router]);
   
   return (
     <TouchableOpacity 
@@ -188,37 +211,49 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
         )}
       </View>
 
-      {/* Links Row: Case Sheet, Prescription */}
+      {/* FIX #3: Case Sheet & Prescription Links - Show Add/View based on state */}
       <View style={styles.visitCardLinksRow}>
-        {/* Case Sheet Link */}
-        <View style={[styles.visitCardLink, hasCaseSheet && styles.visitCardLinkActive]}>
+        {/* Case Sheet CTA - Add or View */}
+        <TouchableOpacity 
+          style={[styles.visitCardLinkButton, hasCaseSheet && styles.visitCardLinkButtonActive]}
+          onPress={handleCaseSheetPress}
+          data-testid={`case-sheet-cta-${appointment.id}`}
+        >
           <Ionicons 
-            name="document-text-outline" 
+            name={hasCaseSheet ? "document-text" : "add-circle-outline"} 
             size={14} 
-            color={hasCaseSheet ? colors.primary.main : colors.text.tertiary} 
+            color={hasCaseSheet ? colors.primary.main : colors.text.secondary} 
           />
           <Text style={[
             styles.visitCardLinkText,
             hasCaseSheet && styles.visitCardLinkTextActive,
           ]}>
-            {t('appointments.caseSheet') || 'Case Sheet'}
+            {hasCaseSheet 
+              ? (t('appointments.viewCaseSheet') || 'View Case Sheet')
+              : (t('appointments.addCaseSheet') || 'Add Case Sheet')}
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        {/* Prescription Link */}
-        <View style={[styles.visitCardLink, hasPrescription && styles.visitCardLinkActive]}>
+        {/* Prescription CTA - Add or View */}
+        <TouchableOpacity 
+          style={[styles.visitCardLinkButton, hasPrescription && styles.visitCardLinkButtonActive]}
+          onPress={handlePrescriptionPress}
+          data-testid={`prescription-cta-${appointment.id}`}
+        >
           <Ionicons 
-            name="receipt-outline" 
+            name={hasPrescription ? "receipt" : "add-circle-outline"} 
             size={14} 
-            color={hasPrescription ? colors.success.main : colors.text.tertiary} 
+            color={hasPrescription ? colors.success.main : colors.text.secondary} 
           />
           <Text style={[
             styles.visitCardLinkText,
             hasPrescription && { color: colors.success.main },
           ]}>
-            {t('appointments.prescription') || 'Prescription'}
+            {hasPrescription 
+              ? (t('appointments.viewPrescription') || 'View Prescription')
+              : (t('appointments.addPrescription') || 'Add Prescription')}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Payment Details */}
