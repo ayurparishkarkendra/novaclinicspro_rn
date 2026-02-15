@@ -59,7 +59,7 @@ export const initI18n = async (): Promise<void> => {
     const deviceLocale = Localization.locale;
     if (isValidLocale(deviceLocale)) {
       currentLocale = deviceLocale as LocaleCode;
-    } else {
+    } else if (deviceLocale) {
       // Try to match language code only (e.g., 'hi' matches 'hi-IN')
       const langCode = deviceLocale.split('-')[0];
       const matchedLocale = SUPPORTED_LOCALES.find(
@@ -69,6 +69,7 @@ export const initI18n = async (): Promise<void> => {
         currentLocale = matchedLocale.code;
       }
     }
+    // If deviceLocale is undefined (web context), currentLocale stays as default 'en-US'
   } catch (error) {
     console.warn('Failed to initialize i18n:', error);
   }
