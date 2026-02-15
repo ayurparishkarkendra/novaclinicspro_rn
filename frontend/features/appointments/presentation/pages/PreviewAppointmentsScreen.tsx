@@ -778,7 +778,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     };
 
     fetchTherapyPlan();
-  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour, initializeEffectiveTimes]);
+  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, initializeEffectiveTimes]);
 
   // ============================================
   // ALTERNATIVE SELECTION HANDLERS
