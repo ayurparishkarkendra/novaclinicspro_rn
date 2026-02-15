@@ -1,107 +1,112 @@
 <analysis>**original_problem_statement**:
-The user has provided a new, strict, and final set of requirements after over 20 iterations of failed bug fixes. The agent MUST address only these four specific issues with minimal, targeted changes.
+The user has provided a final, non-negotiable set of UI-only requirements for the React Native + Expo application. The goal is to fix numerous bugs and behavioral issues across the appointment list, appointment details, and therapy plan preview screens. All fixes must be implemented in a single pass, and the application must be pointed to a local backend for testing.
 
-**PRODUCT REQUIREMENTS (New Source of Truth from user message #153):**
-1.  **Quick Actions Placement**:
-    *   Render the full set of quick action buttons (Start, Complete, Cancel, etc.) in an **expandable section** of each appointment card on the list page.
-    *   Render the same quick actions at the **bottom of the appointment details page**, showing a No actions available state if none apply, instead of hiding the section.
-2.  **Visit History Details**:
-    *   In the Visit History section of the appointment details page, display a summary of any linked **prescription and payment information** for each visit.
-    *   If no such information exists, display explicit No prescription or No payment recorded messages.
-3.  **Preview Screen Time Correction**:
-    *   The time displayed on the preview screen (in the header and session cards) must **exactly match the time selected by the user**.
-    *   The agent must fix the timezone conversion logic that causes discrepancies (e.g., selecting 4:00 PM but seeing 9:30 PM). The backend API returns UTC time that should be displayed as-is, without local conversion.
-4.  **Preview Screen Therapist Data**:
-    *   The preview screen must display the **actual therapists selected/assigned** based on the  array from the API response.
-    *   All hardcoded or demo therapist data must be removed.
+**PRODUCT REQUIREMENTS (New Source of Truth from user messages #148 & #151):**
+
+**Environment:**
+- The app MUST use . All hardcoded Koyeb URLs must be removed.
+
+**Overall Mandates:**
+- Do NOT change backend APIs or payloads.
+- All UI must be truthful to the application's state.
+- Create a single source of truth for time (, ) to prevent time drift bugs.
+- UI correctness is defined by runtime behavior, not code review.
+
+**SECTION A — APPOINTMENT LIST PAGE:**
+1.  **Card Layout**: Remove expand/collapse arrows. Show only ONE right-facing chevron, vertically centered on the right.
+2.  **Quick Actions**: Buttons on the card must include Complete, Reschedule, Cancel, and No-Show as per , and they must be functional.
+3.  **Complete Action**: The Complete button must work and allow recording a visit.
+
+**SECTION B — APPOINTMENT DETAILS PAGE:**
+1.  **Remove Redundancy**: The details screen must NOT show Appointment Date, Time, Duration, or Staff.
+2.  **Visit History**: The screen must ONLY show Previous Visit Cards, each with Visit Date, Type, Case Sheet/Prescription links, and payment details.
+
+**SECTION C — CONFLICT & ALTERNATIVE FIXES:**
+1.  **Conflict Message**: Remove  and duplicate Unassigned messages. Show a single, one-line message like Staff not available on the card.
+2.  **Alternative Selection**: Tapping an alternative MUST resolve the conflict, turn the card green with a checkmark, and update the state. A visual ripple effect is not enough.
+
+**SECTION D — “APPLY TO ALL” & CUSTOM TIME:**
+1.  **Apply-to-All**: The preview screen MUST have a working Apply to all sessions option derived from plan-level alternatives.
+2.  **Custom Time Row**: Add a Choose a different time… row below alternatives. This should open a time picker and validate the selected time against the existing single-slot appointment validation API for that specific day.
+
+**SECTION E — DELETION REQUIREMENTS:**
+- All legacy logic, UI rendering , duplicate conflict messages, and local-only selection states MUST be deleted.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The agent has made numerous, unsuccessful attempts to fix a set of recurring bugs in the Appointments module. Frustrated with the lack of progress, the user has provided a very strict and detailed prompt (in message #153) that resets the project's goals to four specific, high-priority fixes.
-
-The agent has correctly refactored the codebase to use the new  array for multi-therapist support, which was a necessary step for . However, the agent was in the middle of a significant and incomplete refactor of the  component to address  when the session ended. The core time drift bug () remains unresolved despite multiple attempts.
+The agent attempted a massive, single-pass implementation to address all the user's requirements. Changes were made to , , and . A Custom Time Picker feature was added, state management was adjusted, and internationalization keys were updated. However, this large batch of changes has resulted in a non-functional application.
 
 **Last working item**:
-- Last item agent was working: Implementing  by adding an expandable quick actions section to the appointment card in .
-- Status: IN PROGRESS
-- Agent Testing Done: N
-- Which testing method agent to use? frontend testing agent. After the component refactor is complete, the visual layout and button functionality must be verified.
-- User Testing Done: N
+- Last item agent was working: The agent just finished a major implementation pass across multiple files. The user's last message confirms the app is no longer working. The immediate task is to debug the application to find the cause of the failure.
+- Status: BLOCKED
+- Agent Testing Done: N (The agent implemented a large number of changes but did not verify if the app was functional before finishing).
+- Which testing method agent to use? First, the agent must check the supervisor logs for errors:  and ==> /var/log/supervisor/backend.err.log <==
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [283] using WatchFiles
+ERROR:    Error loading ASGI app. Could not import module "server".
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [106] using WatchFiles
+ERROR:    Error loading ASGI app. Could not import module "server".
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [98] using WatchFiles
+ERROR:    Error loading ASGI app. Could not import module "server".
+
+==> /var/log/supervisor/backend.out.log <==.
+- User Testing Done: Y (The user tried to use the app and reported it is not working).
 
 **All Pending/In progress Issue list**:
-- Issue 1: (P0) Quick actions are missing in required placements.
-- Issue 2: (P0) Visit history on the details page is missing prescription and payment info.
-- Issue 3: (P0) The preview screen time does not match the user's selected time (Time Drift Bug).
-- Issue 4: (P0) The preview screen shows hardcoded or incorrect therapist data.
+- Issue 1: (P0) The application is broken and not running after the latest code changes.
 
 **Issues Detail**:
-- **Issue 1: Quick actions missing in required placements (P0)**
-    - **Attempted fixes**: The agent started a major refactor of  to change its structure from a single touchable area to a header with an expandable body for the quick actions. This work is incomplete and has left the component in a broken state.
+- **Issue 1: Application is not working**
+    - **Attempted fixes**: The agent performed a large-scale refactor across multiple components, which introduced the breaking change. No fix has been attempted yet.
     - **Next debug checklist**:
-        1.  Finalize the JSX and styling for the refactored  to create a pressable header and an expandable section.
-        2.  Add the quick action buttons (Start, Complete, etc.) inside the new expandable section, driven by the appointment's status.
-        3.  Update the parent  to provide the necessary status-change callback functions to .
-        4.  Audit  to ensure the quick actions section is always visible at the bottom, displaying a No actions available message when needed.
-    - **Status**: IN PROGRESS
-    - **Is recurring issue?**: Y
-    - **Should Test frontend/backend/both after fix?**: Frontend
-
-- **Issue 2: Visit history missing prescription/payment info (P0)**
-    - **Attempted fixes**: None.
-    - **Next debug checklist**:
-        1.  Inspect  to find the Visit History rendering logic.
-        2.  Analyze the data structure for a single  to identify fields related to prescriptions and payments.
-        3.  Update the UI to display this information or the No prescription/No payment recorded fallbacks.
+        1.  Execute  and  to find the error preventing the Expo app from running.
+        2.  Analyze the error logs to identify the root cause (e.g., syntax error, missing import, incorrect prop, state management issue).
+        3.  Once the app is running, systematically verify each of the user's requirements (A-E) to ensure they are functionally correct.
+    - **Why fix this issue and what will be achieved with the fix?**: The app is unusable. Fixing this is the top priority to unblock all further development and verification.
     - **Status**: NOT STARTED
     - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
-
-- **Issue 3: Preview screen time does not match selected time (P0)**
-    - **Attempted fixes**: Multiple incorrect fixes were attempted, including converting the time to UTC before sending. The agent correctly identified that the display issue is caused by  converting a UTC timestamp to the device's local time, but no fix was implemented.
-    - **Next debug checklist**:
-        1.  Locate the  function used in .
-        2.  Modify the function to parse the ISO date string (e.g., ) and extract the time part () directly, without applying any timezone conversion. A simple string manipulation is the correct approach.
-    - **Status**: IN PROGRESS
-    - **Is recurring issue?**: Y
-    - **Should Test frontend/backend/both after fix?**: Frontend
-
-- **Issue 4: Preview screen shows incorrect therapist data (P0)**
-    - **Attempted fixes**: The agent correctly refactored the code to use the  array from the API. Helper functions were created and components were updated. This should have fixed the issue.
-    - **Next debug checklist**:
-        1.  Verify in  and its  component that no hardcoded data or incorrect fallbacks are being used for therapist names.
-        2.  Confirm that the  helper function is used consistently to display data from the  array.
-    - **Status**: IN PROGRESS (Fix implemented, but requires user verification).
-    - **Is recurring issue?**: Y
-    - **Should Test frontend/backend/both after fix?**: Frontend
+    - **Blocked on other issue**: N/A
 
 **In progress Task List**:
-- **Task 1: Complete the  Refactor (P0)**
-    - **Where to resume**: The agent was in the middle of rewriting the  method and styles for . This must be completed to finish .
-    - **What will be achieved with this?**: A functional appointment card with an expandable section for quick actions.
+- **Task 1: Implement Comprehensive UI Fixes (P0)**
+    - **Where to resume**: The implementation is technically done but has broken the app. The immediate next step is to debug the application logs to get it running. After that, the agent must systematically test and fix each requirement (A-E) from the user's final prompt.
+    - **What will be achieved with this?**: A fully functional and correct UI that meets all the user's strict acceptance criteria.
     - **Status**: IN PROGRESS
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on something**: No.
+    - **Blocked on something**: The application is not running.
 
 **Upcoming and Future Tasks**
-- All tasks are consolidated into the four P0 issues listed above, as per the user's latest strict instructions. There are no other tasks.
+- There are no upcoming tasks. The entire focus is on completing and verifying the user's non-negotiable list of UI fixes.
 
 **Completed work in this session**
-- **Multi-Therapist Data Model Refactor**: Updated DTOs, created a  helper, and updated , , and  to correctly process the new  API field.
-- **i18n Key Additions**: Added several missing translation keys to .
+- No work can be considered completed as the application is currently broken and unverified.
+- The following files were modified in an attempt to implement the required features:
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
 
 **Earlier issues found/mentioned but not fixed**
-- All four P0 issues listed in the Pending/In progress Issue list are long-standing, recurring issues that have not been successfully resolved.
+- The Time Corruption Bug and the missing Apply-to-All feature were highlighted by the user as previously ignored issues that must now be fixed.
 
 **Known issue recurrence from previous fork**
-- All four P0 issues are recurring problems from multiple previous forks.
+- None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
 - Frontend: React Native, Expo Router
-- State Management: TanStack React Query
+- State Management: React Hooks (), TanStack React Query
 - API Client: Axios
 - i18n: i18next
 
@@ -112,50 +117,49 @@ The agent has correctly refactored the codebase to use the new  array for multi-
 - None.
 
 **All files of reference**
-- : **(INCOMPLETE/BROKEN)** Currently being refactored for Issue #1.
-- : Target file for Issue #1 and #2.
-- : Target file for Issue #3 and #4.
-- : Contains the DTOs, now updated for .
-- : New helper file for handling .
-- : File for UI text and translations.
+- : Modified for time corruption bug, alternative selection, Apply to All, and custom time picker.
+- : Modified for card layout and quick actions.
+- : Modified to remove redundant info and add visit history.
+- : Updated to point to the local backend URL.
+- : Updated with new translation keys.
+- : Updated with recent changes.
 
 **Areas that need refactoring**:
--  is currently in a broken state due to an incomplete refactor and must be fixed immediately.
+- The entire implementation from the last session needs to be reviewed and validated, as it broke the application. The large number of  operations may have introduced subtle errors.
 
 **key api endpoints**
-- 
-- 
-- 
-- **Note**: All endpoints now return a  array for multi-therapist support.
+- : To create the therapy plan.
+- : Used for validating custom time slots.
+- : Used for validating custom time slots.
 
 **Critical Info for New Agent**
-- **NEW USER PROMPT IS THE ONLY SOURCE OF TRUTH**: The user has provided a new, strict, and detailed set of 4 requirements in **message #153**. You MUST follow these instructions precisely and ignore all previous plans. User frustration is very high.
-- **FIX THE TIME DISPLAY**: The time drift bug () is a simple display issue. The backend returns a UTC timestamp (e.g., ). Your job is to display the time part () without applying any  or other timezone conversions.
-- **FINISH THE  REFACTOR**: The component is currently broken. You must complete the work to create an expandable section for quick actions.
-- **VERIFY, DON'T ASSUME**: Before marking a task as done, verify it against the user's explicit acceptance criteria. The user has repeatedly provided evidence (logs, screenshots) proving previous fixes did not work.
+- **THE APP IS BROKEN**: Your immediate and highest priority is to get the application running again. The user has reported it's not working.
+- **DEBUG FIRST**: Start by checking the frontend supervisor logs: . This will reveal the error.
+- **LOCAL BACKEND ONLY**: The app is configured to use a local backend at . The user will run this backend locally. Do not attempt to use or switch to the remote Koyeb URL.
+- **STRICT REQUIREMENTS**: Adhere strictly to the user's FINAL NON-NEGOTIABLE PROMPT. Do not add features, change APIs, or reinterpret requirements.
+- **VERIFY, DON'T ASSUME**: The previous agent's work is untrusted. You must verify every single requirement (A-E) through runtime UI behavior after you get the app running. Code reviews are not sufficient.
 
 **documents and test reports created in this job**
-- None.
+-  (updated)
+-  (Note: This report's code review is invalid as the resulting code broke the app).
 
 **Last 10 User Messages and any pending HUMAN messages**
-- **User (Msg 153)**: Provided a new, strict prompt with 4 clear requirements, effectively resetting the project's goals. This is the **most important message** and is the current task list. (Status: **PENDING - HIGHEST PRIORITY**)
-- **User (Msg 142)**: Reported the time drift bug again with new logs and a screenshot, showing a 30-minute discrepancy. (Status: Unresolved)
-- **User (Msg 89)**: Provided the backend integration guide for the  field, which you have already used for refactoring. (Status: Implemented)
-- **User (Msg 58)**: Provided screenshots showing multiple bugs: time drift, incorrect therapist display, and minutes being dropped from the selected time. (Status: Partially Resolved/Unresolved)
-- **User (Msg 4)**: Provided the initial logs showing the  API was returning correct data, proving the bug was in the frontend rendering logic. (Status: Unresolved)
+- **User (Message #148, #151)**: Provided an extremely strict, final, non-negotiable list of UI fixes and behavioral requirements. Emphasized that the backend is correct and this is a pure UI/state management task. Mandated the use of a local backend URL and defined acceptance criteria based on UI behavior, not code review. (Status: **In Progress**)
+- **User (Message #228)**: The preview app is not working. show me the error from logs. If it is CORS issue, what is the url to be added to backend CORS exceptions ? (Status: **Pending Action**) This is the highest priority item. The agent must investigate the logs.
 
 **Project Health Check:**
-- **Broken**: Core appointment features are non-functional due to persistent, critical bugs. User trust is extremely low after 20+ failed attempts to fix the same issues.
+- **Broken**: The application is not functional after the last set of changes.
 
 **3rd Party Integrations**
-- **i18next**: For i18n
-- : Server state management
+- **i18next**: For i18n.
+- **@tanstack/react-query**: For server state management.
+- **@react-native-community/datetimepicker**: For the custom time picker.
 
 **Testing status**
-- **Testing agent used after significant changes**: NO
-- **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**: None
-- **Known regressions**: All four P0 issues are regressions or long-standing bugs that have never been fully resolved.
+- **Testing agent used after significant changes**: YES, but its code review was not a reliable indicator of success as the app subsequently broke.
+- **Troubleshoot agent used after agent stuck in loop**: NO.
+- **Test files created**: None.
+- **Known regressions**: The entire application is currently non-functional.
 
 **Credentials to test flow:**
 - **Clinic Admin**:
@@ -163,6 +167,4 @@ The agent has correctly refactored the codebase to use the new  array for multi-
     - Password: 
 
 **What agent forgot to execute**
-- The agent has repeatedly failed to implement a correct and lasting fix for the time drift issue on the preview screen.
-- The agent left  in a broken, incomplete state mid-refactor.
-- The agent has not yet started work on  (displaying prescription/payment info in visit history).</analysis>
+- The agent failed to perform any verification or sanity checks after implementing a very large batch of changes. It did not ensure the app was still running before finishing its turn, leading directly to the current broken state and forcing the user to be the one to discover the failure.</analysis>
