@@ -144,9 +144,10 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   }, [appointment, onPress, router]);
 
   // ===== RBAC CHECK =====
+  // FIX: Always allow actions for clinic_admin users
   const normalizedRole = userRole?.toLowerCase().replace(/_/g, '-') || 'clinic-admin';
-  const canModify = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
-                    ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole?.toLowerCase());
+  const isClinicAdmin = normalizedRole === 'clinic-admin' || userRole?.toLowerCase() === 'clinic_admin';
+  const canModify = isClinicAdmin || ['receptionist'].includes(normalizedRole);
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
   const status = (appointment.status || '').toLowerCase();
@@ -155,6 +156,9 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
   const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
+  
+  // Debug: Log to verify values
+  // console.log('QuickActions Debug:', { userRole, normalizedRole, isClinicAdmin, canModify, status, canReschedule });
 
   // ===== DISPLAY VALUES =====
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
