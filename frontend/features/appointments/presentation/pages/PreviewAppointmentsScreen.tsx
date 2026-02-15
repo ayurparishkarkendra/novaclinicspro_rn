@@ -851,6 +851,113 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   }, [sessions]);
 
   // ============================================
+  // #7: CUSTOM TIME PICKER HANDLERS
+  // ============================================
+
+  const handleOpenCustomTimePicker = useCallback((sessionNumber: number) => {
+    const session = sessions.find(s => s.session_number === sessionNumber);
+    if (!session) return;
+
+    // Initialize picker with session date and preferred time
+    const sessionDate = new Date(session.appointment_start);
+    sessionDate.setHours(preferredTimeHourLocal, preferredTimeMinutesLocal, 0, 0);
+    
+    setCustomTimePickerSession(sessionNumber);
+    setCustomTimePickerDate(sessionDate);
+    setShowCustomTimePicker(true);
+  }, [sessions, preferredTimeHourLocal, preferredTimeMinutesLocal]);
+
+  const handleCustomTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowCustomTimePicker(false);
+    }
+    if (selectedDate) {
+      setCustomTimePickerDate(selectedDate);
+    }
+  };
+
+  const handleConfirmCustomTime = useCallback(async () => {
+    if (customTimePickerSession === null) return;
+
+    const session = sessions.find(s => s.session_number === customTimePickerSession);
+    if (!session) return;
+
+    setIsValidatingCustomTime(true);
+
+    try {
+      // Build custom time slot from picker
+      const sessionDate = new Date(session.appointment_start);
+      const pickerHours = customTimePickerDate.getHours();
+      const pickerMinutes = customTimePickerDate.getMinutes();
+      
+      // Build ISO start/end using session date + picker time
+      const startDate = new Date(sessionDate);
+      startDate.setHours(pickerHours, pickerMinutes, 0, 0);
+      
+      const endDate = new Date(startDate);
+      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
+
+      // Validate using available-slots API (same API used for single-slot)
+      const validationResult = await getAvailableSlotsApi({
+        tenant_id: tenantId,
+        treatment_id: treatmentId,
+        date: startDate.toISOString().split('T')[0],
+        preferred_time: `${pickerHours.toString().padStart(2, '0')}:${pickerMinutes.toString().padStart(2, '0')}`,
+        duration_minutes: durationMinutes,
+      });
+
+      // Check if requested time is available in returned slots
+      const requestedHour = pickerHours;
+      const requestedMinute = pickerMinutes;
+      const isTimeAvailable = validationResult.slots?.some(slot => {
+        const slotHour = extractHour(slot.start_time);
+        const slotMinute = extractMinute(slot.start_time);
+        return slotHour === requestedHour && slotMinute === requestedMinute;
+      }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
+
+      if (isTimeAvailable || validationResult.slots === undefined) {
+        // Update effectiveTimes with custom selection
+        setEffectiveTimes(prevMap => {
+          const newMap = new Map(prevMap);
+          newMap.set(customTimePickerSession, {
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            staff_id: staffIds[0] || null,
+            staff_name: staffNames || null,
+            room_id: null,
+            room_name: null,
+            is_resolved: true,
+          });
+          return newMap;
+        });
+
+        console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
+        
+        setShowCustomTimePicker(false);
+        setCustomTimePickerSession(null);
+      } else {
+        Alert.alert(
+          t('common.error') || 'Error',
+          t('appointments.timeNotAvailable') || 'Selected time is not available. Please choose another time.'
+        );
+      }
+    } catch (error) {
+      console.error('[CustomTime] Validation failed:', error);
+      Alert.alert(
+        t('common.error') || 'Error',
+        t('appointments.validationFailed') || 'Could not validate the selected time. Please try again.'
+      );
+    } finally {
+      setIsValidatingCustomTime(false);
+    }
+  }, [customTimePickerSession, customTimePickerDate, sessions, tenantId, treatmentId, durationMinutes, staffIds, staffNames, t]);
+
+  const handleCancelCustomTimePicker = useCallback(() => {
+    setShowCustomTimePicker(false);
+    setCustomTimePickerSession(null);
+  }, []);
+
+  // ============================================
   // DERIVED STATE (from single source of truth)
   // ============================================
   
