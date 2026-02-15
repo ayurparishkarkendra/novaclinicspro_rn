@@ -113,7 +113,7 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({
 );
 
 // ============================================
-// MAIN COMPONENT
+// MAIN COMPONENT - CLEAN CARD LAYOUT (A1, A2, A3)
 // ============================================
 
 export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
@@ -128,23 +128,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const router = useRouter();
   const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
-  // Per API spec: client_name, staff_assignments are returned directly
   const clientName = appointment.client_name || null;
   const clientPhone = appointment.client_phone || null;
   const treatmentName = appointment.treatment_name || null;
-  
-  // Use the new helper function to get therapist names from staff_assignments
   const staffName = getTherapistNames(appointment);
-  const therapistCount = getTherapistCount(appointment);
-
-  // ===== EXPAND/COLLAPSE =====
-  const toggleExpand = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsExpanded(!isExpanded);
-  }, [isExpanded]);
 
   // ===== ACTION HANDLERS =====
   
@@ -156,74 +145,32 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
     }
   }, [appointment, onPress, router]);
 
-  const handleCall = useCallback(() => {
-    if (!clientPhone) {
-      Alert.alert(
-        t('common.error') || 'Error',
-        t('appointments.noPhoneNumber') || 'Client phone number is not available'
-      );
-      return;
-    }
-    Linking.openURL(`tel:${clientPhone}`);
-  }, [clientPhone, t]);
-
-  const handleWhatsApp = useCallback(() => {
-    if (!clientPhone) {
-      Alert.alert(
-        t('common.error') || 'Error',
-        t('appointments.noPhoneNumber') || 'Client phone number is not available'
-      );
-      return;
-    }
-    
-    const name = clientName || t('common.client') || 'Client';
-    const time = formatTime(appointment.appointment_start);
-    const message = `Hi ${name}, this is a reminder for your appointment at ${time}. Please confirm your attendance. Thank you!`;
-    const url = openWhatsApp(clientPhone, message);
-    Linking.openURL(url);
-  }, [appointment, clientName, clientPhone, t]);
-
   // ===== RBAC CHECK =====
-  // Determine which actions are allowed based on user role
-  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
-  const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
-                  ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
-  const canWhatsApp = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
-                      ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
-  const canModify = (canWhatsApp) && ['scheduled', 'confirmed'].includes(appointment.status);
+  const canModify = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
+                    ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+
+  // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
+  const status = appointment.status?.toLowerCase();
+  const canReschedule = canModify && ['scheduled', 'confirmed'].includes(status);
+  const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
+  const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
+  // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
+  const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
 
   // ===== DISPLAY VALUES =====
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
-  const displayStaffName = staffName;  // Already uses getTherapistNames which handles "Unassigned"
+  const displayStaffName = staffName;
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
-  
-  // Series info (if part of multi-day)
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
-
-  // DEBUG: Log appointment data for troubleshooting
-  console.log('[AppointmentListItem] Data:', { 
-    id: appointment.id, 
-    client_name: appointment.client_name,
-    client_phone: appointment.client_phone,
-    staff_assignments: appointment.staff_assignments,
-    staff_name: appointment.staff_name,  // deprecated
-    displayStaffName,
-    therapistCount,
-    treatment_name: appointment.treatment_name,
-    status: appointment.status,
-    userRole, 
-    canCall, 
-    canWhatsApp 
-  });
 
   return (
     <View
       style={[styles.container, { borderLeftColor: statusColor }]}
       data-testid="appointment-list-item"
     >
-      {/* Main Row - clickable area */}
+      {/* Main Row - Full width clickable */}
       <TouchableOpacity
         style={styles.mainRow}
         onPress={handlePress}
@@ -246,167 +193,88 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           </View>
 
           {/* Client Info */}
-          <View style={styles.clientRow}>
-            <View style={styles.clientInfo}>
-              <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
-                {displayClientName}
-              </Text>
-              {clientPhone && (
-                <Text style={styles.clientPhone} data-testid="appointment-client-phone">
-                  {clientPhone}
-                </Text>
-              )}
-          </View>
-        </View>
+          <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
+            {displayClientName}
+          </Text>
 
-        {/* Staff & Treatment Info */}
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <Ionicons name="person-circle-outline" size={14} color={colors.text.secondary} />
-            <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-staff-name">
-              {displayStaffName}
-            </Text>
-          </View>
-          {treatmentName && (
+          {/* Staff & Treatment Info */}
+          <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-treatment">
-                {treatmentName}
+              <Ionicons name="person-circle-outline" size={14} color={colors.text.secondary} />
+              <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-staff-name">
+                {displayStaffName}
+              </Text>
+            </View>
+            {treatmentName && (
+              <View style={styles.detailItem}>
+                <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-treatment">
+                  {treatmentName}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Series Badge (if applicable) */}
+          {isSeriesAppointment && (
+            <View style={styles.seriesBadge} data-testid="appointment-series-badge">
+              <Ionicons name="repeat" size={12} color={colors.primary.main} />
+              <Text style={styles.seriesText}>
+                {t('appointments.session') || 'Session'} {appointment.session_number}
+                {appointment.total_sessions && `/${appointment.total_sessions}`}
               </Text>
             </View>
           )}
         </View>
 
-        {/* Series Badge (if applicable) */}
-        {isSeriesAppointment && (
-          <View style={styles.seriesBadge} data-testid="appointment-series-badge">
-            <Ionicons name="repeat" size={12} color={colors.primary.main} />
-            <Text style={styles.seriesText}>
-              {t('appointments.session') || 'Session'} {appointment.session_number}
-              {appointment.total_sessions && `/${appointment.total_sessions}`}
-            </Text>
-          </View>
-        )}
+        {/* A1: Single navigation arrow, vertically centered */}
+        <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
+          <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
         </View>
       </TouchableOpacity>
 
-      {/* Quick Actions Sidebar - expand toggle + view */}
-      <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
-        {/* Expand/Collapse Button */}
-        <QuickAction
-          icon={isExpanded ? "chevron-up" : "chevron-down"}
-          color={colors.text.secondary}
-          onPress={toggleExpand}
-          accessibilityLabel={isExpanded ? "Collapse actions" : "Expand actions"}
-          testId="appointment-action-toggle"
-        />
-        {/* View Button - ALWAYS visible */}
-        <QuickAction
-          icon="chevron-forward"
-          color={colors.primary.main}
-          onPress={handlePress}
-          accessibilityLabel={`View appointment details`}
-          testId="appointment-action-view"
-        />
-      </View>
-
-      {/* EXPANDABLE QUICK ACTIONS SECTION - Issue #1 Fix */}
-      {isExpanded && (
-        <View style={styles.expandedSection} data-testid="appointment-expanded-actions">
-          {/* Communication Actions Row */}
-          <View style={styles.expandedRow}>
-            {canCall && clientPhone && (
-              <TouchableOpacity 
-                style={styles.expandedActionBtn}
-                onPress={handleCall}
-                data-testid="expanded-action-call"
-              >
-                <Ionicons name="call" size={18} color={colors.success.main} />
-                <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
-                  {t('common.call') || 'Call'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {canWhatsApp && clientPhone && (
-              <TouchableOpacity 
-                style={styles.expandedActionBtn}
-                onPress={handleWhatsApp}
-                data-testid="expanded-action-whatsapp"
-              >
-                <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                <Text style={[styles.expandedActionText, { color: '#25D366' }]}>
-                  {t('common.whatsapp') || 'WhatsApp'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Status Change Actions - based on current status */}
-          {/* User Required: Reschedule, No-Show, Cancel, Complete */}
-          {/* FIX: Use case-insensitive status comparison */}
-          {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
-            <View style={styles.expandedRow}>
-              {/* Reschedule - for scheduled/confirmed (user requirement #1) */}
-              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
-                <TouchableOpacity 
-                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onReschedule ? onReschedule(appointment.id) : onPress?.(appointment)}
-                  data-testid="expanded-action-reschedule"
-                >
-                  <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.primary.main }]}>
-                    {t('appointments.reschedule') || 'Reschedule'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {/* No-show - for scheduled/confirmed (user requirement #2) */}
-              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && onStatusUpdate && (
-                <TouchableOpacity 
-                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'no_show')}
-                  data-testid="expanded-action-noshow"
-                >
-                  <Ionicons name="alert-circle" size={18} color={colors.warning.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.warning.main }]}>
-                    {t('appointments.noShow') || 'No-Show'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {/* Cancel - for scheduled/confirmed (user requirement #3) */}
-              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && onCancel && (
-                <TouchableOpacity 
-                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onCancel(appointment.id)}
-                  data-testid="expanded-action-cancel"
-                >
-                  <Ionicons name="close-circle" size={18} color={colors.error.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.error.main }]}>
-                    {t('common.cancel') || 'Cancel'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {/* Complete - for in_progress (user requirement #4) */}
-              {appointment.status?.toLowerCase() === 'in_progress' && onStatusUpdate && (
-                <TouchableOpacity 
-                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
-                  onPress={() => onStatusUpdate(appointment.id, 'completed')}
-                  data-testid="expanded-action-complete"
-                >
-                  <Ionicons name="checkmark-done-circle" size={18} color={colors.success.main} />
-                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
-                    {t('appointments.complete') || 'Complete'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            /* No actions available state */
-            <View style={styles.noActionsState}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.text.tertiary} />
-              <Text style={styles.noActionsText}>
-                {t('appointments.noActionsAvailable') || 'No actions available'}
-              </Text>
-            </View>
+      {/* A2: Quick Actions Row - Always visible, no expand/collapse */}
+      {showActions && (canReschedule || canMarkNoShow || canCancelAppt || canComplete) && (
+        <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
+          {/* Reschedule - scheduled/confirmed */}
+          {canReschedule && (
+            <QuickActionButton
+              icon="calendar-outline"
+              label={t('appointments.reschedule') || 'Reschedule'}
+              color={colors.primary.main}
+              onPress={() => onReschedule ? onReschedule(appointment.id) : handlePress()}
+              testId="action-reschedule"
+            />
+          )}
+          {/* No-Show - scheduled/confirmed */}
+          {canMarkNoShow && onStatusUpdate && (
+            <QuickActionButton
+              icon="alert-circle"
+              label={t('appointments.noShow') || 'No-Show'}
+              color={colors.warning.main}
+              onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+              testId="action-noshow"
+            />
+          )}
+          {/* Cancel - scheduled/confirmed */}
+          {canCancelAppt && onCancel && (
+            <QuickActionButton
+              icon="close-circle"
+              label={t('common.cancel') || 'Cancel'}
+              color={colors.error.main}
+              onPress={() => onCancel(appointment.id)}
+              testId="action-cancel"
+            />
+          )}
+          {/* A2/A3: Complete - confirmed OR in_progress (MUST be present per User Requirement) */}
+          {canComplete && onStatusUpdate && (
+            <QuickActionButton
+              icon="checkmark-done-circle"
+              label={t('appointments.complete') || 'Complete'}
+              color={colors.success.main}
+              onPress={() => onStatusUpdate(appointment.id, 'completed')}
+              testId="action-complete"
+            />
           )}
         </View>
       )}
