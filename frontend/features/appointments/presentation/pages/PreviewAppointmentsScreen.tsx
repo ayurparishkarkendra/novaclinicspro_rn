@@ -1241,6 +1241,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                   onSelectAlternative={(alt) => 
                     handleSelectPerSessionAlternative(session.session_number, alt)
                   }
+                  onOpenCustomTimePicker={handleOpenCustomTimePicker}
                   t={t}
                 />
               );
