@@ -1010,43 +1010,115 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Visit History
-  visitHistoryCard: {
+  // Visit History - B2 Enhanced Cards
+  visitHistoryContainer: {
+    gap: spacing.sm,
+  },
+  visitCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    position: 'relative',
+  },
+  visitCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  visitCardDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  visitCardDate: {
+    ...typography.body2,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  visitCardTime: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  visitCardStatus: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 8,
+  },
+  visitCardStatusText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  visitCardTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  visitCardType: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  visitCardTreatment: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    flex: 1,
+  },
+  visitCardLinksRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  visitCardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  visitCardLinkActive: {
+    // Active links have colored text via inline style
+  },
+  visitCardLinkText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  visitCardLinkTextActive: {
+    color: colors.primary.main,
+  },
+  visitCardPaymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  visitCardPaymentText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  visitCardPaymentActive: {
+    color: colors.success.main,
+  },
+  visitCardArrow: {
+    position: 'absolute',
+    right: spacing.md,
+    top: '50%',
+    marginTop: -9,
+  },
+  emptyVisitHistory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
     backgroundColor: colors.background.default,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border.light,
-    overflow: 'hidden',
   },
-  visitHistoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  visitHistoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: spacing.md,
-  },
-  visitHistoryContent: {
-    flex: 1,
-  },
-  visitHistoryDate: {
+  emptyVisitHistoryText: {
     ...typography.body2,
-    color: colors.text.primary,
-    fontWeight: '500',
-  },
-  visitHistoryTime: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  visitHistoryTreatment: {
-    ...typography.caption,
     color: colors.text.tertiary,
-    marginTop: 2,
   },
   // Visit History Meta (Prescription/Payment info - User Requirement #2)
   visitHistoryMeta: {
