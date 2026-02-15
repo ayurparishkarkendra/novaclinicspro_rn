@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://therapy-plan-ui-fix.preview.emergentagent.com
+**Preview URL:** https://expo-device-test.preview.emergentagent.com
 
 ---
 

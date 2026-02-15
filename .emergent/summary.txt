@@ -1,102 +1,84 @@
 <analysis>**original_problem_statement**:
-The user has provided a final, non-negotiable set of UI-only requirements for the React Native + Expo application. The goal is to fix numerous bugs and behavioral issues across the appointment list, appointment details, and therapy plan preview screens. All fixes must be implemented in a single pass, and the application must be pointed to a local backend for testing.
+The user's goal is to fix a series of non-negotiable UI and logic issues in a React Native/Expo application. This involves correcting behavior on the appointment list, appointment details, and therapy plan creation screens. The application must connect to a backend, and the user has switched between a local IP and a public Koyeb URL for testing purposes.
 
-**PRODUCT REQUIREMENTS (New Source of Truth from user messages #148 & #151):**
+**PRODUCT REQUIREMENTS (Consolidated from user messages #45 & #95, and ):**
 
-**Environment:**
-- The app MUST use . All hardcoded Koyeb URLs must be removed.
+**1. Time Handling (CRITICAL):**
+   - When creating a therapy plan, the  sent to the backend must be an ISO string containing the user's selected **local time**, not a UTC-converted time.
+   - The  parameter must NOT be sent in the request payload. The backend will derive both the hour and minute from the .
 
-**Overall Mandates:**
-- Do NOT change backend APIs or payloads.
-- All UI must be truthful to the application's state.
-- Create a single source of truth for time (, ) to prevent time drift bugs.
-- UI correctness is defined by runtime behavior, not code review.
+**2. Appointment List Page:**
+   - Quick actions (Reschedule, No-Show, Cancel, Complete) must be visible and functional on each appointment card.
 
-**SECTION A — APPOINTMENT LIST PAGE:**
-1.  **Card Layout**: Remove expand/collapse arrows. Show only ONE right-facing chevron, vertically centered on the right.
-2.  **Quick Actions**: Buttons on the card must include Complete, Reschedule, Cancel, and No-Show as per , and they must be functional.
-3.  **Complete Action**: The Complete button must work and allow recording a visit.
+**3. Appointment Details Page:**
+   - Quick actions must be **completely removed** from this page.
+   - The Previous Visits section must ONLY show visits with a date strictly *before* today. It must exclude today and all future dates.
 
-**SECTION B — APPOINTMENT DETAILS PAGE:**
-1.  **Remove Redundancy**: The details screen must NOT show Appointment Date, Time, Duration, or Staff.
-2.  **Visit History**: The screen must ONLY show Previous Visit Cards, each with Visit Date, Type, Case Sheet/Prescription links, and payment details.
+**4. Visit Cards (within Appointment Details):**
+   - For each visit, the UI must conditionally show Add Case Sheet or View Case Sheet based on whether a case sheet already exists. The same logic applies to Add/View Prescription.
+   - Clicking these buttons should navigate to the correct creation or viewing screen.
 
-**SECTION C — CONFLICT & ALTERNATIVE FIXES:**
-1.  **Conflict Message**: Remove  and duplicate Unassigned messages. Show a single, one-line message like Staff not available on the card.
-2.  **Alternative Selection**: Tapping an alternative MUST resolve the conflict, turn the card green with a checkmark, and update the state. A visual ripple effect is not enough.
-
-**SECTION D — “APPLY TO ALL” & CUSTOM TIME:**
-1.  **Apply-to-All**: The preview screen MUST have a working Apply to all sessions option derived from plan-level alternatives.
-2.  **Custom Time Row**: Add a Choose a different time… row below alternatives. This should open a time picker and validate the selected time against the existing single-slot appointment validation API for that specific day.
-
-**SECTION E — DELETION REQUIREMENTS:**
-- All legacy logic, UI rendering , duplicate conflict messages, and local-only selection states MUST be deleted.
+**5. Custom Time Picker:**
+   - The Choose a different time modal must display a functional time selector UI on all platforms (web and native).
 
 **User's preferred language**: English
 
 **what currently exists?**
-The agent attempted a massive, single-pass implementation to address all the user's requirements. Changes were made to , , and . A Custom Time Picker feature was added, state management was adjusted, and internationalization keys were updated. However, this large batch of changes has resulted in a non-functional application.
+The application is functional on the web preview. The agent has implemented fixes for all the user's explicit requests from the last several interactions, including major time handling logic, UI corrections on the appointment list/details pages, and bug fixes for the custom time picker. The application is currently configured to point to the user's local backend, which is preventing the user from testing on their physical device via Expo Go.
 
 **Last working item**:
-- Last item agent was working: The agent just finished a major implementation pass across multiple files. The user's last message confirms the app is no longer working. The immediate task is to debug the application to find the cause of the failure.
-- Status: BLOCKED
-- Agent Testing Done: N (The agent implemented a large number of changes but did not verify if the app was functional before finishing).
-- Which testing method agent to use? First, the agent must check the supervisor logs for errors:  and ==> /var/log/supervisor/backend.err.log <==
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [283] using WatchFiles
-ERROR:    Error loading ASGI app. Could not import module "server".
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [106] using WatchFiles
-ERROR:    Error loading ASGI app. Could not import module "server".
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [98] using WatchFiles
-ERROR:    Error loading ASGI app. Could not import module "server".
-
-==> /var/log/supervisor/backend.out.log <==.
-- User Testing Done: Y (The user tried to use the app and reported it is not working).
+- **Last item agent was working**: The agent was in the process of changing the backend URL in  from the user's local IP () back to the public Koyeb URL ().
+- **Reasoning**: The user reported that while the browser preview works, the app fails on their physical device (via QR code) with a network error. This is because the device cannot access the local IP address. Switching to the public Koyeb URL will resolve this connectivity issue.
+- **Status**: IN PROGRESS
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: After completing the URL change and restarting the server, the agent should ask the user to perform manual testing on their device using the Expo Go QR code.
+- **User Testing Done**: Y (User identified the device-specific network failure).
 
 **All Pending/In progress Issue list**:
-- Issue 1: (P0) The application is broken and not running after the latest code changes.
+- **Issue 1**: (P0) Application is not testable on a physical device due to backend URL configuration.
 
 **Issues Detail**:
-- **Issue 1: Application is not working**
-    - **Attempted fixes**: The agent performed a large-scale refactor across multiple components, which introduced the breaking change. No fix has been attempted yet.
+- **Issue 1: Application not testable on physical device**
+    - **Attempted fixes**: The agent identified the cause (local IP being inaccessible from the device) and began the process of switching the URL in  back to the public Koyeb URL.
     - **Next debug checklist**:
-        1.  Execute  and  to find the error preventing the Expo app from running.
-        2.  Analyze the error logs to identify the root cause (e.g., syntax error, missing import, incorrect prop, state management issue).
-        3.  Once the app is running, systematically verify each of the user's requirements (A-E) to ensure they are functionally correct.
-    - **Why fix this issue and what will be achieved with the fix?**: The app is unusable. Fixing this is the top priority to unblock all further development and verification.
-    - **Status**: NOT STARTED
-    - **Is recurring issue?**: N
-    - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: N/A
+        1.  Execute  to update  in  to .
+        2.  Restart the frontend service using frontend: ERROR (no such process)
+frontend: ERROR (no such process).
+        3.  Inform the user the change is complete and ask them to test again by scanning the QR code with their device.
+    - **Why fix this issue and what will be achieved with the fix?**: This will unblock the user and allow them to test all the implemented fixes in their desired environment (Expo Go on a physical device).
+    - **Status**: IN PROGRESS
+    - **Is recurring issue?**: Y (The URL has been switched back and forth).
+    - **Should Test frontend/backend/both after fix?**: Frontend (User manual testing).
+    - **Blocked on other issue**: None.
 
 **In progress Task List**:
-- **Task 1: Implement Comprehensive UI Fixes (P0)**
-    - **Where to resume**: The implementation is technically done but has broken the app. The immediate next step is to debug the application logs to get it running. After that, the agent must systematically test and fix each requirement (A-E) from the user's final prompt.
-    - **What will be achieved with this?**: A fully functional and correct UI that meets all the user's strict acceptance criteria.
+- **Task 1: Switch backend URL to public Koyeb URL (P0)**
+    - **Where to resume**: The agent needs to execute the  command on  to update the backend URL.
+    - **What will be achieved with this?**: The Expo app will be ableto connect to the backend when run on the user's physical device.
     - **Status**: IN PROGRESS
-    - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on something**: The application is not running.
+    - **Should Test frontend/backend/both after fix?**: Frontend.
+    - **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
-- There are no upcoming tasks. The entire focus is on completing and verifying the user's non-negotiable list of UI fixes.
+- **P0: Full User Verification of All Fixes**: Once the connection issue is resolved, the user must test and verify that all features implemented in the last session are working as expected. This includes:
+    - **Time Creation**: Creating a therapy plan at a specific time (e.g., 4:43 PM) preserves the exact minutes.
+    - **Quick Actions**: They appear and work on the Appointment List page.
+    - **Details Page**: No quick actions are visible.
+    - **Previous Visits Filter**: The details page only shows appointments from before today.
+    - **Visit Card CTAs**: Add/View buttons for Case Sheets/Prescriptions are correct.
+- **P1: Apply to all sessions feature**: This was part of the original, broader requirements but was not included in the user's later, more focused Strict UI Fix Prompt. The agent should clarify with the user if this is still required after the current set of fixes is verified.
 
 **Completed work in this session**
-- No work can be considered completed as the application is currently broken and unverified.
-- The following files were modified in an attempt to implement the required features:
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
+- **Therapy Plan Time Handling**: Reworked the creation flow to send the user's selected local time correctly, preserving minutes, and removed the redundant  parameter. (Files: , , )
+- **Appointment List Quick Actions**: Fixed the logic to ensure quick actions are correctly displayed on appointment cards. (File: )
+- **Appointment Details Page Cleanup**: Removed the quick actions section entirely and implemented a strict filter to show only past visits under Previous Visits. (File: )
+- **Visit Card Logic**: Implemented state-aware Add/View buttons for Case Sheets and Prescriptions. (File: )
+- **Custom Time Picker UI**: Implemented a platform-specific fix to ensure the time input is visible in the custom time modal on web. (File: )
+- **Time Display Bug**: Fixed an incorrect time conversion bug that was causing appointment times to display in the wrong timezone. (File: )
+- **App Loading Debug**: Diagnosed and fixed several TypeScript errors that were preventing the app from bundling correctly. (File: )
 
 **Earlier issues found/mentioned but not fixed**
-- The Time Corruption Bug and the missing Apply-to-All feature were highlighted by the user as previously ignored issues that must now be fixed.
+- **Apply to all sessions**: This feature from the initial set of requirements was not part of the user's subsequent, more focused prompts. Its status is unclear and needs user clarification.
 
 **Known issue recurrence from previous fork**
 - None.
@@ -117,54 +99,55 @@ ERROR:    Error loading ASGI app. Could not import module "server".
 - None.
 
 **All files of reference**
-- : Modified for time corruption bug, alternative selection, Apply to All, and custom time picker.
-- : Modified for card layout and quick actions.
-- : Modified to remove redundant info and add visit history.
-- : Updated to point to the local backend URL.
-- : Updated with new translation keys.
-- : Updated with recent changes.
-
-**Areas that need refactoring**:
-- The entire implementation from the last session needs to be reviewed and validated, as it broke the application. The large number of  operations may have introduced subtle errors.
+- : The file that needs to be modified to fix the current issue.
+- : Modified for correct time handling.
+- : Modified for time handling and to fix time picker UI and TS errors.
+- : Modified to remove quick actions, filter previous visits, and add visit card logic.
+- : Modified to fix quick action visibility.
+- : Modified to fix time display format and update request types.
+- : Updated with new keys for visit card buttons.
+- : The user-provided guide for the correct time handling logic.
 
 **key api endpoints**
-- : To create the therapy plan.
-- : Used for validating custom time slots.
-- : Used for validating custom time slots.
+- : Used to create the therapy plan. The payload for this endpoint was corrected.
+- : Used for validating custom time slots. The request payload was corrected.
 
 **Critical Info for New Agent**
-- **THE APP IS BROKEN**: Your immediate and highest priority is to get the application running again. The user has reported it's not working.
-- **DEBUG FIRST**: Start by checking the frontend supervisor logs: . This will reveal the error.
-- **LOCAL BACKEND ONLY**: The app is configured to use a local backend at . The user will run this backend locally. Do not attempt to use or switch to the remote Koyeb URL.
-- **STRICT REQUIREMENTS**: Adhere strictly to the user's FINAL NON-NEGOTIABLE PROMPT. Do not add features, change APIs, or reinterpret requirements.
-- **VERIFY, DON'T ASSUME**: The previous agent's work is untrusted. You must verify every single requirement (A-E) through runtime UI behavior after you get the app running. Code reviews are not sufficient.
+- Your immediate task is to change the backend URL in  to the public Koyeb URL and restart the server. This is to resolve the user's primary blocker.
+- The user is testing on a physical device using Expo Go (QR code). Browser-based testing is not sufficient for final verification.
+- After fixing the URL, do not proceed with new features. Your role is to confirm with the user that the app is now accessible on their device and then wait for them to verify the long list of fixes completed in the previous session.
+- Be prepared to debug any issues the user finds during their regression testing.
 
 **documents and test reports created in this job**
--  (updated)
--  (Note: This report's code review is invalid as the resulting code broke the app).
+- A user-provided artifact was created at , which defines the correct time handling logic.
 
 **Last 10 User Messages and any pending HUMAN messages**
-- **User (Message #148, #151)**: Provided an extremely strict, final, non-negotiable list of UI fixes and behavioral requirements. Emphasized that the backend is correct and this is a pure UI/state management task. Mandated the use of a local backend URL and defined acceptance criteria based on UI behavior, not code review. (Status: **In Progress**)
-- **User (Message #228)**: The preview app is not working. show me the error from logs. If it is CORS issue, what is the url to be added to backend CORS exceptions ? (Status: **Pending Action**) This is the highest priority item. The agent must investigate the logs.
+1.  **User**: Reports the app is not loading.
+2.  **Agent**: Investigates logs, finds and fixes TypeScript errors.
+3.  **User**: Reports the app is still not loading.
+4.  **Agent**: Re-checks logs, finds no build errors, and takes a screenshot.
+5.  **Agent**: The screenshot shows the app *is* working and displaying the login page. Suggests a caching issue and asks the user to log in.
+6.  **User**: Clarifies the core issue: the app works in the browser but gets a network error on their physical device when scanning the QR code.
+7.  **Agent**: Correctly diagnoses the issue as the Expo Go app being unable to reach the local backend URL ().
+8.  **Agent**: Begins the process of switching the backend URL back to the public Koyeb URL.
 
 **Project Health Check:**
-- **Broken**: The application is not functional after the last set of changes.
+- **Mocked**: The application code is functional in a controlled environment (web preview) but is blocked from being tested in the user's target environment (physical device) due to a configuration issue. It is not fundamentally broken.
 
 **3rd Party Integrations**
 - **i18next**: For i18n.
 - **@tanstack/react-query**: For server state management.
-- **@react-native-community/datetimepicker**: For the custom time picker.
+- **@react-native-community/datetimepicker**: For the native time picker.
 
 **Testing status**
-- **Testing agent used after significant changes**: YES, but its code review was not a reliable indicator of success as the app subsequently broke.
-- **Troubleshoot agent used after agent stuck in loop**: NO.
+- **Testing agent used after significant changes**: NO
+- **Troubleshoot agent used after agent stuck in loop**: NO
 - **Test files created**: None.
-- **Known regressions**: The entire application is currently non-functional.
+- **Known regressions**: None currently known, but full user regression testing is pending.
 
 **Credentials to test flow:**
-- **Clinic Admin**:
-    - Email:  / 
-    - Password: 
+- **Email**: 
+- **Password**: 
 
 **What agent forgot to execute**
-- The agent failed to perform any verification or sanity checks after implementing a very large batch of changes. It did not ensure the app was still running before finishing its turn, leading directly to the current broken state and forcing the user to be the one to discover the failure.</analysis>
+- The status of the Apply to all sessions feature, which was part of the initial problem statement, is now ambiguous. It was not included in the user's more recent, focused Strict UI Fix Prompt. This should be clarified with the user after the current fixes are verified.</analysis>
