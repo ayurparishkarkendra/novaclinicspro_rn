@@ -179,16 +179,24 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
       >
         {/* Main Content */}
         <View style={styles.content}>
-          {/* Top Row: Time + Status */}
+          {/* Top Row: Date + Status */}
           <View style={styles.topRow}>
-            <View style={styles.timeContainer}>
-              <Ionicons name="time-outline" size={14} color={colors.primary.main} />
-              <Text style={styles.timeText} data-testid="appointment-time">
-                {timeDisplay}
-                {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={14} color={colors.primary.main} />
+              <Text style={styles.dateText} data-testid="appointment-date">
+                {dateDisplay}
               </Text>
             </View>
             <StatusBadge status={appointment.status} />
+          </View>
+
+          {/* Time Row */}
+          <View style={styles.timeRow}>
+            <Ionicons name="time-outline" size={14} color={colors.text.secondary} />
+            <Text style={styles.timeText} data-testid="appointment-time">
+              {timeDisplay}
+              {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
+            </Text>
           </View>
 
           {/* Client Info */}
