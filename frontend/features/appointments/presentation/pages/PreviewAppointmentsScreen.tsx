@@ -1,16 +1,21 @@
 /**
  * Multi-Day Appointment Preview Screen
  * 
+ * ARCHITECTURE (per message #164 spec):
+ * - SINGLE SOURCE OF TRUTH: effectiveTimes state holds the authoritative time for each session
+ * - NO RECOMPUTING: UI components read from effectiveTimes, never derive from metadata
+ * - PLAN-LEVEL ALTERNATIVES: Identified by plan_level: true, shown as global "apply to all" options
+ * - SELECTION CONTRACT: Both global and per-session selections update effectiveTimes
+ * - CONFLICT MESSAGING: Consolidated messages, no duplicate labels
+ * 
  * CRITICAL: This screen MUST be backend-driven.
  * - NO frontend-generated availability/conflict logic
  * - If backend cannot validate, UI blocks progression
- * - Uses /check-availability and /alternative-slots APIs only
  * 
- * All text uses i18n.
- * No IDs displayed in UI.
+ * All text uses i18n. No IDs displayed in UI.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,6 +45,36 @@ import {
 } from '../../data/models/appointments.dtos';
 
 // ============================================
+// TYPES - SINGLE SOURCE OF TRUTH
+// ============================================
+
+/**
+ * EffectiveTime: The authoritative time slot for a session.
+ * This is the SINGLE SOURCE OF TRUTH - all UI must read from this.
+ */
+interface EffectiveTime {
+  start: string;
+  end: string;
+  staff_id: string | null;
+  staff_name: string | null;
+  room_id: string | null;
+  room_name: string | null;
+  is_resolved: boolean; // true if user selected an alternative for a conflicted session
+}
+
+/**
+ * Plan-level alternative that can be applied globally
+ */
+interface PlanLevelAlternative {
+  time_pattern: string; // e.g., "11:00" - the hour:minute pattern
+  start_hour: number;
+  start_minute: number;
+  coverage_count: number; // how many sessions this works for
+  total_sessions: number;
+  covered_sessions: number[]; // session_numbers this applies to
+}
+
+// ============================================
 // SAFE DATE FORMATTERS
 // ============================================
 
@@ -56,6 +91,33 @@ const safeFormatDate = (dateStr: string | Date | undefined | null): string => {
   } catch {
     return '—';
   }
+};
+
+/**
+ * Extract time pattern (HH:MM) from ISO string without timezone conversion
+ */
+const extractTimePattern = (dateStr: string): string => {
+  const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
+  if (timeMatch) {
+    return `${timeMatch[1]}:${timeMatch[2]}`;
+  }
+  return '00:00';
+};
+
+/**
+ * Extract hour from ISO string
+ */
+const extractHour = (dateStr: string): number => {
+  const timeMatch = dateStr.match(/T(\d{2}):/);
+  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
+};
+
+/**
+ * Extract minute from ISO string
+ */
+const extractMinute = (dateStr: string): number => {
+  const timeMatch = dateStr.match(/T\d{2}:(\d{2})/);
+  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
 };
 
 /**
@@ -90,6 +152,15 @@ const safeFormatTime = (dateStr: string | Date | undefined | null): string => {
   } catch {
     return '—';
   }
+};
+
+/**
+ * Format time from hour and minute numbers
+ */
+const formatTimeFromParts = (hour: number, minute: number): string => {
+  const period = hour >= 12 ? 'pm' : 'am';
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
 };
 
 const safeFormatDayOfWeek = (dateStr: string | Date | undefined | null): string => {
@@ -127,6 +198,27 @@ interface StaffAssignment {
 }
 
 // ============================================
+// ALTERNATIVE SLOT TYPE - from API
+// ============================================
+
+interface AlternativeSlot {
+  start: string;
+  end: string;
+  available_staff: Array<{
+    staff_id: string;
+    full_name: string;
+    staff_type: string;
+  }>;
+  available_rooms: Array<{
+    room_id: string;
+    name: string;
+    room_type: string;
+  }>;
+  score: number;
+  plan_level?: boolean; // true if this is a plan-level alternative
+}
+
+// ============================================
 // SESSION DATA TYPE - Updated per API spec
 // ============================================
 
@@ -136,7 +228,7 @@ interface SessionData {
   appointment_end: string;
   staff_id: string | null;
   staff_name: string | null;  // Deprecated - use staff_assignments
-  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
+  staff_assignments?: StaffAssignment[] | null;  // All assigned therapists
   room_id: string | null;
   room_name: string | null;
   is_conflicted: boolean;
@@ -145,37 +237,20 @@ interface SessionData {
     requested_time: string;
     conflict_type: string;
     message: string;
-    alternative_slots: Array<{
-      start: string;
-      end: string;
-      available_staff: Array<{
-        staff_id: string;
-        full_name: string;
-        staff_type: string;
-      }>;
-      available_rooms: Array<{
-        room_id: string;
-        name: string;
-        room_type: string;
-      }>;
-      score: number;
-    }>;
+    alternative_slots: AlternativeSlot[];
   } | null;
-  // User-selected alternative for conflicted sessions
-  selected_alternative?: {
-    start: string;
-    end: string;
-    staff_id: string;
-    staff_name?: string;
-    room_id?: string;
-    room_name?: string;
-  };
 }
 
 /**
- * Get therapist names from session data
+ * Get therapist display text from session data.
+ * BUG FIX #1: When therapists are unavailable, show "Staff not available" instead of "Unassigned"
  */
-const getSessionTherapistNames = (session: SessionData): string => {
+const getSessionTherapistDisplay = (session: SessionData, isConflicted: boolean): string => {
+  // If conflicted due to staff unavailability, show clear message
+  if (isConflicted && session.conflict?.conflict_type?.toLowerCase().includes('staff')) {
+    return 'Staff not available';
+  }
+  
   // Use staff_assignments (new API format)
   if (session.staff_assignments && session.staff_assignments.length > 0) {
     return session.staff_assignments.map(staff => staff.name).join(', ');
@@ -184,7 +259,9 @@ const getSessionTherapistNames = (session: SessionData): string => {
   if (session.staff_name) {
     return session.staff_name;
   }
-  return 'Unassigned';
+  
+  // For non-conflicted sessions without staff, show "To be assigned"
+  return isConflicted ? 'Staff not available' : 'To be assigned';
 };
 
 // ============================================
