@@ -1831,6 +1831,86 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background.default,
   },
+
+  // #7: Custom Time Row
+  customTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.main + '08',
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary.main + '30',
+    borderStyle: 'dashed',
+  },
+  customTimeText: {
+    flex: 1,
+    ...typography.body2,
+    color: colors.primary.main,
+    marginLeft: spacing.sm,
+  },
+
+  // #7: Custom Time Picker Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background.default,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  modalSubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    ...typography.button,
+    color: colors.text.primary,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    backgroundColor: colors.primary.main,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
 });
 
 export default PreviewAppointmentsScreen;
