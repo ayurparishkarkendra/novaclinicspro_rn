@@ -144,12 +144,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   }, [appointment, onPress, router]);
 
   // ===== RBAC CHECK =====
-  const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
+  const normalizedRole = userRole?.toLowerCase().replace(/_/g, '-') || 'clinic-admin';
   const canModify = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
-                    ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+                    ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole?.toLowerCase());
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
-  const status = appointment.status?.toLowerCase();
+  const status = (appointment.status || '').toLowerCase();
   const canReschedule = canModify && ['scheduled', 'confirmed'].includes(status);
   const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
