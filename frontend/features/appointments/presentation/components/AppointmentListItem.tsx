@@ -31,6 +31,7 @@ import {
   getStatusLabel,
   getStatusColor,
   formatTime,
+  formatDate,
   getTherapistNames,
 } from '../../data/models/appointments.dtos';
 
