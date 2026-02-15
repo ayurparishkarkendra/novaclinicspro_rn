@@ -352,6 +352,7 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectAlternative: (alt: AlternativeSlot) => void;
+  onOpenCustomTimePicker?: (sessionNumber: number) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
@@ -361,6 +362,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   isExpanded,
   onToggle,
   onSelectAlternative,
+  onOpenCustomTimePicker,
   t,
 }) => {
   const hasConflict = session.is_conflicted;
