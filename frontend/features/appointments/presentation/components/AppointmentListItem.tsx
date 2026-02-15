@@ -159,6 +159,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // ===== DISPLAY VALUES =====
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
   const displayStaffName = staffName;
+  const dateDisplay = formatDate(appointment.appointment_start);
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
