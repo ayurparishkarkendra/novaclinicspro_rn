@@ -560,7 +560,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     staffNames: string;
     startDate: string;
     durationDays: string;
-    preferredTimeHour: string;
+    // preferredTimeHour removed - time is extracted from startDate per THERAPY_PLAN_TIME_HANDLING.md
     preferredTimeHourLocal: string;
     preferredTimeMinutesLocal: string;
     durationMinutes: string;
