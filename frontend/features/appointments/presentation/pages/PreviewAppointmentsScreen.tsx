@@ -1283,6 +1283,64 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           </View>
         </>
       )}
+
+      {/* #7: Custom Time Picker Modal */}
+      {showCustomTimePicker && (
+        <Modal
+          visible={showCustomTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={handleCancelCustomTimePicker}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {t('appointments.chooseDifferentTime') || 'Choose a different time'}
+                </Text>
+                <TouchableOpacity onPress={handleCancelCustomTimePicker}>
+                  <Ionicons name="close" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.modalSubtitle}>
+                {t('appointments.session') || 'Session'} {customTimePickerSession}
+              </Text>
+              
+              <DateTimePicker
+                value={customTimePickerDate}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleCustomTimeChange}
+                minuteInterval={15}
+              />
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={handleCancelCustomTimePicker}
+                >
+                  <Text style={styles.modalCancelText}>{t('common.cancel') || 'Cancel'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirmButton,
+                    isValidatingCustomTime && styles.modalButtonDisabled,
+                  ]}
+                  onPress={handleConfirmCustomTime}
+                  disabled={isValidatingCustomTime}
+                >
+                  {isValidatingCustomTime ? (
+                    <ActivityIndicator size="small" color={colors.background.default} />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>{t('common.confirm') || 'Confirm'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
