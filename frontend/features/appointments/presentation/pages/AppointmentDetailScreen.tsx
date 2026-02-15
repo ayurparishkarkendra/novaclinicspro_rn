@@ -296,14 +296,16 @@ export const AppointmentDetailScreen: React.FC = () => {
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
   const treatmentName = appointment?.treatment_name || null;
+  const roomName = appointment?.room_name || null;
   const staffName = appointment ? getTherapistNames(appointment) : null;
 
   // ===== RBAC CHECK =====
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
   const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
                                ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
-  const canCompleteSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
-                             ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canStartSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
+                          ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canCompleteSession = canStartSession;
   const canMarkNoShow = canModifyAppointment;
   const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
                   ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
