@@ -904,6 +904,15 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const canProceed = sessions.length > 0 && allConflictsResolved && !hasError;
 
   // ============================================
+  // SUCCESS MODAL STATE (for web compatibility)
+  // ============================================
+  const [successModal, setSuccessModal] = useState<{
+    visible: boolean;
+    createdCount: number;
+    whatsappUrl: string | null;
+  }>({ visible: false, createdCount: 0, whatsappUrl: null });
+
+  // ============================================
   // CREATE APPOINTMENTS
   // ============================================
   
@@ -942,8 +951,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         }
       }
 
-      // Show result
+      // Show result - use modal on web for reliable button handling
       if (createdCount === sessions.length) {
+        let whatsappUrl: string | null = null;
         if (clientPhone) {
           const firstEffective = effectiveTimes.get(1);
           const message = generateWhatsAppSeriesMessage(
@@ -955,36 +965,50 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             safeFormatTime(firstEffective?.start),
             '+91-XXXXXXXXXX'
           );
-          const whatsappUrl = openWhatsApp(clientPhone, message);
-
-          Alert.alert(
-            t('appointments.appointmentsCreated'),
-            `${createdCount} ${t('appointments.sessionsScheduled')}`,
-            [
-              { 
-                text: t('common.done'), 
-                style: 'cancel', 
-                onPress: () => router.replace('/clinic-admin/appointments' as any) 
-              },
-              {
-                text: t('appointments.sendWhatsApp'),
-                onPress: () => {
-                  Linking.openURL(whatsappUrl);
-                  router.replace('/clinic-admin/appointments' as any);
-                },
-              },
-            ]
-          );
+          whatsappUrl = openWhatsApp(clientPhone, message);
+        }
+        
+        // On web, Alert buttons don't work reliably - show success modal instead
+        if (Platform.OS === 'web') {
+          setSuccessModal({ visible: true, createdCount, whatsappUrl });
         } else {
-          Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
-          router.replace('/clinic-admin/appointments' as any);
+          // Native: use Alert
+          if (whatsappUrl) {
+            Alert.alert(
+              t('appointments.appointmentsCreated'),
+              `${createdCount} ${t('appointments.sessionsScheduled')}`,
+              [
+                { 
+                  text: t('common.done'), 
+                  style: 'cancel', 
+                  onPress: () => router.replace('/clinic-admin/appointments' as any) 
+                },
+                {
+                  text: t('appointments.sendWhatsApp'),
+                  onPress: () => {
+                    Linking.openURL(whatsappUrl!);
+                    router.replace('/clinic-admin/appointments' as any);
+                  },
+                },
+              ]
+            );
+          } else {
+            Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
+            router.replace('/clinic-admin/appointments' as any);
+          }
         }
       } else if (createdCount > 0) {
-        Alert.alert(
-          t('appointments.partialSuccess'),
-          `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
-          [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
-        );
+        // Partial success - navigate directly on web
+        if (Platform.OS === 'web') {
+          alert(`${t('appointments.created') || 'Created'} ${createdCount} of ${sessions.length}. Some errors occurred.`);
+          router.replace('/clinic-admin/appointments' as any);
+        } else {
+          Alert.alert(
+            t('appointments.partialSuccess'),
+            `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
+            [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
+          );
+        }
       } else {
         Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
@@ -993,6 +1017,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  // Handle success modal actions
+  const handleSuccessModalDone = () => {
+    setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
+    router.replace('/clinic-admin/appointments' as any);
+  };
+
+  const handleSuccessModalWhatsApp = () => {
+    if (successModal.whatsappUrl) {
+      Linking.openURL(successModal.whatsappUrl);
+    }
+    setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
+    router.replace('/clinic-admin/appointments' as any);
   };
 
   return (
