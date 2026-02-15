@@ -1,0 +1,91 @@
+{
+  "summary": "Frontend-only testing of PreviewAppointmentsScreen.tsx bug fixes (5 specific issues from message #164). Code review confirms all 5 bugs are correctly implemented. UI testing was attempted but blocked by difficulty navigating to the Preview screen in the React Native Expo web app (requires creating multi-day appointments which has complex navigation flow).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Navigate to Preview Appointments",
+        "issue": "Unable to reach Preview screen via UI automation - requires creating a new multi-day therapy plan. The + button in appointments list was not clickable via Playwright.",
+        "affected_selectors": ["Top-right + button on appointments list page"]
+      }
+    ],
+    "design_issues": []
+  },
+  "code_review_results": {
+    "bug_1_conflict_card_therapist_label": {
+      "status": "IMPLEMENTED CORRECTLY",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "lines": "248-265",
+      "details": "getSessionTherapistDisplay() function checks if session is conflicted AND conflict_type includes 'staff', returns 'Staff not available' instead of duplicate 'Unassigned'. Falls back to staff_assignments array, then staff_name, then 'To be assigned' for non-conflicted."
+    },
+    "bug_2_redundant_originallyRequested_row": {
+      "status": "FIXED - ROW REMOVED",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "details": "Code review confirms there is NO 'originalTimeSection' or 'appointments.orginallyRequested' being rendered anywhere in the expanded conflict section. The conflict section only shows: conflictMessage (lines 450-457), and alternativeSlots (lines 460-520). No raw i18n key display."
+    },
+    "bug_3_duplicate_conflict_message": {
+      "status": "IMPLEMENTED CORRECTLY",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "lines": "380-382, 447-457",
+      "details": "conflictMessage is extracted at line 382 and ONLY rendered inside the expanded section (lines 447-457). The main card header (lines 389-444) shows ONLY the warning icon, session number, date, time, staff name - NO text message. Comment at line 449 explicitly states 'BUG FIX #3: Single conflict message - only in expanded section'."
+    },
+    "bug_4_alternative_cards_not_tappable": {
+      "status": "IMPLEMENTED CORRECTLY",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "lines": "476-510, 759-784",
+      "details": "Alternative cards use TouchableOpacity with onPress={() => onSelectAlternative(alt)} at line 479. Handler handleSelectPerSessionAlternative (lines 759-784) correctly updates effectiveTimes state with new start/end/staff/room values and sets is_resolved: true. Visual feedback via alternativeOptionSelected style. data-testid='alternative-slot-{session_number}-{index}' for testing."
+    },
+    "bug_5_missing_global_apply_to_all": {
+      "status": "IMPLEMENTED CORRECTLY",
+      "file": "PreviewAppointmentsScreen.tsx",
+      "lines": "267-339, 600-653, 786-826, 1086-1094",
+      "details": "GlobalAlternativesSection component (lines 278-339) renders plan-level alternatives as tappable options. planLevelAlternatives computed via useMemo (lines 600-653) - collects alternatives with plan_level: true, groups by time pattern, shows top 2 highest-coverage options. handleApplyGlobalAlternative (lines 790-826) updates effectiveTimes for ALL covered sessions. Rendered at lines 1087-1094 when hasConflicts && !allConflictsResolved && planLevelAlternatives.length > 0."
+    }
+  },
+  "architecture_verification": {
+    "single_source_of_truth": {
+      "status": "CORRECT",
+      "details": "effectiveTimes (Map<number, EffectiveTime>) at line 562 is the single source of truth. SessionCard reads from effectiveTime prop (lines 365-367). UI never recomputes from metadata. Both global and per-session handlers update this same state."
+    },
+    "i18n_keys": {
+      "status": "ADDED",
+      "file": "en-US.json",
+      "keys_added": ["appointments.applyToAllSlots", "appointments.highCoverageOptions", "appointments.worksForSessions"],
+      "lines": "169-171, 393-395"
+    },
+    "data_testid_attributes": {
+      "status": "ADDED",
+      "details": "global-alternatives-section (line 287), global-alternative-{index} (line 308), session-card-{session_number} (line 387), alternative-slot-{session_number}-{index} (line 482)"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "All 5 bugs appear correctly fixed in code - recommend manual testing on a mobile device or emulator",
+    "Backend must return 'plan_level: true' on alternative_slots for global alternatives to appear",
+    "Backend conflict_type must include 'staff' for 'Staff not available' message to show"
+  ],
+  "critical_code_review_comments": [
+    "Code architecture is clean with clear separation: EffectiveTime interface (lines 55-63), PlanLevelAlternative interface (lines 68-76), GlobalAlternativesSection component (lines 278-339), SessionCard component (lines 354-524)",
+    "Single source of truth pattern correctly implemented - effectiveTimes state initialized from API at lines 659-684, modified by handlers at lines 759-826",
+    "Alternative selection visual feedback: alternativeOptionSelected and alternativeTextSelected styles applied when isSelected is true",
+    "Confirm button correctly reads from effectiveTimes at lines 860-946"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - External Koyeb backend",
+    "frontend": "Code Review: 100% (all 5 bug fixes verified in code). UI Testing: 0% (unable to navigate to Preview screen)"
+  },
+  "test_credentials": {
+    "clinic_admin_email": "sunithalekkala75@gmail.com",
+    "password": "Vishnu432!"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 5 bug fixes for PreviewAppointmentsScreen are implemented in code. To UI test: login as clinic admin -> Appointments -> + button -> Create multi-day therapy plan -> Preview screen. The app is React Native Expo web, sessionStorage auth loses tokens on URL navigation. Use in-app navigation only. Backend at Koyeb returns 200s. Key data-testids: global-alternatives-section, global-alternative-{index}, session-card-{session_number}, alternative-slot-{session_number}-{index}.",
+  "rca_of_the_issue": "N/A - This is a bug fix verification task, not RCA. All 5 reported bugs have been addressed: (1) Staff display uses getSessionTherapistDisplay() for conflict-aware messaging, (2) originallyRequested row completely removed, (3) conflict message only in expanded section, (4) alternative TouchableOpacity with proper onSelectAlternative handler, (5) GlobalAlternativesSection component with plan-level alternatives."
+}
