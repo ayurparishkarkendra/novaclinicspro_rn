@@ -514,6 +514,19 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   </TouchableOpacity>
                 );
               })}
+
+              {/* #7: CUSTOM TIME ROW */}
+              <TouchableOpacity
+                style={styles.customTimeRow}
+                onPress={() => onOpenCustomTimePicker?.(session.session_number)}
+                data-testid={`custom-time-${session.session_number}`}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.primary.main} />
+                <Text style={styles.customTimeText}>
+                  {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.noAlternatives}>
