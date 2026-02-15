@@ -657,72 +657,31 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* VISIT HISTORY SECTION */}
-        {visitHistory.length > 0 && (
-          <View style={styles.section} data-testid="detail-visit-history-section">
-            <SectionHeader title={t('appointments.visitHistory') || 'Visit History'} icon="time" />
-            <View style={styles.visitHistoryCard}>
+        {/* B2: VISIT HISTORY SECTION (Redesigned) */}
+        <View style={styles.section} data-testid="detail-visit-history-section">
+          <SectionHeader title={t('appointments.visitHistory') || 'Previous Visits'} icon="time" />
+          {visitHistory.length > 0 ? (
+            <View style={styles.visitHistoryContainer}>
               {visitHistory.map((historyItem: any) => (
-                <VisitHistoryItem
+                <VisitHistoryCard
                   key={historyItem.id}
                   appointment={historyItem}
                   onPress={() => handleVisitHistoryPress(historyItem.id)}
+                  t={t}
                 />
               ))}
             </View>
-          </View>
-        )}
-
-        {/* APPOINTMENT INFO SECTION */}
-        <View style={styles.section} data-testid="detail-appointment-info-section">
-          <SectionHeader title={t('appointments.appointmentDetails') || 'Appointment Details'} icon="calendar" />
-          <View style={styles.card}>
-            <InfoRow
-              icon="calendar-outline"
-              label={t('common.date') || 'Date'}
-              value={formatDate(appointment.appointment_start)}
-              testId="detail-date"
-            />
-            <InfoRow
-              icon="time-outline"
-              label={t('common.time') || 'Time'}
-              value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
-              testId="detail-time"
-            />
-            <InfoRow
-              icon="hourglass-outline"
-              label={t('common.duration') || 'Duration'}
-              value={formatDuration(duration)}
-              testId="detail-duration"
-            />
-            {displayTreatmentName && (
-              <InfoRow
-                icon="medical-outline"
-                label={t('common.treatment') || 'Treatment'}
-                value={displayTreatmentName}
-                testId="detail-treatment"
-              />
-            )}
-            {displayStaffName && (
-              <InfoRow
-                icon="person-circle-outline"
-                label={t('common.staff') || 'Staff'}
-                value={displayStaffName}
-                testId="detail-staff"
-              />
-            )}
-            {displayRoomName && (
-              <InfoRow
-                icon="business-outline"
-                label={t('common.room') || 'Room'}
-                value={displayRoomName}
-                testId="detail-room"
-              />
-            )}
-          </View>
+          ) : (
+            <View style={styles.emptyVisitHistory}>
+              <Ionicons name="calendar-outline" size={24} color={colors.text.tertiary} />
+              <Text style={styles.emptyVisitHistoryText}>
+                {t('appointments.noVisitHistory') || 'No previous visits'}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Notes Section */}
+        {/* Notes Section (keep if exists) */}
         {appointment.notes && (
           <View style={styles.section}>
             <SectionHeader title={t('common.notes') || 'Notes'} icon="document-text" />
@@ -732,18 +691,16 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (User Requirement #1) */}
+        {/* QUICK ACTIONS SECTION (Per FRONTEND_QUICK_ACTIONS_GUIDE.md) */}
         <View style={styles.section} data-testid="detail-actions-section">
           <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
           <View style={styles.actionsContainer}>
             {/* Status-specific actions for active appointments */}
-            {/* User Required: Reschedule, No-Show, Cancel, Complete */}
-            {/* FIX: Use case-insensitive status comparison */}
+            {/* Actions: Reschedule, No-Show, Cancel, Complete */}
             {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
               <>
-                {/* Actions Row - User required buttons in order */}
                 <View style={styles.actionsRow}>
-                  {/* Reschedule - for scheduled/confirmed (User Requirement #1) */}
+                  {/* Reschedule - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="calendar-outline"
@@ -754,7 +711,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-reschedule"
                     />
                   )}
-                  {/* No-Show - for scheduled/confirmed (User Requirement #2) */}
+                  {/* No-Show - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="alert-circle-outline"
@@ -765,7 +722,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-no-show"
                     />
                   )}
-                  {/* Cancel - for scheduled/confirmed (User Requirement #3) */}
+                  {/* Cancel - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="close-circle-outline"
@@ -776,8 +733,8 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-cancel"
                     />
                   )}
-                  {/* Complete - for in_progress (User Requirement #4) */}
-                  {appointment.status?.toLowerCase() === 'in_progress' && (
+                  {/* Complete - for confirmed OR in_progress (A3 requirement) */}
+                  {['confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="checkmark-done-circle"
                       label={t('appointments.complete') || 'Complete'}
@@ -791,7 +748,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                 </View>
               </>
             ) : (
-              /* Empty/Completed state - Always show section with "No actions available" message */
+              /* Terminal state - show info message */
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
