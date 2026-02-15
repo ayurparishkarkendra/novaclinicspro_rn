@@ -25,7 +25,10 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
+  Modal,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -43,6 +46,7 @@ import {
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
+import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 
 // ============================================
 // TYPES - SINGLE SOURCE OF TRUTH
