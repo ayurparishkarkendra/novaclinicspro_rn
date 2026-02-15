@@ -47,6 +47,17 @@ import {
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
 import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
+// Import centralized date/time utils
+import {
+  formatDate,
+  formatShortDate,
+  formatDayOfWeek,
+  formatTime,
+  formatTimeFromParts,
+  extractTimePattern,
+  extractHour,
+  extractMinute,
+} from '../../../../core/utils/dateTimeUtils';
 
 // ============================================
 // TYPES - SINGLE SOURCE OF TRUTH
