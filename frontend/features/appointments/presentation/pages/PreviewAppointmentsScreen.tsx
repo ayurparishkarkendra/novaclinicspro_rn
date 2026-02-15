@@ -446,7 +446,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
       {/* Conflict Details & Alternatives - Only when expanded */}
       {hasConflict && isExpanded && (
         <View style={styles.conflictSection}>
-          {/* BUG FIX #3: Single conflict message - only in expanded section */}
+          {/* C1: Single conflict message - only in expanded section */}
           {conflictMessage && (
             <View style={styles.conflictReason}>
               <Ionicons name="alert-circle" size={16} color={colors.error.main} />
@@ -456,7 +456,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </View>
           )}
 
-          {/* BUG FIX #4: Alternative Slots - fully selectable */}
+          {/* C2: Alternative Slots - fully selectable, updates state */}
           {alternativeSlots.length > 0 ? (
             <View style={styles.alternativesSection}>
               <Text style={styles.alternativesTitle}>
