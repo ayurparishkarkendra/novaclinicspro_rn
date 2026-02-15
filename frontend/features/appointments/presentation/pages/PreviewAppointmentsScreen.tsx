@@ -89,115 +89,16 @@ interface PlanLevelAlternative {
   covered_sessions: number[]; // session_numbers this applies to
 }
 
-// ============================================
-// SAFE DATE FORMATTERS
-// ============================================
+// NOTE: Date/time formatting functions are now imported from centralized utils:
+// formatDate, formatShortDate, formatDayOfWeek, formatTime, formatTimeFromParts,
+// extractTimePattern, extractHour, extractMinute
+// from '../../../../core/utils/dateTimeUtils'
 
-const safeFormatDate = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-};
-
-/**
- * Extract time pattern (HH:MM) from ISO string without timezone conversion
- */
-const extractTimePattern = (dateStr: string): string => {
-  const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-  if (timeMatch) {
-    return `${timeMatch[1]}:${timeMatch[2]}`;
-  }
-  return '00:00';
-};
-
-/**
- * Extract hour from ISO string
- */
-const extractHour = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T(\d{2}):/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
-};
-
-/**
- * Extract minute from ISO string
- */
-const extractMinute = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T\d{2}:(\d{2})/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
-};
-
-/**
- * FIX #3: Display time exactly as returned by backend WITHOUT timezone conversion.
- * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents the user's
- * intended local time (4 PM). We must NOT convert this to local timezone.
- */
-const safeFormatTime = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    // If it's a string, extract hours/minutes directly from the ISO string
-    // to avoid timezone conversion that would shift 16:00 to 21:30 in IST
-    if (typeof dateStr === 'string') {
-      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
-      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const period = hours >= 12 ? 'pm' : 'am';
-        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-      }
-    }
-    // Fallback for Date objects - use UTC methods to avoid conversion
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const period = hours >= 12 ? 'pm' : 'am';
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-  } catch {
-    return '—';
-  }
-};
-
-/**
- * Format time from hour and minute numbers
- */
-const formatTimeFromParts = (hour: number, minute: number): string => {
-  const period = hour >= 12 ? 'pm' : 'am';
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
-};
-
-const safeFormatDayOfWeek = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-IN', { weekday: 'short' });
-  } catch {
-    return '';
-  }
-};
-
-const safeFormatShortDate = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    });
+// Legacy aliases for compatibility (these now use centralized utils)
+const safeFormatDate = formatDate;
+const safeFormatTime = formatTime;
+const safeFormatDayOfWeek = formatDayOfWeek;
+const safeFormatShortDate = formatShortDate;
   } catch {
     return '—';
   }
