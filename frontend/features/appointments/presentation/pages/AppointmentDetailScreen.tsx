@@ -1,21 +1,21 @@
 /**
  * Appointment Detail Screen
  * 
- * STRUCTURE:
- * - Client Section (name, phone, quick call action)
- * - Visit History Section (previous appointments for this client)
- * - Appointment Info Section
- * - Quick Actions Section (RBAC-based)
+ * REDESIGN (User Requirement B1, B2):
+ * - B1: REMOVED redundant Date, Time, Duration, Staff (already on list card)
+ * - B2: Show Visit History cards with:
+ *   - Visit Date, Visit Type
+ *   - Case Sheet link, Prescription link
+ *   - Payment details
+ *   - Quick actions (same as list card)
+ * 
+ * QUICK ACTIONS (per FRONTEND_QUICK_ACTIONS_GUIDE.md):
+ * - Reschedule, No-Show, Cancel, Complete
  * 
  * WHATSAPP TRIGGERS on status changes:
- * - Created (on creation)
- * - Rescheduled
- * - Cancelled
- * - No-Show
- * - Completed
+ * - Confirmed, Rescheduled, Cancelled, No-Show, Completed
  * 
- * NO IDs displayed in UI.
- * All text uses i18n.
+ * NO IDs displayed in UI. All text uses i18n.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -30,7 +30,6 @@ import {
   RefreshControl,
   Linking,
   Platform,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,8 +61,6 @@ import {
   generateWhatsAppNoShowMessage,
   generateWhatsAppCompletedMessage,
   getTherapistNames,
-  getTherapistCount,
-  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
