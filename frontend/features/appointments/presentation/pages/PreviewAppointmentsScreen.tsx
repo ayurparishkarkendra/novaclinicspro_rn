@@ -609,9 +609,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
-  const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
-  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
-  const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  
+  // Per THERAPY_PLAN_TIME_HANDLING.md: Extract time from startDateStr (not from separate preferredTimeHour param)
+  // The startDateStr contains LOCAL time in ISO format (e.g., "2026-02-15T16:43:00Z")
+  const timeMatch = startDateStr.match(/T(\d{2}):(\d{2})/);
+  const preferredTimeHourLocal = timeMatch ? parseInt(timeMatch[1], 10) : parseInt(params.preferredTimeHourLocal || '10', 10);
+  const preferredTimeMinutesLocal = timeMatch ? parseInt(timeMatch[2], 10) : parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
