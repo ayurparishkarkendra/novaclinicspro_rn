@@ -278,13 +278,28 @@ export const AppointmentDetailScreen: React.FC = () => {
   const clientId = appointment?.client_id;
   const { data: clientAppointments } = useAppointmentsListQuery(
     tenantId,
-    { client_id: clientId, limit: 10 },
+    { client_id: clientId, limit: 20 },
     { enabled: !!clientId }
   );
 
-  // Filter visit history to exclude current appointment
+  // FIX #4: Filter visit history to ONLY PAST VISITS
+  // Definition: Visit date strictly BEFORE today (excludes today and future dates)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today
+  
   const visitHistory = (clientAppointments?.items || [])
-    .filter((apt: any) => apt.id !== appointmentId)
+    .filter((apt: any) => {
+      // Exclude current appointment
+      if (apt.id === appointmentId) return false;
+      
+      // CRITICAL: Only include visits BEFORE today (strict past filter)
+      const visitDate = new Date(apt.appointment_start);
+      visitDate.setHours(0, 0, 0, 0);
+      return visitDate < today;
+    })
+    .sort((a: any, b: any) => 
+      new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
+    )
     .slice(0, 5);
 
   // Mutations
