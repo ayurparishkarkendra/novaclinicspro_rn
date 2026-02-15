@@ -1959,6 +1959,61 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     fontWeight: '500',
   },
+  // Success Modal Styles
+  successModalContent: {
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.lg,
+    padding: spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  successModalIcon: {
+    marginBottom: spacing.md,
+  },
+  successModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  successModalText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  successModalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  successModalDoneButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    alignItems: 'center',
+  },
+  successModalDoneText: {
+    ...typography.button,
+    color: colors.text.primary,
+  },
+  successModalWhatsAppButton: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalWhatsAppText: {
+    ...typography.button,
+    color: '#fff',
+  },
 });
 
 export default PreviewAppointmentsScreen;
