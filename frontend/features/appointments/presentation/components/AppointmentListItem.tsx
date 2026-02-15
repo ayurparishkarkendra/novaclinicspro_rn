@@ -12,7 +12,7 @@
  * All text uses i18n.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,9 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -38,6 +41,11 @@ import {
   hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 // ============================================
 // TYPES
 // ============================================
@@ -49,6 +57,12 @@ interface AppointmentListItemProps {
   userRole?: string;
   /** Whether quick actions are enabled */
   showActions?: boolean;
+  /** Callback for status updates (e.g., confirm, start, complete, no-show) */
+  onStatusUpdate?: (appointmentId: string, newStatus: string) => void;
+  /** Callback for cancellation */
+  onCancel?: (appointmentId: string) => void;
+  /** Callback for reschedule - navigates to reschedule flow */
+  onReschedule?: (appointmentId: string) => void;
 }
 
 // ============================================
@@ -115,10 +129,14 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onPress,
   userRole = 'clinic_admin',
   showActions = true,
+  onStatusUpdate,
+  onCancel,
+  onReschedule,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
   const statusColor = getStatusColor(appointment.status);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
   // Per API spec: client_name, staff_assignments are returned directly
@@ -129,6 +147,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // Use the new helper function to get therapist names from staff_assignments
   const staffName = getTherapistNames(appointment);
   const therapistCount = getTherapistCount(appointment);
+
+  // ===== EXPAND/COLLAPSE =====
+  const toggleExpand = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  }, [isExpanded]);
 
   // ===== ACTION HANDLERS =====
   
@@ -203,39 +227,43 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   });
 
   return (
-    <TouchableOpacity
+    <View
       style={[styles.container, { borderLeftColor: statusColor }]}
-      onPress={handlePress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
       data-testid="appointment-list-item"
     >
-      {/* Main Content */}
-      <View style={styles.content}>
-        {/* Top Row: Time + Status */}
-        <View style={styles.topRow}>
-          <View style={styles.timeContainer}>
-            <Ionicons name="time-outline" size={14} color={colors.primary.main} />
-            <Text style={styles.timeText} data-testid="appointment-time">
-              {timeDisplay}
-              {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
-            </Text>
-          </View>
-          <StatusBadge status={appointment.status} />
-        </View>
-
-        {/* Client Info */}
-        <View style={styles.clientRow}>
-          <View style={styles.clientInfo}>
-            <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
-              {displayClientName}
-            </Text>
-            {clientPhone && (
-              <Text style={styles.clientPhone} data-testid="appointment-client-phone">
-                {clientPhone}
+      {/* Main Row - clickable area */}
+      <TouchableOpacity
+        style={styles.mainRow}
+        onPress={handlePress}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
+      >
+        {/* Main Content */}
+        <View style={styles.content}>
+          {/* Top Row: Time + Status */}
+          <View style={styles.topRow}>
+            <View style={styles.timeContainer}>
+              <Ionicons name="time-outline" size={14} color={colors.primary.main} />
+              <Text style={styles.timeText} data-testid="appointment-time">
+                {timeDisplay}
+                {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
               </Text>
-            )}
+            </View>
+            <StatusBadge status={appointment.status} />
+          </View>
+
+          {/* Client Info */}
+          <View style={styles.clientRow}>
+            <View style={styles.clientInfo}>
+              <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
+                {displayClientName}
+              </Text>
+              {clientPhone && (
+                <Text style={styles.clientPhone} data-testid="appointment-client-phone">
+                  {clientPhone}
+                </Text>
+              )}
           </View>
         </View>
 
@@ -267,53 +295,130 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             </Text>
           </View>
         )}
+        </View>
+      </TouchableOpacity>
+
+      {/* Quick Actions Sidebar - expand toggle + view */}
+      <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
+        {/* Expand/Collapse Button */}
+        <QuickAction
+          icon={isExpanded ? "chevron-up" : "chevron-down"}
+          color={colors.text.secondary}
+          onPress={toggleExpand}
+          accessibilityLabel={isExpanded ? "Collapse actions" : "Expand actions"}
+          testId="appointment-action-toggle"
+        />
+        {/* View Button - ALWAYS visible */}
+        <QuickAction
+          icon="chevron-forward"
+          color={colors.primary.main}
+          onPress={handlePress}
+          accessibilityLabel={`View appointment details`}
+          testId="appointment-action-view"
+        />
       </View>
 
-      {/* Quick Actions - ALWAYS VISIBLE (BUG FIX #3: Section must always show) */}
-      <View style={styles.actionsContainer} data-testid="appointment-quick-actions">
-        {showActions ? (
-          <>
-            {/* Call Button - Only if phone available and user has permission */}
+      {/* EXPANDABLE QUICK ACTIONS SECTION - Issue #1 Fix */}
+      {isExpanded && (
+        <View style={styles.expandedSection} data-testid="appointment-expanded-actions">
+          {/* Communication Actions Row */}
+          <View style={styles.expandedRow}>
             {canCall && clientPhone && (
-              <QuickAction
-                icon="call"
-                color={colors.success.main}
+              <TouchableOpacity 
+                style={styles.expandedActionBtn}
                 onPress={handleCall}
-                accessibilityLabel={`Call ${displayClientName}`}
-                testId="appointment-action-call"
-              />
+                data-testid="expanded-action-call"
+              >
+                <Ionicons name="call" size={18} color={colors.success.main} />
+                <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                  {t('common.call') || 'Call'}
+                </Text>
+              </TouchableOpacity>
             )}
-            {/* WhatsApp Button - Only if phone available and user has permission */}
             {canWhatsApp && clientPhone && (
-              <QuickAction
-                icon="logo-whatsapp"
-                color="#25D366"
+              <TouchableOpacity 
+                style={styles.expandedActionBtn}
                 onPress={handleWhatsApp}
-                accessibilityLabel={`WhatsApp ${displayClientName}`}
-                testId="appointment-action-whatsapp"
-              />
+                data-testid="expanded-action-whatsapp"
+              >
+                <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+                <Text style={[styles.expandedActionText, { color: '#25D366' }]}>
+                  {t('common.whatsapp') || 'WhatsApp'}
+                </Text>
+              </TouchableOpacity>
             )}
-            {/* View Button - ALWAYS visible */}
-            <QuickAction
-              icon="chevron-forward"
-              color={colors.primary.main}
-              onPress={handlePress}
-              accessibilityLabel={`View appointment details`}
-              testId="appointment-action-view"
-            />
-          </>
-        ) : (
-          /* Empty state - still show view button even when actions disabled */
-          <QuickAction
-            icon="chevron-forward"
-            color={colors.primary.main}
-            onPress={handlePress}
-            accessibilityLabel={`View appointment details`}
-            testId="appointment-action-view"
-          />
-        )}
-      </View>
-    </TouchableOpacity>
+          </View>
+
+          {/* Status Change Actions - based on current status */}
+          {/* User Required: Reschedule, No-Show, Cancel, Complete */}
+          {/* FIX: Use case-insensitive status comparison */}
+          {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
+            <View style={styles.expandedRow}>
+              {/* Reschedule - for scheduled/confirmed (user requirement #1) */}
+              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onReschedule ? onReschedule(appointment.id) : onPress?.(appointment)}
+                  data-testid="expanded-action-reschedule"
+                >
+                  <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.primary.main }]}>
+                    {t('appointments.reschedule') || 'Reschedule'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* No-show - for scheduled/confirmed (user requirement #2) */}
+              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+                  data-testid="expanded-action-noshow"
+                >
+                  <Ionicons name="alert-circle" size={18} color={colors.warning.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.warning.main }]}>
+                    {t('appointments.noShow') || 'No-Show'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Cancel - for scheduled/confirmed (user requirement #3) */}
+              {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && onCancel && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onCancel(appointment.id)}
+                  data-testid="expanded-action-cancel"
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.error.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.error.main }]}>
+                    {t('common.cancel') || 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {/* Complete - for in_progress (user requirement #4) */}
+              {appointment.status?.toLowerCase() === 'in_progress' && onStatusUpdate && (
+                <TouchableOpacity 
+                  style={[styles.expandedActionBtn, styles.statusActionBtn]}
+                  onPress={() => onStatusUpdate(appointment.id, 'completed')}
+                  data-testid="expanded-action-complete"
+                >
+                  <Ionicons name="checkmark-done-circle" size={18} color={colors.success.main} />
+                  <Text style={[styles.expandedActionText, { color: colors.success.main }]}>
+                    {t('appointments.complete') || 'Complete'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            /* No actions available state */
+            <View style={styles.noActionsState}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.text.tertiary} />
+              <Text style={styles.noActionsText}>
+                {t('appointments.noActionsAvailable') || 'No actions available'}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
   );
 };
 
@@ -323,7 +428,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     backgroundColor: colors.background.default,
     borderRadius: 12,
     marginBottom: spacing.sm,
@@ -333,6 +438,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    overflow: 'hidden',
+  },
+  mainRow: {
+    flexDirection: 'row',
   },
   content: {
     flex: 1,
@@ -449,6 +558,50 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Expanded Section - Issue #1 Fix
+  expandedSection: {
+    width: '100%',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    marginTop: spacing.sm,
+  },
+  expandedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  expandedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.background.paper,
+    gap: spacing.xs,
+  },
+  statusActionBtn: {
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  expandedActionText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  noActionsState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  noActionsText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
   },
 });
 

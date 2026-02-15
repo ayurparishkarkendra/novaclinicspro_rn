@@ -181,7 +181,8 @@ export const getStatusLabel = (status: string): string => {
     cancelled: 'Cancelled',
     no_show: 'No Show',
   };
-  return labels[status] || status;
+  // FIX: Use case-insensitive status lookup
+  return labels[status?.toLowerCase()] || status;
 };
 
 /** Get color for appointment status */
@@ -194,7 +195,8 @@ export const getStatusColor = (status: string): string => {
     cancelled: '#EF4444', // Red
     no_show: '#6B7280', // Gray
   };
-  return colors[status] || '#6B7280';
+  // FIX: Use case-insensitive status lookup
+  return colors[status?.toLowerCase()] || '#6B7280';
 };
 
 /** Format date for display */
@@ -434,6 +436,7 @@ export interface TherapyPlanRequest {
 export interface TherapyPlanResponse {
   series_id: string;
   client_id: string;
+  client_name?: string;  // Optional - returned by some API versions
   treatment_id: string;
   start_date: string;
   duration_days: number;

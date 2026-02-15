@@ -190,6 +190,12 @@ interface VisitHistoryItemProps {
 const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPress }) => {
   const statusColor = getStatusColor(appointment.status);
   
+  // Extract prescription and payment info from appointment if available
+  const hasPrescription = appointment.prescription_id || appointment.has_prescription;
+  const hasPayment = appointment.payment_id || appointment.payment_status || appointment.has_payment;
+  const paymentAmount = appointment.payment_amount;
+  const paymentStatus = appointment.payment_status;
+  
   return (
     <TouchableOpacity 
       style={styles.visitHistoryItem} 
@@ -209,6 +215,26 @@ const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPres
             {appointment.treatment_name}
           </Text>
         )}
+        {/* Prescription Info (User Requirement #2) */}
+        <View style={styles.visitHistoryMeta}>
+          <Text style={[
+            styles.visitHistoryMetaText,
+            hasPrescription ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
+          ]}>
+            {hasPrescription ? '💊 Prescription given' : 'No prescription'}
+          </Text>
+        </View>
+        {/* Payment Info (User Requirement #2) */}
+        <View style={styles.visitHistoryMeta}>
+          <Text style={[
+            styles.visitHistoryMetaText,
+            hasPayment ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
+          ]}>
+            {hasPayment 
+              ? `💰 ${paymentStatus || 'Paid'}${paymentAmount ? ` - ₹${paymentAmount}` : ''}`
+              : 'No payment recorded'}
+          </Text>
+        </View>
       </View>
       <View style={[styles.visitHistoryStatus, { backgroundColor: statusColor + '15' }]}>
         <Text style={[styles.visitHistoryStatusText, { color: statusColor }]}>
@@ -543,9 +569,10 @@ export const AppointmentDetailScreen: React.FC = () => {
 
   const statusColor = getStatusColor(appointment.status);
   const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
-  const canModify = canModifyAppointment && ['scheduled', 'confirmed'].includes(appointment.status);
-  const canStart = canStartSession && appointment.status === 'confirmed';
-  const canComplete = canCompleteSession && appointment.status === 'in_progress';
+  // FIX: Use case-insensitive status comparison
+  const canModify = canModifyAppointment && ['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase());
+  const canStart = canStartSession && appointment.status?.toLowerCase() === 'confirmed';
+  const canComplete = canCompleteSession && appointment.status?.toLowerCase() === 'in_progress';
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
   // Display values with fallbacks
@@ -712,41 +739,52 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (BUG FIX #3) */}
+        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (User Requirement #1) */}
         <View style={styles.section} data-testid="detail-actions-section">
           <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
           <View style={styles.actionsContainer}>
             {/* Status-specific actions for active appointments */}
-            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status) ? (
+            {/* User Required: Reschedule, No-Show, Cancel, Complete */}
+            {/* FIX: Use case-insensitive status comparison */}
+            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
               <>
-                {/* Primary Actions Row - Status-based actions */}
+                {/* Actions Row - User required buttons in order */}
                 <View style={styles.actionsRow}>
-                  {/* Confirm - only for scheduled status */}
-                  {appointment.status === 'scheduled' && (
+                  {/* Reschedule - for scheduled/confirmed (User Requirement #1) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
-                      icon="checkmark-circle"
-                      label={t('appointments.confirm') || 'Confirm'}
-                      color={colors.success.main}
-                      onPress={() => handleStatusUpdate('confirmed')}
-                      disabled={!canModifyAppointment}
-                      variant="filled"
-                      testId="action-confirm"
+                      icon="calendar-outline"
+                      label={t('appointments.reschedule') || 'Reschedule'}
+                      color={colors.primary.main}
+                      onPress={handleReschedule}
+                      disabled={!canModify}
+                      testId="action-reschedule"
                     />
                   )}
-                  {/* Start Session - only for confirmed status */}
-                  {appointment.status === 'confirmed' && (
+                  {/* No-Show - for scheduled/confirmed (User Requirement #2) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
-                      icon="play-circle"
-                      label={t('appointments.startSession') || 'Start'}
-                      color={colors.info.main}
-                      onPress={() => handleStatusUpdate('in_progress')}
-                      disabled={!canStartSession}
-                      variant="filled"
-                      testId="action-start"
+                      icon="alert-circle-outline"
+                      label={t('appointments.noShow') || 'No-Show'}
+                      color={colors.warning.main}
+                      onPress={() => handleStatusUpdate('no_show')}
+                      disabled={!canMarkNoShow}
+                      testId="action-no-show"
                     />
                   )}
-                  {/* Complete - only for in_progress status */}
-                  {appointment.status === 'in_progress' && (
+                  {/* Cancel - for scheduled/confirmed (User Requirement #3) */}
+                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
+                    <ActionButton
+                      icon="close-circle-outline"
+                      label={t('common.cancel') || 'Cancel'}
+                      color={colors.error.main}
+                      onPress={handleCancel}
+                      disabled={!canModify}
+                      testId="action-cancel"
+                    />
+                  )}
+                  {/* Complete - for in_progress (User Requirement #4) */}
+                  {appointment.status?.toLowerCase() === 'in_progress' && (
                     <ActionButton
                       icon="checkmark-done-circle"
                       label={t('appointments.complete') || 'Complete'}
@@ -758,47 +796,19 @@ export const AppointmentDetailScreen: React.FC = () => {
                     />
                   )}
                 </View>
-
-                {/* Secondary Actions Row */}
-                <View style={styles.actionsRow}>
-                  <ActionButton
-                    icon="calendar-outline"
-                    label={t('appointments.reschedule') || 'Reschedule'}
-                    color={colors.primary.main}
-                    onPress={handleReschedule}
-                    disabled={!canModify}
-                    testId="action-reschedule"
-                  />
-                  <ActionButton
-                    icon="close-circle-outline"
-                    label={t('common.cancel') || 'Cancel'}
-                    color={colors.error.main}
-                    onPress={handleCancel}
-                    disabled={!canModify}
-                    testId="action-cancel"
-                  />
-                  {['scheduled', 'confirmed'].includes(appointment.status) && (
-                    <ActionButton
-                      icon="alert-circle-outline"
-                      label={t('appointments.noShow') || 'No Show'}
-                      color={colors.warning.main}
-                      onPress={() => handleStatusUpdate('no_show')}
-                      disabled={!canMarkNoShow}
-                      testId="action-no-show"
-                    />
-                  )}
-                </View>
               </>
             ) : (
-              /* Empty/Completed state - BUG FIX #3: Always show section with status message */
+              /* Empty/Completed state - Always show section with "No actions available" message */
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
-                  {appointment.status === 'completed' 
+                  {appointment.status?.toLowerCase() === 'completed' 
                     ? t('appointments.appointmentCompleted') || 'This appointment has been completed'
-                    : appointment.status === 'cancelled'
+                    : appointment.status?.toLowerCase() === 'cancelled'
                     ? t('appointments.appointmentCancelled') || 'This appointment has been cancelled'
-                    : t('appointments.clientNoShow') || 'Client did not show up'
+                    : appointment.status?.toLowerCase() === 'no_show'
+                    ? t('appointments.clientNoShow') || 'Client did not show up'
+                    : t('appointments.noActionsAvailable') || 'No actions available'
                   }
                 </Text>
               </View>
@@ -1087,6 +1097,21 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.tertiary,
     marginTop: 2,
+  },
+  // Visit History Meta (Prescription/Payment info - User Requirement #2)
+  visitHistoryMeta: {
+    marginTop: 2,
+  },
+  visitHistoryMetaText: {
+    ...typography.caption,
+    fontSize: 11,
+  },
+  visitHistoryMetaPresent: {
+    color: colors.success.main,
+  },
+  visitHistoryMetaAbsent: {
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
   },
   visitHistoryStatus: {
     paddingHorizontal: spacing.sm,
