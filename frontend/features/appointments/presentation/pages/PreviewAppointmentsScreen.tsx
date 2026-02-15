@@ -99,10 +99,6 @@ const safeFormatDate = formatDate;
 const safeFormatTime = formatTime;
 const safeFormatDayOfWeek = formatDayOfWeek;
 const safeFormatShortDate = formatShortDate;
-  } catch {
-    return '—';
-  }
-};
 
 // ============================================
 // STAFF ASSIGNMENT TYPE (matching backend)
