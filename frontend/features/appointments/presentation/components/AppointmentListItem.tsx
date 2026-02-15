@@ -283,7 +283,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 };
 
 // ============================================
-// STYLES
+// STYLES - CLEAN CARD LAYOUT (A1)
 // ============================================
 
 const styles = StyleSheet.create({
@@ -302,6 +302,7 @@ const styles = StyleSheet.create({
   },
   mainRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -351,23 +352,11 @@ const styles = StyleSheet.create({
   },
 
   // Client Info
-  clientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  clientInfo: {
-    flex: 1,
-  },
   clientName: {
     ...typography.body1,
     fontWeight: '600',
     color: colors.text.primary,
-  },
-  clientPhone: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    marginTop: 2,
+    marginBottom: spacing.xs,
   },
 
   // Details Row
@@ -405,63 +394,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Actions
-  actionsContainer: {
+  // A1: Single navigation arrow - vertically centered
+  navigationArrow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingRight: spacing.sm,
-    gap: spacing.xs,
-  },
-  quickAction: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
-  // Expanded Section - Issue #1 Fix
-  expandedSection: {
-    width: '100%',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    marginTop: spacing.sm,
-  },
-  expandedRow: {
+  // A2: Quick Actions Row - visible inline, no expand
+  quickActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
   },
-  expandedActionBtn: {
+  quickActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: 8,
-    backgroundColor: colors.background.paper,
-    gap: spacing.xs,
-  },
-  statusActionBtn: {
     borderWidth: 1,
-    borderColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+    gap: spacing.xs / 2,
   },
-  expandedActionText: {
+  quickActionText: {
     ...typography.caption,
     fontWeight: '600',
-  },
-  noActionsState: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  noActionsText: {
-    ...typography.caption,
-    color: colors.text.tertiary,
   },
 });
 
