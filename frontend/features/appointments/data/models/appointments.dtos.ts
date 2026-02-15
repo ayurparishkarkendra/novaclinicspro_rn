@@ -451,7 +451,9 @@ export interface TherapyPlanRequest {
   staff_ids: string[];
   start_date: string;
   duration_days: number;
-  preferred_time_hour: number;
+  // Per THERAPY_PLAN_TIME_HANDLING.md: preferred_time_hour is OPTIONAL
+  // If not provided, backend extracts time from start_date
+  preferred_time_hour?: number;
   client_gender?: string;
 }
 
