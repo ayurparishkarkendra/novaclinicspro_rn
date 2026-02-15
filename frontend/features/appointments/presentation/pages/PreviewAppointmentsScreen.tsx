@@ -1124,10 +1124,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* Display the scheduled time from first effective time */}
-              {effectiveTimes.size > 0 && (
-                <Text style={styles.preferredTimeText}>
-                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(effectiveTimes.get(1)?.start)} - {safeFormatTime(effectiveTimes.get(1)?.end)}
+              {/* Display the user's REQUESTED time (from params) */}
+              <Text style={styles.preferredTimeText}>
+                {t('appointments.requestedTime') || 'Requested'}: {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)}
                 </Text>
               )}
             </View>
