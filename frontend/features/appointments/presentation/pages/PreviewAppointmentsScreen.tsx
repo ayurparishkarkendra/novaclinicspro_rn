@@ -1434,11 +1434,81 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs / 2,
   },
-  // ✨ NEW: Room name display
+  // Conflict staff text styling
+  sessionStaffConflict: {
+    color: colors.error.main,
+    fontWeight: '500',
+  },
+  // Room name display
   sessionRoom: {
     ...typography.caption,
     color: colors.text.tertiary,
     marginTop: spacing.xs / 2,
+  },
+
+  // ============================================
+  // GLOBAL ALTERNATIVES SECTION (BUG FIX #5)
+  // ============================================
+  globalAlternativesSection: {
+    backgroundColor: colors.primary.main + '08',
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary.main + '20',
+  },
+  globalAlternativesTitle: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
+  },
+  globalAlternativesSubtitle: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+  },
+  globalAlternativeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.default,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  globalAlternativeOptionSelected: {
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.main + '10',
+  },
+  globalAlternativeContent: {
+    flex: 1,
+  },
+  globalAlternativeTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  globalAlternativeTime: {
+    ...typography.body1,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  globalAlternativeTimeSelected: {
+    color: colors.primary.main,
+  },
+  globalAlternativeCoverage: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: spacing.xs / 2,
+  },
+  globalAlternativeRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border.main,
   },
 
   // Conflict Section
