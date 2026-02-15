@@ -25,7 +25,10 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
+  Modal,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -43,6 +46,7 @@ import {
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
+import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 
 // ============================================
 // TYPES - SINGLE SOURCE OF TRUTH
@@ -348,6 +352,7 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSelectAlternative: (alt: AlternativeSlot) => void;
+  onOpenCustomTimePicker?: (sessionNumber: number) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
@@ -357,6 +362,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   isExpanded,
   onToggle,
   onSelectAlternative,
+  onOpenCustomTimePicker,
   t,
 }) => {
   const hasConflict = session.is_conflicted;
@@ -510,6 +516,19 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   </TouchableOpacity>
                 );
               })}
+
+              {/* #7: CUSTOM TIME ROW */}
+              <TouchableOpacity
+                style={styles.customTimeRow}
+                onPress={() => onOpenCustomTimePicker?.(session.session_number)}
+                data-testid={`custom-time-${session.session_number}`}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.primary.main} />
+                <Text style={styles.customTimeText}>
+                  {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.noAlternatives}>
@@ -541,7 +560,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     staffNames: string;
     startDate: string;
     durationDays: string;
-    preferredTimeHour: string;
+    // preferredTimeHour removed - time is extracted from startDate per THERAPY_PLAN_TIME_HANDLING.md
     preferredTimeHourLocal: string;
     preferredTimeMinutesLocal: string;
     durationMinutes: string;
@@ -569,6 +588,12 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const [hasFetched, setHasFetched] = useState(false);
   const [apiClientName, setApiClientName] = useState<string | null>(null);
 
+  // #7: Custom Time Picker State
+  const [customTimePickerSession, setCustomTimePickerSession] = useState<number | null>(null);
+  const [customTimePickerDate, setCustomTimePickerDate] = useState<Date>(new Date());
+  const [showCustomTimePicker, setShowCustomTimePicker] = useState(false);
+  const [isValidatingCustomTime, setIsValidatingCustomTime] = useState(false);
+
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
@@ -584,9 +609,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
-  const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
-  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
-  const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  
+  // Per THERAPY_PLAN_TIME_HANDLING.md: Extract time from startDateStr (not from separate preferredTimeHour param)
+  // The startDateStr contains LOCAL time in ISO format (e.g., "2026-02-15T16:43:00Z")
+  const timeMatch = startDateStr.match(/T(\d{2}):(\d{2})/);
+  const preferredTimeHourLocal = timeMatch ? parseInt(timeMatch[1], 10) : parseInt(params.preferredTimeHourLocal || '10', 10);
+  const preferredTimeMinutesLocal = timeMatch ? parseInt(timeMatch[2], 10) : parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
@@ -701,16 +730,19 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           staff_ids: staffIds,
           start_date: startDateStr,
           duration_days: durationDays,
-          preferred_time_hour: preferredTimeHour,
+          // NOTE: NOT sending preferred_time_hour - backend extracts time from start_date
         });
 
+        // Per THERAPY_PLAN_TIME_HANDLING.md:
+        // - Don't send preferred_time_hour
+        // - Let backend extract both hour and minute from start_date
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
           staff_ids: staffIds,
           start_date: startDateStr,
           duration_days: durationDays,
-          preferred_time_hour: preferredTimeHour,
+          // DO NOT send preferred_time_hour - backend uses start_date time
         });
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
@@ -746,7 +778,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     };
 
     fetchTherapyPlan();
-  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour, initializeEffectiveTimes]);
+  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, initializeEffectiveTimes]);
 
   // ============================================
   // ALTERNATIVE SELECTION HANDLERS
@@ -824,6 +856,113 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     
     console.log(`[PreviewAppointments] Applied global pattern ${alternative.time_pattern} to ${alternative.coverage_count} sessions`);
   }, [sessions]);
+
+  // ============================================
+  // #7: CUSTOM TIME PICKER HANDLERS
+  // ============================================
+
+  const handleOpenCustomTimePicker = useCallback((sessionNumber: number) => {
+    const session = sessions.find(s => s.session_number === sessionNumber);
+    if (!session) return;
+
+    // Initialize picker with session date and preferred time
+    const sessionDate = new Date(session.appointment_start);
+    sessionDate.setHours(preferredTimeHourLocal, preferredTimeMinutesLocal, 0, 0);
+    
+    setCustomTimePickerSession(sessionNumber);
+    setCustomTimePickerDate(sessionDate);
+    setShowCustomTimePicker(true);
+  }, [sessions, preferredTimeHourLocal, preferredTimeMinutesLocal]);
+
+  const handleCustomTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowCustomTimePicker(false);
+    }
+    if (selectedDate) {
+      setCustomTimePickerDate(selectedDate);
+    }
+  };
+
+  const handleConfirmCustomTime = useCallback(async () => {
+    if (customTimePickerSession === null) return;
+
+    const session = sessions.find(s => s.session_number === customTimePickerSession);
+    if (!session) return;
+
+    setIsValidatingCustomTime(true);
+
+    try {
+      // Build custom time slot from picker
+      const sessionDate = new Date(session.appointment_start);
+      const pickerHours = customTimePickerDate.getHours();
+      const pickerMinutes = customTimePickerDate.getMinutes();
+      
+      // Build ISO start/end using session date + picker time
+      const startDate = new Date(sessionDate);
+      startDate.setHours(pickerHours, pickerMinutes, 0, 0);
+      
+      const endDate = new Date(startDate);
+      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
+
+      // Validate using available-slots API (same API used for single-slot)
+      const validationResult = await getAvailableSlotsApi({
+        tenant_id: tenantId,
+        treatment_id: treatmentId,
+        date: startDate.toISOString().split('T')[0],
+        preferred_time: `${pickerHours.toString().padStart(2, '0')}:${pickerMinutes.toString().padStart(2, '0')}`,
+        duration_minutes: durationMinutes,
+      });
+
+      // Check if requested time is available in returned slots
+      const requestedHour = pickerHours;
+      const requestedMinute = pickerMinutes;
+      const isTimeAvailable = validationResult.slots?.some(slot => {
+        const slotHour = extractHour(slot.start_time);
+        const slotMinute = extractMinute(slot.start_time);
+        return slotHour === requestedHour && slotMinute === requestedMinute;
+      }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
+
+      if (isTimeAvailable || validationResult.slots === undefined) {
+        // Update effectiveTimes with custom selection
+        setEffectiveTimes(prevMap => {
+          const newMap = new Map(prevMap);
+          newMap.set(customTimePickerSession, {
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            staff_id: staffIds[0] || null,
+            staff_name: staffNames || null,
+            room_id: null,
+            room_name: null,
+            is_resolved: true,
+          });
+          return newMap;
+        });
+
+        console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
+        
+        setShowCustomTimePicker(false);
+        setCustomTimePickerSession(null);
+      } else {
+        Alert.alert(
+          t('common.error') || 'Error',
+          t('appointments.timeNotAvailable') || 'Selected time is not available. Please choose another time.'
+        );
+      }
+    } catch (error) {
+      console.error('[CustomTime] Validation failed:', error);
+      Alert.alert(
+        t('common.error') || 'Error',
+        t('appointments.validationFailed') || 'Could not validate the selected time. Please try again.'
+      );
+    } finally {
+      setIsValidatingCustomTime(false);
+    }
+  }, [customTimePickerSession, customTimePickerDate, sessions, tenantId, treatmentId, durationMinutes, staffIds, staffNames, t]);
+
+  const handleCancelCustomTimePicker = useCallback(() => {
+    setShowCustomTimePicker(false);
+    setCustomTimePickerSession(null);
+  }, []);
 
   // ============================================
   // DERIVED STATE (from single source of truth)
@@ -1109,6 +1248,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                   onSelectAlternative={(alt) => 
                     handleSelectPerSessionAlternative(session.session_number, alt)
                   }
+                  onOpenCustomTimePicker={handleOpenCustomTimePicker}
                   t={t}
                 />
               );
@@ -1149,6 +1289,96 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </>
+      )}
+
+      {/* #7: Custom Time Picker Modal */}
+      {showCustomTimePicker && (
+        <Modal
+          visible={showCustomTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={handleCancelCustomTimePicker}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {t('appointments.chooseDifferentTime') || 'Choose a different time'}
+                </Text>
+                <TouchableOpacity onPress={handleCancelCustomTimePicker}>
+                  <Ionicons name="close" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.modalSubtitle}>
+                {t('appointments.session') || 'Session'} {customTimePickerSession}
+              </Text>
+              
+              {/* Time Picker - Platform-specific rendering */}
+              {Platform.OS === 'web' ? (
+                // Web: Use native HTML time input
+                <View style={styles.webTimePickerContainer}>
+                  <Text style={styles.webTimeLabel}>{t('appointments.selectTime') || 'Select Time'}:</Text>
+                  <input
+                    type="time"
+                    value={`${customTimePickerDate.getHours().toString().padStart(2, '0')}:${customTimePickerDate.getMinutes().toString().padStart(2, '0')}`}
+                    onChange={(e) => {
+                      const [hours, minutes] = e.target.value.split(':').map(Number);
+                      const newDate = new Date(customTimePickerDate);
+                      newDate.setHours(hours, minutes, 0, 0);
+                      setCustomTimePickerDate(newDate);
+                    }}
+                    style={{
+                      fontSize: 24,
+                      padding: 16,
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border.main}`,
+                      backgroundColor: colors.background.paper,
+                      color: colors.text.primary,
+                      width: '100%',
+                      textAlign: 'center',
+                    }}
+                  />
+                  <Text style={styles.webTimePreview}>
+                    {t('appointments.selectedTime') || 'Selected'}: {formatTimeFromParts(customTimePickerDate.getHours(), customTimePickerDate.getMinutes())}
+                  </Text>
+                </View>
+              ) : (
+                // Native: Use DateTimePicker
+                <DateTimePicker
+                  value={customTimePickerDate}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleCustomTimeChange}
+                  minuteInterval={15}
+                />
+              )}
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={handleCancelCustomTimePicker}
+                >
+                  <Text style={styles.modalCancelText}>{t('common.cancel') || 'Cancel'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalConfirmButton,
+                    isValidatingCustomTime && styles.modalButtonDisabled,
+                  ]}
+                  onPress={handleConfirmCustomTime}
+                  disabled={isValidatingCustomTime}
+                >
+                  {isValidatingCustomTime ? (
+                    <ActivityIndicator size="small" color={colors.background.default} />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>{t('common.confirm') || 'Confirm'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -1639,6 +1869,103 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     ...typography.button,
     color: colors.background.default,
+  },
+
+  // #7: Custom Time Row
+  customTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.main + '08',
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary.main + '30',
+    borderStyle: 'dashed',
+  },
+  customTimeText: {
+    flex: 1,
+    ...typography.body2,
+    color: colors.primary.main,
+    marginLeft: spacing.sm,
+  },
+
+  // #7: Custom Time Picker Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background.default,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  modalSubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    ...typography.button,
+    color: colors.text.primary,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    backgroundColor: colors.primary.main,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
+  // Web Time Picker Styles
+  webTimePickerContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  webTimeLabel: {
+    ...typography.body1,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    fontWeight: '600',
+  },
+  webTimePreview: {
+    ...typography.body2,
+    color: colors.primary.main,
+    marginTop: spacing.md,
+    fontWeight: '500',
   },
 });
 

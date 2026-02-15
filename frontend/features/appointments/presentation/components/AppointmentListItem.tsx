@@ -31,6 +31,7 @@ import {
   getStatusLabel,
   getStatusColor,
   formatTime,
+  formatDate,
   getTherapistNames,
 } from '../../data/models/appointments.dtos';
 
@@ -143,21 +144,26 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   }, [appointment, onPress, router]);
 
   // ===== RBAC CHECK =====
-  const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
-  const canModify = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
-                    ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
+  // FIX: Always allow actions for clinic_admin users
+  const normalizedRole = userRole?.toLowerCase().replace(/_/g, '-') || 'clinic-admin';
+  const isClinicAdmin = normalizedRole === 'clinic-admin' || userRole?.toLowerCase() === 'clinic_admin';
+  const canModify = isClinicAdmin || ['receptionist'].includes(normalizedRole);
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
-  const status = appointment.status?.toLowerCase();
+  const status = (appointment.status || '').toLowerCase();
   const canReschedule = canModify && ['scheduled', 'confirmed'].includes(status);
   const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
   const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
+  
+  // Debug: Log to verify values
+  // console.log('QuickActions Debug:', { userRole, normalizedRole, isClinicAdmin, canModify, status, canReschedule });
 
   // ===== DISPLAY VALUES =====
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
   const displayStaffName = staffName;
+  const dateDisplay = formatDate(appointment.appointment_start);
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
@@ -177,16 +183,24 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
       >
         {/* Main Content */}
         <View style={styles.content}>
-          {/* Top Row: Time + Status */}
+          {/* Top Row: Date + Status */}
           <View style={styles.topRow}>
-            <View style={styles.timeContainer}>
-              <Ionicons name="time-outline" size={14} color={colors.primary.main} />
-              <Text style={styles.timeText} data-testid="appointment-time">
-                {timeDisplay}
-                {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={14} color={colors.primary.main} />
+              <Text style={styles.dateText} data-testid="appointment-date">
+                {dateDisplay}
               </Text>
             </View>
             <StatusBadge status={appointment.status} />
+          </View>
+
+          {/* Time Row */}
+          <View style={styles.timeRow}>
+            <Ionicons name="time-outline" size={14} color={colors.text.secondary} />
+            <Text style={styles.timeText} data-testid="appointment-time">
+              {timeDisplay}
+              {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
+            </Text>
           </View>
 
           {/* Client Info */}
@@ -311,21 +325,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
-  timeContainer: {
+  dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  timeText: {
+  dateText: {
     ...typography.body2,
     fontWeight: '600',
     color: colors.primary.main,
   },
-  timeEndText: {
-    fontWeight: '400',
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  timeText: {
+    ...typography.caption,
     color: colors.text.secondary,
+  },
+  timeEndText: {
+    color: colors.text.tertiary,
   },
 
   // Status Badge

@@ -141,6 +141,7 @@ interface VisitHistoryCardProps {
 }
 
 const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPress, t }) => {
+  const router = useRouter();
   const statusColor = getStatusColor(appointment.status);
   
   // Extract data from appointment
@@ -150,12 +151,34 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
     ? (t('common.treatment') || 'Treatment') 
     : (t('common.consultation') || 'Consultation');
   
-  // Check for links/records
-  const hasCaseSheet = appointment.case_sheet_id || appointment.has_case_sheet;
-  const hasPrescription = appointment.prescription_id || appointment.has_prescription;
+  // FIX #3: Check for Case Sheet and Prescription existence
+  const hasCaseSheet = !!(appointment.case_sheet_id || appointment.has_case_sheet);
+  const hasPrescription = !!(appointment.prescription_id || appointment.has_prescription);
   const hasPayment = appointment.payment_id || appointment.payment_status;
   const paymentAmount = appointment.payment_amount;
   const paymentStatus = appointment.payment_status;
+
+  // Handler for Case Sheet action
+  const handleCaseSheetPress = useCallback(() => {
+    if (hasCaseSheet) {
+      // View existing case sheet
+      router.push(`/clinic-admin/case-sheets/${appointment.case_sheet_id || appointment.id}` as any);
+    } else {
+      // Add new case sheet
+      router.push(`/clinic-admin/case-sheets/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+    }
+  }, [hasCaseSheet, appointment, router]);
+
+  // Handler for Prescription action
+  const handlePrescriptionPress = useCallback(() => {
+    if (hasPrescription) {
+      // View existing prescription
+      router.push(`/clinic-admin/prescriptions/${appointment.prescription_id || appointment.id}` as any);
+    } else {
+      // Add new prescription
+      router.push(`/clinic-admin/prescriptions/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+    }
+  }, [hasPrescription, appointment, router]);
   
   return (
     <TouchableOpacity 
@@ -188,37 +211,49 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
         )}
       </View>
 
-      {/* Links Row: Case Sheet, Prescription */}
+      {/* FIX #3: Case Sheet & Prescription Links - Show Add/View based on state */}
       <View style={styles.visitCardLinksRow}>
-        {/* Case Sheet Link */}
-        <View style={[styles.visitCardLink, hasCaseSheet && styles.visitCardLinkActive]}>
+        {/* Case Sheet CTA - Add or View */}
+        <TouchableOpacity 
+          style={[styles.visitCardLinkButton, hasCaseSheet && styles.visitCardLinkButtonActive]}
+          onPress={handleCaseSheetPress}
+          data-testid={`case-sheet-cta-${appointment.id}`}
+        >
           <Ionicons 
-            name="document-text-outline" 
+            name={hasCaseSheet ? "document-text" : "add-circle-outline"} 
             size={14} 
-            color={hasCaseSheet ? colors.primary.main : colors.text.tertiary} 
+            color={hasCaseSheet ? colors.primary.main : colors.text.secondary} 
           />
           <Text style={[
             styles.visitCardLinkText,
             hasCaseSheet && styles.visitCardLinkTextActive,
           ]}>
-            {t('appointments.caseSheet') || 'Case Sheet'}
+            {hasCaseSheet 
+              ? (t('appointments.viewCaseSheet') || 'View Case Sheet')
+              : (t('appointments.addCaseSheet') || 'Add Case Sheet')}
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        {/* Prescription Link */}
-        <View style={[styles.visitCardLink, hasPrescription && styles.visitCardLinkActive]}>
+        {/* Prescription CTA - Add or View */}
+        <TouchableOpacity 
+          style={[styles.visitCardLinkButton, hasPrescription && styles.visitCardLinkButtonActive]}
+          onPress={handlePrescriptionPress}
+          data-testid={`prescription-cta-${appointment.id}`}
+        >
           <Ionicons 
-            name="receipt-outline" 
+            name={hasPrescription ? "receipt" : "add-circle-outline"} 
             size={14} 
-            color={hasPrescription ? colors.success.main : colors.text.tertiary} 
+            color={hasPrescription ? colors.success.main : colors.text.secondary} 
           />
           <Text style={[
             styles.visitCardLinkText,
             hasPrescription && { color: colors.success.main },
           ]}>
-            {t('appointments.prescription') || 'Prescription'}
+            {hasPrescription 
+              ? (t('appointments.viewPrescription') || 'View Prescription')
+              : (t('appointments.addPrescription') || 'Add Prescription')}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Payment Details */}
@@ -278,13 +313,28 @@ export const AppointmentDetailScreen: React.FC = () => {
   const clientId = appointment?.client_id;
   const { data: clientAppointments } = useAppointmentsListQuery(
     tenantId,
-    { client_id: clientId, limit: 10 },
+    { client_id: clientId, limit: 20 },
     { enabled: !!clientId }
   );
 
-  // Filter visit history to exclude current appointment
+  // FIX #4: Filter visit history to ONLY PAST VISITS
+  // Definition: Visit date strictly BEFORE today (excludes today and future dates)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today
+  
   const visitHistory = (clientAppointments?.items || [])
-    .filter((apt: any) => apt.id !== appointmentId)
+    .filter((apt: any) => {
+      // Exclude current appointment
+      if (apt.id === appointmentId) return false;
+      
+      // CRITICAL: Only include visits BEFORE today (strict past filter)
+      const visitDate = new Date(apt.appointment_start);
+      visitDate.setHours(0, 0, 0, 0);
+      return visitDate < today;
+    })
+    .sort((a: any, b: any) => 
+      new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
+    )
     .slice(0, 5);
 
   // Mutations
@@ -689,81 +739,6 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION (Per FRONTEND_QUICK_ACTIONS_GUIDE.md) */}
-        <View style={styles.section} data-testid="detail-actions-section">
-          <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
-          <View style={styles.actionsContainer}>
-            {/* Status-specific actions for active appointments */}
-            {/* Actions: Reschedule, No-Show, Cancel, Complete */}
-            {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
-              <>
-                <View style={styles.actionsRow}>
-                  {/* Reschedule - for scheduled/confirmed */}
-                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
-                    <ActionButton
-                      icon="calendar-outline"
-                      label={t('appointments.reschedule') || 'Reschedule'}
-                      color={colors.primary.main}
-                      onPress={handleReschedule}
-                      disabled={!canModify}
-                      testId="action-reschedule"
-                    />
-                  )}
-                  {/* No-Show - for scheduled/confirmed */}
-                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
-                    <ActionButton
-                      icon="alert-circle-outline"
-                      label={t('appointments.noShow') || 'No-Show'}
-                      color={colors.warning.main}
-                      onPress={() => handleStatusUpdate('no_show')}
-                      disabled={!canMarkNoShow}
-                      testId="action-no-show"
-                    />
-                  )}
-                  {/* Cancel - for scheduled/confirmed */}
-                  {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
-                    <ActionButton
-                      icon="close-circle-outline"
-                      label={t('common.cancel') || 'Cancel'}
-                      color={colors.error.main}
-                      onPress={handleCancel}
-                      disabled={!canModify}
-                      testId="action-cancel"
-                    />
-                  )}
-                  {/* Complete - for confirmed OR in_progress (A3 requirement) */}
-                  {['confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) && (
-                    <ActionButton
-                      icon="checkmark-done-circle"
-                      label={t('appointments.complete') || 'Complete'}
-                      color={colors.success.main}
-                      onPress={() => handleStatusUpdate('completed')}
-                      disabled={!canCompleteSession}
-                      variant="filled"
-                      testId="action-complete"
-                    />
-                  )}
-                </View>
-              </>
-            ) : (
-              /* Terminal state - show info message */
-              <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
-                <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
-                <Text style={styles.actionsEmptyText}>
-                  {appointment.status?.toLowerCase() === 'completed' 
-                    ? t('appointments.appointmentCompleted') || 'This appointment has been completed'
-                    : appointment.status?.toLowerCase() === 'cancelled'
-                    ? t('appointments.appointmentCancelled') || 'This appointment has been cancelled'
-                    : appointment.status?.toLowerCase() === 'no_show'
-                    ? t('appointments.clientNoShow') || 'Client did not show up'
-                    : t('appointments.noActionsAvailable') || 'No actions available'
-                  }
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
         {/* Timestamps */}
         <View style={styles.metaSection}>
           {appointment.created_at && (
@@ -1084,6 +1059,19 @@ const styles = StyleSheet.create({
   },
   visitCardLinkTextActive: {
     color: colors.primary.main,
+  },
+  // FIX #3: Case Sheet & Prescription button styles
+  visitCardLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 6,
+    backgroundColor: colors.grey[100],
+  },
+  visitCardLinkButtonActive: {
+    backgroundColor: colors.primary.main + '10',
   },
   visitCardPaymentRow: {
     flexDirection: 'row',

@@ -1122,13 +1122,21 @@ export const CreateAppointmentScreen: React.FC = () => {
     const startDateTime = new Date(multiDayForm.startDate);
     startDateTime.setHours(multiDayForm.preferredTime.getHours(), multiDayForm.preferredTime.getMinutes(), 0, 0);
 
-    // FIX: Send LOCAL hour to backend, NOT UTC hour
-    // Backend expects preferred_time_hour in the clinic's local timezone
-    // Example: User selects 4 PM local → send 16 → backend schedules at 4 PM local
-    const localPreferredDate = new Date(multiDayForm.preferredTime);
-    const localHour = localPreferredDate.getHours();
-    const localMinutes = localPreferredDate.getMinutes();
-    console.log('[CreateAppointment] Sending LOCAL hour to backend:', localHour, ':', localMinutes);
+    // Per THERAPY_PLAN_TIME_HANDLING.md:
+    // The backend extracts hour and minute from start_date
+    // We need to send the LOCAL time as the ISO string (not converted to UTC)
+    // Format: YYYY-MM-DDTHH:MM:00Z where HH:MM is the LOCAL time the user selected
+    const localYear = startDateTime.getFullYear();
+    const localMonth = String(startDateTime.getMonth() + 1).padStart(2, '0');
+    const localDay = String(startDateTime.getDate()).padStart(2, '0');
+    const localHour = String(startDateTime.getHours()).padStart(2, '0');
+    const localMinute = String(startDateTime.getMinutes()).padStart(2, '0');
+    
+    // Build ISO string with LOCAL time (backend will use this time directly)
+    const startDateISO = `${localYear}-${localMonth}-${localDay}T${localHour}:${localMinute}:00Z`;
+    
+    console.log('[CreateAppointment] Sending LOCAL time to backend:', startDateISO);
+    console.log('[CreateAppointment] User selected time:', localHour, ':', localMinute);
 
     const selectedStaffNames = therapistOptions
       .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
@@ -1145,11 +1153,11 @@ export const CreateAppointmentScreen: React.FC = () => {
         treatmentName: selectedTreatment?.label || '',
         staffIds: multiDayForm.selectedTherapistIds.join(','),
         staffNames: selectedStaffNames,
-        startDate: startDateTime.toISOString(),
+        startDate: startDateISO,  // LOCAL time in ISO format
         durationDays: multiDayForm.numberOfSessions.toString(),
-        preferredTimeHour: localHour.toString(),  // Send LOCAL hour (not UTC!)
-        preferredTimeHourLocal: localHour.toString(),  // Same as above for UI display
-        preferredTimeMinutesLocal: localMinutes.toString(),  // Minutes for UI display
+        // Don't send preferredTimeHour - backend extracts from start_date
+        preferredTimeHourLocal: localHour,  // For UI display only
+        preferredTimeMinutesLocal: localMinute,  // For UI display only
         durationMinutes: multiDayForm.durationMinutes.toString(),
         notes: multiDayForm.notes,
       },

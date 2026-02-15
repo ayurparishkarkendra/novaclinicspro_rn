@@ -83,9 +83,12 @@ When alternative is tapped:
 - Uncovered days remain conflicted
 - Coverage displayed as "Works for X/Y sessions"
 
-### D2. Custom Time Row (REQUIRED)
-- Feature spec noted but requires time picker API integration
-- Current implementation allows selection from available alternatives only
+### D2. Custom Time Row ✅ IMPLEMENTED
+- Added "Choose a different time…" row below alternatives
+- Opens time picker modal on tap
+- Validates using existing `getAvailableSlotsApi` (single-slot API)
+- If valid → updates session's effectiveTime, marks resolved
+- If invalid → shows conflict alert
 
 ---
 
@@ -172,7 +175,7 @@ const [effectiveTimes, setEffectiveTimes] = useState<Map<number, EffectiveTime>>
 
 ## BACKEND
 - **Host**: Koyeb (https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app)
-- **Frontend Preview**: https://therapy-plan-preview.preview.emergentagent.com
+- **Frontend Preview**: https://therapy-plan-ui-fix.preview.emergentagent.com
 
 ---
 
