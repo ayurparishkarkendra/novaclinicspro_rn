@@ -80,52 +80,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, icon }) => (
 );
 
 // ============================================
-// INFO ROW COMPONENT
-// ============================================
-
-interface InfoRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string | null;
-  valueColor?: string;
-  onPress?: () => void;
-  showChevron?: boolean;
-  testId?: string;
-}
-
-const InfoRow: React.FC<InfoRowProps> = ({ 
-  icon, 
-  label, 
-  value, 
-  valueColor, 
-  onPress, 
-  showChevron = false,
-  testId,
-}) => (
-  <TouchableOpacity
-    style={styles.infoRow}
-    onPress={onPress}
-    disabled={!onPress}
-    activeOpacity={onPress ? 0.7 : 1}
-    data-testid={testId}
-  >
-    <View style={styles.infoIcon}>
-      <Ionicons name={icon} size={18} color={colors.primary.main} />
-    </View>
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>
-        {value || '—'}
-      </Text>
-    </View>
-    {(onPress || showChevron) && (
-      <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
-    )}
-  </TouchableOpacity>
-);
-
-// ============================================
-// ACTION BUTTON COMPONENT
+// ACTION BUTTON COMPONENT (Quick Actions per FRONTEND_QUICK_ACTIONS_GUIDE.md)
 // ============================================
 
 interface ActionButtonProps {
@@ -176,67 +131,116 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 );
 
 // ============================================
-// VISIT HISTORY ITEM COMPONENT
+// B2: VISIT HISTORY CARD COMPONENT (Enhanced)
 // ============================================
 
-interface VisitHistoryItemProps {
+interface VisitHistoryCardProps {
   appointment: any;
   onPress: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPress }) => {
+const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPress, t }) => {
   const statusColor = getStatusColor(appointment.status);
   
-  // Extract prescription and payment info from appointment if available
+  // Extract data from appointment
+  const visitDate = formatDate(appointment.appointment_start);
+  const visitTime = formatTime(appointment.appointment_start);
+  const visitType = appointment.appointment_type === 'MULTI' 
+    ? (t('common.treatment') || 'Treatment') 
+    : (t('common.consultation') || 'Consultation');
+  
+  // Check for links/records
+  const hasCaseSheet = appointment.case_sheet_id || appointment.has_case_sheet;
   const hasPrescription = appointment.prescription_id || appointment.has_prescription;
-  const hasPayment = appointment.payment_id || appointment.payment_status || appointment.has_payment;
+  const hasPayment = appointment.payment_id || appointment.payment_status;
   const paymentAmount = appointment.payment_amount;
   const paymentStatus = appointment.payment_status;
   
   return (
     <TouchableOpacity 
-      style={styles.visitHistoryItem} 
+      style={styles.visitCard} 
       onPress={onPress}
-      data-testid={`visit-history-item-${appointment.id}`}
+      data-testid={`visit-card-${appointment.id}`}
     >
-      <View style={[styles.visitHistoryDot, { backgroundColor: statusColor }]} />
-      <View style={styles.visitHistoryContent}>
-        <Text style={styles.visitHistoryDate}>
-          {formatDate(appointment.appointment_start)}
-        </Text>
-        <Text style={styles.visitHistoryTime}>
-          {formatTime(appointment.appointment_start)}
-        </Text>
-        {appointment.treatment_name && (
-          <Text style={styles.visitHistoryTreatment} numberOfLines={1}>
-            {appointment.treatment_name}
-          </Text>
-        )}
-        {/* Prescription Info (User Requirement #2) */}
-        <View style={styles.visitHistoryMeta}>
-          <Text style={[
-            styles.visitHistoryMetaText,
-            hasPrescription ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
-          ]}>
-            {hasPrescription ? '💊 Prescription given' : 'No prescription'}
-          </Text>
+      {/* Header: Date + Status */}
+      <View style={styles.visitCardHeader}>
+        <View style={styles.visitCardDateRow}>
+          <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+          <Text style={styles.visitCardDate}>{visitDate}</Text>
+          <Text style={styles.visitCardTime}>{visitTime}</Text>
         </View>
-        {/* Payment Info (User Requirement #2) */}
-        <View style={styles.visitHistoryMeta}>
-          <Text style={[
-            styles.visitHistoryMetaText,
-            hasPayment ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
-          ]}>
-            {hasPayment 
-              ? `💰 ${paymentStatus || 'Paid'}${paymentAmount ? ` - ₹${paymentAmount}` : ''}`
-              : 'No payment recorded'}
+        <View style={[styles.visitCardStatus, { backgroundColor: statusColor + '15' }]}>
+          <Text style={[styles.visitCardStatusText, { color: statusColor }]}>
+            {getStatusLabel(appointment.status)}
           </Text>
         </View>
       </View>
-      <View style={[styles.visitHistoryStatus, { backgroundColor: statusColor + '15' }]}>
-        <Text style={[styles.visitHistoryStatusText, { color: statusColor }]}>
-          {getStatusLabel(appointment.status)}
+
+      {/* Visit Type */}
+      <View style={styles.visitCardTypeRow}>
+        <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+        <Text style={styles.visitCardType}>{visitType}</Text>
+        {appointment.treatment_name && (
+          <Text style={styles.visitCardTreatment} numberOfLines={1}>
+            • {appointment.treatment_name}
+          </Text>
+        )}
+      </View>
+
+      {/* Links Row: Case Sheet, Prescription */}
+      <View style={styles.visitCardLinksRow}>
+        {/* Case Sheet Link */}
+        <View style={[styles.visitCardLink, hasCaseSheet && styles.visitCardLinkActive]}>
+          <Ionicons 
+            name="document-text-outline" 
+            size={14} 
+            color={hasCaseSheet ? colors.primary.main : colors.text.tertiary} 
+          />
+          <Text style={[
+            styles.visitCardLinkText,
+            hasCaseSheet && styles.visitCardLinkTextActive,
+          ]}>
+            {t('appointments.caseSheet') || 'Case Sheet'}
+          </Text>
+        </View>
+
+        {/* Prescription Link */}
+        <View style={[styles.visitCardLink, hasPrescription && styles.visitCardLinkActive]}>
+          <Ionicons 
+            name="receipt-outline" 
+            size={14} 
+            color={hasPrescription ? colors.success.main : colors.text.tertiary} 
+          />
+          <Text style={[
+            styles.visitCardLinkText,
+            hasPrescription && { color: colors.success.main },
+          ]}>
+            {t('appointments.prescription') || 'Prescription'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Payment Details */}
+      <View style={styles.visitCardPaymentRow}>
+        <Ionicons 
+          name="wallet-outline" 
+          size={14} 
+          color={hasPayment ? colors.success.main : colors.text.tertiary} 
+        />
+        <Text style={[
+          styles.visitCardPaymentText,
+          hasPayment && styles.visitCardPaymentActive,
+        ]}>
+          {hasPayment 
+            ? `${paymentStatus || 'Paid'}${paymentAmount ? ` • ₹${paymentAmount}` : ''}`
+            : (t('appointments.noPaymentRecorded') || 'No payment recorded')}
         </Text>
+      </View>
+
+      {/* Navigation Arrow */}
+      <View style={styles.visitCardArrow}>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
       </View>
     </TouchableOpacity>
   );
