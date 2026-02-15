@@ -165,7 +165,10 @@
       "partialSuccess": "Partial Success",
       "created": "Created",
       "failedToCreate": "Failed to create appointments",
-      "confirmSessions": "Confirm {{count}} Sessions"
+      "confirmSessions": "Confirm {{count}} Sessions",
+      "applyToAllSlots": "Apply to all sessions",
+      "highCoverageOptions": "These times work for most sessions",
+      "worksForSessions": "Works for {{count}}/{{total}} sessions"
     },
 
     "clients": {
@@ -387,6 +390,9 @@
     "created": "Created",
     "failedToCreate": "Failed to create appointments",
     "confirmSessions": "Confirm {{count}} Sessions",
+    "applyToAllSlots": "Apply to all sessions",
+    "highCoverageOptions": "These times work for most sessions",
+    "worksForSessions": "Works for {{count}}/{{total}} sessions",
     "loadFailed": "Could not load appointments. Please try again.",
     "createFailed": "Could not create the appointment. Please try again.",
     "updateFailed": "Could not update the appointment. Please try again.",
