@@ -19,8 +19,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Linking,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -33,7 +31,6 @@ import {
   getStatusLabel,
   getStatusColor,
   formatTime,
-  openWhatsApp,
   getTherapistNames,
 } from '../../data/models/appointments.dtos';
 
