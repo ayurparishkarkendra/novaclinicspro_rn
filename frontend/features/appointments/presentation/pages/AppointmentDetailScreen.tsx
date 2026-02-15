@@ -572,9 +572,6 @@ export const AppointmentDetailScreen: React.FC = () => {
   // Display values with fallbacks
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
   const displayClientPhone = clientPhone;
-  const displayStaffName = staffName;
-  const displayTreatmentName = treatmentName;
-  const displayRoomName = roomName;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
