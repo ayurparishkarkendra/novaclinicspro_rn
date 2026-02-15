@@ -542,29 +542,40 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     startDate: string;
     durationDays: string;
     preferredTimeHour: string;
-    preferredTimeHourLocal: string;  // Local hour for UI display
-    preferredTimeMinutesLocal: string;  // Local minutes for UI display
+    preferredTimeHourLocal: string;
+    preferredTimeMinutesLocal: string;
     durationMinutes: string;
     notes: string;
   }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
 
-  // State
+  // ============================================
+  // STATE - SINGLE SOURCE OF TRUTH
+  // ============================================
+  
+  // Raw sessions from API (immutable after fetch)
   const [sessions, setSessions] = useState<SessionData[]>([]);
+  
+  // SINGLE SOURCE OF TRUTH: effectiveTimes indexed by session_number
+  // This is the ONLY place to read session times from
+  const [effectiveTimes, setEffectiveTimes] = useState<Map<number, EffectiveTime>>(new Map());
+  
+  // Currently selected global pattern (if any)
+  const [selectedGlobalPattern, setSelectedGlobalPattern] = useState<string | null>(null);
+  
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const [apiClientName, setApiClientName] = useState<string | null>(null);  // ✨ NEW - from API response
+  const [apiClientName, setApiClientName] = useState<string | null>(null);
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
 
-  // Extract params with fallbacks - memoized to prevent re-renders
+  // Extract params with fallbacks
   const clientId = params.clientId || '';
   const clientNameFromParams = params.clientName || t('common.client');
-  // ✨ Prefer client_name from API response over URL params
   const clientName = apiClientName || clientNameFromParams;
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
@@ -574,26 +585,111 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   const preferredTimeHour = parseInt(params.preferredTimeHour || '10', 10);
-  // Local hour and minutes for display (falls back to UTC hour if not provided)
   const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || params.preferredTimeHour || '10', 10);
   const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
 
   // Parse staffIds once
-  const staffIds = React.useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
+  const staffIds = useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
 
-  // ===== BACKEND-DRIVEN SESSION GENERATION (NO FALLBACK) =====
-  // CRITICAL: This MUST use the backend API for conflict detection
-  // Runs ONCE on mount when all required params are present
-  useEffect(() => {
-    // Prevent multiple calls
-    if (hasFetched) return;
+  // ============================================
+  // COMPUTE PLAN-LEVEL ALTERNATIVES
+  // ============================================
+  
+  const planLevelAlternatives = useMemo((): PlanLevelAlternative[] => {
+    if (sessions.length === 0) return [];
     
-    // Validate required params
-    if (!clientId || !treatmentId || staffIds.length === 0) {
-      return;
-    }
+    // Collect all plan_level alternatives across all conflicted sessions
+    const timePatternMap = new Map<string, {
+      hour: number;
+      minute: number;
+      coveredSessions: Set<number>;
+    }>();
+    
+    sessions.forEach(session => {
+      if (!session.is_conflicted || !session.conflict?.alternative_slots) return;
+      
+      session.conflict.alternative_slots
+        .filter(alt => alt.plan_level === true)
+        .forEach(alt => {
+          const pattern = extractTimePattern(alt.start);
+          const hour = extractHour(alt.start);
+          const minute = extractMinute(alt.start);
+          
+          if (!timePatternMap.has(pattern)) {
+            timePatternMap.set(pattern, {
+              hour,
+              minute,
+              coveredSessions: new Set(),
+            });
+          }
+          timePatternMap.get(pattern)!.coveredSessions.add(session.session_number);
+        });
+    });
+    
+    // Convert to array and sort by coverage (highest first)
+    const alternatives: PlanLevelAlternative[] = [];
+    timePatternMap.forEach((data, pattern) => {
+      alternatives.push({
+        time_pattern: pattern,
+        start_hour: data.hour,
+        start_minute: data.minute,
+        coverage_count: data.coveredSessions.size,
+        total_sessions: sessions.length,
+        covered_sessions: Array.from(data.coveredSessions),
+      });
+    });
+    
+    // Sort by coverage descending, then by hour ascending
+    return alternatives
+      .sort((a, b) => {
+        if (b.coverage_count !== a.coverage_count) {
+          return b.coverage_count - a.coverage_count;
+        }
+        return a.start_hour - b.start_hour;
+      })
+      .slice(0, 2); // Show top 2 global options
+  }, [sessions]);
+
+  // ============================================
+  // INITIALIZE EFFECTIVE TIMES FROM API RESPONSE
+  // ============================================
+  
+  const initializeEffectiveTimes = useCallback((newSessions: SessionData[]) => {
+    const newEffectiveTimes = new Map<number, EffectiveTime>();
+    
+    newSessions.forEach(session => {
+      // Get staff info
+      let staffId = session.staff_id;
+      let staffName = session.staff_name;
+      
+      if (session.staff_assignments && session.staff_assignments.length > 0) {
+        staffId = session.staff_assignments[0].id;
+        staffName = session.staff_assignments.map(s => s.name).join(', ');
+      }
+      
+      newEffectiveTimes.set(session.session_number, {
+        start: session.appointment_start,
+        end: session.appointment_end,
+        staff_id: staffId,
+        staff_name: staffName,
+        room_id: session.room_id,
+        room_name: session.room_name,
+        is_resolved: !session.is_conflicted, // Non-conflicted sessions are already resolved
+      });
+    });
+    
+    setEffectiveTimes(newEffectiveTimes);
+  }, []);
+
+  // ============================================
+  // BACKEND-DRIVEN SESSION GENERATION
+  // ============================================
+  
+  useEffect(() => {
+    if (hasFetched) return;
+    if (!clientId || !treatmentId || staffIds.length === 0) return;
 
     const fetchTherapyPlan = async () => {
       setHasFetched(true);
@@ -608,7 +704,6 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           preferred_time_hour: preferredTimeHour,
         });
 
-        // Call backend to generate therapy plan with conflict detection
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
@@ -620,85 +715,137 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
-        // ✨ Use client_name from API response if available
         if (response.client_name) {
           setApiClientName(response.client_name);
         }
 
-        // Map backend response to local state (per API spec)
         if (response.sessions && response.sessions.length > 0) {
           const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
             session_number: session.session_number,
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
-            staff_name: session.staff_name || null,  // deprecated - fallback
-            staff_assignments: session.staff_assignments || null,  // ✨ NEW - multi-therapist support
+            staff_name: session.staff_name || null,
+            staff_assignments: session.staff_assignments || null,
             room_id: session.room_id,
             room_name: session.room_name || null,
             is_conflicted: session.is_conflicted || false,
             conflict: session.conflict || null,
-            selected_alternative: undefined,
           }));
+          
           setSessions(mappedSessions);
+          initializeEffectiveTimes(mappedSessions);
+          
           console.log('[PreviewAppointments] Sessions loaded:', mappedSessions.length);
           console.log('[PreviewAppointments] Has conflicts:', response.has_conflicts);
-          // DEBUG: Show first session details
-          if (mappedSessions[0]) {
-            const firstSession = mappedSessions[0];
-            console.log('[PreviewAppointments] First session start (raw):', firstSession.appointment_start);
-            console.log('[PreviewAppointments] First session staff_assignments:', firstSession.staff_assignments);
-            console.log('[PreviewAppointments] First session staff_name:', firstSession.staff_name);
-            console.log('[PreviewAppointments] First session therapist display:', getSessionTherapistNames(firstSession));
-            const parsed = new Date(firstSession.appointment_start);
-            console.log('[PreviewAppointments] First session parsed date:', parsed.toString());
-            console.log('[PreviewAppointments] First session formatted:', safeFormatTime(firstSession.appointment_start));
-          }
         }
       } catch (error: any) {
         console.error('[PreviewAppointments] Failed to generate therapy plan:', error);
         console.error('[PreviewAppointments] Error response:', error?.response?.data);
-        // Error is handled by mutation state - no fallback generation allowed
       }
     };
 
     fetchTherapyPlan();
-  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour]);
+  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, preferredTimeHour, initializeEffectiveTimes]);
 
-  // Handle alternative selection
-  const handleSelectAlternative = (
+  // ============================================
+  // ALTERNATIVE SELECTION HANDLERS
+  // ============================================
+  
+  /**
+   * Handle per-session alternative selection
+   * Updates ONLY the effectiveTimes state (single source of truth)
+   */
+  const handleSelectPerSessionAlternative = useCallback((
     sessionNumber: number, 
-    staffId: string, 
-    staffName: string, 
-    roomId: string, 
-    roomName: string,
-    start: string,
-    end: string
+    alt: AlternativeSlot
   ) => {
-    setSessions(prev => prev.map(session => 
-      session.session_number === sessionNumber
-        ? { 
-            ...session, 
-            selected_alternative: {
-              start,
-              end,
-              staff_id: staffId,
-              staff_name: staffName,
-              room_id: roomId,
-              room_name: roomName,
-            }
-          }
-        : session
-    ));
-  };
+    const firstStaff = alt.available_staff?.[0];
+    const firstRoom = alt.available_rooms?.[0];
+    
+    setEffectiveTimes(prev => {
+      const newMap = new Map(prev);
+      newMap.set(sessionNumber, {
+        start: alt.start,
+        end: alt.end,
+        staff_id: firstStaff?.staff_id || null,
+        staff_name: firstStaff?.full_name || null,
+        room_id: firstRoom?.room_id || null,
+        room_name: firstRoom?.name || null,
+        is_resolved: true,
+      });
+      return newMap;
+    });
+    
+    // Clear global selection since user picked per-session
+    setSelectedGlobalPattern(null);
+    
+    console.log(`[PreviewAppointments] Selected alternative for session ${sessionNumber}:`, alt.start);
+  }, []);
 
-  // Check if all conflicts are resolved
-  const conflictedSessions = sessions.filter(s => s.is_conflicted);
-  const unresolvedConflicts = conflictedSessions.filter(s => !s.selected_alternative);
+  /**
+   * Handle global "apply to all" alternative selection
+   * Updates effectiveTimes for ALL covered sessions
+   */
+  const handleApplyGlobalAlternative = useCallback((alternative: PlanLevelAlternative) => {
+    setSelectedGlobalPattern(alternative.time_pattern);
+    
+    setEffectiveTimes(prev => {
+      const newMap = new Map(prev);
+      
+      // For each covered session, find the matching alternative and apply it
+      alternative.covered_sessions.forEach(sessionNumber => {
+        const session = sessions.find(s => s.session_number === sessionNumber);
+        if (!session?.conflict?.alternative_slots) return;
+        
+        // Find the alternative slot that matches this time pattern
+        const matchingAlt = session.conflict.alternative_slots.find(
+          alt => extractTimePattern(alt.start) === alternative.time_pattern
+        );
+        
+        if (matchingAlt) {
+          const firstStaff = matchingAlt.available_staff?.[0];
+          const firstRoom = matchingAlt.available_rooms?.[0];
+          
+          newMap.set(sessionNumber, {
+            start: matchingAlt.start,
+            end: matchingAlt.end,
+            staff_id: firstStaff?.staff_id || null,
+            staff_name: firstStaff?.full_name || null,
+            room_id: firstRoom?.room_id || null,
+            room_name: firstRoom?.name || null,
+            is_resolved: true,
+          });
+        }
+      });
+      
+      return newMap;
+    });
+    
+    console.log(`[PreviewAppointments] Applied global pattern ${alternative.time_pattern} to ${alternative.coverage_count} sessions`);
+  }, [sessions]);
+
+  // ============================================
+  // DERIVED STATE (from single source of truth)
+  // ============================================
+  
+  const conflictedSessions = useMemo(() => 
+    sessions.filter(s => s.is_conflicted), 
+    [sessions]
+  );
+  
+  const unresolvedConflicts = useMemo(() => 
+    conflictedSessions.filter(s => {
+      const effective = effectiveTimes.get(s.session_number);
+      return !effective?.is_resolved;
+    }), 
+    [conflictedSessions, effectiveTimes]
+  );
+  
   const allConflictsResolved = unresolvedConflicts.length === 0;
   const hasConflicts = conflictedSessions.length > 0;
 
-  // Determine if we can proceed - ONLY if we have backend data and all conflicts are resolved
+  // Determine if we can proceed
   const isLoading = generatePlanMutation.isPending;
   const hasError = generatePlanMutation.isError;
   const errorMessage = generatePlanMutation.error?.message || 
@@ -706,7 +853,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                        t('appointments.failedToGeneratePlan');
   const canProceed = sessions.length > 0 && allConflictsResolved && !hasError;
 
-  // Create all appointments
+  // ============================================
+  // CREATE APPOINTMENTS
+  // ============================================
+  
   const handleConfirm = async () => {
     if (!canProceed) {
       Alert.alert(t('common.error'), t('appointments.cannotProceedWithConflicts'));
@@ -718,20 +868,17 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     const errors: string[] = [];
 
     try {
-      // Create appointments one by one
+      // Create appointments using EFFECTIVE TIMES (single source of truth)
       for (const session of sessions) {
-        const slot = session.selected_alternative || {
-          start: session.appointment_start,
-          end: session.appointment_end,
-          staff_id: session.staff_id || staffIds[0],
-        };
+        const effective = effectiveTimes.get(session.session_number);
+        if (!effective) continue;
 
         const payload: AppointmentCreate = {
           client_id: clientId,
-          staff_id: slot.staff_id || staffIds[0],
+          staff_id: effective.staff_id || staffIds[0],
           treatment_id: treatmentId,
-          appointment_start: slot.start || session.appointment_start,
-          appointment_end: slot.end || session.appointment_end,
+          appointment_start: effective.start,
+          appointment_end: effective.end,
           status: 'scheduled',
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
           appointment_type: 'MULTI',
@@ -747,16 +894,15 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
       // Show result
       if (createdCount === sessions.length) {
-        // All succeeded - offer WhatsApp (for CREATED status)
         if (clientPhone) {
-          const firstSession = sessions[0];
+          const firstEffective = effectiveTimes.get(1);
           const message = generateWhatsAppSeriesMessage(
             clientName,
             t('common.yourClinic'),
             treatmentName,
             sessions.length,
-            safeFormatDate(firstSession?.appointment_start),
-            safeFormatTime(firstSession?.appointment_start),
+            safeFormatDate(firstEffective?.start),
+            safeFormatTime(firstEffective?.start),
             '+91-XXXXXXXXXX'
           );
           const whatsappUrl = openWhatsApp(clientPhone, message);
@@ -784,14 +930,12 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           router.replace('/clinic-admin/appointments' as any);
         }
       } else if (createdCount > 0) {
-        // Partial success
         Alert.alert(
           t('appointments.partialSuccess'),
           `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
           [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
         );
       } else {
-        // All failed
         Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
     } catch (err: any) {
