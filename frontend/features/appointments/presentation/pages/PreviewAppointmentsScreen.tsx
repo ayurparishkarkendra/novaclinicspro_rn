@@ -1127,8 +1127,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               {/* Display the user's REQUESTED time (from params) */}
               <Text style={styles.preferredTimeText}>
                 {t('appointments.requestedTime') || 'Requested'}: {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)}
-                </Text>
-              )}
+              </Text>
             </View>
           </View>
 
