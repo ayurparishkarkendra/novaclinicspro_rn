@@ -969,7 +969,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Error State - BLOCKS PROGRESSION (NO FALLBACK) */}
+      {/* Error State - BLOCKS PROGRESSION */}
       {!isLoading && hasError && (
         <View style={styles.errorContainer}>
           <Ionicons name="cloud-offline" size={64} color={colors.error.main} />
@@ -1036,10 +1036,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* Display the scheduled time from first session */}
-              {sessions.length > 0 && (
+              {/* Display the scheduled time from first effective time */}
+              {effectiveTimes.size > 0 && (
                 <Text style={styles.preferredTimeText}>
-                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(sessions[0].appointment_start)} - {safeFormatTime(sessions[0].appointment_end)}
+                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(effectiveTimes.get(1)?.start)} - {safeFormatTime(effectiveTimes.get(1)?.end)}
                 </Text>
               )}
             </View>
@@ -1083,20 +1083,36 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             contentContainerStyle={styles.sessionsContent}
             showsVerticalScrollIndicator={false}
           >
-            {sessions.map((session) => (
-              <SessionCard
-                key={session.session_number}
-                session={session}
-                isExpanded={expandedSession === session.session_number}
-                onToggle={() => setExpandedSession(
-                  expandedSession === session.session_number ? null : session.session_number
-                )}
-                onSelectAlternative={(staffId, staffName, roomId, roomName, start, end) => 
-                  handleSelectAlternative(session.session_number, staffId, staffName, roomId, roomName, start, end)
-                }
+            {/* BUG FIX #5: Global "Apply to All" Options */}
+            {hasConflicts && !allConflictsResolved && planLevelAlternatives.length > 0 && (
+              <GlobalAlternativesSection
+                planLevelAlternatives={planLevelAlternatives}
+                onApplyGlobal={handleApplyGlobalAlternative}
+                selectedGlobalPattern={selectedGlobalPattern}
                 t={t}
               />
-            ))}
+            )}
+
+            {sessions.map((session) => {
+              const effectiveTime = effectiveTimes.get(session.session_number);
+              if (!effectiveTime) return null;
+              
+              return (
+                <SessionCard
+                  key={session.session_number}
+                  session={session}
+                  effectiveTime={effectiveTime}
+                  isExpanded={expandedSession === session.session_number}
+                  onToggle={() => setExpandedSession(
+                    expandedSession === session.session_number ? null : session.session_number
+                  )}
+                  onSelectAlternative={(alt) => 
+                    handleSelectPerSessionAlternative(session.session_number, alt)
+                  }
+                  t={t}
+                />
+              );
+            })}
 
             {/* Spacer for action bar */}
             <View style={{ height: 100 }} />
