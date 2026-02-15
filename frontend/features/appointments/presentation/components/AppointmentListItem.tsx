@@ -321,21 +321,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
-  timeContainer: {
+  dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  timeText: {
+  dateText: {
     ...typography.body2,
     fontWeight: '600',
     color: colors.primary.main,
   },
-  timeEndText: {
-    fontWeight: '400',
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  timeText: {
+    ...typography.caption,
     color: colors.text.secondary,
+  },
+  timeEndText: {
+    color: colors.text.tertiary,
   },
 
   // Status Badge
