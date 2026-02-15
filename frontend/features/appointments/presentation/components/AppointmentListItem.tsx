@@ -1,18 +1,19 @@
 /**
  * Appointment List Item Component
  * 
- * Enhanced card displaying:
- * - Client name and phone
- * - Assigned staff name
- * - Color-coded status badge
- * - Quick actions (Call, WhatsApp, View)
+ * CLEAN CARD LAYOUT (User Requirement A1):
+ * - ONE right arrow for navigation, vertically centered
+ * - NO expand/collapse arrow
+ * - Quick actions visible directly on card
  * 
- * NO IDs are displayed anywhere in UI.
- * RBAC is respected for action visibility.
- * All text uses i18n.
+ * QUICK ACTIONS (User Requirement A2):
+ * - Reschedule, No-Show, Cancel, Complete (per FRONTEND_QUICK_ACTIONS_GUIDE.md)
+ * - Complete appears for confirmed/in_progress status
+ * 
+ * NO IDs displayed in UI. RBAC respected. All text uses i18n.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,9 +21,6 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
-  LayoutAnimation,
-  Platform,
-  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -37,14 +35,7 @@ import {
   formatTime,
   openWhatsApp,
   getTherapistNames,
-  getTherapistCount,
-  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // ============================================
 // TYPES
