@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://staff-therapy-assign.preview.emergentagent.com/theme-demo
+https://therapy-plan-preview.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**
