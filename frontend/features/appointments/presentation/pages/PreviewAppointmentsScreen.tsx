@@ -1307,13 +1307,45 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 {t('appointments.session') || 'Session'} {customTimePickerSession}
               </Text>
               
-              <DateTimePicker
-                value={customTimePickerDate}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleCustomTimeChange}
-                minuteInterval={15}
-              />
+              {/* Time Picker - Platform-specific rendering */}
+              {Platform.OS === 'web' ? (
+                // Web: Use native HTML time input
+                <View style={styles.webTimePickerContainer}>
+                  <Text style={styles.webTimeLabel}>{t('appointments.selectTime') || 'Select Time'}:</Text>
+                  <input
+                    type="time"
+                    value={`${customTimePickerDate.getHours().toString().padStart(2, '0')}:${customTimePickerDate.getMinutes().toString().padStart(2, '0')}`}
+                    onChange={(e) => {
+                      const [hours, minutes] = e.target.value.split(':').map(Number);
+                      const newDate = new Date(customTimePickerDate);
+                      newDate.setHours(hours, minutes, 0, 0);
+                      setCustomTimePickerDate(newDate);
+                    }}
+                    style={{
+                      fontSize: 24,
+                      padding: 16,
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border.main}`,
+                      backgroundColor: colors.background.paper,
+                      color: colors.text.primary,
+                      width: '100%',
+                      textAlign: 'center',
+                    }}
+                  />
+                  <Text style={styles.webTimePreview}>
+                    {t('appointments.selectedTime') || 'Selected'}: {formatTimeFromParts(customTimePickerDate.getHours(), customTimePickerDate.getMinutes())}
+                  </Text>
+                </View>
+              ) : (
+                // Native: Use DateTimePicker
+                <DateTimePicker
+                  value={customTimePickerDate}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleCustomTimeChange}
+                  minuteInterval={15}
+                />
+              )}
               
               <View style={styles.modalActions}>
                 <TouchableOpacity
