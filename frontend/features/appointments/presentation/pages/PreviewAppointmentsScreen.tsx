@@ -588,6 +588,12 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const [hasFetched, setHasFetched] = useState(false);
   const [apiClientName, setApiClientName] = useState<string | null>(null);
 
+  // #7: Custom Time Picker State
+  const [customTimePickerSession, setCustomTimePickerSession] = useState<number | null>(null);
+  const [customTimePickerDate, setCustomTimePickerDate] = useState<Date>(new Date());
+  const [showCustomTimePicker, setShowCustomTimePicker] = useState(false);
+  const [isValidatingCustomTime, setIsValidatingCustomTime] = useState(false);
+
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
