@@ -908,39 +908,38 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const dateStr = startDate.toISOString().split('T')[0];
       const endDateStr = new Date(startDate.getTime() + 86400000).toISOString().split('T')[0]; // Next day
       
-      try {
-        const validationResult = await getAvailableSlotsApi({
-          start_date: dateStr,
-          end_date: endDateStr,
-          treatment_id: treatmentId,
-          duration_minutes: durationMinutes,
-        });
+      const validationResult = await getAvailableSlotsApi({
+        start_date: dateStr,
+        end_date: endDateStr,
+        treatment_id: treatmentId,
+        duration_minutes: durationMinutes,
+      });
 
-        // Check if requested time is available in returned slots
-        const requestedHour = pickerHours;
-        const requestedMinute = pickerMinutes;
-        const isTimeAvailable = validationResult.slots?.some(slot => {
-          // AvailableSlot uses 'start' not 'start_time'
-          const slotHour = extractHour(slot.start);
-          const slotMinute = extractMinute(slot.start);
-          return slotHour === requestedHour && slotMinute === requestedMinute;
-        }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
+      // Check if requested time is available in returned slots
+      const requestedHour = pickerHours;
+      const requestedMinute = pickerMinutes;
+      const isTimeAvailable = validationResult.slots?.some(slot => {
+        // AvailableSlot uses 'start' not 'start_time'
+        const slotHour = extractHour(slot.start);
+        const slotMinute = extractMinute(slot.start);
+        return slotHour === requestedHour && slotMinute === requestedMinute;
+      }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
 
-        if (isTimeAvailable || validationResult.slots === undefined) {
-          // Update effectiveTimes with custom selection
-          setEffectiveTimes(prevMap => {
-            const newMap = new Map(prevMap);
-            newMap.set(customTimePickerSession, {
-              start: startDate.toISOString(),
-              end: endDate.toISOString(),
-              staff_id: staffIds[0] || null,
-              staff_name: staffNames || null,
-              room_id: null,
-              room_name: null,
-              is_resolved: true,
-            });
-            return newMap;
+      if (isTimeAvailable || validationResult.slots === undefined) {
+        // Update effectiveTimes with custom selection
+        setEffectiveTimes(prevMap => {
+          const newMap = new Map(prevMap);
+          newMap.set(customTimePickerSession, {
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            staff_id: staffIds[0] || null,
+            staff_name: staffNames || null,
+            room_id: null,
+            room_name: null,
+            is_resolved: true,
           });
+          return newMap;
+        });
 
         console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
         
