@@ -726,16 +726,19 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           staff_ids: staffIds,
           start_date: startDateStr,
           duration_days: durationDays,
-          preferred_time_hour: preferredTimeHour,
+          // NOTE: NOT sending preferred_time_hour - backend extracts time from start_date
         });
 
+        // Per THERAPY_PLAN_TIME_HANDLING.md:
+        // - Don't send preferred_time_hour
+        // - Let backend extract both hour and minute from start_date
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
           staff_ids: staffIds,
           start_date: startDateStr,
           duration_days: durationDays,
-          preferred_time_hour: preferredTimeHour,
+          // DO NOT send preferred_time_hour - backend uses start_date time
         });
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
