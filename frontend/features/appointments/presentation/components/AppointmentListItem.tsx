@@ -82,32 +82,33 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 };
 
 // ============================================
-// QUICK ACTION BUTTON COMPONENT
+// QUICK ACTION BUTTON COMPONENT (A2 - Inline)
 // ============================================
 
-interface QuickActionProps {
+interface QuickActionButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
+  label: string;
   color: string;
   onPress: () => void;
-  accessibilityLabel: string;
   testId: string;
 }
 
-const QuickAction: React.FC<QuickActionProps> = ({
+const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   icon,
+  label,
   color,
   onPress,
-  accessibilityLabel,
   testId,
 }) => (
   <TouchableOpacity
-    style={[styles.quickAction, { backgroundColor: color + '15' }]}
+    style={[styles.quickActionBtn, { borderColor: color + '40' }]}
     onPress={onPress}
-    accessibilityLabel={accessibilityLabel}
+    accessibilityLabel={label}
     accessibilityRole="button"
     data-testid={testId}
   >
-    <Ionicons name={icon} size={18} color={color} />
+    <Ionicons name={icon} size={16} color={color} />
+    <Text style={[styles.quickActionText, { color }]}>{label}</Text>
   </TouchableOpacity>
 );
 
