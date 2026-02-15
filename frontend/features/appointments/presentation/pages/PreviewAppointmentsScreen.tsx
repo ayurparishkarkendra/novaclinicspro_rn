@@ -1329,6 +1329,49 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           </View>
         </Modal>
       )}
+
+      {/* Success Modal (for web compatibility) */}
+      {successModal.visible && (
+        <Modal
+          visible={successModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleSuccessModalDone}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.successModalContent}>
+              <View style={styles.successModalIcon}>
+                <Ionicons name="checkmark-circle" size={64} color={colors.success.main} />
+              </View>
+              <Text style={styles.successModalTitle}>
+                {t('appointments.appointmentsCreated') || 'Appointments Created!'}
+              </Text>
+              <Text style={styles.successModalText}>
+                {successModal.createdCount} {t('appointments.sessionsScheduled') || 'sessions have been scheduled'}
+              </Text>
+              <View style={styles.successModalActions}>
+                <TouchableOpacity
+                  style={styles.successModalDoneButton}
+                  onPress={handleSuccessModalDone}
+                >
+                  <Text style={styles.successModalDoneText}>{t('common.done') || 'Done'}</Text>
+                </TouchableOpacity>
+                {successModal.whatsappUrl && (
+                  <TouchableOpacity
+                    style={styles.successModalWhatsAppButton}
+                    onPress={handleSuccessModalWhatsApp}
+                  >
+                    <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+                    <Text style={styles.successModalWhatsAppText}>
+                      {t('appointments.sendWhatsApp') || 'Send WhatsApp'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
