@@ -293,25 +293,17 @@ export const AppointmentDetailScreen: React.FC = () => {
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
-  // Per API spec: client_name, staff_assignments, room_name, treatment_name are returned directly
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
   const treatmentName = appointment?.treatment_name || null;
-  const roomName = appointment?.room_name || null;
-  
-  // Use the new helper function to get therapist names from staff_assignments
   const staffName = appointment ? getTherapistNames(appointment) : null;
-  const therapistCount = appointment ? getTherapistCount(appointment) : 0;
 
   // ===== RBAC CHECK =====
-  // Determine which actions are allowed based on user role
-  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
   const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
                                ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
-  const canStartSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
-                          ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
-  const canCompleteSession = canStartSession;
+  const canCompleteSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
+                             ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
   const canMarkNoShow = canModifyAppointment;
   const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
                   ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
