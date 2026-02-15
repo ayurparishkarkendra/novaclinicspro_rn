@@ -1060,6 +1060,19 @@ const styles = StyleSheet.create({
   visitCardLinkTextActive: {
     color: colors.primary.main,
   },
+  // FIX #3: Case Sheet & Prescription button styles
+  visitCardLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 6,
+    backgroundColor: colors.grey[100],
+  },
+  visitCardLinkButtonActive: {
+    backgroundColor: colors.primary.main + '10',
+  },
   visitCardPaymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
