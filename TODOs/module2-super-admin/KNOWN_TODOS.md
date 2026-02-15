@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://therapy-plan-preview.preview.emergentagent.com
+**Preview URL:** https://preview-appointments.preview.emergentagent.com
 
 ---
 
