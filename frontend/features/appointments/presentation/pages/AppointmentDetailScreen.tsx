@@ -1,21 +1,21 @@
 /**
  * Appointment Detail Screen
  * 
- * STRUCTURE:
- * - Client Section (name, phone, quick call action)
- * - Visit History Section (previous appointments for this client)
- * - Appointment Info Section
- * - Quick Actions Section (RBAC-based)
+ * REDESIGN (User Requirement B1, B2):
+ * - B1: REMOVED redundant Date, Time, Duration, Staff (already on list card)
+ * - B2: Show Visit History cards with:
+ *   - Visit Date, Visit Type
+ *   - Case Sheet link, Prescription link
+ *   - Payment details
+ *   - Quick actions (same as list card)
+ * 
+ * QUICK ACTIONS (per FRONTEND_QUICK_ACTIONS_GUIDE.md):
+ * - Reschedule, No-Show, Cancel, Complete
  * 
  * WHATSAPP TRIGGERS on status changes:
- * - Created (on creation)
- * - Rescheduled
- * - Cancelled
- * - No-Show
- * - Completed
+ * - Confirmed, Rescheduled, Cancelled, No-Show, Completed
  * 
- * NO IDs displayed in UI.
- * All text uses i18n.
+ * NO IDs displayed in UI. All text uses i18n.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -30,7 +30,6 @@ import {
   RefreshControl,
   Linking,
   Platform,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,8 +61,6 @@ import {
   generateWhatsAppNoShowMessage,
   generateWhatsAppCompletedMessage,
   getTherapistNames,
-  getTherapistCount,
-  hasMultipleTherapists,
 } from '../../data/models/appointments.dtos';
 
 // ============================================
@@ -83,52 +80,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, icon }) => (
 );
 
 // ============================================
-// INFO ROW COMPONENT
-// ============================================
-
-interface InfoRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string | null;
-  valueColor?: string;
-  onPress?: () => void;
-  showChevron?: boolean;
-  testId?: string;
-}
-
-const InfoRow: React.FC<InfoRowProps> = ({ 
-  icon, 
-  label, 
-  value, 
-  valueColor, 
-  onPress, 
-  showChevron = false,
-  testId,
-}) => (
-  <TouchableOpacity
-    style={styles.infoRow}
-    onPress={onPress}
-    disabled={!onPress}
-    activeOpacity={onPress ? 0.7 : 1}
-    data-testid={testId}
-  >
-    <View style={styles.infoIcon}>
-      <Ionicons name={icon} size={18} color={colors.primary.main} />
-    </View>
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>
-        {value || '—'}
-      </Text>
-    </View>
-    {(onPress || showChevron) && (
-      <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
-    )}
-  </TouchableOpacity>
-);
-
-// ============================================
-// ACTION BUTTON COMPONENT
+// ACTION BUTTON COMPONENT (Quick Actions per FRONTEND_QUICK_ACTIONS_GUIDE.md)
 // ============================================
 
 interface ActionButtonProps {
@@ -179,67 +131,116 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 );
 
 // ============================================
-// VISIT HISTORY ITEM COMPONENT
+// B2: VISIT HISTORY CARD COMPONENT (Enhanced)
 // ============================================
 
-interface VisitHistoryItemProps {
+interface VisitHistoryCardProps {
   appointment: any;
   onPress: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const VisitHistoryItem: React.FC<VisitHistoryItemProps> = ({ appointment, onPress }) => {
+const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPress, t }) => {
   const statusColor = getStatusColor(appointment.status);
   
-  // Extract prescription and payment info from appointment if available
+  // Extract data from appointment
+  const visitDate = formatDate(appointment.appointment_start);
+  const visitTime = formatTime(appointment.appointment_start);
+  const visitType = appointment.appointment_type === 'MULTI' 
+    ? (t('common.treatment') || 'Treatment') 
+    : (t('common.consultation') || 'Consultation');
+  
+  // Check for links/records
+  const hasCaseSheet = appointment.case_sheet_id || appointment.has_case_sheet;
   const hasPrescription = appointment.prescription_id || appointment.has_prescription;
-  const hasPayment = appointment.payment_id || appointment.payment_status || appointment.has_payment;
+  const hasPayment = appointment.payment_id || appointment.payment_status;
   const paymentAmount = appointment.payment_amount;
   const paymentStatus = appointment.payment_status;
   
   return (
     <TouchableOpacity 
-      style={styles.visitHistoryItem} 
+      style={styles.visitCard} 
       onPress={onPress}
-      data-testid={`visit-history-item-${appointment.id}`}
+      data-testid={`visit-card-${appointment.id}`}
     >
-      <View style={[styles.visitHistoryDot, { backgroundColor: statusColor }]} />
-      <View style={styles.visitHistoryContent}>
-        <Text style={styles.visitHistoryDate}>
-          {formatDate(appointment.appointment_start)}
-        </Text>
-        <Text style={styles.visitHistoryTime}>
-          {formatTime(appointment.appointment_start)}
-        </Text>
-        {appointment.treatment_name && (
-          <Text style={styles.visitHistoryTreatment} numberOfLines={1}>
-            {appointment.treatment_name}
-          </Text>
-        )}
-        {/* Prescription Info (User Requirement #2) */}
-        <View style={styles.visitHistoryMeta}>
-          <Text style={[
-            styles.visitHistoryMetaText,
-            hasPrescription ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
-          ]}>
-            {hasPrescription ? '💊 Prescription given' : 'No prescription'}
-          </Text>
+      {/* Header: Date + Status */}
+      <View style={styles.visitCardHeader}>
+        <View style={styles.visitCardDateRow}>
+          <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+          <Text style={styles.visitCardDate}>{visitDate}</Text>
+          <Text style={styles.visitCardTime}>{visitTime}</Text>
         </View>
-        {/* Payment Info (User Requirement #2) */}
-        <View style={styles.visitHistoryMeta}>
-          <Text style={[
-            styles.visitHistoryMetaText,
-            hasPayment ? styles.visitHistoryMetaPresent : styles.visitHistoryMetaAbsent
-          ]}>
-            {hasPayment 
-              ? `💰 ${paymentStatus || 'Paid'}${paymentAmount ? ` - ₹${paymentAmount}` : ''}`
-              : 'No payment recorded'}
+        <View style={[styles.visitCardStatus, { backgroundColor: statusColor + '15' }]}>
+          <Text style={[styles.visitCardStatusText, { color: statusColor }]}>
+            {getStatusLabel(appointment.status)}
           </Text>
         </View>
       </View>
-      <View style={[styles.visitHistoryStatus, { backgroundColor: statusColor + '15' }]}>
-        <Text style={[styles.visitHistoryStatusText, { color: statusColor }]}>
-          {getStatusLabel(appointment.status)}
+
+      {/* Visit Type */}
+      <View style={styles.visitCardTypeRow}>
+        <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+        <Text style={styles.visitCardType}>{visitType}</Text>
+        {appointment.treatment_name && (
+          <Text style={styles.visitCardTreatment} numberOfLines={1}>
+            • {appointment.treatment_name}
+          </Text>
+        )}
+      </View>
+
+      {/* Links Row: Case Sheet, Prescription */}
+      <View style={styles.visitCardLinksRow}>
+        {/* Case Sheet Link */}
+        <View style={[styles.visitCardLink, hasCaseSheet && styles.visitCardLinkActive]}>
+          <Ionicons 
+            name="document-text-outline" 
+            size={14} 
+            color={hasCaseSheet ? colors.primary.main : colors.text.tertiary} 
+          />
+          <Text style={[
+            styles.visitCardLinkText,
+            hasCaseSheet && styles.visitCardLinkTextActive,
+          ]}>
+            {t('appointments.caseSheet') || 'Case Sheet'}
+          </Text>
+        </View>
+
+        {/* Prescription Link */}
+        <View style={[styles.visitCardLink, hasPrescription && styles.visitCardLinkActive]}>
+          <Ionicons 
+            name="receipt-outline" 
+            size={14} 
+            color={hasPrescription ? colors.success.main : colors.text.tertiary} 
+          />
+          <Text style={[
+            styles.visitCardLinkText,
+            hasPrescription && { color: colors.success.main },
+          ]}>
+            {t('appointments.prescription') || 'Prescription'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Payment Details */}
+      <View style={styles.visitCardPaymentRow}>
+        <Ionicons 
+          name="wallet-outline" 
+          size={14} 
+          color={hasPayment ? colors.success.main : colors.text.tertiary} 
+        />
+        <Text style={[
+          styles.visitCardPaymentText,
+          hasPayment && styles.visitCardPaymentActive,
+        ]}>
+          {hasPayment 
+            ? `${paymentStatus || 'Paid'}${paymentAmount ? ` • ₹${paymentAmount}` : ''}`
+            : (t('appointments.noPaymentRecorded') || 'No payment recorded')}
         </Text>
+      </View>
+
+      {/* Navigation Arrow */}
+      <View style={styles.visitCardArrow}>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
       </View>
     </TouchableOpacity>
   );
@@ -292,19 +293,13 @@ export const AppointmentDetailScreen: React.FC = () => {
   const rescheduleMutation = useRescheduleAppointmentMutation(tenantId, appointmentId || '');
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
-  // Per API spec: client_name, staff_assignments, room_name, treatment_name are returned directly
   const clientName = appointment?.client_name || null;
   const clientPhone = appointment?.client_phone || null;
   const treatmentName = appointment?.treatment_name || null;
   const roomName = appointment?.room_name || null;
-  
-  // Use the new helper function to get therapist names from staff_assignments
   const staffName = appointment ? getTherapistNames(appointment) : null;
-  const therapistCount = appointment ? getTherapistCount(appointment) : 0;
 
   // ===== RBAC CHECK =====
-  // Determine which actions are allowed based on user role
-  // FIXED: Include 'clinic-admin' (hyphenated) as a valid role
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
   const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
                                ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
@@ -571,16 +566,12 @@ export const AppointmentDetailScreen: React.FC = () => {
   const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
   // FIX: Use case-insensitive status comparison
   const canModify = canModifyAppointment && ['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase());
-  const canStart = canStartSession && appointment.status?.toLowerCase() === 'confirmed';
-  const canComplete = canCompleteSession && appointment.status?.toLowerCase() === 'in_progress';
+  const canComplete = canCompleteSession && ['confirmed', 'in_progress'].includes(appointment.status?.toLowerCase());
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
   // Display values with fallbacks
   const displayClientName = clientName || t('common.unknownClient') || 'Unknown Client';
   const displayClientPhone = clientPhone;
-  const displayStaffName = staffName;
-  const displayTreatmentName = treatmentName;
-  const displayRoomName = roomName;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -664,72 +655,31 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* VISIT HISTORY SECTION */}
-        {visitHistory.length > 0 && (
-          <View style={styles.section} data-testid="detail-visit-history-section">
-            <SectionHeader title={t('appointments.visitHistory') || 'Visit History'} icon="time" />
-            <View style={styles.visitHistoryCard}>
+        {/* B2: VISIT HISTORY SECTION (Redesigned) */}
+        <View style={styles.section} data-testid="detail-visit-history-section">
+          <SectionHeader title={t('appointments.visitHistory') || 'Previous Visits'} icon="time" />
+          {visitHistory.length > 0 ? (
+            <View style={styles.visitHistoryContainer}>
               {visitHistory.map((historyItem: any) => (
-                <VisitHistoryItem
+                <VisitHistoryCard
                   key={historyItem.id}
                   appointment={historyItem}
                   onPress={() => handleVisitHistoryPress(historyItem.id)}
+                  t={t}
                 />
               ))}
             </View>
-          </View>
-        )}
-
-        {/* APPOINTMENT INFO SECTION */}
-        <View style={styles.section} data-testid="detail-appointment-info-section">
-          <SectionHeader title={t('appointments.appointmentDetails') || 'Appointment Details'} icon="calendar" />
-          <View style={styles.card}>
-            <InfoRow
-              icon="calendar-outline"
-              label={t('common.date') || 'Date'}
-              value={formatDate(appointment.appointment_start)}
-              testId="detail-date"
-            />
-            <InfoRow
-              icon="time-outline"
-              label={t('common.time') || 'Time'}
-              value={`${formatTime(appointment.appointment_start)} - ${formatTime(appointment.appointment_end)}`}
-              testId="detail-time"
-            />
-            <InfoRow
-              icon="hourglass-outline"
-              label={t('common.duration') || 'Duration'}
-              value={formatDuration(duration)}
-              testId="detail-duration"
-            />
-            {displayTreatmentName && (
-              <InfoRow
-                icon="medical-outline"
-                label={t('common.treatment') || 'Treatment'}
-                value={displayTreatmentName}
-                testId="detail-treatment"
-              />
-            )}
-            {displayStaffName && (
-              <InfoRow
-                icon="person-circle-outline"
-                label={t('common.staff') || 'Staff'}
-                value={displayStaffName}
-                testId="detail-staff"
-              />
-            )}
-            {displayRoomName && (
-              <InfoRow
-                icon="business-outline"
-                label={t('common.room') || 'Room'}
-                value={displayRoomName}
-                testId="detail-room"
-              />
-            )}
-          </View>
+          ) : (
+            <View style={styles.emptyVisitHistory}>
+              <Ionicons name="calendar-outline" size={24} color={colors.text.tertiary} />
+              <Text style={styles.emptyVisitHistoryText}>
+                {t('appointments.noVisitHistory') || 'No previous visits'}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Notes Section */}
+        {/* Notes Section (keep if exists) */}
         {appointment.notes && (
           <View style={styles.section}>
             <SectionHeader title={t('common.notes') || 'Notes'} icon="document-text" />
@@ -739,18 +689,16 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* QUICK ACTIONS SECTION - ALWAYS VISIBLE (User Requirement #1) */}
+        {/* QUICK ACTIONS SECTION (Per FRONTEND_QUICK_ACTIONS_GUIDE.md) */}
         <View style={styles.section} data-testid="detail-actions-section">
           <SectionHeader title={t('appointments.quickActions') || 'Quick Actions'} icon="flash" />
           <View style={styles.actionsContainer}>
             {/* Status-specific actions for active appointments */}
-            {/* User Required: Reschedule, No-Show, Cancel, Complete */}
-            {/* FIX: Use case-insensitive status comparison */}
+            {/* Actions: Reschedule, No-Show, Cancel, Complete */}
             {['scheduled', 'confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) ? (
               <>
-                {/* Actions Row - User required buttons in order */}
                 <View style={styles.actionsRow}>
-                  {/* Reschedule - for scheduled/confirmed (User Requirement #1) */}
+                  {/* Reschedule - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="calendar-outline"
@@ -761,7 +709,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-reschedule"
                     />
                   )}
-                  {/* No-Show - for scheduled/confirmed (User Requirement #2) */}
+                  {/* No-Show - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="alert-circle-outline"
@@ -772,7 +720,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-no-show"
                     />
                   )}
-                  {/* Cancel - for scheduled/confirmed (User Requirement #3) */}
+                  {/* Cancel - for scheduled/confirmed */}
                   {['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="close-circle-outline"
@@ -783,8 +731,8 @@ export const AppointmentDetailScreen: React.FC = () => {
                       testId="action-cancel"
                     />
                   )}
-                  {/* Complete - for in_progress (User Requirement #4) */}
-                  {appointment.status?.toLowerCase() === 'in_progress' && (
+                  {/* Complete - for confirmed OR in_progress (A3 requirement) */}
+                  {['confirmed', 'in_progress'].includes(appointment.status?.toLowerCase()) && (
                     <ActionButton
                       icon="checkmark-done-circle"
                       label={t('appointments.complete') || 'Complete'}
@@ -798,7 +746,7 @@ export const AppointmentDetailScreen: React.FC = () => {
                 </View>
               </>
             ) : (
-              /* Empty/Completed state - Always show section with "No actions available" message */
+              /* Terminal state - show info message */
               <View style={styles.actionsEmptyState} data-testid="actions-empty-state">
                 <Ionicons name="information-circle-outline" size={24} color={colors.text.tertiary} />
                 <Text style={styles.actionsEmptyText}>
@@ -1060,43 +1008,115 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Visit History
-  visitHistoryCard: {
+  // Visit History - B2 Enhanced Cards
+  visitHistoryContainer: {
+    gap: spacing.sm,
+  },
+  visitCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    position: 'relative',
+  },
+  visitCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  visitCardDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  visitCardDate: {
+    ...typography.body2,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  visitCardTime: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  visitCardStatus: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 8,
+  },
+  visitCardStatusText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  visitCardTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  visitCardType: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  visitCardTreatment: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    flex: 1,
+  },
+  visitCardLinksRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  visitCardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+  },
+  visitCardLinkActive: {
+    // Active links have colored text via inline style
+  },
+  visitCardLinkText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  visitCardLinkTextActive: {
+    color: colors.primary.main,
+  },
+  visitCardPaymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  visitCardPaymentText: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+  },
+  visitCardPaymentActive: {
+    color: colors.success.main,
+  },
+  visitCardArrow: {
+    position: 'absolute',
+    right: spacing.md,
+    top: '50%',
+    marginTop: -9,
+  },
+  emptyVisitHistory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
     backgroundColor: colors.background.default,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border.light,
-    overflow: 'hidden',
   },
-  visitHistoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  visitHistoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: spacing.md,
-  },
-  visitHistoryContent: {
-    flex: 1,
-  },
-  visitHistoryDate: {
+  emptyVisitHistoryText: {
     ...typography.body2,
-    color: colors.text.primary,
-    fontWeight: '500',
-  },
-  visitHistoryTime: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  visitHistoryTreatment: {
-    ...typography.caption,
     color: colors.text.tertiary,
-    marginTop: 2,
   },
   // Visit History Meta (Prescription/Payment info - User Requirement #2)
   visitHistoryMeta: {
