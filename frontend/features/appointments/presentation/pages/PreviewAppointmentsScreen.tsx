@@ -1943,6 +1943,23 @@ const styles = StyleSheet.create({
   modalButtonDisabled: {
     opacity: 0.6,
   },
+  // Web Time Picker Styles
+  webTimePickerContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  webTimeLabel: {
+    ...typography.body1,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    fontWeight: '600',
+  },
+  webTimePreview: {
+    ...typography.body2,
+    color: colors.primary.main,
+    marginTop: spacing.md,
+    fontWeight: '500',
+  },
 });
 
 export default PreviewAppointmentsScreen;
