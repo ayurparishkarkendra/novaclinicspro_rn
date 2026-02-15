@@ -566,8 +566,7 @@ export const AppointmentDetailScreen: React.FC = () => {
   const duration = calculateDuration(appointment.appointment_start, appointment.appointment_end);
   // FIX: Use case-insensitive status comparison
   const canModify = canModifyAppointment && ['scheduled', 'confirmed'].includes(appointment.status?.toLowerCase());
-  const canStart = canStartSession && appointment.status?.toLowerCase() === 'confirmed';
-  const canComplete = canCompleteSession && appointment.status?.toLowerCase() === 'in_progress';
+  const canComplete = canCompleteSession && ['confirmed', 'in_progress'].includes(appointment.status?.toLowerCase());
   const isPartOfSeries = appointment.series_id && appointment.session_number;
 
   // Display values with fallbacks
