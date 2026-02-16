@@ -20,7 +20,8 @@ interface TreatmentSheetListItemProps {
 const calculateProgress = (rows: TreatmentSheetRowResponse[] | undefined) => {
   if (!rows || rows.length === 0) return { completed: 0, total: 0, percentage: 0 };
   const total = rows.length;
-  const completed = rows.filter(r => r.status === 'COMPLETED').length;
+  // Count rows that have been filled in (have treatment description or medicines)
+  const completed = rows.filter(r => r.treatment_description || r.medicines_given).length;
   const percentage = Math.round((completed / total) * 100);
   return { completed, total, percentage };
 };
@@ -31,6 +32,7 @@ export const TreatmentSheetListItem: React.FC<TreatmentSheetListItemProps> = ({
 }) => {
   const progress = calculateProgress(treatmentSheet.rows);
   const createdDate = new Date(treatmentSheet.created_at).toLocaleDateString();
+  const durationDays = treatmentSheet.duration_days || treatmentSheet.rows?.length || 0;
 
   return (
     <TouchableOpacity
@@ -48,11 +50,9 @@ export const TreatmentSheetListItem: React.FC<TreatmentSheetListItemProps> = ({
         <TreatmentSheetStatusBadge status={treatmentSheet.status} size="small" />
       </View>
 
-      {treatmentSheet.treatment_plan_summary && (
-        <Text style={styles.summary} numberOfLines={2}>
-          {treatmentSheet.treatment_plan_summary}
-        </Text>
-      )}
+      <Text style={styles.summary} numberOfLines={1}>
+        {durationDays} day treatment plan
+      </Text>
 
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
