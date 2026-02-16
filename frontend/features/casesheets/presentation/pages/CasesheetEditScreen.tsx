@@ -37,7 +37,7 @@ export const CasesheetEditScreen: React.FC = () => {
   const casesheetId = params.casesheetId || '';
 
   // Check if user has doctor role (for SIGNED casesheet editing)
-  const isDoctor = currentUser?.role === 'DOCTOR' || currentUser?.roles?.includes('DOCTOR');
+  const isDoctor = currentUser?.roles?.includes('DOCTOR') || false;
 
   const {
     data: casesheet,

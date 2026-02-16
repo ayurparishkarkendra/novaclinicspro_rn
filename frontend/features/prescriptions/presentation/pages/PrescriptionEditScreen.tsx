@@ -35,7 +35,7 @@ export const PrescriptionEditScreen: React.FC = () => {
   const tenantId = currentUser?.tenantId || '';
   const prescriptionId = params.prescriptionId || '';
 
-  const isDoctor = currentUser?.role === 'DOCTOR' || currentUser?.roles?.includes('DOCTOR');
+  const isDoctor = currentUser?.roles?.includes('DOCTOR') || false;
 
   const {
     data: prescription,
