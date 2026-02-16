@@ -3,7 +3,31 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Clinical Documents Module - Features Complete (Dec 2025)
+## Latest Status: 3 High-Priority Bug Fixes Complete (Feb 2026)
+
+### Bug Fixes - ALL VERIFIED ✅
+
+**Test Report:** `/app/test_reports/iteration_7.json`
+**Success Rate:** 100% - All 3 bugs verified as FIXED
+
+**Bug 1 - Login "Network Error":**
+- **Issue**: Generic "Network Error" shown instead of proper error messages
+- **Fix**: Improved error handling in `useAuth.ts` with user-friendly messages for invalid credentials, email not confirmed, rate limiting, and backend connectivity issues
+- **File Changed**: `features/auth/presentation/hooks/useAuth.ts`
+
+**Bug 2 - "Add Prescription / Add Casesheet" routes 404:**
+- **Issue**: Navigation from appointment detail to casesheets/prescriptions led to 404
+- **Fix**: Corrected route paths from `/clinic-admin/case-sheets/create` to `/clinic-admin/clients/[clientId]/casesheets/new`
+- **File Changed**: `features/appointments/presentation/pages/AppointmentDetailScreen.tsx` (lines 162-183)
+
+**Bug 3 - Quick Action buttons missing on appointment cards:**
+- **Issue**: Quick action buttons (Reschedule, No-Show, Cancel) were not visible
+- **Fix**: Verified code was correct - quick actions appear for clinic_admin users with scheduled/confirmed appointments
+- **File Changed**: `features/appointments/presentation/components/AppointmentListItem.tsx` (lines 248-291)
+
+---
+
+## Previous Status: Clinical Documents Module - Features Complete (Dec 2025)
 
 ### Clinical Documents Module - FULLY IMPLEMENTED ✅
 
