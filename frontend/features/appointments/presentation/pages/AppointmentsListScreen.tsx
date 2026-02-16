@@ -207,6 +207,15 @@ export const AppointmentsListScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
 
+  // BUG FIX #1: Reschedule Modal State
+  const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
+  const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<AppointmentWithDetails | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date());
+  const [rescheduleTime, setRescheduleTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+
   // Date string for queries - ALWAYS use selected date
   const selectedDateStr = toISODateString(selectedDate);
 
@@ -233,6 +242,7 @@ export const AppointmentsListScreen: React.FC = () => {
   // Mutations for quick actions
   const updateStatusMutation = useUpdateAppointmentStatusMutation();
   const cancelMutation = useCancelAppointmentMutation(tenantId);
+  const rescheduleMutation = useRescheduleAppointmentMutation();
 
   // Handler for status updates (Confirm, Start, Complete, No-Show)
   const handleStatusUpdate = useCallback(async (appointmentId: string, newStatus: string) => {
@@ -244,33 +254,79 @@ export const AppointmentsListScreen: React.FC = () => {
     }
   }, [updateStatusMutation, refetch]);
 
-  // Handler for cancellation
+  // Handler for cancellation - confirmation is now in AppointmentListItem
   const handleCancel = useCallback(async (appointmentId: string) => {
-    Alert.alert(
-      'Cancel Appointment',
-      'Are you sure you want to cancel this appointment?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelMutation.mutateAsync(appointmentId);
-              refetch();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to cancel appointment');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await cancelMutation.mutateAsync(appointmentId);
+      refetch();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to cancel appointment');
+    }
   }, [cancelMutation, refetch]);
 
-  // Handler for reschedule - navigates to detail page where reschedule flow exists
+  // BUG FIX #1: Handler for reschedule - opens modal with date/time picker
   const handleReschedule = useCallback((appointmentId: string) => {
-    router.push(`/clinic-admin/appointments/${appointmentId}` as any);
-  }, [router]);
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (appointment) {
+      setSelectedAppointmentForReschedule(appointment);
+      // Initialize with current appointment time
+      const appointmentDate = new Date(appointment.appointment_start);
+      setRescheduleDate(appointmentDate);
+      setRescheduleTime(appointmentDate);
+      setRescheduleModalVisible(true);
+    }
+  }, [appointments]);
+
+  // BUG FIX #1: Handle date picker change
+  const handleDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setRescheduleDate(date);
+    }
+  }, []);
+
+  // BUG FIX #1: Handle time picker change
+  const handleTimeChange = useCallback((event: DateTimePickerEvent, time?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (time) {
+      setRescheduleTime(time);
+    }
+  }, []);
+
+  // BUG FIX #1: Submit reschedule request
+  const handleRescheduleSubmit = useCallback(async () => {
+    if (!selectedAppointmentForReschedule) return;
+
+    // Combine date and time
+    const newDateTime = new Date(rescheduleDate);
+    newDateTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes(), 0, 0);
+
+    // Validate: new time must be in the future
+    if (newDateTime <= new Date()) {
+      Alert.alert('Invalid Time', 'Please select a future date and time.');
+      return;
+    }
+
+    setIsRescheduling(true);
+    try {
+      await rescheduleMutation.mutateAsync({
+        appointmentId: selectedAppointmentForReschedule.id,
+        newStart: newDateTime.toISOString(),
+      });
+      setRescheduleModalVisible(false);
+      setSelectedAppointmentForReschedule(null);
+      refetch();
+      Alert.alert('Success', 'Appointment has been rescheduled.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to reschedule appointment');
+    } finally {
+      setIsRescheduling(false);
+    }
+  }, [selectedAppointmentForReschedule, rescheduleDate, rescheduleTime, rescheduleMutation, refetch]);
 
   // Use search results if searching, otherwise use date-based data
   const isSearchMode = debouncedQuery.length >= 3;
