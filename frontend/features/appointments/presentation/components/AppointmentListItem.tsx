@@ -479,16 +479,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // A2: Quick Actions Row - visible inline, no expand
+  // A2: Quick Actions Row - Icon buttons spread horizontally
   quickActionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
+    gap: spacing.xs,
   },
+  
+  // BUG FIX #3: Icon-based button with tooltip, spreads to fill space
+  quickActionIconBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 10,
+    borderWidth: 1,
+    minHeight: 56,
+  },
+  quickActionTooltip: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  
+  // Legacy styles (kept for compatibility)
   quickActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
