@@ -28,7 +28,7 @@ const ThemeDemoContent = () => {
   const [selectedTheme, setSelectedTheme] = useState<ClinicType>('AYURVEDA');
   const [useGradient, setUseGradient] = useState(true);
 
-  const clinicTypes: Array<{ type: ClinicType; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  const clinicTypes: { type: ClinicType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { type: 'AYURVEDA', label: 'Ayurveda', icon: 'leaf' },
     { type: 'GENERAL_MEDICINE', label: 'General Medicine', icon: 'medical' },
     { type: 'DENTAL', label: 'Dental', icon: 'water' },

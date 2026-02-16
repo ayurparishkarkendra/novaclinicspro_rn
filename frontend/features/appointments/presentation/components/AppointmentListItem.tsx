@@ -8,12 +8,12 @@
  * 
  * QUICK ACTIONS (User Requirement A2):
  * - Reschedule, No-Show, Cancel, Complete (per FRONTEND_QUICK_ACTIONS_GUIDE.md)
- * - Complete appears for confirmed/in_progress status
+ * - Complete: Tick icon that changes color on touch with confirmation
  * 
  * NO IDs displayed in UI. RBAC respected. All text uses i18n.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -121,6 +121,43 @@ const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
     </Text>
   </TouchableOpacity>
 );
+
+// ============================================
+// COMPLETE TICK ICON COMPONENT (User Requirement - Tick icon with color change)
+// ============================================
+
+interface CompleteTickIconProps {
+  onPress: () => void;
+  disabled?: boolean;
+}
+
+const CompleteTickIcon: React.FC<CompleteTickIconProps> = ({ onPress, disabled }) => {
+  const [isPressed, setIsPressed] = useState(false);
+  
+  return (
+    <TouchableOpacity
+      style={[
+        styles.completeTickButton,
+        isPressed && styles.completeTickButtonPressed,
+        disabled && styles.completeTickButtonDisabled,
+      ]}
+      onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      disabled={disabled}
+      accessibilityLabel="Mark as Complete"
+      accessibilityHint="Tap to mark this appointment as completed"
+      accessibilityRole="button"
+      data-testid="action-complete-tick"
+    >
+      <Ionicons 
+        name="checkmark-circle" 
+        size={28} 
+        color={isPressed ? colors.success.dark : colors.success.main} 
+      />
+    </TouchableOpacity>
+  );
+};
 
 // ============================================
 // MAIN COMPONENT - CLEAN CARD LAYOUT (A1, A2, A3)
@@ -251,9 +288,28 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           )}
         </View>
 
-        {/* A1: Single navigation arrow, vertically centered */}
-        <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
-          <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+        {/* Right side: Complete tick (for confirmed/in_progress) + Navigation arrow */}
+        <View style={styles.rightActionsContainer}>
+          {/* Complete Tick Icon - visible for confirmed/in_progress appointments */}
+          {canComplete && onStatusUpdate && (
+            <CompleteTickIcon
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsCompleted') || 'Mark as Completed',
+                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
+                  ]
+                );
+              }}
+            />
+          )}
+          
+          {/* A1: Single navigation arrow, vertically centered */}
+          <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
+            <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+          </View>
         </View>
       </TouchableOpacity>
 
@@ -322,26 +378,6 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 );
               }}
               testId="action-cancel"
-            />
-          )}
-          
-          {/* Complete - confirmed OR in_progress */}
-          {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
-            <QuickActionIconButton
-              icon="checkmark-circle-outline"
-              label={t('appointments.complete') || 'Complete'}
-              color={colors.success.main}
-              onPress={() => {
-                Alert.alert(
-                  t('appointments.markAsCompleted') || 'Mark as Completed',
-                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
-                  [
-                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
-                  ]
-                );
-              }}
-              testId="action-complete"
             />
           )}
         </View>
@@ -473,10 +509,32 @@ const styles = StyleSheet.create({
 
   // A1: Single navigation arrow - vertically centered
   navigationArrow: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Right side container for tick icon + navigation arrow
+  rightActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: spacing.xs,
+  },
+
+  // Complete Tick Icon Button
+  completeTickButton: {
+    padding: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: colors.success.main + '15',
+    marginRight: spacing.xs,
+  },
+  completeTickButtonPressed: {
+    backgroundColor: colors.success.main + '30',
+    transform: [{ scale: 0.95 }],
+  },
+  completeTickButtonDisabled: {
+    opacity: 0.5,
   },
 
   // A2: Quick Actions Row - Icon buttons spread horizontally

@@ -4,9 +4,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { Alert } from 'react-native';
+import { Alert , StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { DashboardHeader } from '../../../../core/components/DashboardHeader';
 import { useCreateTreatmentMutation } from '../../../../features/treatments/data/repositories/treatments.repository.impl';

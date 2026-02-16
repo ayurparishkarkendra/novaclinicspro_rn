@@ -3,9 +3,329 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: 9 Bug Fixes (Feb 2026) - COMPLETED
+## Latest Status: Doctor Dashboard Module (Dec 2025) - COMPLETED ✅
 
-### Bug Fixes Session (Feb 16, 2026) - ALL FRONTEND BUGS FIXED ✅
+### Doctor Dashboard - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_13.json`
+**Code Review:** 100% Pass for module structure and compilation
+
+**Module Architecture:**
+```
+/app/frontend/features/doctorDashboard/
+├── data/
+│   ├── datasources/
+│   │   └── doctorKpis.api.ts           # Backend KPI API service
+│   ├── models/
+│   │   └── doctorKpis.dtos.ts          # DTOs, types, helpers
+│   └── repositories/
+│       └── doctorKpis.repository.impl.ts # React Query hooks
+├── domain/
+│   └── entities/
+│       └── doctorKpis.entity.ts        # Domain entity & mappers
+├── presentation/
+│   └── components/
+│       ├── KpiPeriodSelector.tsx       # 7d/30d/90d/Custom selector
+│       ├── KpiStatCard.tsx             # KPI metric cards
+│       ├── TimeMetricsBars.tsx         # Time metrics visualization
+│       └── index.ts                    # Component exports
+└── index.ts                            # Feature exports
+```
+
+**API Endpoint Integrated:**
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/clinic/{tenant_id}/staff/{staff_id}/kpis` | GET | JWT | Doctor KPI metrics |
+
+**Query Parameters:**
+- `period`: `7d` | `30d` | `90d` | `custom`
+- `from_date`: ISO date (required if period='custom')
+- `to_date`: ISO date (required if period='custom')
+
+**KPI Metrics Displayed:**
+1. **Consultations Card**: total_completed, completion_rate, no_show_rate, cancellation_rate
+2. **Patients Card**: total_unique, new_patients, returning_patients, retention_rate
+3. **Clinical Productivity Card**: casesheets_created, prescriptions_written, treatment_sheets_created, documents_signed
+4. **Time Metrics**: avg_consultation_duration, peak_hours (top 3), busiest_days (top 3)
+
+**Features:**
+- Period selector with 7d/30d/90d/Custom options
+- Custom date range modal with validation (max 365 days)
+- Loading states with spinner while fetching
+- Error handling for API failures (400/401/403/404/500) with friendly messages
+- Empty states for no data periods
+- Pull-to-refresh support
+- Reuses existing staffDashboards components (AppointmentListItem, EmptyDashboardState, etc.)
+
+**Dashboard Screen:** `/app/frontend/app/doctor.tsx`
+
+---
+
+## Previous Status: Patient Feedback & Rating System (Feb 2026) - COMPLETED ✅
+
+### Patient Feedback Module - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_12.json`
+**Code Review:** 100% Pass for module structure and compilation
+
+**Module Architecture:**
+```
+/app/frontend/features/feedback/
+├── data/
+│   ├── datasources/
+│   │   └── feedback.api.ts           # Backend API service
+│   ├── models/
+│   │   └── feedback.dtos.ts          # DTOs & types
+│   └── repositories/
+│       └── feedback.repository.impl.ts  # React Query hooks
+├── domain/
+│   ├── entities/
+│   │   └── feedback.entity.ts        # Business logic helpers
+│   └── repositories/
+│       └── feedback.repository.ts    # Repository interface
+├── presentation/
+│   ├── components/
+│   │   ├── StarRatingInput.tsx       # Interactive star rating
+│   │   ├── StarRatingDisplay.tsx     # Read-only star display
+│   │   ├── RatingDistributionBars.tsx # Bar chart visualization
+│   │   ├── FeedbackKpiCard.tsx       # KPI metric card
+│   │   ├── FeedbackListItem.tsx      # Feedback list entry
+│   │   ├── PeriodSelector.tsx        # Time period filter
+│   │   ├── StaffPerformanceTable.tsx # Staff performance table
+│   │   └── index.ts                  # Component exports
+│   └── pages/
+│       ├── FeedbackFormScreen.tsx    # Public patient form
+│       ├── StaffFeedbackListScreen.tsx # Staff feedback list
+│       ├── StaffFeedbackSection.tsx  # Dashboard KPI section
+│       └── ClinicFeedbackSummarySection.tsx # Admin summary
+└── index.ts                          # Feature exports
+```
+
+**Routes Added:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/feedback/[token]` | FeedbackFormScreen | Public patient feedback form |
+| `/clinic-admin/feedback` | StaffFeedbackListScreen | Admin feedback list view |
+
+**API Endpoints Integrated:**
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/feedback/{token}` | GET | None | Get feedback form data |
+| `/api/v1/feedback/{token}` | POST | None | Submit patient feedback |
+| `/api/v1/clinic/{tenant_id}/staff/{staff_id}/kpis` | GET | JWT | Staff KPI metrics |
+| `/api/v1/feedback/clinic/{tenant_id}/staff/{staff_id}/feedback` | GET | JWT | Staff feedback list |
+| `/api/v1/feedback/clinic/{tenant_id}/summary` | GET | JWT | Clinic feedback summary |
+
+**Features Implemented:**
+
+1. **Patient Feedback Form** (Public)
+   - Conditional sections: Doctor, Therapist(s), Clinic
+   - Star rating input (1-5) with sub-questions
+   - Comment fields with 500 character limit
+   - Google Review opt-in checkbox
+   - Error handling: Invalid/expired/already used tokens
+   - Success state with Google Review redirect (if eligible)
+
+2. **Staff KPI Dashboard Section**
+   - Integrated into Doctor and Therapist dashboards
+   - Period selector (7d/30d/90d)
+   - KPI metrics: Average rating, total responses, response rate
+   - Trend indicator (↑ improving / ↓ declining / → stable)
+   - Rating distribution bar chart
+   - Question score breakdown
+   - "View All Feedback" navigation
+
+3. **Clinic Admin Feedback Summary**
+   - Integrated into Clinic Admin dashboard
+   - Overall rating card with response count
+   - Rating distribution visualization
+   - Google Reviews conversion stats
+   - Staff performance table (doctors/therapists tabs)
+   - Ambience scores (cleanliness, comfort, staff, scheduling, value)
+
+4. **Staff Feedback List**
+   - Paginated feedback entries
+   - Period/date filtering
+   - "Needs Attention" badges for low ratings
+   - Question scores display
+   - Comments with timestamps
+
+**Dashboard Integrations:**
+- `app/doctor.tsx` - Added StaffFeedbackSection
+- `app/therapist.tsx` (TherapistDashboardScreen) - Added StaffFeedbackSection
+- `app/clinic-admin/index.tsx` - Added ClinicFeedbackSummarySection
+
+**Files Created:** 18 new files
+**ESLint Status:** 0 errors
+**TypeScript Status:** 0 errors in feedback module
+
+---
+
+## Previous Status: Push Notifications Backend Integration (Dec 2025) - COMPLETED ✅
+
+### Push Notification System - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_10.json`
+**Code Review:** 100% Pass (all 14 features verified)
+
+**Route:** `/notifications/preferences` → `NotificationPreferencesScreen`
+
+**Architecture:**
+- **Abstracted Service Layer**: `IPushNotificationService` interface for easy FCM migration
+- **Expo Implementation**: `ExpoPushNotificationService` as default provider
+- **React Hook**: `usePushNotifications` for state management
+
+**Notification Triggers Implemented:**
+| Trigger | Description | Status |
+|---------|-------------|--------|
+| `appointment_new` | When patient books appointment | ✅ Ready |
+| `appointment_updated` | When appointment is rescheduled | ✅ Ready |
+| `appointment_cancelled` | When appointment is cancelled | ✅ Ready |
+| `appointment_no_show` | When patient doesn't show | ✅ Ready |
+| `schedule_summary` | Daily schedule (opt-in) | ✅ Ready |
+| `schedule_batch_update` | Multiple schedule changes | ✅ Ready |
+| `critical_update` | System alerts, emergencies | ✅ Ready |
+| `leave_approved` | Leave request approved | ✅ Ready |
+| `leave_rejected` | Leave request rejected | ✅ Ready |
+
+**Per-Therapist Preferences:**
+- New Appointments (ON by default)
+- Updates & Reschedules (ON by default)
+- Cancellations & No-Shows (ON by default)
+- Daily Schedule Summary (OFF by default)
+- Critical Updates (ON, recommended)
+- Leave Updates (ON by default)
+- Quiet Hours with time customization
+
+**Android Notification Channels:**
+- `default` - General notifications
+- `appointments` - High priority appointment alerts
+- `critical` - Maximum priority system alerts (bypasses DND)
+- `schedule` - Low priority daily summaries
+
+**Note:** Push notifications require physical device/simulator for full functionality. Web preview shows UI only.
+
+---
+
+## Previous Status: Therapist Dashboard Module (Feb 2026) - COMPLETED ✅
+
+### Therapist Dashboard Implementation - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_9.json`
+**Code Review:** 100% Pass (all 12 features verified)
+
+**Route:** `/therapist` → `TherapistDashboardScreen`
+
+**API Validation Summary:**
+| Feature | API Status | Implementation |
+|---------|------------|----------------|
+| Worklist/Schedule | ✅ SUPPORTED | Full implementation via therapist dashboard API |
+| KPIs | ✅ SUPPORTED | Derived from session data |
+| Leave Requests | ✅ SUPPORTED | Full CRUD via staff leave API |
+| Documents | ❌ NOT SUPPORTED | Disabled stub with message |
+| Bank Details | ❌ NOT SUPPORTED | Disabled stub with message |
+| Salary/Payslips | ❌ NOT SUPPORTED | Disabled stub with message |
+| Learning | ❌ NOT SUPPORTED | Coming Soon stub |
+
+**Implemented Sections:**
+
+1. **Performance KPI Row** (`TherapistKpiRow.tsx`)
+   - Displays metrics: Total Sessions, Completed, No Shows, Cancelled
+   - Period selector: Today (default)
+   - Metrics derived from worklist data
+
+2. **Worklist/Schedule Section** (`WorklistSection.tsx`)
+   - Period tabs: Today, Next 7 Days, Past 7 Days
+   - Session cards with time, patient name, treatment type, status
+   - Empty state with appropriate messaging
+   - View All navigation to treatment sessions
+
+3. **HR & Self-Service Section** (`HrSection.tsx`)
+   - My Documents: Shows "Not available in this environment" (disabled)
+   - Bank Details: Shows "Not available in this environment" (disabled)
+   - Salary & Payslips: Shows "Not available in this environment" (disabled)
+   - Leave Requests: **ENABLED** - Full functionality
+
+4. **Leave Management Section** (`LeaveSection.tsx`)
+   - Leave history list with status badges
+   - Apply for leave modal with:
+     - Leave type selection (Sick, Casual, Vacation, Personal, Other)
+     - Start/End date inputs
+     - Reason field (optional)
+   - Cancel leave functionality for pending/approved requests
+
+5. **Learning & Growth Section** (`LearningSection.tsx`)
+   - Shows "Coming Soon" badge
+   - Placeholder cards for future features: Training Modules, Certifications, Skill Progress
+
+**Module Architecture:**
+```
+/app/frontend/features/therapistDashboard/
+├── data/
+│   ├── datasources/therapistDashboard.api.ts    # API calls
+│   ├── models/therapistDashboard.dtos.ts        # DTOs & helpers
+│   └── repositories/therapistDashboard.repository.impl.ts  # React Query hooks
+├── domain/
+│   ├── entities/therapistDashboard.entity.ts    # Business logic helpers
+│   └── repositories/therapistDashboard.repository.ts  # Interface
+├── presentation/
+│   ├── components/
+│   │   ├── TherapistKpiRow.tsx
+│   │   ├── WorklistSection.tsx
+│   │   ├── WorklistItemCard.tsx
+│   │   ├── HrSection.tsx
+│   │   ├── LeaveSection.tsx
+│   │   └── LearningSection.tsx
+│   └── pages/TherapistDashboardScreen.tsx
+└── index.ts                                     # Feature exports
+```
+
+**APIs Used:**
+- `GET /api/v1/clinic/{tenant_id}/staff/me/dashboard/therapist` - Dashboard/worklist
+- `GET /api/v1/clinic/{tenant_id}/staff/{staff_id}/leave` - List leave requests
+- `POST /api/v1/clinic/{tenant_id}/staff/{staff_id}/leave` - Create leave request
+- `PATCH /api/v1/clinic/{tenant_id}/leave/{leave_id}/cancel` - Cancel leave
+
+---
+
+## Previous Status: Bug Fixes (Dec 2025) - COMPLETED
+
+### Bug Fixes Session (Dec 2025) - 3 CRITICAL BUGS FIXED ✅
+
+**Bugs Fixed This Session:**
+
+| Bug # | Issue | Status | Fix Summary |
+|-------|-------|--------|-------------|
+| Bug 1 | Reschedule API 422 Error (missing appointment_start) | ✅ FIXED | API now sends both `new_start` and `appointment_start` fields |
+| Bug 2 | Confirmation modal showing i18n keys (appointments.confirmNoShow) | ✅ FIXED | Added missing translation keys to en-US.json |
+| Bug 3 | Complete button missing | ✅ FIXED | Added tick icon with color change on touch + confirmation dialog |
+
+### Implementation Details
+
+**Bug 1 - Reschedule API 422 Fix:**
+- File: `features/appointments/data/datasources/appointments.api.ts`
+- Backend expects `appointment_start` field but frontend was sending `new_start`
+- Fix: API transform ensures both fields are included in payload
+- Also fixed overloaded mutation hook to support both usage patterns
+
+**Bug 2 - i18n Translation Keys:**
+- File: `core/localization/translations/en-US.json`
+- Added missing keys:
+  - `appointments.confirmNoShow`: "Are you sure the patient did not show up?"
+  - `appointments.confirmComplete`: "Mark this appointment as completed?"
+  - `appointments.confirmReschedule`: "Open reschedule options for this appointment?"
+
+**Bug 3 - Complete Tick Icon:**
+- File: `features/appointments/presentation/components/AppointmentListItem.tsx`
+- Added `CompleteTickIcon` component with:
+  - Press state for visual feedback (color changes from success.main to success.dark)
+  - Positioned next to navigation arrow for confirmed/in_progress appointments
+  - Confirmation dialog with proper i18n text
+  - data-testid="action-complete-tick" for testing
+
+---
+
+## Previous Bug Fixes (Feb 2026) - ALL FRONTEND BUGS FIXED ✅
 
 **Bugs Fixed: 8 of 9 (1 backend-only bug excluded)**
 

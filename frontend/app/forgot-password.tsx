@@ -93,7 +93,7 @@ export default function ForgotPasswordScreen() {
             Check Your Email
           </Text>
           <Text style={[styles.successMessage, { color: theme.colors.text.secondary }]}>
-            We've sent password reset instructions to your email address.
+            We&apos;ve sent password reset instructions to your email address.
           </Text>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: theme.colors.primary.default }]}
@@ -139,7 +139,7 @@ export default function ForgotPasswordScreen() {
               Forgot Password?
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
-              Enter your email and we'll send you instructions to reset your password
+              Enter your email and we&apos;ll send you instructions to reset your password
             </Text>
 
             {/* Error Alert */}

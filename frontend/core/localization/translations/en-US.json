@@ -320,6 +320,20 @@
       "invalidType": "Invalid file type. Please select a supported format.",
       "uploadFailed": "File upload failed. Please try again.",
       "downloadFailed": "File download failed. Please try again."
+    },
+
+    "leave": {
+      "loadFailed": "Could not load leave requests. Please try again.",
+      "createFailed": "Could not submit leave request. Please try again.",
+      "cancelFailed": "Could not cancel leave request. Please try again.",
+      "notAvailable": "Leave management is not available in this environment."
+    },
+
+    "therapistDashboard": {
+      "loadFailed": "Could not load therapist dashboard. Please try again.",
+      "worklistLoadFailed": "Could not load your schedule. Please try again.",
+      "kpiLoadFailed": "Could not load performance metrics. Please try again.",
+      "featureNotAvailable": "This feature is not available in this environment."
     }
   },
 
@@ -411,7 +425,10 @@
     "createFailed": "Could not create the appointment. Please try again.",
     "updateFailed": "Could not update the appointment. Please try again.",
     "cancelFailed": "Could not cancel the appointment. Please try again.",
-    "rescheduleFailed": "Could not reschedule the appointment. Please try again."
+    "rescheduleFailed": "Could not reschedule the appointment. Please try again.",
+    "confirmNoShow": "Are you sure the patient did not show up?",
+    "confirmComplete": "Mark this appointment as completed?",
+    "confirmReschedule": "Open reschedule options for this appointment?"
   },
 
   "confirmations": {

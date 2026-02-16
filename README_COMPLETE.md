@@ -130,7 +130,7 @@ A **professional, mobile-first healthcare management platform** with 4 fully fun
 
 ## 🌐 **Live Preview**
 
-**Web URL:** https://treatment-sheet-ui.preview.emergentagent.com
+**Web URL:** https://push-notif-app.preview.emergentagent.com
 
 You can:
 - ✅ View all 4 dashboards
@@ -314,7 +314,7 @@ You now have:
 
 **All code is in:** `/app/frontend/`
 
-**View it live:** https://treatment-sheet-ui.preview.emergentagent.com
+**View it live:** https://push-notif-app.preview.emergentagent.com
 
 ---
 

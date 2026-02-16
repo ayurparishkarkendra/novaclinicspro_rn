@@ -32,6 +32,7 @@ import { useNotificationBadgeCount } from '../../features/notifications/presenta
 import { formatInrCurrency } from '../../core/utils/currency';
 import { t, ErrorTokens } from '../../core/localization';
 import { useStaffListQuery } from '../../features/staff/data/repositories/staff.repository.impl';
+import { ClinicFeedbackSummarySection } from '../../features/feedback';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
@@ -571,6 +572,20 @@ export default function ClinicAdminDashboard() {
             </Pressable>
           </Link>
         </View>
+
+        {/* Patient Feedback Summary */}
+        {tenantId && (
+          <View style={styles.section}>
+            <ClinicFeedbackSummarySection
+              tenantId={tenantId}
+              onStaffPress={(staffId, staffType) => {
+                // @ts-ignore - Route exists but TypeScript types not auto-generated yet
+                router.push(`/clinic-admin/feedback?staffId=${staffId}&staffType=${staffType}`);
+              }}
+              testID="clinic-feedback-summary"
+            />
+          </View>
+        )}
 
         {/* Navigation */}
         <View style={styles.section}>

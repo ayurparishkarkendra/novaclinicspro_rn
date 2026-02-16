@@ -231,6 +231,22 @@ export const ErrorTokens = {
     uploadFailed: 'errors.file.uploadFailed',
     downloadFailed: 'errors.file.downloadFailed',
   },
+
+  // Leave Management
+  leave: {
+    loadFailed: 'errors.leave.loadFailed',
+    createFailed: 'errors.leave.createFailed',
+    cancelFailed: 'errors.leave.cancelFailed',
+    notAvailable: 'errors.leave.notAvailable',
+  },
+
+  // Therapist Dashboard
+  therapistDashboard: {
+    loadFailed: 'errors.therapistDashboard.loadFailed',
+    worklistLoadFailed: 'errors.therapistDashboard.worklistLoadFailed',
+    kpiLoadFailed: 'errors.therapistDashboard.kpiLoadFailed',
+    featureNotAvailable: 'errors.therapistDashboard.featureNotAvailable',
+  },
 } as const;
 
 // Type helper for error token keys
