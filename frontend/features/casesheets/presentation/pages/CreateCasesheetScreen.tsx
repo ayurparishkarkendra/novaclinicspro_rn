@@ -33,30 +33,26 @@ export const CreateCasesheetScreen: React.FC = () => {
 
   const handleSubmit = useCallback(async (data: CasesheetFormData) => {
     try {
-      await createMutation.mutateAsync({
+      const result = await createMutation.mutateAsync({
         clinic_type: 'ayurveda', // Default clinic type, can be made configurable
         data_json: data,
         appointment_id: appointmentId,
       });
-      Alert.alert(
-        'Success',
-        'Casesheet created successfully.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      
+      // Navigate immediately after successful creation
+      // Go to the casesheets list for this client
+      router.replace({
+        pathname: '/clinic-admin/clients/[clientId]/casesheets',
+        params: { clientId },
+      });
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create casesheet.');
     }
-  }, [createMutation, appointmentId, router]);
+  }, [createMutation, clientId, appointmentId, router]);
 
   const handleCancel = useCallback(() => {
-    Alert.alert(
-      'Discard Casesheet',
-      'Are you sure you want to discard this casesheet?',
-      [
-        { text: 'Keep Editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-      ]
-    );
+    // Navigate back immediately without confirmation for better UX
+    router.back();
   }, [router]);
 
   const renderHeader = () => (
