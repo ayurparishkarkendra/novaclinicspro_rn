@@ -81,33 +81,44 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 };
 
 // ============================================
-// QUICK ACTION BUTTON COMPONENT (A2 - Inline)
+// QUICK ACTION ICON BUTTON COMPONENT (BUG FIX #3 - Icon-based with tooltip)
 // ============================================
 
-interface QuickActionButtonProps {
+interface QuickActionIconButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   color: string;
+  backgroundColor?: string;
   onPress: () => void;
   testId: string;
 }
 
-const QuickActionButton: React.FC<QuickActionButtonProps> = ({
+const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
   icon,
   label,
   color,
+  backgroundColor,
   onPress,
   testId,
 }) => (
   <TouchableOpacity
-    style={[styles.quickActionBtn, { borderColor: color + '40' }]}
+    style={[
+      styles.quickActionIconBtn,
+      { 
+        backgroundColor: backgroundColor || color + '12',
+        borderColor: color + '30',
+      }
+    ]}
     onPress={onPress}
     accessibilityLabel={label}
+    accessibilityHint={`Tap to ${label.toLowerCase()}`}
     accessibilityRole="button"
     data-testid={testId}
   >
-    <Ionicons name={icon} size={16} color={color} />
-    <Text style={[styles.quickActionText, { color, marginLeft: 4 }]}>{label}</Text>
+    <Ionicons name={icon} size={20} color={color} />
+    <Text style={[styles.quickActionTooltip, { color }]} numberOfLines={1}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
