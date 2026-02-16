@@ -266,7 +266,9 @@ export const AppointmentsListScreen: React.FC = () => {
 
   // BUG FIX #1: Handler for reschedule - opens modal with date/time picker
   const handleReschedule = useCallback((appointmentId: string) => {
-    const appointment = appointments.find(a => a.id === appointmentId);
+    // Get appointments from either search data or regular data
+    const currentAppointments = (debouncedQuery.length >= 3 ? searchData : appointmentsData)?.appointments || [];
+    const appointment = currentAppointments.find(a => a.id === appointmentId);
     if (appointment) {
       setSelectedAppointmentForReschedule(appointment);
       // Initialize with current appointment time
@@ -275,7 +277,7 @@ export const AppointmentsListScreen: React.FC = () => {
       setRescheduleTime(appointmentDate);
       setRescheduleModalVisible(true);
     }
-  }, [appointments]);
+  }, [appointmentsData, searchData, debouncedQuery]);
 
   // BUG FIX #1: Handle date picker change
   const handleDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
