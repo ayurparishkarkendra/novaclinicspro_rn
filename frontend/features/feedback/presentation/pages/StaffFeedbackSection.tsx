@@ -114,7 +114,7 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
   }
 
   // No feedback state
-  if (satisfaction?.total_responses === 0) {
+  if (!satisfaction || satisfaction.total_responses === 0) {
     return (
       <View style={styles.container} testID={testID}>
         <View style={styles.header}>
@@ -133,6 +133,9 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
       </View>
     );
   }
+
+  // At this point satisfaction is guaranteed to be defined
+  const satisfactionData = satisfaction;
 
   return (
     <View style={styles.container} testID={testID}>
