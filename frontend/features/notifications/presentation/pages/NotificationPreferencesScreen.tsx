@@ -188,16 +188,11 @@ export const NotificationPreferencesScreen: React.FC = () => {
     );
   };
 
-  if (!isInitialized) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Loading preferences...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Show settings even in web environment where push notifications might not work
+  // Use default preferences if not yet loaded
+  const displayPrefs = localPrefs.newAppointment !== undefined ? localPrefs : {
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
