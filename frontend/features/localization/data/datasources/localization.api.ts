@@ -5,7 +5,7 @@
  * All functions throw a LocalizationApiNotAvailableError.
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   SupportedLocalesResponse,
   UserLocaleResponse,

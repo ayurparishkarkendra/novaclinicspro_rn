@@ -5,7 +5,7 @@
  * All functions throw a TenantBrandingApiNotAvailableError.
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   TenantBrandingResponse,
   UpdateTenantBrandingRequest,

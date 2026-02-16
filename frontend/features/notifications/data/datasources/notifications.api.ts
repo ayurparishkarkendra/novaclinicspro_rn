@@ -6,7 +6,7 @@
  * Once the API is implemented, these functions should be updated to make actual HTTP calls.
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   NotificationDto,
   NotificationListResponse,
