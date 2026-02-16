@@ -103,8 +103,40 @@ export { NotificationPreferencesScreen } from './presentation/pages/Notification
 // BACKEND API INTEGRATION
 // ============================================
 
-// Push Notifications Backend API
-export * from './data/datasources/push-notifications.api';
+// Push Notifications Backend API (renamed to avoid conflicts)
+export {
+  registerDeviceApi,
+  unregisterDeviceApi,
+  getPreferencesApi,
+  updatePreferencesApi,
+  resetPreferencesApi,
+  getNotificationHistoryApi,
+  markNotificationReadApi as markPushNotificationReadApi,
+  markAllNotificationsReadApi as markAllPushNotificationsReadApi,
+  deleteNotificationApi,
+  sendTestNotificationApi,
+  type RegisterDeviceRequest as PushRegisterDeviceRequest,
+  type RegisterDeviceResponse as PushRegisterDeviceResponse,
+  type NotificationPreferencesDto,
+  type UpdatePreferencesRequest,
+  type NotificationHistoryItem,
+  type NotificationHistoryResponse,
+  type NotificationHistoryParams,
+  type MarkAllReadResponse as PushMarkAllReadResponse,
+  type TestNotificationRequest,
+} from './data/datasources/push-notifications.api';
 
-// Push Notifications Repository (React Query hooks)
-export * from './data/repositories/push-notifications.repository.impl';
+// Push Notifications Repository (React Query hooks - renamed to avoid conflicts)
+export {
+  pushNotificationKeys,
+  useNotificationPreferences,
+  useUpdatePreferencesMutation,
+  useResetPreferencesMutation,
+  useRegisterDeviceMutation,
+  useUnregisterDeviceMutation,
+  useNotificationHistory,
+  useMarkNotificationReadMutation as usePushMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation as usePushMarkAllNotificationsReadMutation,
+  useDeleteNotificationMutation,
+  useSendTestNotificationMutation,
+} from './data/repositories/push-notifications.repository.impl';
