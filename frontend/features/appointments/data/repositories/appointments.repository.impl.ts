@@ -245,14 +245,16 @@ export const useDeleteAppointmentMutation = (tenantId: string) => {
 export const useCancelAppointmentMutation = (tenantId: string) => {
   const queryClient = useQueryClient();
 
-  return useMutation<AppointmentResponse, Error, string>({
+  type QueryData = [readonly unknown[], unknown];
+  
+  return useMutation<AppointmentResponse, Error, string, { previousQueries: QueryData[] }>({
     mutationFn: (appointmentId) => cancelAppointmentApi(tenantId, appointmentId),
     onMutate: async (appointmentId) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: appointmentsKeys.lists() });
       
       // Snapshot the previous value
-      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() });
+      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() }) as QueryData[];
       
       // Optimistically update to 'cancelled' status
       queryClient.setQueriesData(
