@@ -117,15 +117,23 @@ export const cancelAppointmentApi = async (
 /**
  * Reschedule an appointment
  * POST /api/v1/clinic/{tenant_id}/appointments/{appointment_id}/reschedule
+ * 
+ * NOTE: Backend expects `appointment_start` field (not `new_start`)
  */
 export const rescheduleAppointmentApi = async (
   tenantId: string,
   appointmentId: string,
   payload: AppointmentReschedule
 ): Promise<AppointmentRescheduleResponse> => {
+  // Ensure payload has appointment_start field (backend requirement)
+  const apiPayload = {
+    ...payload,
+    appointment_start: payload.new_start || payload.appointment_start,
+  };
+  
   const response = await axiosClient.post(
     `/api/v1/clinic/${tenantId}/appointments/${appointmentId}/reschedule`,
-    payload
+    apiPayload
   );
   return response.data;
 };

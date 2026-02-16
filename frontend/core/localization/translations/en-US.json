@@ -411,7 +411,10 @@
     "createFailed": "Could not create the appointment. Please try again.",
     "updateFailed": "Could not update the appointment. Please try again.",
     "cancelFailed": "Could not cancel the appointment. Please try again.",
-    "rescheduleFailed": "Could not reschedule the appointment. Please try again."
+    "rescheduleFailed": "Could not reschedule the appointment. Please try again.",
+    "confirmNoShow": "Are you sure the patient did not show up?",
+    "confirmComplete": "Mark this appointment as completed?",
+    "confirmReschedule": "Open reschedule options for this appointment?"
   },
 
   "confirmations": {
