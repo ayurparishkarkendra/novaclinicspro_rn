@@ -185,13 +185,21 @@ const styles = StyleSheet.create({
     flex: 1.5,
     marginRight: spacing.sm,
   },
+  ratingCellView: {
+    flex: 1.5,
+    marginRight: spacing.sm,
+  },
   responsesCell: {
     flex: 1,
     textAlign: 'center',
   },
   trendCell: {
     width: 32,
-    alignItems: 'center',
+    alignItems: 'center' as const,
+  },
+  trendCellView: {
+    width: 32,
+    alignItems: 'center' as const,
   },
 });
 
