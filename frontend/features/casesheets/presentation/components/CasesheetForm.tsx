@@ -322,6 +322,104 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
     );
   };
 
+  const renderExtension = (extension: NonNullable<CasesheetFormData['extensions']>[0], index: number) => {
+    const template = EXTENSION_TEMPLATES.find(t => t.id === extension.template_id);
+    if (!template) return null;
+
+    const sectionId = `ext-${extension.template_id}-${index}`;
+    const isExpanded = expandedSections.has(sectionId);
+
+    return (
+      <View key={sectionId} style={[styles.section, styles.extensionSection]}>
+        <TouchableOpacity
+          style={[styles.sectionHeader, styles.extensionHeader]}
+          onPress={() => toggleSection(sectionId)}
+          accessibilityRole="button"
+          accessibilityLabel={`${template.name} extension, ${isExpanded ? 'expanded' : 'collapsed'}`}
+        >
+          <View style={styles.sectionTitleContainer}>
+            <Ionicons name={template.icon} size={20} color={colors.info.main} />
+            <Text style={[styles.sectionTitle, { color: colors.info.main }]}>{template.name}</Text>
+          </View>
+          <View style={styles.extensionActions}>
+            {isEditable && (
+              <TouchableOpacity
+                onPress={() => handleRemoveExtension(index)}
+                style={styles.removeExtensionButton}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${template.name}`}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.error.main} />
+              </TouchableOpacity>
+            )}
+            <Ionicons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.text.secondary}
+            />
+          </View>
+        </TouchableOpacity>
+        {isExpanded && (
+          <View style={styles.sectionContent}>
+            {template.fields.map((field) => (
+              <View key={field.id} style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>{field.label}</Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    'multiline' in field && field.multiline && styles.textArea,
+                    !isEditable && styles.disabledInput,
+                  ]}
+                  value={extension.data[field.id] || ''}
+                  onChangeText={(text) => handleExtensionFieldChange(index, field.id, text)}
+                  placeholder={field.placeholder}
+                  placeholderTextColor={colors.text.tertiary}
+                  multiline={'multiline' in field && field.multiline}
+                  numberOfLines={'multiline' in field && field.multiline ? 4 : 1}
+                  editable={isEditable}
+                  accessibilityLabel={field.label}
+                  testID={`extension-field-${extension.template_id}-${field.id}`}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderExtensionPicker = () => (
+    <View style={styles.extensionPickerContainer}>
+      <Text style={styles.extensionPickerTitle}>Add Extension</Text>
+      <Text style={styles.extensionPickerSubtitle}>
+        Select a template to add additional clinical data
+      </Text>
+      <View style={styles.extensionTemplateGrid}>
+        {EXTENSION_TEMPLATES.map((template) => (
+          <TouchableOpacity
+            key={template.id}
+            style={styles.extensionTemplateItem}
+            onPress={() => handleAddExtension(template.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${template.name}`}
+          >
+            <View style={styles.extensionTemplateIcon}>
+              <Ionicons name={template.icon} size={24} color={colors.info.main} />
+            </View>
+            <Text style={styles.extensionTemplateName}>{template.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <TouchableOpacity
+        style={styles.extensionPickerCancel}
+        onPress={() => setShowExtensionPicker(false)}
+        accessibilityRole="button"
+      >
+        <Text style={styles.extensionPickerCancelText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
