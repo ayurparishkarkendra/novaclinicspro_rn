@@ -144,10 +144,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   }, [appointment, onPress, router]);
 
   // ===== RBAC CHECK =====
-  // FIX: Always allow actions for clinic_admin users
-  const normalizedRole = userRole?.toLowerCase().replace(/_/g, '-') || 'clinic-admin';
-  const isClinicAdmin = normalizedRole === 'clinic-admin' || userRole?.toLowerCase() === 'clinic_admin';
-  const canModify = isClinicAdmin || ['receptionist'].includes(normalizedRole);
+  // FIX: Make role check more robust for various role formats
+  const normalizedRole = (userRole || '').toLowerCase().replace(/[_\-\s]+/g, '');
+  const isClinicAdmin = normalizedRole.includes('clinicadmin') || normalizedRole.includes('admin');
+  const isReceptionist = normalizedRole.includes('receptionist');
+  const canModify = isClinicAdmin || isReceptionist;
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
   const status = (appointment.status || '').toLowerCase();
@@ -157,7 +158,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
   const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
   
-  // Debug: Log to verify values
+  // Debug: Log to verify values (enable for debugging)
   // console.log('QuickActions Debug:', { userRole, normalizedRole, isClinicAdmin, canModify, status, canReschedule });
 
   // ===== DISPLAY VALUES =====
