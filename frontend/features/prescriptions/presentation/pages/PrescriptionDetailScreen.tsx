@@ -109,12 +109,12 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const handleEdit = useCallback(() => {
     if (clientId) {
       router.push({
-        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit',
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit' as any,
         params: { clientId, prescriptionId },
       });
     } else {
       router.push({
-        pathname: '/clinic-admin/prescriptions/[prescriptionId]/edit',
+        pathname: '/clinic-admin/prescriptions/[prescriptionId]/edit' as any,
         params: { prescriptionId },
       });
     }
