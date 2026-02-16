@@ -8,12 +8,12 @@
  * 
  * QUICK ACTIONS (User Requirement A2):
  * - Reschedule, No-Show, Cancel, Complete (per FRONTEND_QUICK_ACTIONS_GUIDE.md)
- * - Complete appears for confirmed/in_progress status
+ * - Complete: Tick icon that changes color on touch with confirmation
  * 
  * NO IDs displayed in UI. RBAC respected. All text uses i18n.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
