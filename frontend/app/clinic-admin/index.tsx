@@ -579,6 +579,7 @@ export default function ClinicAdminDashboard() {
             <ClinicFeedbackSummarySection
               tenantId={tenantId}
               onStaffPress={(staffId, staffType) => {
+                // @ts-ignore - Route exists but TypeScript types not auto-generated yet
                 router.push(`/clinic-admin/feedback?staffId=${staffId}&staffType=${staffType}`);
               }}
               testID="clinic-feedback-summary"
