@@ -240,14 +240,62 @@ export const useDeleteAppointmentMutation = (tenantId: string) => {
 
 /**
  * Hook to cancel an appointment
+ * BUG FIX #8: Added optimistic updates for faster UI response
  */
 export const useCancelAppointmentMutation = (tenantId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation<AppointmentResponse, Error, string>({
     mutationFn: (appointmentId) => cancelAppointmentApi(tenantId, appointmentId),
+    onMutate: async (appointmentId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: appointmentsKeys.lists() });
+      
+      // Snapshot the previous value
+      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() });
+      
+      // Optimistically update to 'cancelled' status
+      queryClient.setQueriesData(
+        { queryKey: appointmentsKeys.lists() },
+        (old: any) => {
+          if (!old) return old;
+          
+          if (old.appointments) {
+            return {
+              ...old,
+              appointments: old.appointments.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: 'cancelled' } : apt
+              ),
+            };
+          }
+          
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: 'cancelled' } : apt
+              ),
+            };
+          }
+          
+          return old;
+        }
+      );
+      
+      return { previousQueries };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(appointmentsKeys.detail(tenantId, data.id), data);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
@@ -255,14 +303,16 @@ export const useCancelAppointmentMutation = (tenantId: string) => {
 
 /**
  * Hook to reschedule an appointment
+ * BUG FIX #1: Updated to accept appointmentId and newStart in the mutation call
  */
-export const useRescheduleAppointmentMutation = (tenantId: string, appointmentId: string) => {
+export const useRescheduleAppointmentMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<AppointmentRescheduleResponse, Error, AppointmentReschedule>({
-    mutationFn: (payload) => rescheduleAppointmentApi(tenantId, appointmentId, payload),
+  return useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>({
+    mutationFn: ({ tenantId, appointmentId, newStart }) => {
+      return rescheduleAppointmentApi(tenantId, appointmentId, { new_start: newStart });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: appointmentsKeys.detail(tenantId, appointmentId) });
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
@@ -302,6 +352,7 @@ export const useBulkCreateAppointmentsMutation = () => {
 
 /**
  * Hook to update appointment status (with series shift support)
+ * BUG FIX #8: Added optimistic updates for faster UI response
  */
 export const useUpdateAppointmentStatusMutation = () => {
   const queryClient = useQueryClient();
@@ -309,7 +360,55 @@ export const useUpdateAppointmentStatusMutation = () => {
   return useMutation({
     mutationFn: ({ appointmentId, status, notes }: { appointmentId: string; status: string; notes?: string }) =>
       updateAppointmentStatusApi(appointmentId, { status, notes }),
-    onSuccess: () => {
+    onMutate: async ({ appointmentId, status }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: appointmentsKeys.lists() });
+      
+      // Snapshot the previous value for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() });
+      
+      // Optimistically update the cache
+      queryClient.setQueriesData(
+        { queryKey: appointmentsKeys.lists() },
+        (old: any) => {
+          if (!old) return old;
+          
+          // Update appointments array if it exists
+          if (old.appointments) {
+            return {
+              ...old,
+              appointments: old.appointments.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: status.toLowerCase() } : apt
+              ),
+            };
+          }
+          
+          // Update items array if paginated
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: status.toLowerCase() } : apt
+              ),
+            };
+          }
+          
+          return old;
+        }
+      );
+      
+      return { previousQueries };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });

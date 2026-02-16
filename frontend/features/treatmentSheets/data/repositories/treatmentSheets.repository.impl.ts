@@ -43,14 +43,16 @@ export const treatmentSheetsKeys = {
 
 /**
  * Hook to get a treatment sheet by ID
+ * BUG FIX #9: Now accepts tenantId to pass as query parameter
  */
 export const useTreatmentSheetDetailQuery = (
   treatmentSheetId: string,
+  tenantId?: string,
   options?: Omit<UseQueryOptions<TreatmentSheetResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
   return useQuery<TreatmentSheetResponse, Error>({
     queryKey: treatmentSheetsKeys.detail(treatmentSheetId),
-    queryFn: () => getTreatmentSheetApi(treatmentSheetId),
+    queryFn: () => getTreatmentSheetApi(treatmentSheetId, tenantId),
     enabled: !!treatmentSheetId,
     staleTime: 30 * 1000, // 30 seconds
     ...options,

@@ -6,6 +6,7 @@
  * 1. Date-scoped loading - always filter by selected date
  * 2. Date slider layout - fixed height and no jumping
  * 3. Search query param - uses 'q' instead of 'query'
+ * 4. BUG FIX #1: Reschedule modal with date/time picker directly on list page
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -20,7 +21,10 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -47,6 +51,8 @@ import {
   isToday,
   generateDateRange,
   toISODateString,
+  formatDate,
+  calculateDuration,
 } from '../../data/models/appointments.dtos';
 import { AppointmentListItem } from '../components/AppointmentListItem';
 
@@ -201,6 +207,15 @@ export const AppointmentsListScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
 
+  // BUG FIX #1: Reschedule Modal State
+  const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
+  const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<AppointmentWithDetails | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date());
+  const [rescheduleTime, setRescheduleTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+
   // Date string for queries - ALWAYS use selected date
   const selectedDateStr = toISODateString(selectedDate);
 
@@ -227,6 +242,7 @@ export const AppointmentsListScreen: React.FC = () => {
   // Mutations for quick actions
   const updateStatusMutation = useUpdateAppointmentStatusMutation();
   const cancelMutation = useCancelAppointmentMutation(tenantId);
+  const rescheduleMutation = useRescheduleAppointmentMutation();
 
   // Handler for status updates (Confirm, Start, Complete, No-Show)
   const handleStatusUpdate = useCallback(async (appointmentId: string, newStatus: string) => {
@@ -238,33 +254,82 @@ export const AppointmentsListScreen: React.FC = () => {
     }
   }, [updateStatusMutation, refetch]);
 
-  // Handler for cancellation
+  // Handler for cancellation - confirmation is now in AppointmentListItem
   const handleCancel = useCallback(async (appointmentId: string) => {
-    Alert.alert(
-      'Cancel Appointment',
-      'Are you sure you want to cancel this appointment?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelMutation.mutateAsync(appointmentId);
-              refetch();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to cancel appointment');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await cancelMutation.mutateAsync(appointmentId);
+      refetch();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to cancel appointment');
+    }
   }, [cancelMutation, refetch]);
 
-  // Handler for reschedule - navigates to detail page where reschedule flow exists
+  // BUG FIX #1: Handler for reschedule - opens modal with date/time picker
   const handleReschedule = useCallback((appointmentId: string) => {
-    router.push(`/clinic-admin/appointments/${appointmentId}` as any);
-  }, [router]);
+    // Get appointments from either search data or regular data
+    const currentAppointments = (debouncedQuery.length >= 3 ? searchData : appointmentsData)?.appointments || [];
+    const appointment = currentAppointments.find(a => a.id === appointmentId);
+    if (appointment) {
+      setSelectedAppointmentForReschedule(appointment);
+      // Initialize with current appointment time
+      const appointmentDate = new Date(appointment.appointment_start);
+      setRescheduleDate(appointmentDate);
+      setRescheduleTime(appointmentDate);
+      setRescheduleModalVisible(true);
+    }
+  }, [appointmentsData, searchData, debouncedQuery]);
+
+  // BUG FIX #1: Handle date picker change
+  const handleDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setRescheduleDate(date);
+    }
+  }, []);
+
+  // BUG FIX #1: Handle time picker change
+  const handleTimeChange = useCallback((event: DateTimePickerEvent, time?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (time) {
+      setRescheduleTime(time);
+    }
+  }, []);
+
+  // BUG FIX #1: Submit reschedule request
+  const handleRescheduleSubmit = useCallback(async () => {
+    if (!selectedAppointmentForReschedule) return;
+
+    // Combine date and time
+    const newDateTime = new Date(rescheduleDate);
+    newDateTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes(), 0, 0);
+
+    // Validate: new time must be in the future
+    if (newDateTime <= new Date()) {
+      Alert.alert('Invalid Time', 'Please select a future date and time.');
+      return;
+    }
+
+    setIsRescheduling(true);
+    try {
+      await rescheduleMutation.mutateAsync({
+        tenantId,
+        appointmentId: selectedAppointmentForReschedule.id,
+        newStart: newDateTime.toISOString(),
+      });
+      setRescheduleModalVisible(false);
+      setSelectedAppointmentForReschedule(null);
+      refetch();
+      Alert.alert('Success', 'Appointment has been rescheduled.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to reschedule appointment');
+    } finally {
+      setIsRescheduling(false);
+    }
+  }, [selectedAppointmentForReschedule, rescheduleDate, rescheduleTime, rescheduleMutation, refetch, tenantId]);
 
   // Use search results if searching, otherwise use date-based data
   const isSearchMode = debouncedQuery.length >= 3;
@@ -420,6 +485,123 @@ export const AppointmentsListScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
+
+      {/* BUG FIX #1: Reschedule Modal with Date/Time Picker */}
+      <Modal
+        visible={rescheduleModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setRescheduleModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.rescheduleModalContent}>
+            {/* Modal Header */}
+            <View style={styles.rescheduleModalHeader}>
+              <Text style={styles.rescheduleModalTitle}>Reschedule Appointment</Text>
+              <TouchableOpacity
+                onPress={() => setRescheduleModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Appointment Info */}
+            {selectedAppointmentForReschedule && (
+              <View style={styles.rescheduleCurrentInfo}>
+                <Text style={styles.rescheduleCurrentLabel}>Current Appointment</Text>
+                <Text style={styles.rescheduleCurrentValue}>
+                  {selectedAppointmentForReschedule.client_name}
+                </Text>
+                <Text style={styles.rescheduleCurrentTime}>
+                  {formatShortDate(selectedAppointmentForReschedule.appointment_start)} at{' '}
+                  {formatTime(selectedAppointmentForReschedule.appointment_start)}
+                </Text>
+              </View>
+            )}
+
+            {/* New Date Selection */}
+            <View style={styles.rescheduleSection}>
+              <Text style={styles.rescheduleSectionTitle}>New Date</Text>
+              <TouchableOpacity
+                style={styles.reschedulePickerButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary.main} />
+                <Text style={styles.reschedulePickerText}>
+                  {formatShortDate(rescheduleDate.toISOString())}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* New Time Selection */}
+            <View style={styles.rescheduleSection}>
+              <Text style={styles.rescheduleSectionTitle}>New Time</Text>
+              <TouchableOpacity
+                style={styles.reschedulePickerButton}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Ionicons name="time-outline" size={20} color={colors.primary.main} />
+                <Text style={styles.reschedulePickerText}>
+                  {rescheduleTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Date/Time Pickers */}
+            {(showDatePicker || Platform.OS === 'ios') && (
+              <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={rescheduleDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={new Date()}
+                    onChange={handleDateChange}
+                  />
+                )}
+              </View>
+            )}
+
+            {(showTimePicker || Platform.OS === 'ios') && (
+              <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={rescheduleTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleTimeChange}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.rescheduleModalActions}>
+              <TouchableOpacity
+                style={styles.rescheduleCancelButton}
+                onPress={() => setRescheduleModalVisible(false)}
+                disabled={isRescheduling}
+              >
+                <Text style={styles.rescheduleCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.rescheduleConfirmButton, isRescheduling && styles.rescheduleButtonDisabled]}
+                onPress={handleRescheduleSubmit}
+                disabled={isRescheduling}
+              >
+                {isRescheduling ? (
+                  <ActivityIndicator size="small" color={colors.background.default} />
+                ) : (
+                  <Text style={styles.rescheduleConfirmButtonText}>Confirm Reschedule</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -759,6 +941,112 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...typography.button,
     color: colors.background.default,
+  },
+
+  // BUG FIX #1: Reschedule Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  rescheduleModalContent: {
+    backgroundColor: colors.background.default,
+    borderTopLeftRadius: spacing.lg,
+    borderTopRightRadius: spacing.lg,
+    padding: spacing.lg,
+    maxHeight: '80%',
+  },
+  rescheduleModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  rescheduleModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  rescheduleCurrentInfo: {
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  rescheduleCurrentLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  rescheduleCurrentValue: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  rescheduleCurrentTime: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.xs / 2,
+  },
+  rescheduleSection: {
+    marginBottom: spacing.md,
+  },
+  rescheduleSectionTitle: {
+    ...typography.body2,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  reschedulePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    gap: spacing.sm,
+  },
+  reschedulePickerText: {
+    flex: 1,
+    ...typography.body1,
+    color: colors.text.primary,
+  },
+  iosPickerContainer: {
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  rescheduleModalActions: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  rescheduleCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+  },
+  rescheduleCancelButtonText: {
+    ...typography.button,
+    color: colors.text.secondary,
+  },
+  rescheduleConfirmButton: {
+    flex: 2,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    backgroundColor: colors.primary.main,
+  },
+  rescheduleConfirmButtonText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
+  rescheduleButtonDisabled: {
+    opacity: 0.6,
   },
 });
 

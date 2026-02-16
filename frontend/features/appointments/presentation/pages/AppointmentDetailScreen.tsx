@@ -140,6 +140,10 @@ interface VisitHistoryCardProps {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
+/**
+ * BUG FIX #4: Visit History Card - Removed navigation and toggle behavior
+ * Previous visits should be view-only, showing historical data without interaction
+ */
 const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPress, t }) => {
   const router = useRouter();
   const statusColor = getStatusColor(appointment.status);
@@ -182,10 +186,10 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
     }
   }, [hasPrescription, appointment, router]);
   
+  // BUG FIX #4: Removed TouchableOpacity and navigation - previous visits are view-only
   return (
-    <TouchableOpacity 
-      style={styles.visitCard} 
-      onPress={onPress}
+    <View 
+      style={styles.visitCard}
       data-testid={`visit-card-${appointment.id}`}
     >
       {/* Header: Date + Status */}
@@ -275,11 +279,8 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
         </Text>
       </View>
 
-      {/* Navigation Arrow */}
-      <View style={styles.visitCardArrow}>
-        <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
-      </View>
-    </TouchableOpacity>
+      {/* BUG FIX #4: Navigation Arrow REMOVED - previous visits should not navigate */}
+    </View>
   );
 };
 

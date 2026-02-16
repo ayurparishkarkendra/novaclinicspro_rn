@@ -424,27 +424,40 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   </TouchableOpacity>
                 );
               })}
-
-              {/* #7: CUSTOM TIME ROW */}
-              <TouchableOpacity
-                style={styles.customTimeRow}
-                onPress={() => onOpenCustomTimePicker?.(session.session_number)}
-                data-testid={`custom-time-${session.session_number}`}
-              >
-                <Ionicons name="time-outline" size={18} color={colors.primary.main} />
-                <Text style={styles.customTimeText}>
-                  {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
-              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.noAlternatives}>
               <Text style={styles.noAlternativesText}>
-                {t('appointments.noAlternativesAvailable') || 'No alternatives available for this slot'}
+                {t('appointments.noAlternativeSlotsAvailable') || 'No alternative slots available.'}
               </Text>
             </View>
           )}
+
+          {/* BUG FIX #6 & #7: Custom Time Picker - ALWAYS shown regardless of alternative slots */}
+          <View style={styles.customTimeSection}>
+            <TouchableOpacity
+              style={[
+                styles.customTimeRow,
+                effectiveTime.is_resolved && styles.customTimeRowSelected,
+              ]}
+              onPress={() => onOpenCustomTimePicker?.(session.session_number)}
+              data-testid={`custom-time-${session.session_number}`}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.primary.main} />
+              <View style={styles.customTimeContent}>
+                <Text style={styles.customTimeText}>
+                  {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
+                </Text>
+                {/* BUG FIX #7: Show the selected custom time if one was chosen */}
+                {effectiveTime.is_resolved && alternativeSlots.length === 0 && (
+                  <Text style={styles.customTimeSelectedText}>
+                    {t('appointments.selectedTime') || 'Selected'}: {safeFormatTime(effectiveTime.start)}
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>
@@ -1861,23 +1874,38 @@ const styles = StyleSheet.create({
     color: colors.background.default,
   },
 
-  // #7: Custom Time Row
+  // #7: Custom Time Section - BUG FIX #6 & #7
+  customTimeSection: {
+    marginTop: spacing.md,
+  },
   customTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary.main + '08',
     padding: spacing.md,
     borderRadius: spacing.sm,
-    marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.primary.main + '30',
     borderStyle: 'dashed',
   },
-  customTimeText: {
+  customTimeRowSelected: {
+    backgroundColor: colors.primary.main + '15',
+    borderColor: colors.primary.main,
+    borderStyle: 'solid',
+  },
+  customTimeContent: {
     flex: 1,
+    marginLeft: spacing.sm,
+  },
+  customTimeText: {
     ...typography.body2,
     color: colors.primary.main,
-    marginLeft: spacing.sm,
+  },
+  customTimeSelectedText: {
+    ...typography.caption,
+    color: colors.success.main,
+    fontWeight: '600',
+    marginTop: spacing.xs / 2,
   },
 
   // #7: Custom Time Picker Modal

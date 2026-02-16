@@ -50,13 +50,21 @@ export const createSimpleTreatmentSheetApi = async (
 
 /**
  * Get a treatment sheet by ID
- * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}
+ * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}?tenant_id={tenant_id}
+ * 
+ * BUG FIX #9: Backend requires tenant_id as a query parameter
  */
 export const getTreatmentSheetApi = async (
-  treatmentSheetId: string
+  treatmentSheetId: string,
+  tenantId?: string
 ): Promise<TreatmentSheetResponse> => {
+  const params: Record<string, string> = {};
+  if (tenantId) {
+    params.tenant_id = tenantId;
+  }
   const response = await axiosClient.get(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`
+    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`,
+    { params }
   );
   return response.data;
 };

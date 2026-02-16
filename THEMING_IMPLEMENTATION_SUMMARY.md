@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://appt-quick-actions.preview.emergentagent.com/theme-demo
+https://treatment-sheet-ui.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**

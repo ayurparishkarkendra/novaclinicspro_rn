@@ -19,6 +19,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -80,33 +81,44 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 };
 
 // ============================================
-// QUICK ACTION BUTTON COMPONENT (A2 - Inline)
+// QUICK ACTION ICON BUTTON COMPONENT (BUG FIX #3 - Icon-based with tooltip)
 // ============================================
 
-interface QuickActionButtonProps {
+interface QuickActionIconButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   color: string;
+  backgroundColor?: string;
   onPress: () => void;
   testId: string;
 }
 
-const QuickActionButton: React.FC<QuickActionButtonProps> = ({
+const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
   icon,
   label,
   color,
+  backgroundColor,
   onPress,
   testId,
 }) => (
   <TouchableOpacity
-    style={[styles.quickActionBtn, { borderColor: color + '40' }]}
+    style={[
+      styles.quickActionIconBtn,
+      { 
+        backgroundColor: backgroundColor || color + '12',
+        borderColor: color + '30',
+      }
+    ]}
     onPress={onPress}
     accessibilityLabel={label}
+    accessibilityHint={`Tap to ${label.toLowerCase()}`}
     accessibilityRole="button"
     data-testid={testId}
   >
-    <Ionicons name={icon} size={16} color={color} />
-    <Text style={[styles.quickActionText, { color, marginLeft: 4 }]}>{label}</Text>
+    <Ionicons name={icon} size={20} color={color} />
+    <Text style={[styles.quickActionTooltip, { color }]} numberOfLines={1}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -245,46 +257,90 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* A2: Quick Actions Row - Always visible for scheduled/confirmed appointments */}
+      {/* A2: Quick Actions Row - Icon buttons spread horizontally */}
+      {/* BUG FIX #3: All quick actions have confirmation dialogs, icon-based with tooltips */}
       {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && (
-            <QuickActionButton
+            <QuickActionIconButton
               icon="calendar-outline"
               label={t('appointments.reschedule') || 'Reschedule'}
               color={colors.primary.main}
-              onPress={() => onReschedule ? onReschedule(appointment.id) : handlePress()}
+              onPress={() => {
+                if (onReschedule) {
+                  Alert.alert(
+                    t('appointments.reschedule') || 'Reschedule',
+                    t('appointments.confirmReschedule') || 'Open reschedule options for this appointment?',
+                    [
+                      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                      { text: t('common.yes') || 'Yes', onPress: () => onReschedule(appointment.id) },
+                    ]
+                  );
+                } else {
+                  handlePress();
+                }
+              }}
               testId="action-reschedule"
             />
           )}
+          
           {/* No-Show - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
-            <QuickActionButton
-              icon="alert-circle"
+            <QuickActionIconButton
+              icon="person-remove-outline"
               label={t('appointments.noShow') || 'No-Show'}
               color={colors.warning.main}
-              onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsNoShow') || 'Mark as No-Show',
+                  t('appointments.confirmNoShow') || 'Are you sure the patient did not show up?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
+                  ]
+                );
+              }}
               testId="action-noshow"
             />
           )}
+          
           {/* Cancel - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && onCancel && (
-            <QuickActionButton
-              icon="close-circle"
+            <QuickActionIconButton
+              icon="close-circle-outline"
               label={t('common.cancel') || 'Cancel'}
               color={colors.error.main}
-              onPress={() => onCancel(appointment.id)}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.cancelAppointment') || 'Cancel Appointment',
+                  t('appointments.confirmCancel') || 'Are you sure you want to cancel this appointment?',
+                  [
+                    { text: t('common.no') || 'No', style: 'cancel' },
+                    { text: t('common.yesCancel') || 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
+                  ]
+                );
+              }}
               testId="action-cancel"
             />
           )}
+          
           {/* Complete - confirmed OR in_progress */}
           {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
-            <QuickActionButton
-              icon="checkmark-done-circle"
+            <QuickActionIconButton
+              icon="checkmark-circle-outline"
               label={t('appointments.complete') || 'Complete'}
               color={colors.success.main}
-              onPress={() => onStatusUpdate(appointment.id, 'completed')}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsCompleted') || 'Mark as Completed',
+                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
+                  ]
+                );
+              }}
               testId="action-complete"
             />
           )}
@@ -423,16 +479,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // A2: Quick Actions Row - visible inline, no expand
+  // A2: Quick Actions Row - Icon buttons spread horizontally
   quickActionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
+    gap: spacing.xs,
   },
+  
+  // BUG FIX #3: Icon-based button with tooltip, spreads to fill space
+  quickActionIconBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 10,
+    borderWidth: 1,
+    minHeight: 56,
+  },
+  quickActionTooltip: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  
+  // Legacy styles (kept for compatibility)
   quickActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
