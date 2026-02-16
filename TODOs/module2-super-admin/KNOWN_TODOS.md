@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://treatment-sheet-ui.preview.emergentagent.com
+**Preview URL:** https://clinic-bugs-fix.preview.emergentagent.com
 
 ---
 
