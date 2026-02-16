@@ -33,6 +33,7 @@ import {
   StatItem,
   QuickAction,
 } from '../features/staffDashboards';
+import { StaffFeedbackSection } from '../features/feedback';
 
 export default function DoctorDashboard() {
   const router = useRouter();
