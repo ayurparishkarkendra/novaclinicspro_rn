@@ -114,9 +114,11 @@ export const NotificationPreferencesScreen: React.FC = () => {
   } = usePushNotifications();
 
   const [isSaving, setIsSaving] = useState(false);
-  const [localPrefs, setLocalPrefs] = useState<Partial<TherapistNotificationPreferences>>({});
+  const [localPrefs, setLocalPrefs] = useState<Partial<TherapistNotificationPreferences>>(
+    DEFAULT_NOTIFICATION_PREFERENCES
+  );
 
-  // Initialize local state from preferences
+  // Initialize local state from preferences when available
   useEffect(() => {
     if (preferences) {
       setLocalPrefs(preferences);
