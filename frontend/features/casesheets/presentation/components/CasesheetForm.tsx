@@ -623,6 +623,106 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
+  // Extension styles
+  extensionsSectionContainer: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  extensionsSectionTitle: {
+    ...typography.h6,
+    color: colors.info.main,
+    marginBottom: spacing.sm,
+  },
+  extensionSection: {
+    borderColor: colors.info.main + '30',
+  },
+  extensionHeader: {
+    backgroundColor: colors.info.main + '08',
+  },
+  extensionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  removeExtensionButton: {
+    padding: spacing.xs,
+  },
+  addExtensionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.info.main + '50',
+    backgroundColor: colors.info.main + '05',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  addExtensionText: {
+    ...typography.body1,
+    color: colors.info.main,
+    fontWeight: '500',
+    flex: 1,
+  },
+  extensionPickerContainer: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.info.main + '30',
+  },
+  extensionPickerTitle: {
+    ...typography.h6,
+    color: colors.info.main,
+    marginBottom: spacing.xs,
+  },
+  extensionPickerSubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+  },
+  extensionTemplateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  extensionTemplateItem: {
+    width: '47%',
+    backgroundColor: colors.common.white,
+    borderRadius: 8,
+    padding: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  extensionTemplateIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.info.main + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  extensionTemplateName: {
+    ...typography.caption,
+    color: colors.text.primary,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  extensionPickerCancel: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  extensionPickerCancelText: {
+    ...typography.button,
+    color: colors.text.secondary,
+  },
 });
 
 export default CasesheetForm;
