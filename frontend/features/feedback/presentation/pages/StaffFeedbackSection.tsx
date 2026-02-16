@@ -163,22 +163,22 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
       <View style={styles.summaryCard}>
         <View style={styles.ratingRow}>
           <View style={styles.ratingLeft}>
-            <Text style={styles.ratingValue}>{satisfaction.average_rating.toFixed(1)}</Text>
-            <StarRatingDisplay rating={satisfaction.average_rating} showNumeric={false} size={16} />
+            <Text style={styles.ratingValue}>{satisfactionData.average_rating.toFixed(1)}</Text>
+            <StarRatingDisplay rating={satisfactionData.average_rating} showNumeric={false} size={16} />
           </View>
           <View style={styles.ratingRight}>
             <View style={styles.statRow}>
-              <Text style={styles.statValue}>{satisfaction.total_responses}</Text>
+              <Text style={styles.statValue}>{satisfactionData.total_responses}</Text>
               <Text style={styles.statLabel}>responses</Text>
             </View>
             <View style={styles.trendRow}>
               <Ionicons
-                name={getTrendIcon(satisfaction.trend) as any}
+                name={getTrendIcon(satisfactionData.trend) as any}
                 size={14}
-                color={getTrendColor(satisfaction.trend)}
+                color={getTrendColor(satisfactionData.trend)}
               />
-              <Text style={[styles.trendText, { color: getTrendColor(satisfaction.trend) }]}>
-                {satisfaction.trend === 'up' ? 'Improving' : satisfaction.trend === 'down' ? 'Declining' : 'Stable'}
+              <Text style={[styles.trendText, { color: getTrendColor(satisfactionData.trend) }]}>
+                {satisfactionData.trend === 'up' ? 'Improving' : satisfactionData.trend === 'down' ? 'Declining' : 'Stable'}
               </Text>
             </View>
           </View>
@@ -187,7 +187,7 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
         {/* Response Rate */}
         <View style={styles.responseRateRow}>
           <Text style={styles.responseRateLabel}>Response Rate</Text>
-          <Text style={styles.responseRateValue}>{formatPercentage(satisfaction.response_rate)}</Text>
+          <Text style={styles.responseRateValue}>{formatPercentage(satisfactionData.response_rate)}</Text>
         </View>
       </View>
 
@@ -198,11 +198,11 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
       </View>
 
       {/* Question Scores (if available) */}
-      {Object.keys(satisfaction.question_scores).length > 0 && (
+      {Object.keys(satisfactionData.question_scores).length > 0 && (
         <View style={styles.scoresContainer}>
           <Text style={styles.scoresTitle}>Detailed Scores</Text>
           <View style={styles.scoresGrid}>
-            {Object.entries(satisfaction.question_scores).map(([key, score]) => (
+            {Object.entries(satisfactionData.question_scores).map(([key, score]) => (
               <View key={key} style={styles.scoreItem}>
                 <Text style={styles.scoreLabel}>
                   {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
