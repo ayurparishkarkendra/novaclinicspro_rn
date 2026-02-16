@@ -302,6 +302,7 @@ export const useBulkCreateAppointmentsMutation = () => {
 
 /**
  * Hook to update appointment status (with series shift support)
+ * BUG FIX #8: Added optimistic updates for faster UI response
  */
 export const useUpdateAppointmentStatusMutation = () => {
   const queryClient = useQueryClient();
@@ -309,7 +310,55 @@ export const useUpdateAppointmentStatusMutation = () => {
   return useMutation({
     mutationFn: ({ appointmentId, status, notes }: { appointmentId: string; status: string; notes?: string }) =>
       updateAppointmentStatusApi(appointmentId, { status, notes }),
-    onSuccess: () => {
+    onMutate: async ({ appointmentId, status }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: appointmentsKeys.lists() });
+      
+      // Snapshot the previous value for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() });
+      
+      // Optimistically update the cache
+      queryClient.setQueriesData(
+        { queryKey: appointmentsKeys.lists() },
+        (old: any) => {
+          if (!old) return old;
+          
+          // Update appointments array if it exists
+          if (old.appointments) {
+            return {
+              ...old,
+              appointments: old.appointments.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: status.toLowerCase() } : apt
+              ),
+            };
+          }
+          
+          // Update items array if paginated
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: status.toLowerCase() } : apt
+              ),
+            };
+          }
+          
+          return old;
+        }
+      );
+      
+      return { previousQueries };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
