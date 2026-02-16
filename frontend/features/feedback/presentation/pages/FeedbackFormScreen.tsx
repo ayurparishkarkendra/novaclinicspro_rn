@@ -58,7 +58,7 @@ const feedbackFormSchema = z.object({
   clinicValueForMoney: z.number().min(1).max(5).optional(),
   clinicComments: z.string().max(500).optional(),
   // Google review opt-in
-  optedForGoogleReview: z.boolean().default(false),
+  optedForGoogleReview: z.boolean(),
 });
 
 type FeedbackFormValues = z.infer<typeof feedbackFormSchema>;
