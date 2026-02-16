@@ -123,6 +123,43 @@ const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
 );
 
 // ============================================
+// COMPLETE TICK ICON COMPONENT (User Requirement - Tick icon with color change)
+// ============================================
+
+interface CompleteTickIconProps {
+  onPress: () => void;
+  disabled?: boolean;
+}
+
+const CompleteTickIcon: React.FC<CompleteTickIconProps> = ({ onPress, disabled }) => {
+  const [isPressed, setIsPressed] = useState(false);
+  
+  return (
+    <TouchableOpacity
+      style={[
+        styles.completeTickButton,
+        isPressed && styles.completeTickButtonPressed,
+        disabled && styles.completeTickButtonDisabled,
+      ]}
+      onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      disabled={disabled}
+      accessibilityLabel="Mark as Complete"
+      accessibilityHint="Tap to mark this appointment as completed"
+      accessibilityRole="button"
+      data-testid="action-complete-tick"
+    >
+      <Ionicons 
+        name="checkmark-circle" 
+        size={28} 
+        color={isPressed ? colors.success.dark : colors.success.main} 
+      />
+    </TouchableOpacity>
+  );
+};
+
+// ============================================
 // MAIN COMPONENT - CLEAN CARD LAYOUT (A1, A2, A3)
 // ============================================
 
