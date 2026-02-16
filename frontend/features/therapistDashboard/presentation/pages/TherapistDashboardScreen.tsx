@@ -55,6 +55,7 @@ import { WorklistSection } from '../components/WorklistSection';
 import { HrSection } from '../components/HrSection';
 import { LeaveSection } from '../components/LeaveSection';
 import { LearningSection } from '../components/LearningSection';
+import { StaffFeedbackSection } from '../../../feedback';
 
 export const TherapistDashboardScreen: React.FC = () => {
   const router = useRouter();
