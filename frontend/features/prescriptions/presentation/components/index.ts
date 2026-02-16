@@ -6,3 +6,5 @@ export { PrescriptionStatusBadge } from './PrescriptionStatusBadge';
 export { PrescriptionListItem } from './PrescriptionListItem';
 export { PrescriptionShareModal } from './PrescriptionShareModal';
 export { EmptyPrescriptionsState } from './EmptyPrescriptionsState';
+export { PrescriptionForm } from './PrescriptionForm';
+export type { PrescriptionFormData, MedicationItemData } from './PrescriptionForm';

@@ -61,12 +61,12 @@ export const PrescriptionsListScreen: React.FC<PrescriptionsListScreenProps> = (
   const handlePrescriptionPress = useCallback((prescription: PrescriptionResponse) => {
     if (clientId) {
       router.push({
-        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]',
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]' as any,
         params: { clientId, prescriptionId: prescription.id },
       });
     } else {
       router.push({
-        pathname: '/clinic-admin/prescriptions/[prescriptionId]',
+        pathname: '/clinic-admin/prescriptions/[prescriptionId]' as any,
         params: { prescriptionId: prescription.id },
       });
     }
@@ -75,11 +75,11 @@ export const PrescriptionsListScreen: React.FC<PrescriptionsListScreenProps> = (
   const handleCreatePress = useCallback(() => {
     if (clientId) {
       router.push({
-        pathname: '/clinic-admin/clients/[clientId]/prescriptions/new',
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions/new' as any,
         params: { clientId },
       });
     } else {
-      router.push('/clinic-admin/prescriptions/new');
+      router.push('/clinic-admin/prescriptions/new' as any);
     }
   }, [router, clientId]);
 

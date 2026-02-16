@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://therapy-plan-ui-fix.preview.emergentagent.com/theme-demo
+https://docmodule-staging.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**

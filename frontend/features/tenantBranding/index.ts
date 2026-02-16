@@ -5,13 +5,28 @@
  * Note: API endpoints are not yet available - UI will show placeholder state.
  */
 
-// Data layer
-export * from './data/models/tenantBranding.dtos';
+// Data layer - explicitly export DTOs
+export {
+  type TenantBrandingDto,
+  type TenantBrandingResponse,
+  type UpdateTenantBrandingRequest,
+  type ColorPalette,
+  toBrandingEntity,
+  DEFAULT_BRANDING,
+  PRESET_PALETTES,
+  hasGoodContrast,
+} from './data/models/tenantBranding.dtos';
 export * from './data/datasources/tenantBranding.api';
 export * from './data/repositories/tenantBranding.repository.impl';
 
-// Domain layer
-export * from './domain/entities/tenant-branding.entity';
+// Domain layer - export entity types
+export {
+  type TenantBrandingColors,
+  type TenantBrandingLogos,
+  type TenantBranding,
+  hasCustomColors,
+  hasCustomLogo,
+} from './domain/entities/tenant-branding.entity';
 export * from './domain/repositories/tenantBranding.repository';
 
 // Presentation layer

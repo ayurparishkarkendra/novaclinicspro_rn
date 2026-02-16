@@ -56,8 +56,9 @@ export const initI18n = async (): Promise<void> => {
     }
 
     // Fall back to device locale
-    const deviceLocale = Localization.locale;
-    if (isValidLocale(deviceLocale)) {
+    const deviceLocales = Localization.getLocales();
+    const deviceLocale = deviceLocales?.[0]?.languageTag;
+    if (deviceLocale && isValidLocale(deviceLocale)) {
       currentLocale = deviceLocale as LocaleCode;
     } else if (deviceLocale) {
       // Try to match language code only (e.g., 'hi' matches 'hi-IN')

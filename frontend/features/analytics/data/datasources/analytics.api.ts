@@ -3,7 +3,7 @@
  * API calls for analytics endpoints
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   PerformanceSummaryResponse,
   RegistrationPerformanceParams,
@@ -48,7 +48,7 @@ const BASE_PATH = '/api/v1/analytics';
 
 // Performance Analytics APIs
 export async function getPerformanceSummaryApi(): Promise<PerformanceSummaryResponse> {
-  const response = await apiClient.get<PerformanceSummaryResponse>(
+  const response = await axiosClient.get<PerformanceSummaryResponse>(
     `${BASE_PATH}/performance/summary`
   );
   return response.data;
@@ -57,7 +57,7 @@ export async function getPerformanceSummaryApi(): Promise<PerformanceSummaryResp
 export async function getRegistrationPerformanceApi(
   params?: RegistrationPerformanceParams
 ): Promise<RegistrationPerformanceResponse> {
-  const response = await apiClient.get<RegistrationPerformanceResponse>(
+  const response = await axiosClient.get<RegistrationPerformanceResponse>(
     `${BASE_PATH}/performance/registration`,
     { params }
   );
@@ -67,7 +67,7 @@ export async function getRegistrationPerformanceApi(
 export async function getBillingPerformanceApi(
   params?: BillingPerformanceParams
 ): Promise<BillingPerformanceResponse> {
-  const response = await apiClient.get<BillingPerformanceResponse>(
+  const response = await axiosClient.get<BillingPerformanceResponse>(
     `${BASE_PATH}/performance/billing`,
     { params }
   );
@@ -77,7 +77,7 @@ export async function getBillingPerformanceApi(
 export async function getOnboardingPerformanceApi(
   params?: OnboardingPerformanceParams
 ): Promise<OnboardingPerformanceResponse> {
-  const response = await apiClient.get<OnboardingPerformanceResponse>(
+  const response = await axiosClient.get<OnboardingPerformanceResponse>(
     `${BASE_PATH}/performance/onboarding`,
     { params }
   );
@@ -87,7 +87,7 @@ export async function getOnboardingPerformanceApi(
 export async function getApiPerformanceApi(
   params?: ApiPerformanceParams
 ): Promise<ApiPerformanceResponse> {
-  const response = await apiClient.get<ApiPerformanceResponse>(
+  const response = await axiosClient.get<ApiPerformanceResponse>(
     `${BASE_PATH}/performance/api`,
     { params }
   );
@@ -97,7 +97,7 @@ export async function getApiPerformanceApi(
 export async function getDatabasePerformanceApi(
   params?: DatabasePerformanceParams
 ): Promise<DatabasePerformanceResponse> {
-  const response = await apiClient.get<DatabasePerformanceResponse>(
+  const response = await axiosClient.get<DatabasePerformanceResponse>(
     `${BASE_PATH}/performance/database`,
     { params }
   );
@@ -107,7 +107,7 @@ export async function getDatabasePerformanceApi(
 export async function getCachePerformanceApi(
   params?: CachePerformanceParams
 ): Promise<CachePerformanceResponse> {
-  const response = await apiClient.get<CachePerformanceResponse>(
+  const response = await axiosClient.get<CachePerformanceResponse>(
     `${BASE_PATH}/performance/cache`,
     { params }
   );
@@ -117,7 +117,7 @@ export async function getCachePerformanceApi(
 export async function getResourcesPerformanceApi(
   params?: ResourcesPerformanceParams
 ): Promise<ResourcesPerformanceResponse> {
-  const response = await apiClient.get<ResourcesPerformanceResponse>(
+  const response = await axiosClient.get<ResourcesPerformanceResponse>(
     `${BASE_PATH}/performance/resources`,
     { params }
   );
@@ -128,7 +128,7 @@ export async function getResourcesPerformanceApi(
 export async function getDashboardOverviewApi(
   params?: DashboardOverviewParams
 ): Promise<DashboardOverviewResponse> {
-  const response = await apiClient.get<DashboardOverviewResponse>(
+  const response = await axiosClient.get<DashboardOverviewResponse>(
     `${BASE_PATH}/business-intelligence/dashboard`,
     { params }
   );
@@ -138,7 +138,7 @@ export async function getDashboardOverviewApi(
 export async function getTenantAnalyticsApi(
   params?: TenantAnalyticsParams
 ): Promise<TenantAnalyticsResponse> {
-  const response = await apiClient.get<TenantAnalyticsResponse>(
+  const response = await axiosClient.get<TenantAnalyticsResponse>(
     `${BASE_PATH}/business-intelligence/tenant`,
     { params }
   );
@@ -148,7 +148,7 @@ export async function getTenantAnalyticsApi(
 export async function getRevenueAnalyticsApi(
   params?: RevenueAnalyticsParams
 ): Promise<RevenueAnalyticsResponse> {
-  const response = await apiClient.get<RevenueAnalyticsResponse>(
+  const response = await axiosClient.get<RevenueAnalyticsResponse>(
     `${BASE_PATH}/business-intelligence/revenue`,
     { params }
   );
@@ -158,7 +158,7 @@ export async function getRevenueAnalyticsApi(
 export async function getUserGrowthApi(
   params?: UserGrowthParams
 ): Promise<UserGrowthResponse> {
-  const response = await apiClient.get<UserGrowthResponse>(
+  const response = await axiosClient.get<UserGrowthResponse>(
     `${BASE_PATH}/business-intelligence/user-growth`,
     { params }
   );
@@ -168,7 +168,7 @@ export async function getUserGrowthApi(
 export async function getSubscriptionAnalyticsApi(
   params?: SubscriptionAnalyticsParams
 ): Promise<SubscriptionAnalyticsResponse> {
-  const response = await apiClient.get<SubscriptionAnalyticsResponse>(
+  const response = await axiosClient.get<SubscriptionAnalyticsResponse>(
     `${BASE_PATH}/business-intelligence/subscriptions`,
     { params }
   );
@@ -178,7 +178,7 @@ export async function getSubscriptionAnalyticsApi(
 export async function getChurnAnalyticsApi(
   params?: ChurnAnalyticsParams
 ): Promise<ChurnAnalyticsResponse> {
-  const response = await apiClient.get<ChurnAnalyticsResponse>(
+  const response = await axiosClient.get<ChurnAnalyticsResponse>(
     `${BASE_PATH}/business-intelligence/churn`,
     { params }
   );
@@ -188,7 +188,7 @@ export async function getChurnAnalyticsApi(
 export async function getConversionFunnelApi(
   params?: ConversionFunnelParams
 ): Promise<ConversionFunnelResponse> {
-  const response = await apiClient.get<ConversionFunnelResponse>(
+  const response = await axiosClient.get<ConversionFunnelResponse>(
     `${BASE_PATH}/business-intelligence/conversion-funnel`,
     { params }
   );
@@ -198,7 +198,7 @@ export async function getConversionFunnelApi(
 export async function getCohortAnalysisApi(
   params?: CohortAnalysisParams
 ): Promise<CohortAnalysisResponse> {
-  const response = await apiClient.get<CohortAnalysisResponse>(
+  const response = await axiosClient.get<CohortAnalysisResponse>(
     `${BASE_PATH}/business-intelligence/cohort-analysis`,
     { params }
   );
@@ -208,7 +208,7 @@ export async function getCohortAnalysisApi(
 export async function exportAnalyticsApi(
   data: ExportAnalyticsRequest
 ): Promise<ExportAnalyticsResponse> {
-  const response = await apiClient.post<ExportAnalyticsResponse>(
+  const response = await axiosClient.post<ExportAnalyticsResponse>(
     `${BASE_PATH}/business-intelligence/export`,
     data
   );
@@ -219,7 +219,7 @@ export async function exportAnalyticsApi(
 export async function trackMetricApi(
   data: TrackMetricRequest
 ): Promise<TrackMetricResponse> {
-  const response = await apiClient.post<TrackMetricResponse>(
+  const response = await axiosClient.post<TrackMetricResponse>(
     `${BASE_PATH}/performance/metrics/track`,
     data
   );
@@ -229,7 +229,7 @@ export async function trackMetricApi(
 export async function getMetricHistoryApi(
   params: MetricHistoryParams
 ): Promise<MetricHistoryResponse> {
-  const response = await apiClient.get<MetricHistoryResponse>(
+  const response = await axiosClient.get<MetricHistoryResponse>(
     `${BASE_PATH}/performance/metrics/history`,
     { params }
   );

@@ -1,171 +1,142 @@
 # AyurParishkar Clinic Management App - PRD
 
 ## Project Overview
-Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, and billing for Ayurvedic clinics.
+Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Current Status: Critical Frontend Fixes (Feb 15, 2025)
+## Latest Status: Clinical Documents Module - Features Complete (Dec 2025)
 
-### User Requirements - Single Pass Critical Fix (MANDATORY)
+### Clinical Documents Module - FULLY IMPLEMENTED ✅
 
-User provided comprehensive fixes required for Appointment List, Details, and Preview screens. ALL items below were addressed in one implementation pass:
+**Test Report:** `/app/test_reports/iteration_6.json`
+**Code Review:** 100% Pass (all 10 features verified)
 
----
+**Implemented Features:**
+1. **Header/Footer Branding** - CasesheetDetailScreen renders clinic branding from `header_snapshot` and `footer_snapshot`
+2. **Create Treatment Sheet from Casesheet** - Modal with duration picker (7, 14, 21, 30, 45, 60 days) + custom input
+3. **Casesheet Extensions UI** - Add/remove/edit extensions with predefined templates:
+   - Vital Signs (BP, pulse, temp, respiratory rate, SpO2, weight)
+   - Prakriti Assessment (Vata, Pitta, Kapha scoring)
+   - Nadi Pariksha (pulse diagnosis)
+   - Custom Notes
 
-## SECTION A - APPOINTMENT LIST PAGE (CARD FIXES) ✅ COMPLETE
-
-### A1. Card Layout Fixes ✅
-- **REMOVED** expand/collapse arrow
-- **KEPT** ONE right arrow for navigation, vertically centered
-- Restored clean card layout
-
-### A2. Quick Actions ✅
-Actions appear ONLY on the appointment card (not duplicated in details):
-- Reschedule (scheduled/confirmed)
-- No-Show (scheduled/confirmed)
-- Cancel (scheduled/confirmed)
-- **Complete** (confirmed/in_progress) - **WAS MISSING, NOW ADDED**
-
-### A3. Visit Recording ✅
-- Complete action triggers `onStatusUpdate(appointmentId, 'completed')`
-- Only way to record a visit
+**Known Issue (Pre-existing):**
+- Expo Router web navigation causes session loss on page reload
+- Root cause: ProtectedRoute checks auth before bootstrap completes
+- Does NOT affect mobile app or functionality, only web-based UI testing
 
 ---
 
-## SECTION B - APPOINTMENT DETAILS PAGE (REDESIGN) ✅ COMPLETE
+## CLINICAL DOCUMENTS IMPLEMENTATION
 
-### B1. Removed Redundant Data ✅
-**DELETED** from Appointment Details screen:
-- Date
-- Time
-- Duration
-- Staff
-(This info already exists on the list card)
+### Module Architecture (Clean Architecture)
 
-### B2. Visit History Section ✅
-Replaced removed section with **Previous Visit Cards** containing:
-- Visit Date & Time
-- Visit Type (Consultation / Treatment)
-- Case Sheet link (active/inactive indicator)
-- Prescription link (active/inactive indicator)
-- Payment details (status & amount)
-- Navigation arrow
-
----
-
-## SECTION C - CONFLICT & ALTERNATIVE FIXES ✅ COMPLETE
-
-### C1. Conflict Message Cleanup ✅
-- **REMOVED** `appointments.originallyRequested:*` completely
-- **REMOVED** duplicate "Unassigned" → replaced with "Staff not available"
-- **REMOVED** long conflict text from expanded sections
-- **ONE** short, single-line message displayed on the card only
-
-### C2. Alternative Selection Resolves Conflict ✅
-When alternative is tapped:
-- Selection persisted in shared state (`effectiveTimes`)
-- `effective_start / effective_end` updated
-- `is_resolved = true` set for that session
-- Card turns green with ✓
-- Conflict UI removed for that session
-
-### C3. Time Correctness ✅
-- Preview shows selected time
-- Created appointment uses `effective_start / effective_end` ONLY
-- **NO FALLBACK** to 9:30 AM or preferred_time_hour
-
----
-
-## SECTION D - "APPLY TO ALL" & CUSTOM TIME ✅ COMPLETE
-
-### D1. Apply-to-All ✅
-- Shows "Apply X:XX PM to all sessions"
-- Tapping applies to all eligible days
-- Uncovered days remain conflicted
-- Coverage displayed as "Works for X/Y sessions"
-
-### D2. Custom Time Row ✅ IMPLEMENTED
-- Added "Choose a different time…" row below alternatives
-- Opens time picker modal on tap
-- Validates using existing `getAvailableSlotsApi` (single-slot API)
-- If valid → updates session's effectiveTime, marks resolved
-- If invalid → shows conflict alert
-
----
-
-## SECTION E - DELETION REQUIREMENTS ✅ COMPLETE
-
-**DELETED:**
-- Any UI rendering `appointments.originallyRequested`
-- Any logic recomputing time from metadata
-- Any duplicate conflict rendering
-- Unused imports (Linking, Alert, openWhatsApp from AppointmentListItem)
-- Unused styles (infoRow, card, etc. where applicable)
-
----
-
-## KEY ARCHITECTURE CHANGES
-
-### Single Source of Truth (SessionState)
-```typescript
-interface EffectiveTime {
-  start: string;
-  end: string;
-  staff_id: string | null;
-  staff_name: string | null;
-  room_id: string | null;
-  room_name: string | null;
-  is_resolved: boolean;
-}
-
-// Central state for all session times
-const [effectiveTimes, setEffectiveTimes] = useState<Map<number, EffectiveTime>>(new Map());
+Each clinical document module follows the prescribed structure:
+```
+features/{module}/
+├── data/
+│   ├── datasources/{module}.api.ts      (API calls)
+│   ├── models/{module}.dtos.ts          (DTOs)
+│   └── repositories/{module}.repository.impl.ts (React Query hooks)
+├── domain/
+│   ├── entities/{entity}.entity.ts      (Domain entities)
+│   ├── repositories/{module}.repository.ts (Interfaces)
+│   └── usecases/                        (Business logic)
+└── presentation/
+    ├── components/                       (UI components)
+    └── pages/                            (Screens)
 ```
 
-### All UI Components Read From:
-- `effective_start / effective_end`
+### 1. Casesheets Module ✅ COMPLETE
 
-### Forbidden Sources:
-- `preferred_time_hour`
-- `start_date`
-- `original appointment_start` after selection
-- alternative index
-- UI-derived guesses
+**Domain Layer:**
+- `casesheet.entity.ts` - Entity with status helpers (`canEditCasesheet`, `getAllowedCasesheetTransitions`)
+- `casesheets.repository.ts` - Repository interface
+- Use cases: list, get, create, update, transition-status, print, archive
+
+**Presentation Layer:**
+- `CasesheetsListScreen.tsx` - List with filters
+- `CasesheetDetailScreen.tsx` - Read-only detail view
+- `CasesheetEditScreen.tsx` - Edit form (DRAFT only or SIGNED for DOCTOR)
+- `CreateCasesheetScreen.tsx` - New casesheet form
+- `CasesheetForm.tsx` - Dynamic SOAP form component
+- `CasesheetStatusBadge.tsx` - Status indicator
+
+**Routes:**
+- `/clinic-admin/clients/[clientId]/casesheets` - List
+- `/clinic-admin/clients/[clientId]/casesheets/new` - Create
+- `/clinic-admin/clients/[clientId]/casesheets/[casesheetId]` - Detail
+- `/clinic-admin/clients/[clientId]/casesheets/[casesheetId]/edit` - Edit
+
+### 2. Prescriptions Module ✅ COMPLETE
+
+**Domain Layer:**
+- `prescription.entity.ts` - Entity with `canEditPrescription`, `canSharePrescription`, `canRepeatPrescription`
+- `prescriptions.repository.ts` - Repository interface
+- Use cases: list, get, create, update, delete, share, repeat
+
+**Presentation Layer:**
+- `PrescriptionsListScreen.tsx` - List with filters
+- `PrescriptionDetailScreen.tsx` - Detail view with medications list
+- `PrescriptionEditScreen.tsx` - Edit form
+- `CreatePrescriptionScreen.tsx` - New prescription form
+- `PrescriptionForm.tsx` - Medication items form
+- `PrescriptionShareModal.tsx` - Share via SMS/WhatsApp/Email
+- `PrescriptionStatusBadge.tsx` - Status indicator
+
+**Routes:**
+- `/clinic-admin/clients/[clientId]/prescriptions` - List
+- `/clinic-admin/clients/[clientId]/prescriptions/new` - Create
+- `/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]` - Detail
+- `/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit` - Edit
+
+### 3. Treatment Sheets Module ✅ COMPLETE
+
+**Domain Layer:**
+- `treatmentSheet.entity.ts` - Entity with row status tracking
+- `treatmentSheets.repository.ts` - Repository interface
+- Use cases: get, create, create-from-casesheet, transition-status, update-row, complete-row, print, archive, sync
+
+**Presentation Layer:**
+- `TreatmentSheetDetailScreen.tsx` - Detail with row management
+- `TreatmentSheetStatusBadge.tsx` - Status indicator
+- `TreatmentSheetListItem.tsx` - List item component
+- `TreatmentSheetRowItem.tsx` - Row display/edit
+- `TreatmentSheetProgress.tsx` - Progress tracker
+- `EmptyTreatmentSheetsState.tsx` - Empty state
+
+**Routes:**
+- `/clinic-admin/clients/[clientId]/treatment-sheets` - Info page (access via casesheets)
+- `/clinic-admin/clients/[clientId]/treatment-sheets/[treatmentSheetId]` - Detail
 
 ---
 
-## FILES MODIFIED
+## STATUS LIFECYCLE RULES
 
+### Document Status Transitions
 ```
-/app/frontend/features/appointments/presentation/
-├── components/
-│   └── AppointmentListItem.tsx     (COMPLETE REWRITE - A1, A2, A3)
-├── pages/
-│   ├── AppointmentDetailScreen.tsx (REDESIGN - B1, B2)
-│   └── PreviewAppointmentsScreen.tsx (BUG FIXES - C1, C2, C3, D1)
+DRAFT → FINAL → SIGNED
+```
 
-/app/frontend/core/localization/translations/
-└── en-US.json                       (Added new i18n keys)
-```
+### Editability Rules
+- **DRAFT**: Full editing allowed
+- **FINAL**: Read-only, status transitions only
+- **SIGNED**: Read-only (DOCTOR can edit with restrictions)
+
+### Archive Rules
+- Only DRAFT and FINAL documents can be archived
+- SIGNED documents are immutable
 
 ---
 
-## ACCEPTANCE TEST SCENARIOS
+## PREVIOUS IMPLEMENTATION (Feb 2025)
 
-### Scenario 1: Time Selection
-- [ ] Select 4:00 PM alternative
-- [ ] Preview shows 4:00 PM
-- [ ] Confirm
-- [ ] Appointment list shows 4:00 PM
-- [ ] No conflict banners
-
-### Scenario 2: Apply-to-All with Partial Coverage
-- [ ] Covered sessions resolved
-- [ ] Uncovered sessions still conflicted
-
-### Scenario 3: Complete Action
-- [ ] Tap Complete on confirmed/in_progress appointment
-- [ ] Visit recorded
-- [ ] Status updated correctly
+### Appointment Flow Fixes - COMPLETE
+- Card layout fixes with navigation
+- Quick actions (Reschedule, No-Show, Cancel, Complete)
+- Visit recording
+- Conflict resolution with alternatives
+- Apply-to-all functionality
+- Custom time selection
 
 ---
 
@@ -175,17 +146,34 @@ const [effectiveTimes, setEffectiveTimes] = useState<Map<number, EffectiveTime>>
 
 ## BACKEND
 - **Host**: Koyeb (https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app)
-- **Frontend Preview**: https://therapy-plan-ui-fix.preview.emergentagent.com
 
 ---
 
-## API Endpoints (No Changes)
+## API Endpoints Used
+
+### Clinical Documents
+- `POST /clinic/{tenant_id}/casesheets/{client_id}` - Create casesheet
+- `GET /clinic/{tenant_id}/casesheets/{client_id}` - List casesheets
+- `GET /clinic/{tenant_id}/casesheets/{casesheet_id}` - Get casesheet
+- `PATCH /clinic/{tenant_id}/casesheets/{casesheet_id}` - Update casesheet
+- `POST /clinic/{tenant_id}/casesheets/{casesheet_id}/status` - Transition status
+- `GET /clinic/{tenant_id}/casesheets/{casesheet_id}/print` - Print casesheet
+- `DELETE /clinic/{tenant_id}/casesheets/{casesheet_id}` - Archive
+
+- `POST /clinic/{tenant_id}/prescriptions` - Create prescription
+- `GET /clinic/{tenant_id}/prescriptions` - List prescriptions
+- `GET /clinic/{tenant_id}/prescriptions/{prescription_id}` - Get prescription
+- `PATCH /clinic/{tenant_id}/prescriptions/{prescription_id}` - Update
+- `DELETE /clinic/{tenant_id}/prescriptions/{prescription_id}` - Delete
+- `POST /clinic/{tenant_id}/prescriptions/{prescription_id}/share` - Share
+
+- `POST /clinic/{tenant_id}/treatment-sheets` - Create treatment sheet
+- `GET /clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}` - Get
+- `POST /clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/status` - Transition
+- `PATCH /clinic/{tenant_id}/treatment-sheets/rows/{row_id}` - Update row
+- `POST /clinic/{tenant_id}/treatment-sheets/rows/{row_id}/complete` - Complete row
+
+### Appointments (existing)
 - `POST /api/v1/appointments/therapy-plan` - Generate plan with alternatives
 - `POST /api/v1/appointments` - Create single appointment
 - `PATCH /api/v1/appointments/{id}` - Update status
-1. Sessions with NO conflicts (should display green checkmarks)
-2. Sessions WITH conflicts and `plan_level: true` alternatives
-3. Sessions WITH conflicts but only per-session alternatives
-4. User selecting global option (should resolve multiple sessions)
-5. User selecting per-session option (should clear global selection)
-6. Final booking payload uses correct effective times

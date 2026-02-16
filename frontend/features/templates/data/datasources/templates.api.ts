@@ -6,7 +6,7 @@
  * This implementation provides the interface for when it's available.
  */
 
-import axiosClient from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   TemplateResponse,
   TemplatesListResponse,

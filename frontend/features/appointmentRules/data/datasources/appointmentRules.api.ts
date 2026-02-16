@@ -3,7 +3,7 @@
  * Data source for appointment rules endpoints
  */
 
-import axiosClient from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   AppointmentRuleResponse,
   AppointmentRulesListResponse,

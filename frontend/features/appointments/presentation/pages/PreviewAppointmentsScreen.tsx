@@ -47,6 +47,17 @@ import {
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
 import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
+// Import centralized date/time utils
+import {
+  formatDate,
+  formatShortDate,
+  formatDayOfWeek,
+  formatTime,
+  formatTimeFromParts,
+  extractTimePattern,
+  extractHour,
+  extractMinute,
+} from '../../../../core/utils/dateTimeUtils';
 
 // ============================================
 // TYPES - SINGLE SOURCE OF TRUTH
@@ -78,119 +89,16 @@ interface PlanLevelAlternative {
   covered_sessions: number[]; // session_numbers this applies to
 }
 
-// ============================================
-// SAFE DATE FORMATTERS
-// ============================================
+// NOTE: Date/time formatting functions are now imported from centralized utils:
+// formatDate, formatShortDate, formatDayOfWeek, formatTime, formatTimeFromParts,
+// extractTimePattern, extractHour, extractMinute
+// from '../../../../core/utils/dateTimeUtils'
 
-const safeFormatDate = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-};
-
-/**
- * Extract time pattern (HH:MM) from ISO string without timezone conversion
- */
-const extractTimePattern = (dateStr: string): string => {
-  const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-  if (timeMatch) {
-    return `${timeMatch[1]}:${timeMatch[2]}`;
-  }
-  return '00:00';
-};
-
-/**
- * Extract hour from ISO string
- */
-const extractHour = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T(\d{2}):/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
-};
-
-/**
- * Extract minute from ISO string
- */
-const extractMinute = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T\d{2}:(\d{2})/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
-};
-
-/**
- * FIX #3: Display time exactly as returned by backend WITHOUT timezone conversion.
- * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents the user's
- * intended local time (4 PM). We must NOT convert this to local timezone.
- */
-const safeFormatTime = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    // If it's a string, extract hours/minutes directly from the ISO string
-    // to avoid timezone conversion that would shift 16:00 to 21:30 in IST
-    if (typeof dateStr === 'string') {
-      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
-      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const period = hours >= 12 ? 'pm' : 'am';
-        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-      }
-    }
-    // Fallback for Date objects - use UTC methods to avoid conversion
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const period = hours >= 12 ? 'pm' : 'am';
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-  } catch {
-    return '—';
-  }
-};
-
-/**
- * Format time from hour and minute numbers
- */
-const formatTimeFromParts = (hour: number, minute: number): string => {
-  const period = hour >= 12 ? 'pm' : 'am';
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
-};
-
-const safeFormatDayOfWeek = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-IN', { weekday: 'short' });
-  } catch {
-    return '';
-  }
-};
-
-const safeFormatShortDate = (dateStr: string | Date | undefined | null): string => {
-  if (!dateStr) return '—';
-  try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return '—';
-  }
-};
+// Legacy aliases for compatibility (these now use centralized utils)
+const safeFormatDate = formatDate;
+const safeFormatTime = formatTime;
+const safeFormatDayOfWeek = formatDayOfWeek;
+const safeFormatShortDate = formatShortDate;
 
 // ============================================
 // STAFF ASSIGNMENT TYPE (matching backend)
@@ -904,12 +812,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const endDate = new Date(startDate);
       endDate.setMinutes(endDate.getMinutes() + durationMinutes);
 
-      // Validate using available-slots API (same API used for single-slot)
+      // For custom time validation, we'll check available slots for that date
+      const dateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = new Date(startDate.getTime() + 86400000).toISOString().split('T')[0]; // Next day
+      
       const validationResult = await getAvailableSlotsApi({
-        tenant_id: tenantId,
+        start_date: dateStr,
+        end_date: endDateStr,
         treatment_id: treatmentId,
-        date: startDate.toISOString().split('T')[0],
-        preferred_time: `${pickerHours.toString().padStart(2, '0')}:${pickerMinutes.toString().padStart(2, '0')}`,
         duration_minutes: durationMinutes,
       });
 
@@ -917,8 +827,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const requestedHour = pickerHours;
       const requestedMinute = pickerMinutes;
       const isTimeAvailable = validationResult.slots?.some(slot => {
-        const slotHour = extractHour(slot.start_time);
-        const slotMinute = extractMinute(slot.start_time);
+        // AvailableSlot uses 'start' not 'start_time'
+        const slotHour = extractHour(slot.start);
+        const slotMinute = extractMinute(slot.start);
         return slotHour === requestedHour && slotMinute === requestedMinute;
       }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
 
@@ -993,6 +904,15 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const canProceed = sessions.length > 0 && allConflictsResolved && !hasError;
 
   // ============================================
+  // SUCCESS MODAL STATE (for web compatibility)
+  // ============================================
+  const [successModal, setSuccessModal] = useState<{
+    visible: boolean;
+    createdCount: number;
+    whatsappUrl: string | null;
+  }>({ visible: false, createdCount: 0, whatsappUrl: null });
+
+  // ============================================
   // CREATE APPOINTMENTS
   // ============================================
   
@@ -1031,8 +951,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         }
       }
 
-      // Show result
+      // Show result - use modal on web for reliable button handling
       if (createdCount === sessions.length) {
+        let whatsappUrl: string | null = null;
         if (clientPhone) {
           const firstEffective = effectiveTimes.get(1);
           const message = generateWhatsAppSeriesMessage(
@@ -1044,36 +965,50 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             safeFormatTime(firstEffective?.start),
             '+91-XXXXXXXXXX'
           );
-          const whatsappUrl = openWhatsApp(clientPhone, message);
-
-          Alert.alert(
-            t('appointments.appointmentsCreated'),
-            `${createdCount} ${t('appointments.sessionsScheduled')}`,
-            [
-              { 
-                text: t('common.done'), 
-                style: 'cancel', 
-                onPress: () => router.replace('/clinic-admin/appointments' as any) 
-              },
-              {
-                text: t('appointments.sendWhatsApp'),
-                onPress: () => {
-                  Linking.openURL(whatsappUrl);
-                  router.replace('/clinic-admin/appointments' as any);
-                },
-              },
-            ]
-          );
+          whatsappUrl = openWhatsApp(clientPhone, message);
+        }
+        
+        // On web, Alert buttons don't work reliably - show success modal instead
+        if (Platform.OS === 'web') {
+          setSuccessModal({ visible: true, createdCount, whatsappUrl });
         } else {
-          Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
-          router.replace('/clinic-admin/appointments' as any);
+          // Native: use Alert
+          if (whatsappUrl) {
+            Alert.alert(
+              t('appointments.appointmentsCreated'),
+              `${createdCount} ${t('appointments.sessionsScheduled')}`,
+              [
+                { 
+                  text: t('common.done'), 
+                  style: 'cancel', 
+                  onPress: () => router.replace('/clinic-admin/appointments' as any) 
+                },
+                {
+                  text: t('appointments.sendWhatsApp'),
+                  onPress: () => {
+                    Linking.openURL(whatsappUrl!);
+                    router.replace('/clinic-admin/appointments' as any);
+                  },
+                },
+              ]
+            );
+          } else {
+            Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
+            router.replace('/clinic-admin/appointments' as any);
+          }
         }
       } else if (createdCount > 0) {
-        Alert.alert(
-          t('appointments.partialSuccess'),
-          `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
-          [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
-        );
+        // Partial success - navigate directly on web
+        if (Platform.OS === 'web') {
+          alert(`${t('appointments.created') || 'Created'} ${createdCount} of ${sessions.length}. Some errors occurred.`);
+          router.replace('/clinic-admin/appointments' as any);
+        } else {
+          Alert.alert(
+            t('appointments.partialSuccess'),
+            `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
+            [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
+          );
+        }
       } else {
         Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
@@ -1082,6 +1017,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  // Handle success modal actions
+  const handleSuccessModalDone = () => {
+    setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
+    router.replace('/clinic-admin/appointments' as any);
+  };
+
+  const handleSuccessModalWhatsApp = () => {
+    if (successModal.whatsappUrl) {
+      Linking.openURL(successModal.whatsappUrl);
+    }
+    setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
+    router.replace('/clinic-admin/appointments' as any);
   };
 
   return (
@@ -1175,12 +1124,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               <Text style={styles.clientDetails}>
                 {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
               </Text>
-              {/* Display the scheduled time from first effective time */}
-              {effectiveTimes.size > 0 && (
-                <Text style={styles.preferredTimeText}>
-                  {t('appointments.scheduledTime') || 'Scheduled'}: {safeFormatTime(effectiveTimes.get(1)?.start)} - {safeFormatTime(effectiveTimes.get(1)?.end)}
-                </Text>
-              )}
+              {/* Display the user's REQUESTED time (from params) */}
+              <Text style={styles.preferredTimeText}>
+                {t('appointments.requestedTime') || 'Requested'}: {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)}
+              </Text>
             </View>
           </View>
 
@@ -1375,6 +1322,49 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                     <Text style={styles.modalConfirmText}>{t('common.confirm') || 'Confirm'}</Text>
                   )}
                 </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Success Modal (for web compatibility) */}
+      {successModal.visible && (
+        <Modal
+          visible={successModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleSuccessModalDone}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.successModalContent}>
+              <View style={styles.successModalIcon}>
+                <Ionicons name="checkmark-circle" size={64} color={colors.success.main} />
+              </View>
+              <Text style={styles.successModalTitle}>
+                {t('appointments.appointmentsCreated') || 'Appointments Created!'}
+              </Text>
+              <Text style={styles.successModalText}>
+                {successModal.createdCount} {t('appointments.sessionsScheduled') || 'sessions have been scheduled'}
+              </Text>
+              <View style={styles.successModalActions}>
+                <TouchableOpacity
+                  style={styles.successModalDoneButton}
+                  onPress={handleSuccessModalDone}
+                >
+                  <Text style={styles.successModalDoneText}>{t('common.done') || 'Done'}</Text>
+                </TouchableOpacity>
+                {successModal.whatsappUrl && (
+                  <TouchableOpacity
+                    style={styles.successModalWhatsAppButton}
+                    onPress={handleSuccessModalWhatsApp}
+                  >
+                    <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+                    <Text style={styles.successModalWhatsAppText}>
+                      {t('appointments.sendWhatsApp') || 'Send WhatsApp'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>
@@ -1966,6 +1956,61 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
     marginTop: spacing.md,
     fontWeight: '500',
+  },
+  // Success Modal Styles
+  successModalContent: {
+    backgroundColor: colors.background.default,
+    borderRadius: spacing.lg,
+    padding: spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  successModalIcon: {
+    marginBottom: spacing.md,
+  },
+  successModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  successModalText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  successModalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  successModalDoneButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    alignItems: 'center',
+  },
+  successModalDoneText: {
+    ...typography.button,
+    color: colors.text.primary,
+  },
+  successModalWhatsAppButton: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalWhatsAppText: {
+    ...typography.button,
+    color: '#fff',
   },
 });
 

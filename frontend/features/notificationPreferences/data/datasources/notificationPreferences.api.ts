@@ -5,7 +5,7 @@
  * All functions throw an error to indicate the feature is not yet available.
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   NotificationPreferenceDto,
   NotificationPreferencesListResponse,

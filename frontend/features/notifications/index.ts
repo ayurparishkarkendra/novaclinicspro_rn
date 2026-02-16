@@ -5,13 +5,30 @@
  * Note: API endpoints are not yet available - UI will show placeholder state.
  */
 
-// Data layer
-export * from './data/models/notifications.dtos';
+// Data layer - explicitly export DTOs
+export {
+  type NotificationDto,
+  type NotificationListResponse,
+  type ListNotificationsParams,
+  type MarkNotificationReadRequest,
+  type MarkAllNotificationsReadRequest,
+  type MarkAllReadResponse,
+  toNotificationEntity,
+  getCategoryLabel,
+  getImportanceLabel,
+} from './data/models/notifications.dtos';
 export * from './data/datasources/notifications.api';
 export * from './data/repositories/notifications.repository.impl';
 
-// Domain layer
-export * from './domain/entities/notification.entity';
+// Domain layer - export entity types
+export {
+  type NotificationCategory,
+  type NotificationImportance,
+  type Notification,
+  isUnread,
+  isHighPriority,
+  getTimeAgo,
+} from './domain/entities/notification.entity';
 export * from './domain/repositories/notifications.repository';
 
 // Presentation layer

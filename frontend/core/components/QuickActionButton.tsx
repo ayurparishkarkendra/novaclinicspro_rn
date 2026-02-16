@@ -1,7 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, View, Pressable } from 'react-native';
+import { Text, StyleSheet, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, Href } from 'expo-router';
+import { Link } from 'expo-router';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -10,7 +10,7 @@ interface QuickActionButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress?: () => void;
-  href?: Href<string>;
+  href?: string;
   color?: string;
 }
 
@@ -42,7 +42,7 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   // If href is provided, use Link for navigation (more reliable in Expo Router)
   if (href) {
     return (
-      <Link href={href} asChild>
+      <Link href={href as any} asChild>
         <Pressable style={styles.button}>
           <ButtonContent />
         </Pressable>
