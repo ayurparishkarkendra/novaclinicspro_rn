@@ -17,3 +17,4 @@ export * from './presentation/components';
 export { FeedbackFormScreen } from './presentation/pages/FeedbackFormScreen';
 export { StaffFeedbackListScreen } from './presentation/pages/StaffFeedbackListScreen';
 export { ClinicFeedbackSummarySection } from './presentation/pages/ClinicFeedbackSummarySection';
+export { StaffFeedbackSection } from './presentation/pages/StaffFeedbackSection';
