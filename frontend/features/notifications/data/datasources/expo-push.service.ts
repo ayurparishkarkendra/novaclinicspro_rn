@@ -255,7 +255,7 @@ export class ExpoPushNotificationService implements IPushNotificationService {
   onNotificationReceived(handler: NotificationReceivedHandler): () => void {
     this.notificationReceivedListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        const data = notification.request.content.data as PushNotificationData;
+        const data = notification.request.content.data as unknown as PushNotificationData;
         
         const receivedNotification: ReceivedNotification = {
           notificationId: notification.request.identifier,
@@ -287,7 +287,7 @@ export class ExpoPushNotificationService implements IPushNotificationService {
     this.notificationResponseListener = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const notification = response.notification;
-        const data = notification.request.content.data as PushNotificationData;
+        const data = notification.request.content.data as unknown as PushNotificationData;
 
         const notificationResponse: NotificationResponse = {
           notificationId: notification.request.identifier,
