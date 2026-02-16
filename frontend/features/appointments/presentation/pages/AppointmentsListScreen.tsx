@@ -6,6 +6,7 @@
  * 1. Date-scoped loading - always filter by selected date
  * 2. Date slider layout - fixed height and no jumping
  * 3. Search query param - uses 'q' instead of 'query'
+ * 4. BUG FIX #1: Reschedule modal with date/time picker directly on list page
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -20,7 +21,10 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -47,6 +51,8 @@ import {
   isToday,
   generateDateRange,
   toISODateString,
+  formatDate,
+  calculateDuration,
 } from '../../data/models/appointments.dtos';
 import { AppointmentListItem } from '../components/AppointmentListItem';
 
