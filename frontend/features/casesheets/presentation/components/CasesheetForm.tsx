@@ -503,7 +503,7 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
