@@ -240,14 +240,62 @@ export const useDeleteAppointmentMutation = (tenantId: string) => {
 
 /**
  * Hook to cancel an appointment
+ * BUG FIX #8: Added optimistic updates for faster UI response
  */
 export const useCancelAppointmentMutation = (tenantId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation<AppointmentResponse, Error, string>({
     mutationFn: (appointmentId) => cancelAppointmentApi(tenantId, appointmentId),
+    onMutate: async (appointmentId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: appointmentsKeys.lists() });
+      
+      // Snapshot the previous value
+      const previousQueries = queryClient.getQueriesData({ queryKey: appointmentsKeys.lists() });
+      
+      // Optimistically update to 'cancelled' status
+      queryClient.setQueriesData(
+        { queryKey: appointmentsKeys.lists() },
+        (old: any) => {
+          if (!old) return old;
+          
+          if (old.appointments) {
+            return {
+              ...old,
+              appointments: old.appointments.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: 'cancelled' } : apt
+              ),
+            };
+          }
+          
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map((apt: any) =>
+                apt.id === appointmentId ? { ...apt, status: 'cancelled' } : apt
+              ),
+            };
+          }
+          
+          return old;
+        }
+      );
+      
+      return { previousQueries };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(appointmentsKeys.detail(tenantId, data.id), data);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
