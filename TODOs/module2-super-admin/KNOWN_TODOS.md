@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://clinic-bugs-fix.preview.emergentagent.com
+**Preview URL:** https://nova-appt-preview.preview.emergentagent.com
 
 ---
 

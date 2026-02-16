@@ -133,6 +133,6 @@ The foundation is ready! You can now:
 
 ## 📱 Access the App
 
-**Web Preview**: https://clinic-bugs-fix.preview.emergentagent.com
+**Web Preview**: https://nova-appt-preview.preview.emergentagent.com
 
 The app is live and fully functional with navigation between all 4 dashboards!

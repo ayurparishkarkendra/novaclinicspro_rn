@@ -75,6 +75,6 @@
   "seed_data_creation": "None",
   "retest_needed": false,
   "should_main_agent_self_test": true,
-  "context_for_next_testing_agent": "This is a React Native/Expo app. Traditional Playwright web testing won't work. All 3 bugs (Reschedule 422 error, i18n unresolved variables, Complete button missing) have been verified as FIXED through code review. For full UI testing, use mobile simulator or Expo Go app. The frontend runs via Expo tunnel at https://clinic-bugs-fix.preview.emergentagent.com. Key test IDs: action-complete-tick, action-reschedule, action-noshow, action-cancel, appointment-quick-actions.",
+  "context_for_next_testing_agent": "This is a React Native/Expo app. Traditional Playwright web testing won't work. All 3 bugs (Reschedule 422 error, i18n unresolved variables, Complete button missing) have been verified as FIXED through code review. For full UI testing, use mobile simulator or Expo Go app. The frontend runs via Expo tunnel at https://nova-appt-preview.preview.emergentagent.com. Key test IDs: action-complete-tick, action-reschedule, action-noshow, action-cancel, appointment-quick-actions.",
   "testing_limitations": "React Native/Expo app cannot be fully tested via Playwright browser automation. Code review confirms fixes are correct. Real-world testing requires mobile device/emulator."
 }

@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://clinic-bugs-fix.preview.emergentagent.com/theme-demo
+https://nova-appt-preview.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**

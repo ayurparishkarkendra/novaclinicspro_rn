@@ -184,6 +184,6 @@ const fetchData = async () => {
 
 ## 📱 Access URLs
 
-- **Web Preview**: https://clinic-bugs-fix.preview.emergentagent.com
+- **Web Preview**: https://nova-appt-preview.preview.emergentagent.com
 - **Backend API**: Port 8001 (internal)
 - **MongoDB**: Port 27017 (internal)
