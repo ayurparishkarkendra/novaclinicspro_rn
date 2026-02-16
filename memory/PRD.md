@@ -3,7 +3,67 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Therapist Dashboard Module (Feb 2026) - COMPLETED ✅
+## Latest Status: Push Notifications for Therapists (Feb 2026) - COMPLETED ✅
+
+### Push Notification System - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_10.json`
+**Code Review:** 100% Pass (all 14 features verified)
+
+**Route:** `/notifications/preferences` → `NotificationPreferencesScreen`
+
+**Architecture:**
+- **Abstracted Service Layer**: `IPushNotificationService` interface for easy FCM migration
+- **Expo Implementation**: `ExpoPushNotificationService` as default provider
+- **React Hook**: `usePushNotifications` for state management
+
+**Notification Triggers Implemented:**
+| Trigger | Description | Status |
+|---------|-------------|--------|
+| `appointment_new` | When patient books appointment | ✅ Ready |
+| `appointment_updated` | When appointment is rescheduled | ✅ Ready |
+| `appointment_cancelled` | When appointment is cancelled | ✅ Ready |
+| `appointment_no_show` | When patient doesn't show | ✅ Ready |
+| `schedule_summary` | Daily schedule (opt-in) | ✅ Ready |
+| `schedule_batch_update` | Multiple schedule changes | ✅ Ready |
+| `critical_update` | System alerts, emergencies | ✅ Ready |
+| `leave_approved` | Leave request approved | ✅ Ready |
+| `leave_rejected` | Leave request rejected | ✅ Ready |
+
+**Per-Therapist Preferences:**
+- New Appointments (ON by default)
+- Updates & Reschedules (ON by default)
+- Cancellations & No-Shows (ON by default)
+- Daily Schedule Summary (OFF by default)
+- Critical Updates (ON, recommended)
+- Leave Updates (ON by default)
+- Quiet Hours with time customization
+
+**Module Architecture:**
+```
+/app/frontend/features/notifications/
+├── data/
+│   ├── datasources/
+│   │   ├── push.service.interface.ts   # Abstract interface for providers
+│   │   └── expo-push.service.ts        # Expo Push implementation
+│   └── models/push.dtos.ts             # DTOs & types
+├── presentation/
+│   ├── hooks/usePushNotifications.ts   # React hook
+│   └── pages/NotificationPreferencesScreen.tsx
+└── index.ts                            # Feature exports (updated)
+```
+
+**Android Notification Channels:**
+- `default` - General notifications
+- `appointments` - High priority appointment alerts
+- `critical` - Maximum priority system alerts (bypasses DND)
+- `schedule` - Low priority daily summaries
+
+**Note:** Push notifications require physical device/simulator for full functionality. Web preview shows UI only.
+
+---
+
+## Previous Status: Therapist Dashboard Module (Feb 2026) - COMPLETED ✅
 
 ### Therapist Dashboard Implementation - FULLY IMPLEMENTED ✅
 
