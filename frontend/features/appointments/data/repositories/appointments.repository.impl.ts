@@ -308,10 +308,9 @@ export const useCancelAppointmentMutation = (tenantId: string) => {
 export const useRescheduleAppointmentMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<AppointmentRescheduleResponse, Error, { appointmentId: string; newStart: string }>({
-    mutationFn: ({ appointmentId, newStart }) => {
-      // Get tenantId from the current query context or use a default
-      return rescheduleAppointmentApi('', appointmentId, { new_start: newStart });
+  return useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>({
+    mutationFn: ({ tenantId, appointmentId, newStart }) => {
+      return rescheduleAppointmentApi(tenantId, appointmentId, { new_start: newStart });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
