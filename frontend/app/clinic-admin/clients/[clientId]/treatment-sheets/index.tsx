@@ -14,9 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '../../../../../features/treatmentSheets/../core/theme/colors';
-import { spacing } from '../../../../../features/treatmentSheets/../core/theme/spacing';
-import { typography } from '../../../../../features/treatmentSheets/../core/theme/typography';
+import { colors } from '../../../../../core/theme/colors';
+import { spacing } from '../../../../../core/theme/spacing';
+import { typography } from '../../../../../core/theme/typography';
 
 export default function TreatmentSheetsListScreen() {
   const router = useRouter();
