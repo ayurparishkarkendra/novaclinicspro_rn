@@ -54,4 +54,16 @@ export const typography = {
     lineHeight: 20,
     letterSpacing: 0.5,
   },
+  subtitle1: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+  },
+  subtitle2: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    letterSpacing: 0.1,
+  },
 };

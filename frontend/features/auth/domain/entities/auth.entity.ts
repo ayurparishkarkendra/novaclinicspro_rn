@@ -4,8 +4,10 @@
  */
 
 export interface AuthUserSession {
+  id: string;
   userId: string;
   email: string;
+  fullName: string;
   tenantId: string | null;
   roles: string[];
   permissions: string[];
@@ -18,14 +20,17 @@ export interface AuthUserSession {
 export const mapCurrentUserToDomain = (dto: {
   user_id: string;
   email: string;
+  full_name?: string;
   tenant_id: string | null;
   roles: string[];
   permissions: string[];
   is_org_admin: boolean;
 }): AuthUserSession => {
   return {
+    id: dto.user_id,
     userId: dto.user_id,
     email: dto.email,
+    fullName: dto.full_name || dto.email,
     tenantId: dto.tenant_id,
     roles: dto.roles,
     permissions: dto.permissions,

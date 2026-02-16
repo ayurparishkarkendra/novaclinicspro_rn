@@ -3,7 +3,7 @@
  * API calls for analytics endpoints
  */
 
-import { apiClient } from '../../../../core/api/axiosClient';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   PerformanceSummaryResponse,
   RegistrationPerformanceParams,
