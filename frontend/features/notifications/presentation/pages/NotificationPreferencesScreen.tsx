@@ -111,11 +111,15 @@ export const NotificationPreferencesScreen: React.FC = () => {
     permissionStatus,
     preferences,
     isInitialized,
+    isLoading,
+    error,
     requestPermissions,
     updatePreferences,
+    refreshPreferences,
   } = usePushNotifications();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [localPrefs, setLocalPrefs] = useState<Partial<TherapistNotificationPreferences>>(
     DEFAULT_NOTIFICATION_PREFERENCES
   );
@@ -126,6 +130,18 @@ export const NotificationPreferencesScreen: React.FC = () => {
       setLocalPrefs(preferences);
     }
   }, [preferences]);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshPreferences();
+    } catch (e) {
+      console.error('Failed to refresh preferences:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshPreferences]);
 
   // Handle permission request
   const handleRequestPermissions = async () => {
