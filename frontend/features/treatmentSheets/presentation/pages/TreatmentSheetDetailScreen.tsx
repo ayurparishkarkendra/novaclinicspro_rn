@@ -49,6 +49,8 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const params = useLocalSearchParams<{ treatmentSheetId: string; casesheetId?: string }>(); 
   const { currentUser } = useAuth();
   const treatmentSheetId = params.treatmentSheetId || '';
+  // BUG FIX #9: Get tenantId to pass to API
+  const tenantId = currentUser?.tenantId || '';
 
   const [selectedRow, setSelectedRow] = useState<TreatmentSheetRowResponse | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
@@ -65,7 +67,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     error,
     refetch,
     isRefetching,
-  } = useTreatmentSheetDetailQuery(treatmentSheetId);
+  } = useTreatmentSheetDetailQuery(treatmentSheetId, tenantId);
 
   const transitionMutation = useTransitionTreatmentSheetStatusMutation(treatmentSheetId);
   const syncMutation = useSyncTreatmentSheetMutation(treatmentSheetId);
