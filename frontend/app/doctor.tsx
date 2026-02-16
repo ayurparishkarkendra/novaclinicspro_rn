@@ -247,7 +247,7 @@ export default function DoctorDashboard() {
 
         {/* Stats Row */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Overview</Text>
+          <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
           <DashboardStatsRow stats={stats} />
         </View>
 
@@ -266,7 +266,7 @@ export default function DoctorDashboard() {
         {/* Today's Appointments */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Appointments</Text>
+            <Text style={styles.sectionTitle}>Today&apos;s Appointments</Text>
             <TouchableOpacity onPress={() => router.push('/clinic-admin/appointments')}>
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
