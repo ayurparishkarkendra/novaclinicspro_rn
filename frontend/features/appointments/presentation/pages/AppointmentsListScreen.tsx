@@ -939,6 +939,112 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background.default,
   },
+
+  // BUG FIX #1: Reschedule Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  rescheduleModalContent: {
+    backgroundColor: colors.background.default,
+    borderTopLeftRadius: spacing.lg,
+    borderTopRightRadius: spacing.lg,
+    padding: spacing.lg,
+    maxHeight: '80%',
+  },
+  rescheduleModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  rescheduleModalTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  rescheduleCurrentInfo: {
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  rescheduleCurrentLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  rescheduleCurrentValue: {
+    ...typography.body1,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  rescheduleCurrentTime: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.xs / 2,
+  },
+  rescheduleSection: {
+    marginBottom: spacing.md,
+  },
+  rescheduleSectionTitle: {
+    ...typography.body2,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  reschedulePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    gap: spacing.sm,
+  },
+  reschedulePickerText: {
+    flex: 1,
+    ...typography.body1,
+    color: colors.text.primary,
+  },
+  iosPickerContainer: {
+    backgroundColor: colors.background.paper,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  rescheduleModalActions: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  rescheduleCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+  },
+  rescheduleCancelButtonText: {
+    ...typography.button,
+    color: colors.text.secondary,
+  },
+  rescheduleConfirmButton: {
+    flex: 2,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderRadius: spacing.sm,
+    backgroundColor: colors.primary.main,
+  },
+  rescheduleConfirmButtonText: {
+    ...typography.button,
+    color: colors.background.default,
+  },
+  rescheduleButtonDisabled: {
+    opacity: 0.6,
+  },
 });
 
 export default AppointmentsListScreen;
