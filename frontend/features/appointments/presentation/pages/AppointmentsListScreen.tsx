@@ -482,6 +482,123 @@ export const AppointmentsListScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
+
+      {/* BUG FIX #1: Reschedule Modal with Date/Time Picker */}
+      <Modal
+        visible={rescheduleModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setRescheduleModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.rescheduleModalContent}>
+            {/* Modal Header */}
+            <View style={styles.rescheduleModalHeader}>
+              <Text style={styles.rescheduleModalTitle}>Reschedule Appointment</Text>
+              <TouchableOpacity
+                onPress={() => setRescheduleModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Appointment Info */}
+            {selectedAppointmentForReschedule && (
+              <View style={styles.rescheduleCurrentInfo}>
+                <Text style={styles.rescheduleCurrentLabel}>Current Appointment</Text>
+                <Text style={styles.rescheduleCurrentValue}>
+                  {selectedAppointmentForReschedule.client_name}
+                </Text>
+                <Text style={styles.rescheduleCurrentTime}>
+                  {formatShortDate(selectedAppointmentForReschedule.appointment_start)} at{' '}
+                  {formatTime(selectedAppointmentForReschedule.appointment_start)}
+                </Text>
+              </View>
+            )}
+
+            {/* New Date Selection */}
+            <View style={styles.rescheduleSection}>
+              <Text style={styles.rescheduleSectionTitle}>New Date</Text>
+              <TouchableOpacity
+                style={styles.reschedulePickerButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary.main} />
+                <Text style={styles.reschedulePickerText}>
+                  {formatShortDate(rescheduleDate.toISOString())}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* New Time Selection */}
+            <View style={styles.rescheduleSection}>
+              <Text style={styles.rescheduleSectionTitle}>New Time</Text>
+              <TouchableOpacity
+                style={styles.reschedulePickerButton}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Ionicons name="time-outline" size={20} color={colors.primary.main} />
+                <Text style={styles.reschedulePickerText}>
+                  {rescheduleTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Date/Time Pickers */}
+            {(showDatePicker || Platform.OS === 'ios') && (
+              <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={rescheduleDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={new Date()}
+                    onChange={handleDateChange}
+                  />
+                )}
+              </View>
+            )}
+
+            {(showTimePicker || Platform.OS === 'ios') && (
+              <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={rescheduleTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleTimeChange}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.rescheduleModalActions}>
+              <TouchableOpacity
+                style={styles.rescheduleCancelButton}
+                onPress={() => setRescheduleModalVisible(false)}
+                disabled={isRescheduling}
+              >
+                <Text style={styles.rescheduleCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.rescheduleConfirmButton, isRescheduling && styles.rescheduleButtonDisabled]}
+                onPress={handleRescheduleSubmit}
+                disabled={isRescheduling}
+              >
+                {isRescheduling ? (
+                  <ActivityIndicator size="small" color={colors.background.default} />
+                ) : (
+                  <Text style={styles.rescheduleConfirmButtonText}>Confirm Reschedule</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
