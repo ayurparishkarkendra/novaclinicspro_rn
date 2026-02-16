@@ -1,99 +1,95 @@
 <analysis>**original_problem_statement**:
-The user's primary objective has shifted. The new task is to debug and fix three specific, high-priority frontend bugs in the NovaClinicsPro React Native/Expo application. The previous work on the Clinical Documents module is considered complete from a feature-creation standpoint, but these bugs are now blocking the application's usability.
+The user has reported a new set of nine bugs related to the appointment and clinical document workflows in the NovaClinicsPro React Native/Expo application. The agent's task is to systematically debug and fix these issues.
 
 **PRODUCT REQUIREMENTS (New Bug Fixes):**
 
-**1. Bug 1 – Login “Network Error”**
-    - **Symptom**: The mobile app shows a generic Network Error on the login page after submitting credentials, instead of a proper success/failure message from the backend.
-    - **Fix Criteria**:
-        - Ensure the login form calls the correct Koyeb backend URL from the environment variables.
-        - The Axios client must handle HTTP errors (like 401/422) correctly, and the UI must display user-friendly messages (Invalid credentials) instead of a generic network error.
-
-**2. Bug 2 – “Add Prescription / Add Casesheet” routes 404**
-    - **Symptom**: Tapping the Add Prescription or Add Casesheet buttons leads to a 404 unmatched route page. The buttons also appear faded/disabled.
-    - **Fix Criteria**:
-        - Correct the Expo Router navigation calls ( or ) to use the exact file-based route paths, including required parameters like .
-        - Fix the button styling to ensure they appear active and enabled for users with the correct permissions.
-
-**3. Bug 3 – Quick Action buttons on appointment cards not visible**
-    - **Symptom**: The quick action buttons (Reschedule, No-Show, etc.) that were previously visible on appointment cards are now missing.
-    - **Fix Criteria**:
-        - Investigate the  component to find why the buttons are not rendering (e.g., broken conditional logic, missing props, incorrect styling).
-        - Ensure the props are correctly passed from the  to the item component to enable the actions.
+1.  **Bug 1 (Reschedule Flow):** The Reschedule button incorrectly navigates to the appointment details page. It should trigger a modal with a date/time picker, validate the selected slot for availability, and then call the  endpoint.
+2.  **Bug 2 (No-Show Status):** The No-Show button sends the status as  which causes a 422 validation error. The backend expects capitalized status enums (e.g., ).
+3.  **Bug 3 (Missing Complete Button):** The Complete action button is missing from appointment cards. It needs to be added, potentially using icons and tooltips if space is limited. All quick actions should have a confirmation dialog.
+4.  **Bug 4 (Unwanted Toggle Behavior):** Tapping on a card in the Previous Visits section incorrectly toggles its status. This behavior and the associated chevron icon should be removed.
+5.  **Bug 5 (Appointment Auto-Completion):** This is a backend task. Appointments should automatically be marked as Completed 24 hours after their scheduled time if not manually updated.
+6.  **Bug 6 (Therapy Preview Custom Time):** In the therapy preview page, the custom time picker is not shown when there are no alternative slot suggestions. It should always be available to allow for manual overrides.
+7.  **Bug 7 (Custom Time Selection UI):** When a user selects a custom time from the picker, the selection is not reflected in the UI. The chosen time should appear as a selected option.
+8.  **Bug 8 (Frontend Performance):** The UI is slow to update after backend actions (e.g., appointment updates, document creation), even though API responses are fast.
+9.  **Bug 9 (Treatment Sheet Rendering):** The treatment sheet fails to render, showing a network error, despite the frontend receiving the data successfully from the backend.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets) has been fully scaffolded, including data layers, domain logic, and presentation components. Numerous TypeScript and import errors from the initial code generation have been resolved. Key features like header/footer branding, a Create Treatment Sheet flow, and casesheet extension management have been added. The testing agent performed a successful code review of this module, but UI testing was blocked by an infrastructure issue. The application is now in a broken state due to the three new bugs reported by the user.
+A React Native/Expo application connected to an external Koyeb backend, using Supabase for authentication. The agent has just fixed an initial set of three bugs related to login, routing, and UI visibility. The application is now in a state where basic login and navigation work, but the core appointment and clinical document features are hampered by the nine new bugs reported by the user.
 
 **Last working item**:
-- **Last item agent was working**: The agent had just received the new problem statement from the user detailing three critical bugs to fix. The agent acknowledged the task and was about to begin the investigation.
-- **Status**: NOT STARTED
+- **Last item agent was working**: The agent had just received a new, detailed list of nine bugs from the user. The agent started the investigation by viewing relevant files for the appointment and clinical document features.
+- **Status**: IN PROGRESS
 - **Agent Testing Done**: N
-- **Which testing method agent to use?**: manual testing by curl/ python -c for the login endpoint (Bug 1). Screenshot tool for the UI-related bugs (Bug 2 and Bug 3) after fixing them. A full testing agent run is recommended after all three are fixed to check for regressions.
+- **Which testing method agent to use?**: manual testing by curl/ python -c and screenshot tool for each bug fix. A full testing agent run is recommended after all bugs are addressed to check for regressions.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1**: (P0) Bug 1 – Login “Network Error”
-- **Issue 2**: (P0) Bug 2 – “Add Prescription / Add Casesheet” routes 404
-- **Issue 3**: (P0) Bug 3 – Quick Action buttons on appointment cards not visible
+- **Issue 1**: (P0) Bug 1 - Reschedule button has incorrect behavior.
+- **Issue 2**: (P0) Bug 2 - No-Show button sends incorrect status value.
+- **Issue 3**: (P0) Bug 3 - Complete action button is missing from appointment cards.
+- **Issue 4**: (P1) Bug 4 - Unwanted toggle behavior on Previous Visits cards.
+- **Issue 5**: (P1) Bug 8 - Frontend is slow to render UI updates after fast API responses.
+- **Issue 6**: (P1) Bug 9 - Treatment sheet fails to render with a network error.
+- **Issue 7**: (P2) Bug 5 - Backend Task: Appointments should auto-complete after 24 hours.
+- **Issue 8**: (P2) Bug 6 - Custom time picker is missing in therapy preview when no alternatives are suggested.
+- **Issue 9**: (P2) Bug 7 - Selected custom time is not reflected in the UI.
 
 **Issues Detail**:
-- **Issue 1: Bug 1 – Login “Network Error”**
+- **Issue 1: Reschedule button has incorrect behavior**
     - **Attempted fixes**: None.
     - **Next debug checklist**:
-        1.  Check  to confirm  is correct for the Koyeb deployment.
-        2.  Examine  to verify how  is configured and how errors are handled.
-        3.  Inspect  to see how the API call is made and how errors are caught and displayed to the user.
-    - **Why fix this issue and what will be achieved with the fix?**: This is a critical blocker. Without a working login, no other part of the application can be accessed or tested.
+        1.  Locate the  handler for the Reschedule button in .
+        2.  Change the handler to open a modal with a date/time picker instead of navigating.
+        3.  Implement the API call to  upon confirmation.
+        4.  Implement availability validation for the selected slot.
+    - **Why fix this issue and what will be achieved with the fix?**: This is a core appointment management feature. Fixing it will allow users to reschedule appointments correctly.
     - **Status**: NOT STARTED
     - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: None.
+    - **Blocked on other issue**: None
 
-- **Issue 2: Bug 2 – “Add Prescription / Add Casesheet” routes 404**
+- **Issue 2: No-Show button sends incorrect status value**
     - **Attempted fixes**: None.
     - **Next debug checklist**:
-        1.  Verify the existence and path of  and .
-        2.  Find the component that renders the Add buttons and inspect the  or   property. Ensure it correctly constructs the path with the .
-        3.  Check the component's styling and logic to see why the buttons are faded/disabled.
-    - **Why fix this issue and what will be achieved with the fix?**: Fixes broken core functionality, allowing users to create clinical documents.
+        1.  Find the  call for the No-Show button in .
+        2.  Change the status value from  to .
+        3.  Apply the same capitalization fix for all other status updates to ensure consistency.
+    - **Why fix this issue and what will be achieved with the fix?**: This is a simple but critical fix to make the No-Show functionality work as intended.
     - **Status**: NOT STARTED
     - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: Blocked by **Issue 1**, as the user cannot log in to reach this screen.
+    - **Blocked on other issue**: None
 
-- **Issue 3: Bug 3 – Quick Action buttons on appointment cards not visible**
-    - **Attempted fixes**: None.
+- **Issue 3: Complete action button is missing from appointment cards**
+    - **Attempted fixes**: The previous agent simplified conditional rendering, but the button is still missing.
     - **Next debug checklist**:
-        1.  Inspect  to find the conditional logic or styling that is hiding the quick action buttons.
-        2.  Check the parent screen  to confirm it is passing the necessary callback props (, , etc.) to the list item component.
-    - **Why fix this issue and what will be achieved with the fix?**: Restores a key UI feature regression, improving user workflow for managing appointments.
+        1.  Re-examine the conditional logic in  that determines button visibility.
+        2.  Ensure the  logic () is correct and the appointment statuses match.
+        3.  Add the Complete button to the JSX if it's missing.
+        4.  If space is an issue, replace text with icons and add tooltips.
+        5.  Wrap all quick action  handlers in a confirmation .
+    - **Why fix this issue and what will be achieved with the fix?**: Restores a critical workflow for completing appointments.
     - **Status**: NOT STARTED
-    - **Is recurring issue?**: Y (This feature was previously working and has now broken).
+    - **Is recurring issue?**: Y
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: Blocked by **Issue 1**.
+    - **Blocked on other issue**: None
 
 **In progress Task List**:
 - None.
 
 **Upcoming and Future Tasks**
-- No upcoming tasks. The sole focus must be on fixing the three specified bugs.
+- Address all 9 bugs listed in the .
 
 **Completed work in this session**
-- **Clinical Documents Module Implementation**:
-  - Full scaffolding of Casesheets, Prescriptions, and Treatment Sheets.
-  - Implemented Header/Footer branding display in .
-  - Added a Create Treatment Sheet flow from the casesheet detail view.
-  - Added UI for managing casesheet extensions in .
-- **TypeScript Error Resolution**:
-  - Fixed incorrect  vs  imports codebase-wide.
-  - Resolved numerous type errors and duplicate exports.
-- **Code Verification**:
-  - The testing agent performed a code review on the Clinical Documents module, which passed with a 100% score (). UI testing was blocked.
+- **Bug 1 (Login Network Error) - FIXED**: Improved error handling in  to show user-friendly messages for invalid credentials, unconfirmed emails, and other API errors.
+- **Bug 2 (Add Prescription / Casesheet 404) - FIXED**: Corrected navigation paths in  to use the proper file-based routes ().
+- **Bug 3 (Quick Actions missing) - PARTIALLY FIXED**: Addressed the initial issue of missing quick actions by fixing role checks and conditional logic. However, the Complete button is still missing, and other issues were reported.
+- **Navigation Flow for Clinical Documents - FIXED**: Removed blocking  dialogs on the Create Casesheet and Create Prescription screens, enabling direct navigation via  on cancel and navigation to the list screen on success.
 
 **Earlier issues found/mentioned but not fixed**
-- **ESLint Configuration**: The ESLint configuration in  is broken and cannot parse TypeScript files correctly, leading to parser errors during the  command. This does not block compilation but hinders code quality checks.
+- **ESLint Configuration**: The ESLint configuration in  is broken and cannot parse TypeScript files correctly, leading to parser errors. This hinders code quality checks.
 
 **Known issue recurrence from previous fork**
 - N/A
@@ -114,39 +110,41 @@ The Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets) has 
 - None
 
 **All files of reference**
-- **Bug 1 (Login):**
-  - 
-  - 
-  - 
-- **Bug 2 (Routing):**
-  - 
-  - 
-- **Bug 3 (Appointments):**
-  - 
-  - 
-- **Test Report**: 
+- **Appointments**:
+    - 
+    - 
+    - 
+- **Clinical Docs**:
+    - 
+    - 
+    - 
+- **API/Data Layer**:
+    - 
+    - 
 
 **Areas that need refactoring**:
 - The  file needs to be corrected to properly support TypeScript parsing.
 
 **key api endpoints**
--  (Relevant for Bug 1)
+- 
+- 
 
 **Critical Info for New Agent**
-- **Your ONLY priority is to fix the three bugs from the user's last message.** Do not work on any new features or enhancements.
-- **Start with Bug 1 (Login)**. It is a hard blocker for everything else.
-- Do not modify the backend or change the established frontend architecture.
-- After fixing the bugs, you must confirm they are resolved on both mobile and Expo web preview.
+- You must work through the nine new bugs reported by the user, starting with P0 issues.
+- Do not modify the backend code, except for the Auto-complete task which is backend-specific.
+- The user is testing on a mobile device, so fixes must be verified for native platforms, not just Expo web. Session persistence issues on the web can be ignored if they don't affect mobile.
+- Pay close attention to the user's detailed bug descriptions and expected behaviors.
 
 **documents and test reports created in this job**
 - 
-- 
+-  (Note: This is from a previous feature and is not relevant to the current bugs)
+-  (Verifies the fix for the first set of 3 bugs)
 
 **Last 10 User Messages and any pending HUMAN messages**
-- **User (Msg #174)**: The most recent and critical message. The user provided a completely new problem statement, detailing three specific bugs (Login network error, 404 on Add buttons, and missing appointment quick actions) that need to be fixed. This message overrides all previous tasks and sets the current priority.
+- **User (Msg #133):** This is the most critical message. The user provided a new list of nine specific bugs related to appointment management, clinical document flows, and UI performance, effectively overriding all previous tasks. The agent must now focus exclusively on fixing these nine issues.
 
 **Project Health Check:**
-- **Broken**: The application is unusable. Login is broken, preventing access. Core navigation for creating documents results in a 404 error. A key UI feature on the appointments screen has regressed and is no longer visible.
+- **Broken**: While login is functional, the core user workflows for managing appointments and clinical documents are severely broken. Key actions are missing, behave incorrectly, or lead to errors. The application is not usable for its primary purpose.
 
 **3rd Party Integrations**
 - 
@@ -156,14 +154,14 @@ The Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets) has 
 - 
 
 **Testing status**
-- **Testing agent used after significant changes**: YES (for the previous feature, not the current bugs)
+- **Testing agent used after significant changes**: YES (For the previous set of 3 bugs)
 - **Troubleshoot agent used after agent stuck in loop**: NO
 - **Test files created**: None
-- **Known regressions**: Quick action buttons on appointment cards have disappeared.
+- **Known regressions**: Multiple regressions in the appointment workflow (Reschedule, No-Show, Complete button).
 
 **Credentials to test flow:**
 - **Email**: 
 - **Password**: 
 
 **What agent forgot to execute**
-- The current task is to fix three newly reported bugs. The agent has not yet started work on them. The previous implementation of the Clinical Documents module may have inadvertently caused these regressions.</analysis>
+- The agent has just begun investigating the new list of nine bugs and has not yet implemented any fixes for them. The previous set of fixes may have introduced some of these new regressions.</analysis>
