@@ -1,9 +1,13 @@
 /**
  * Doctor Dashboard Screen
- * Role-specific dashboard for doctors showing today's appointments, stats, and quick actions
+ * Role-specific dashboard for doctors with KPI metrics from backend API
+ * 
+ * API Integration:
+ * - GET /api/v1/clinic/{tenant_id}/staff/{staff_id}/kpis - Doctor KPI metrics
+ * - GET /api/v1/clinic/{tenant_id}/staff/me/dashboard/doctor - Today's appointments
  */
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,62 +30,103 @@ import { t, ErrorTokens } from '../core/localization';
 import {
   useDoctorDashboardQuery,
   AppointmentListItem,
-  DashboardStatsRow,
   DashboardQuickActions,
   EmptyDashboardState,
   OnLeaveBanner,
-  StatItem,
   QuickAction,
 } from '../features/staffDashboards';
 import { StaffFeedbackSection } from '../features/feedback';
+import {
+  useDoctorKpisQuery,
+  KpiPeriodSelector,
+  KpiStatsGrid,
+  TimeMetricsSection,
+  type KPIPeriodType,
+  mapConsultationsToCards,
+  mapPatientsToCards,
+  mapProductivityToCards,
+  mapPeakHoursToBars,
+  mapBusiestDaysToBars,
+  formatDuration,
+} from '../features/doctorDashboard';
 
 export default function DoctorDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const staffId = currentUser?.userId || '';
 
-  // Fetch dashboard data
+  // KPI period state
+  const [kpiPeriod, setKpiPeriod] = useState<KPIPeriodType>('7d');
+  const [customFromDate, setCustomFromDate] = useState<string>();
+  const [customToDate, setCustomToDate] = useState<string>();
+
+  // Fetch today's appointments (existing query)
   const {
     data: dashboardData,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
+    isLoading: isDashboardLoading,
+    isError: isDashboardError,
+    error: dashboardError,
+    refetch: refetchDashboard,
+    isRefetching: isDashboardRefetching,
   } = useDoctorDashboardQuery(tenantId, {
     enabled: !!tenantId,
   });
 
-  // Calculate stats from the data
-  const stats: StatItem[] = useMemo(() => {
-    if (!dashboardData) {
-      return [
-        { label: 'Today', value: 0, icon: 'calendar', color: colors.primary.main },
-        { label: 'Upcoming', value: 0, icon: 'time', color: colors.info.main },
-        { label: 'Completed', value: 0, icon: 'checkmark-circle', color: colors.success.main },
-        { label: 'No-Shows', value: 0, icon: 'close-circle', color: colors.error.main },
-      ];
+  // Fetch KPI metrics from backend
+  const {
+    data: kpiData,
+    isLoading: isKpiLoading,
+    isError: isKpiError,
+    error: kpiError,
+    refetch: refetchKpis,
+    isRefetching: isKpiRefetching,
+  } = useDoctorKpisQuery(
+    tenantId,
+    staffId,
+    {
+      period: kpiPeriod,
+      fromDate: customFromDate,
+      toDate: customToDate,
+    },
+    {
+      enabled: !!tenantId && !!staffId,
     }
+  );
 
-    const appointments = dashboardData.appointments || [];
-    const todayCount = appointments.length;
-    const completed = appointments.filter((a) =>
-      a.status?.toLowerCase() === 'completed'
-    ).length;
-    const noShows = appointments.filter((a) =>
-      a.status?.toLowerCase() === 'no_show'
-    ).length;
-    const upcoming = appointments.filter((a) =>
-      ['scheduled', 'confirmed'].includes(a.status?.toLowerCase())
-    ).length;
+  // Handle period change
+  const handlePeriodChange = useCallback(
+    (period: KPIPeriodType, fromDate?: string, toDate?: string) => {
+      setKpiPeriod(period);
+      if (period === 'custom') {
+        setCustomFromDate(fromDate);
+        setCustomToDate(toDate);
+      } else {
+        setCustomFromDate(undefined);
+        setCustomToDate(undefined);
+      }
+    },
+    []
+  );
 
-    return [
-      { label: 'Today', value: todayCount, icon: 'calendar', color: colors.primary.main },
-      { label: 'Upcoming', value: upcoming, icon: 'time', color: colors.info.main },
-      { label: 'Completed', value: completed, icon: 'checkmark-circle', color: colors.success.main },
-      { label: 'No-Shows', value: noShows, icon: 'close-circle', color: colors.error.main },
-    ];
-  }, [dashboardData]);
+  // Refresh all data
+  const handleRefresh = useCallback(() => {
+    refetchDashboard();
+    refetchKpis();
+  }, [refetchDashboard, refetchKpis]);
+
+  // Map KPI data to card format
+  const kpiCards = useMemo(() => {
+    if (!kpiData) return null;
+    return {
+      consultations: mapConsultationsToCards(kpiData.consultations),
+      patients: mapPatientsToCards(kpiData.patients),
+      productivity: mapProductivityToCards(kpiData.clinical_productivity),
+      peakHours: mapPeakHoursToBars(kpiData.time_metrics.peak_hours, 3),
+      busiestDays: mapBusiestDaysToBars(kpiData.time_metrics.busiest_days, 3),
+      avgDuration: formatDuration(kpiData.time_metrics.avg_consultation_duration_minutes),
+    };
+  }, [kpiData]);
 
   // Quick actions
   const quickActions: QuickAction[] = useMemo(() => [
@@ -173,9 +218,43 @@ export default function DoctorDashboard() {
     );
   };
 
+  // Get error message for KPI errors
+  const getKpiErrorMessage = (error: any): { title: string; message: string } => {
+    const status = error?.response?.status;
+    const detail = error?.response?.data?.detail || '';
+
+    switch (status) {
+      case 400:
+        return {
+          title: 'Invalid Request',
+          message: detail || 'Invalid period or date range. Please try again.',
+        };
+      case 401:
+        return {
+          title: 'Session Expired',
+          message: 'Please log in again to view your KPIs.',
+        };
+      case 403:
+        return {
+          title: 'Access Denied',
+          message: 'You do not have permission to view these KPIs.',
+        };
+      case 404:
+        return {
+          title: 'Not Found',
+          message: 'Staff profile not found. Please contact support.',
+        };
+      default:
+        return {
+          title: 'Error Loading KPIs',
+          message: 'Could not load your performance metrics. Please try again.',
+        };
+    }
+  };
+
   const renderContent = () => {
-    // Loading state
-    if (isLoading) {
+    // Loading state for dashboard
+    if (isDashboardLoading) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary.main} />
@@ -184,21 +263,17 @@ export default function DoctorDashboard() {
       );
     }
 
-    // Error state
-    if (isError) {
-      const axiosError = error as any;
+    // Error state for dashboard
+    if (isDashboardError) {
+      const axiosError = dashboardError as any;
       const status = axiosError?.response?.status;
-      const errorMessage = axiosError?.message || '';
       const errorDetail = axiosError?.response?.data?.detail || '';
       
-      // Handle permission errors (403)
       const isPermissionError = status === 403 || 
-        errorMessage.includes('403') || 
         errorDetail.toLowerCase().includes('permission') ||
         errorDetail.toLowerCase().includes('forbidden');
       
-      // Handle authentication errors (401)
-      const isAuthError = status === 401 || errorMessage.includes('401');
+      const isAuthError = status === 401;
       
       return (
         <View style={styles.section}>
@@ -225,7 +300,7 @@ export default function DoctorDashboard() {
               } else if (isAuthError) {
                 router.replace('/login');
               } else {
-                refetch();
+                refetchDashboard();
               }
             }}
           />
@@ -246,11 +321,95 @@ export default function DoctorDashboard() {
           </View>
         )}
 
-        {/* Stats Row */}
+        {/* KPI Period Selector */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today&apos;s Overview</Text>
-          <DashboardStatsRow stats={stats} />
+          <View style={styles.kpiHeader}>
+            <Text style={styles.sectionTitle}>Performance Metrics</Text>
+            <TouchableOpacity onPress={() => refetchKpis()} disabled={isKpiRefetching}>
+              <Ionicons
+                name="refresh"
+                size={20}
+                color={isKpiRefetching ? colors.text.disabled : colors.primary.main}
+              />
+            </TouchableOpacity>
+          </View>
+          <KpiPeriodSelector
+            value={kpiPeriod}
+            customFromDate={customFromDate}
+            customToDate={customToDate}
+            onChange={handlePeriodChange}
+            disabled={isKpiLoading}
+            testID="kpi-period-selector"
+          />
         </View>
+
+        {/* KPI Cards Section */}
+        {isKpiLoading ? (
+          <View style={styles.section}>
+            <View style={styles.kpiLoadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary.main} />
+              <Text style={styles.kpiLoadingText}>Loading metrics...</Text>
+            </View>
+          </View>
+        ) : isKpiError ? (
+          <View style={styles.section}>
+            <View style={styles.kpiErrorContainer}>
+              <Ionicons name="alert-circle-outline" size={24} color={colors.error.main} />
+              <Text style={styles.kpiErrorTitle}>{getKpiErrorMessage(kpiError).title}</Text>
+              <Text style={styles.kpiErrorMessage}>{getKpiErrorMessage(kpiError).message}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => refetchKpis()}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : kpiCards ? (
+          <>
+            {/* Consultations KPIs */}
+            <View style={styles.section}>
+              <Text style={styles.cardSectionTitle}>
+                <Ionicons name="calendar" size={16} color={colors.primary.main} /> Consultations
+              </Text>
+              <KpiStatsGrid items={kpiCards.consultations} testID="consultations-grid" />
+            </View>
+
+            {/* Patients KPIs */}
+            <View style={styles.section}>
+              <Text style={styles.cardSectionTitle}>
+                <Ionicons name="people" size={16} color={colors.success.main} /> Patients
+              </Text>
+              <KpiStatsGrid items={kpiCards.patients} testID="patients-grid" />
+            </View>
+
+            {/* Clinical Productivity KPIs */}
+            <View style={styles.section}>
+              <Text style={styles.cardSectionTitle}>
+                <Ionicons name="document-text" size={16} color={colors.info.main} /> Clinical Productivity
+              </Text>
+              <KpiStatsGrid items={kpiCards.productivity} testID="productivity-grid" />
+            </View>
+
+            {/* Time Metrics */}
+            <View style={styles.section}>
+              <Text style={styles.cardSectionTitle}>
+                <Ionicons name="time" size={16} color={colors.warning.main} /> Time Metrics
+              </Text>
+              <TimeMetricsSection
+                avgDuration={kpiCards.avgDuration}
+                peakHours={kpiCards.peakHours}
+                busiestDays={kpiCards.busiestDays}
+                testID="time-metrics"
+              />
+            </View>
+          </>
+        ) : (
+          <View style={styles.section}>
+            <EmptyDashboardState
+              icon="analytics-outline"
+              title="No KPI Data"
+              message="No performance data available for this period."
+            />
+          </View>
+        )}
 
         {/* Quick Actions */}
         <View style={styles.section}>
@@ -302,7 +461,6 @@ export default function DoctorDashboard() {
           )}
         </View>
 
-        {/* Navigation */}
         {/* Switch Dashboard */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Switch Dashboard</Text>
@@ -335,11 +493,11 @@ export default function DoctorDashboard() {
         </View>
 
         {/* Patient Feedback Section */}
-        {tenantId && currentUser?.userId && (
+        {tenantId && staffId && (
           <View style={styles.section}>
             <StaffFeedbackSection
               tenantId={tenantId}
-              staffId={currentUser.userId}
+              staffId={staffId}
               staffType="doctor"
               testID="doctor-feedback-section"
             />
@@ -353,9 +511,9 @@ export default function DoctorDashboard() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Doctor Dashboard"
-        subtitle="Welcome back, Doctor"
+        subtitle={kpiData?.staff_name || 'Welcome back, Doctor'}
         userName={currentUser?.email?.split('@')[0] || 'Doctor'}
-        onNotificationPress={() => console.log('Notifications')}
+        onNotificationPress={() => router.push('/notifications/history')}
         onProfilePress={() => console.log('Profile')}
         onLogoutPress={handleLogout}
       />
@@ -366,8 +524,8 @@ export default function DoctorDashboard() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
+            refreshing={isDashboardRefetching || isKpiRefetching}
+            onRefresh={handleRefresh}
             colors={[colors.primary.main]}
             tintColor={colors.primary.main}
           />
@@ -416,6 +574,19 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
+  kpiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  cardSectionTitle: {
+    ...typography.subtitle2,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   viewAll: {
     ...typography.body2,
     color: colors.primary.main,
@@ -439,5 +610,45 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     flex: 1,
     fontWeight: '500',
+  },
+  kpiLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    gap: spacing.sm,
+  },
+  kpiLoadingText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  kpiErrorContainer: {
+    alignItems: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    gap: spacing.sm,
+  },
+  kpiErrorTitle: {
+    ...typography.subtitle1,
+    color: colors.text.primary,
+  },
+  kpiErrorMessage: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primary.main,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...typography.button,
+    color: colors.common.white,
   },
 });
