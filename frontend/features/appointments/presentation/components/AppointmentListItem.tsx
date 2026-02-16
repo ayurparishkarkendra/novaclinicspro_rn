@@ -427,10 +427,9 @@ const styles = StyleSheet.create({
   quickActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
   },
@@ -442,7 +441,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     backgroundColor: colors.background.paper,
-    gap: spacing.xs / 2,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
   },
   quickActionText: {
     ...typography.caption,
