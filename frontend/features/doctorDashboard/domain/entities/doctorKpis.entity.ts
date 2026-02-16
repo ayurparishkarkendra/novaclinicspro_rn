@@ -12,13 +12,15 @@ import type {
   KpiPeriodDTO,
   KpiStatCardItem,
   TimeBarItem,
+} from '../../data/models/doctorKpis.dtos';
+
+import {
   mapConsultationsToCards,
   mapPatientsToCards,
   mapProductivityToCards,
   mapPeakHoursToBars,
   mapBusiestDaysToBars,
   formatDuration,
-  formatPercentage,
 } from '../../data/models/doctorKpis.dtos';
 
 // ============================================
