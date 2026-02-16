@@ -33,7 +33,7 @@ export const CreatePrescriptionScreen: React.FC = () => {
 
   const handleSubmit = useCallback(async (data: PrescriptionFormData) => {
     try {
-      await createMutation.mutateAsync({
+      const result = await createMutation.mutateAsync({
         client_id: clientId,
         prescription_data: {
           medications: data.medications,
@@ -44,25 +44,21 @@ export const CreatePrescriptionScreen: React.FC = () => {
         next_visit_days: data.next_visit_days,
         appointment_id: appointmentId,
       });
-      Alert.alert(
-        'Success',
-        'Prescription created successfully.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      
+      // Navigate immediately after successful creation
+      // Go to the prescriptions list for this client
+      router.replace({
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions',
+        params: { clientId },
+      });
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create prescription.');
     }
   }, [createMutation, clientId, appointmentId, router]);
 
   const handleCancel = useCallback(() => {
-    Alert.alert(
-      'Discard Prescription',
-      'Are you sure you want to discard this prescription?',
-      [
-        { text: 'Keep Editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-      ]
-    );
+    // Navigate back immediately without confirmation for better UX
+    router.back();
   }, [router]);
 
   const renderHeader = () => (

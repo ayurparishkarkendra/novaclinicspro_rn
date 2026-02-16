@@ -44,7 +44,16 @@ export const useAuth = (): UseAuthReturn => {
         });
 
         if (error) {
-          throw new Error(error.message);
+          // Map Supabase error codes to user-friendly messages
+          let friendlyMessage = error.message;
+          if (error.message.includes('Invalid login credentials')) {
+            friendlyMessage = 'Invalid email or password. Please check your credentials and try again.';
+          } else if (error.message.includes('Email not confirmed')) {
+            friendlyMessage = 'Please verify your email address before logging in.';
+          } else if (error.message.includes('Too many requests')) {
+            friendlyMessage = 'Too many login attempts. Please wait a few minutes and try again.';
+          }
+          throw new Error(friendlyMessage);
         }
 
         if (!data.session) {
@@ -55,17 +64,37 @@ export const useAuth = (): UseAuthReturn => {
         await setTokens(data.session.access_token, data.session.refresh_token);
 
         // Fetch user context from backend
-        const userSession = await authRepository.getCurrentUser();
-        setCurrentUser(userSession);
+        try {
+          const userSession = await authRepository.getCurrentUser();
+          setCurrentUser(userSession);
 
-        // Navigate based on role
-        navigateBasedOnRole(userSession);
+          // Navigate based on role
+          navigateBasedOnRole(userSession);
+        } catch (backendError: any) {
+          console.error('Backend context error:', backendError);
+          // If backend fails, sign out from Supabase to avoid inconsistent state
+          await supabase.auth.signOut();
+          await clearSession();
+          
+          // Provide meaningful error based on status code
+          if (backendError?.response?.status === 401) {
+            throw new Error('Your account is not authorized. Please contact support.');
+          } else if (backendError?.response?.status === 403) {
+            throw new Error('Access denied. Your account may be suspended.');
+          } else if (backendError?.response?.status === 404) {
+            throw new Error('User profile not found. Please contact support to set up your account.');
+          } else if (backendError?.message?.includes('Network Error')) {
+            throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
+          } else {
+            throw new Error('Unable to load your profile. Please try again later.');
+          }
+        }
       } catch (error) {
         console.error('Login error:', error);
         throw error;
       }
     },
-    [setTokens, setCurrentUser, router]
+    [setTokens, setCurrentUser, clearSession, router]
   );
 
   /**

@@ -3,7 +3,31 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Clinical Documents Module - Features Complete (Dec 2025)
+## Latest Status: 3 Navigation/UI Bug Fixes Complete (Feb 2026)
+
+### Bug Fixes - ALL FIXED ✅
+
+**Bug 1 - New Prescription Navigation:**
+- **Issue**: Create/Cancel buttons didn't navigate away after action
+- **Fix**: Removed Alert dialogs, direct navigation with `router.replace()` after create, `router.back()` for cancel
+- **File Changed**: `features/prescriptions/presentation/pages/CreatePrescriptionScreen.tsx`
+
+**Bug 2 - New Casesheet Navigation:**
+- **Issue**: Save/Cancel buttons didn't navigate away after action
+- **Fix**: Same approach - direct navigation after successful save, immediate back on cancel
+- **File Changed**: `features/casesheets/presentation/pages/CreateCasesheetScreen.tsx`
+
+**Bug 3 - Quick Actions Not Visible on Mobile:**
+- **Issue**: Quick action buttons (Reschedule, No-Show, Cancel, Complete) missing on appointment cards
+- **Fix**: 
+  - Simplified conditional logic for showing quick actions
+  - Improved role normalization to handle various role formats (clinic_admin, ClinicAdmin, CLINIC_ADMIN)
+  - Replaced CSS `gap` with explicit margins for better React Native compatibility
+- **File Changed**: `features/appointments/presentation/components/AppointmentListItem.tsx`
+
+---
+
+## Previous Status: 3 High-Priority Bug Fixes Complete (Feb 2026)
 
 ### Clinical Documents Module - FULLY IMPLEMENTED ✅
 

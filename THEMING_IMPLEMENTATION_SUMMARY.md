@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://docmodule-staging.preview.emergentagent.com/theme-demo
+https://appt-quick-actions.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**

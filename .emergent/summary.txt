@@ -1,268 +1,111 @@
 <analysis>**original_problem_statement**:
-The user's objective is to implement a comprehensive Clinical Documents module within the NovaClinicsPro React Native/Expo application. This involves creating three distinct sub-modules: Casesheets, Prescriptions, and Treatment Sheets.
+The user's primary objective has shifted. The new task is to debug and fix three specific, high-priority frontend bugs in the NovaClinicsPro React Native/Expo application. The previous work on the Clinical Documents module is considered complete from a feature-creation standpoint, but these bugs are now blocking the application's usability.
 
-**PRODUCT REQUIREMENTS (Consolidated from user prompt):**
+**PRODUCT REQUIREMENTS (New Bug Fixes):**
 
-**1. Architectural Mandate:**
-   - Adhere strictly to a  structure.
-   - **Data Layer**: Implement  (API calls via a shared Axios client),  (DTOs from OpenAPI spec), and  (React Query hooks).
-   - **Domain Layer**: Create , , and  to map DTOs and separate business logic.
-   - **Presentation Layer**: Build screens (, , ) and reusable components (, , ).
+**1. Bug 1 – Login “Network Error”**
+    - **Symptom**: The mobile app shows a generic Network Error on the login page after submitting credentials, instead of a proper success/failure message from the backend.
+    - **Fix Criteria**:
+        - Ensure the login form calls the correct Koyeb backend URL from the environment variables.
+        - The Axios client must handle HTTP errors (like 401/422) correctly, and the UI must display user-friendly messages (Invalid credentials) instead of a generic network error.
 
-**2. API & Endpoint Constraints:**
-   - Use **only** the provided OpenAPI specification: .
-   - Only call operations tagged with , , or .
-   - Do not invent endpoints; disable UI features for which no API operation exists.
+**2. Bug 2 – “Add Prescription / Add Casesheet” routes 404**
+    - **Symptom**: Tapping the Add Prescription or Add Casesheet buttons leads to a 404 unmatched route page. The buttons also appear faded/disabled.
+    - **Fix Criteria**:
+        - Correct the Expo Router navigation calls ( or ) to use the exact file-based route paths, including required parameters like .
+        - Fix the button styling to ensure they appear active and enabled for users with the correct permissions.
 
-**3. Feature Implementation (per module):**
-   - **Casesheets & Treatment Sheets**: Implement full CRUD (Create, Read, Update), status transitions (DRAFT -> FINAL -> SIGNED), print, and archive functionalities.
-   - **Prescriptions**: Implement full CRUD, plus  (via SMS/WhatsApp/Email) and  functionality. The print/share flow must follow the guide's HTML-to-PDF approach.
-
-**4. Routing & Integration:**
-   - Wire up the new screens into the existing Expo Router setup.
-   - Create context-specific routes (e.g., ).
-   - Create role-based dashboard links (e.g., My casesheets for doctors).
-   - All queries must be scoped by  and respect user role-based access control (RBAC).
-
-**5. Error Handling & Compliance:**
-   - Use a shared  for all mutations/queries to show user-friendly, accessible error messages.
-   - Do not expose technical details or PHI in logs or UI alerts.
-   - Enforce document lifecycle rules in the UI (e.g.,  is editable,  is read-only).
-
-**User's final request (unaddressed):** The user provided a detailed checklist demanding explicit confirmation on the implementation coverage for each module, API compliance, status rules, routing, and print/share flows before considering the task complete.
+**3. Bug 3 – Quick Action buttons on appointment cards not visible**
+    - **Symptom**: The quick action buttons (Reschedule, No-Show, etc.) that were previously visible on appointment cards are now missing.
+    - **Fix Criteria**:
+        - Investigate the  component to find why the buttons are not rendering (e.g., broken conditional logic, missing props, incorrect styling).
+        - Ensure the props are correctly passed from the  to the item component to enable the actions.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The previous agent attempted a full, end-to-end implementation of the entire Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets) in a single pass. Dozens of files were created across the , , and  layers for all three features, following the mandated architecture. This includes API datasources, DTOs, React Query repositories, domain entities, use cases, and presentation screens/components. Routes were also created. However, this massive code drop was performed without any iterative testing. After creation, the agent discovered numerous TypeScript and linting errors, fixed some, but dismissed the remaining ones as non-blocking before finishing the task.
+The Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets) has been fully scaffolded, including data layers, domain logic, and presentation components. Numerous TypeScript and import errors from the initial code generation have been resolved. Key features like header/footer branding, a Create Treatment Sheet flow, and casesheet extension management have been added. The testing agent performed a successful code review of this module, but UI testing was blocked by an infrastructure issue. The application is now in a broken state due to the three new bugs reported by the user.
 
 **Last working item**:
-- **Last item agent was working**: Fixing TypeScript errors that appeared after scaffolding the entire Clinical Documents module. The agent ran , found several errors, fixed some (like  vs  and missing properties on DTOs), but ultimately decided the remaining errors related to Expo Router's typed routes were pre-existing and would not block the app from building. The agent then proceeded to finish without resolving them or performing any functional tests.
-- **Status**: USER VERIFICATION PENDING
-- **Agent Testing Done**: N (Only ran  and , which showed unresolved errors. No functional or integration testing was performed.)
-- **Which testing method agent to use?**: frontend testing agent (Essential for a feature of this size and complexity to verify functionality, routing, and state management.)
+- **Last item agent was working**: The agent had just received the new problem statement from the user detailing three critical bugs to fix. The agent acknowledged the task and was about to begin the investigation.
+- **Status**: NOT STARTED
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: manual testing by curl/ python -c for the login endpoint (Bug 1). Screenshot tool for the UI-related bugs (Bug 2 and Bug 3) after fixing them. A full testing agent run is recommended after all three are fixed to check for regressions.
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1**: (P0) Complete verification and bug fixing for the Clinical Documents module.
-- **Issue 2**: (P1) Unresolved TypeScript and linting errors.
+- **Issue 1**: (P0) Bug 1 – Login “Network Error”
+- **Issue 2**: (P0) Bug 2 – “Add Prescription / Add Casesheet” routes 404
+- **Issue 3**: (P0) Bug 3 – Quick Action buttons on appointment cards not visible
 
 **Issues Detail**:
-- **Issue 1: Complete verification and bug fixing for the Clinical Documents module**
-    - **Attempted fixes**: The agent created the entire feature but did not verify it.
-    - **Next debug checklist**: Systematically audit the entire implementation against the user's final checklist (message #107).
-        1.  **Coverage**: Confirm all required files (data, domain, presentation) and functions (list, get, create, etc.) exist for all three modules.
-        2.  **API Compliance**: Verify every API call uses the correct endpoint and tag from the OpenAPI spec and goes through the shared Axios client.
-        3.  **Error Handling**: Ensure  is used on all React Query hooks.
-        4.  **Lifecycle Rules**: Check that UI correctly enforces editability based on document status (DRAFT, FINAL, SIGNED).
-        5.  **Routing**: Confirm all specified routes exist and are correctly wired.
-        6.  **Print/Share**: Specifically validate the prescription print/share flow.
-    - **Why fix this issue and what will be achieved with the fix?**: The user will not accept the feature as complete until these points are verified. This is the main acceptance criteria for the entire job.
+- **Issue 1: Bug 1 – Login “Network Error”**
+    - **Attempted fixes**: None.
+    - **Next debug checklist**:
+        1.  Check  to confirm  is correct for the Koyeb deployment.
+        2.  Examine  to verify how  is configured and how errors are handled.
+        3.  Inspect  to see how the API call is made and how errors are caught and displayed to the user.
+    - **Why fix this issue and what will be achieved with the fix?**: This is a critical blocker. Without a working login, no other part of the application can be accessed or tested.
     - **Status**: NOT STARTED
     - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
     - **Blocked on other issue**: None.
 
-- **Issue 2: Unresolved TypeScript and linting errors**
-    - **Attempted fixes**: The agent fixed some type errors but ignored others related to Expo Router's typed routes, claiming they were pre-existing. The ESLint configuration also appears to be misconfigured for TypeScript.
+- **Issue 2: Bug 2 – “Add Prescription / Add Casesheet” routes 404**
+    - **Attempted fixes**: None.
     - **Next debug checklist**:
-        1.  Run yarn run v1.22.22
-$ expo lint
-env: load .env
-env: export EXPO_USE_FAST_RESOLVER EXPO_TUNNEL_SUBDOMAIN EXPO_PACKAGER_PROXY_URL EXPO_PACKAGER_HOSTNAME EXPO_PUBLIC_BACKEND_URL METRO_CACHE_ROOT EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_BASE_URL
-$ /app/frontend/node_modules/.bin/eslint /app/frontend/app --fix=false --cache=true --cache-location=/app/frontend/.expo/cache/eslint/
-
-/app/frontend/app/clinic-admin/index.tsx
-   12:3   warning  'TouchableOpacity' is defined but never used  @typescript-eslint/no-unused-vars
-   37:9   warning  'router' is assigned a value but never used   @typescript-eslint/no-unused-vars
-   96:18  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
-  112:24  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
-
-/app/frontend/app/clinic-admin/settings/index.tsx
-  6:8  warning  Using exported name 'ClinicSettingsScreen' as identifier for default import  import/no-named-as-default
-
-/app/frontend/app/clinic-admin/settings/rooms/[roomId].tsx
-   75:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-   93:22  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-  107:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-
-/app/frontend/app/clinic-admin/settings/treatments/[treatmentId].tsx
-   63:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-   81:22  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-  101:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
-
-/app/frontend/app/clinic-admin/settings/treatments/create.tsx
-   7:23  warning  '/app/frontend/node_modules/react-native/index.js' imported multiple times  import/no-duplicates
-   9:28  warning  '/app/frontend/node_modules/react-native/index.js' imported multiple times  import/no-duplicates
-  30:14  warning  'error' is defined but never used                                           @typescript-eslint/no-unused-vars
-
-/app/frontend/app/doctor.tsx
-  166:22  warning  'err' is defined but never used                                  @typescript-eslint/no-unused-vars
-  250:50  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-  269:52  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-
-/app/frontend/app/forgot-password.tsx
-   96:15  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-  142:38  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-
-/app/frontend/app/login.tsx
-  267:18  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-
-/app/frontend/app/logout.tsx
-  31:6  warning  React Hook useEffect has missing dependencies: 'logout' and 'router'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-
-/app/frontend/app/register.tsx
-  64:10  warning  'error' is assigned a value but never used  @typescript-eslint/no-unused-vars
-
-/app/frontend/app/super-admin/index.tsx
-  12:3   warning  'TouchableOpacity' is defined but never used  @typescript-eslint/no-unused-vars
-  31:9   warning  'router' is assigned a value but never used   @typescript-eslint/no-unused-vars
-  41:18  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
-  57:24  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
-
-/app/frontend/app/theme-demo.tsx
-  28:10  warning  'selectedTheme' is assigned a value but never used           @typescript-eslint/no-unused-vars
-  28:25  warning  'setSelectedTheme' is assigned a value but never used        @typescript-eslint/no-unused-vars
-  31:9   warning  'clinicTypes' is assigned a value but never used             @typescript-eslint/no-unused-vars
-  31:22  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
-
-/app/frontend/app/therapist.tsx
-  129:22  warning  'err' is defined but never used                                  @typescript-eslint/no-unused-vars
-  213:50  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-  226:52  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
-
-✖ 33 problems (7 errors, 26 warnings)
-  0 errors and 2 warnings potentially fixable with the `--fix` option.
-
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. and yarn run v1.22.22
-$ /app/frontend/node_modules/.bin/tsc --noEmit
-app/clinic-admin/settings/treatments/create.tsx(44,9): error TS2322: Type '(data: TreatmentCreate) => Promise<void>' is not assignable to type '(data: TreatmentCreate | TreatmentUpdate, hasChanges: boolean) => void'.
-  Types of parameters 'data' and 'data' are incompatible.
-    Type 'TreatmentCreate | TreatmentUpdate' is not assignable to type 'TreatmentCreate'.
-      Type 'TreatmentUpdate' is not assignable to type 'TreatmentCreate'.
-        Types of property 'code' are incompatible.
-          Type 'string | null | undefined' is not assignable to type 'string'.
-            Type 'undefined' is not assignable to type 'string'.
-app/super-admin/index.tsx(72,32): error TS2339: Property 'fullName' does not exist on type 'AuthUserSession'.
-core/components/QuickActionButton.tsx(13,15): error TS2344: Type 'string' does not satisfy the constraint '__routes<string>'.
-core/components/QuickActionButton.tsx(45,13): error TS2322: Type 'string | HrefObject' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | `/doctor?${string}` | `/doctor#${string}` | "/forgot-password" | `/forgot-password?${string}` | `/forgot-password#${string}` | "/" | `/?${string}` | ... 287 more ... | { ...; }'.
-  Type 'string' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | `/doctor?${string}` | `/doctor#${string}` | "/forgot-password" | `/forgot-password?${string}` | `/forgot-password#${string}` | "/" | `/?${string}` | ... 287 more ... | { ...; }'.
-core/hooks/useDebounce.ts(54,18): error TS2345: Argument of type 'number' is not assignable to parameter of type 'SetStateAction<Timeout | null>'.
-core/localization/i18n.ts(59,39): error TS2339: Property 'locale' does not exist on type 'typeof import("/app/frontend/node_modules/expo-localization/build/Localization")'.
-features/analytics/data/datasources/analytics.api.ts(6,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/appointmentRules/data/datasources/appointmentRules.api.ts(6,8): error TS2613: Module '"/app/frontend/core/api/axiosClient"' has no default export. Did you mean to use 'import { axiosClient } from "/app/frontend/core/api/axiosClient"' instead?
-features/billing/presentation/pages/TenantInvoiceCreateScreen.tsx(108,13): error TS2322: Type '(data: InvoiceCreateRequest) => void' is not assignable to type '(data: InvoiceCreateRequest | InvoiceUpdateRequest) => void'.
-  Types of parameters 'data' and 'data' are incompatible.
-    Type 'InvoiceCreateRequest | InvoiceUpdateRequest' is not assignable to type 'InvoiceCreateRequest'.
-      Type 'InvoiceUpdateRequest' is missing the following properties from type 'InvoiceCreateRequest': client_id, invoice_number, invoice_date
-features/casesheets/presentation/pages/CasesheetDetailScreen.tsx(89,7): error TS2820: Type '"/clinic-admin/clients/[clientId]/casesheets/[casesheetId]/edit"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'. Did you mean '"/clinic-admin/clients/[clientId]/casesheets/[casesheetId]"'?
-features/casesheets/presentation/pages/CasesheetsListScreen.tsx(67,7): error TS2820: Type '"/clinic-admin/clients/[clientId]/casesheets/new"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'. Did you mean '"/clinic-admin/clients/[clientId]/casesheets"'?
-features/clients/presentation/pages/ClientsListScreen.tsx(248,13): error TS2322: Type '(data: ClientCreate) => Promise<void>' is not assignable to type '(data: ClientCreate | ClientUpdate) => void'.
-  Types of parameters 'data' and 'data' are incompatible.
-    Type 'ClientCreate | ClientUpdate' is not assignable to type 'ClientCreate'.
-      Type 'ClientUpdate' is not assignable to type 'ClientCreate'.
-        Types of property 'full_name' are incompatible.
-          Type 'string | null | undefined' is not assignable to type 'string'.
-            Type 'undefined' is not assignable to type 'string'.
-features/globalSettings/data/datasources/globalSettings.api.ts(8,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/globalSettings/index.ts(14,1): error TS2308: Module './data/models/globalSettings.dtos' has already exported a member named 'ComplianceSettings'. Consider explicitly re-exporting to resolve the ambiguity.
-features/globalSettings/index.ts(14,1): error TS2308: Module './data/models/globalSettings.dtos' has already exported a member named 'DefaultSettings'. Consider explicitly re-exporting to resolve the ambiguity.
-features/globalSettings/index.ts(14,1): error TS2308: Module './data/models/globalSettings.dtos' has already exported a member named 'FeatureFlags'. Consider explicitly re-exporting to resolve the ambiguity.
-features/globalSettings/presentation/pages/SystemSettingsScreen.tsx(285,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/globalSettings/presentation/pages/SystemSettingsScreen.tsx(311,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/globalSettings/presentation/pages/TenantSettingsScreen.tsx(219,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/globalSettings/presentation/pages/TenantSettingsScreen.tsx(242,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/globalSettings/presentation/pages/TenantSettingsScreen.tsx(258,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/inventory/presentation/pages/InventoryBatchesScreen.tsx(255,15): error TS2322: Type '(data: BatchCreateRequest) => Promise<void>' is not assignable to type '(data: BatchCreateRequest | BatchUpdateRequest) => void'.
-  Types of parameters 'data' and 'data' are incompatible.
-    Type 'BatchCreateRequest | BatchUpdateRequest' is not assignable to type 'BatchCreateRequest'.
-      Type 'BatchUpdateRequest' is missing the following properties from type 'BatchCreateRequest': batch_number, quantity
-features/localization/data/datasources/localization.api.ts(8,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/localization/index.ts(15,1): error TS2308: Module './data/repositories/localization.repository.impl' has already exported a member named 'SupportedLocalesResult'. Consider explicitly re-exporting to resolve the ambiguity.
-features/localization/presentation/components/LocaleSelect.tsx(88,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/localization/presentation/pages/TenantLocaleSettingsScreen.tsx(202,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/localization/presentation/pages/UserLocaleSettingsScreen.tsx(32,31): error TS2339: Property 'id' does not exist on type 'AuthUserSession'.
-features/localization/presentation/pages/UserLocaleSettingsScreen.tsx(200,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notificationPreferences/data/datasources/notificationPreferences.api.ts(8,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/notificationPreferences/index.ts(14,1): error TS2308: Module './data/models/notificationPreferences.dtos' has already exported a member named 'NotificationChannel'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notificationPreferences/index.ts(14,1): error TS2308: Module './data/models/notificationPreferences.dtos' has already exported a member named 'NotificationEventType'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notificationPreferences/index.ts(14,1): error TS2308: Module './data/models/notificationPreferences.dtos' has already exported a member named 'NotificationFrequency'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notificationPreferences/presentation/components/NotificationChannelSection.tsx(70,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notificationPreferences/presentation/components/NotificationPreferenceItem.tsx(69,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notificationPreferences/presentation/pages/NotificationPreferencesScreen.tsx(52,31): error TS2339: Property 'id' does not exist on type 'AuthUserSession'.
-features/notificationPreferences/presentation/pages/NotificationPreferencesScreen.tsx(237,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notificationPreferences/presentation/pages/NotificationPreferencesScreen.tsx(262,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notificationPreferences/presentation/pages/NotificationPreferencesScreen.tsx(279,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notifications/data/datasources/notifications.api.ts(9,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/notifications/index.ts(14,1): error TS2308: Module './data/models/notifications.dtos' has already exported a member named 'NotificationCategory'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notifications/index.ts(14,1): error TS2308: Module './data/models/notifications.dtos' has already exported a member named 'NotificationImportance'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notifications/index.ts(15,1): error TS2308: Module './data/models/notifications.dtos' has already exported a member named 'ListNotificationsParams'. Consider explicitly re-exporting to resolve the ambiguity.
-features/notifications/presentation/components/NotificationListItem.tsx(105,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notifications/presentation/pages/NotificationDetailScreen.tsx(197,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notifications/presentation/pages/NotificationsListScreen.tsx(262,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/notifications/presentation/pages/NotificationsListScreen.tsx(277,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/prescriptions/presentation/pages/PrescriptionDetailScreen.tsx(112,9): error TS2820: Type '"/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'. Did you mean '"/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]"'?
-features/prescriptions/presentation/pages/PrescriptionDetailScreen.tsx(117,9): error TS2322: Type '"/clinic-admin/prescriptions/[prescriptionId]/edit"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'.
-features/prescriptions/presentation/pages/PrescriptionsListScreen.tsx(69,9): error TS2322: Type '"/clinic-admin/prescriptions/[prescriptionId]"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'.
-features/prescriptions/presentation/pages/PrescriptionsListScreen.tsx(78,9): error TS2820: Type '"/clinic-admin/clients/[clientId]/prescriptions/new"' is not assignable to type 'RelativePathString | ExternalPathString | "/doctor" | "/forgot-password" | "/" | "/localization" | "/login" | "/logout" | "/notification-preferences" | ... 68 more ... | "/super-admin/tenants/[tenantId]/rbac/users"'. Did you mean '"/clinic-admin/clients/[clientId]/prescriptions"'?
-features/prescriptions/presentation/pages/PrescriptionsListScreen.tsx(82,19): error TS2345: Argument of type '"/clinic-admin/prescriptions/new"' is not assignable to parameter of type 'RelativePathString | ExternalPathString | "/doctor" | `/doctor?${string}` | `/doctor#${string}` | "/forgot-password" | `/forgot-password?${string}` | `/forgot-password#${string}` | "/" | `/?${string}` | ... 287 more ... | { ...; }'.
-features/staff/presentation/pages/StaffDetailScreen.tsx(60,24): error TS2339: Property 'id' does not exist on type 'AuthUserSession'.
-features/staff/presentation/pages/StaffListScreen.tsx(374,13): error TS2322: Type '(data: StaffCreate) => Promise<void>' is not assignable to type '(data: StaffCreate | StaffUpdate) => void'.
-  Types of parameters 'data' and 'data' are incompatible.
-    Type 'StaffCreate | StaffUpdate' is not assignable to type 'StaffCreate'.
-      Property 'requires_login' is missing in type 'StaffUpdate' but required in type 'StaffCreate'.
-features/templates/data/datasources/templates.api.ts(9,8): error TS2613: Module '"/app/frontend/core/api/axiosClient"' has no default export. Did you mean to use 'import { axiosClient } from "/app/frontend/core/api/axiosClient"' instead?
-features/tenantBranding/data/datasources/tenantBranding.api.ts(8,10): error TS2305: Module '"../../../../core/api/axiosClient"' has no exported member 'apiClient'.
-features/tenantBranding/index.ts(14,1): error TS2308: Module './data/models/tenantBranding.dtos' has already exported a member named 'TenantBrandingColors'. Consider explicitly re-exporting to resolve the ambiguity.
-features/tenantBranding/index.ts(14,1): error TS2308: Module './data/models/tenantBranding.dtos' has already exported a member named 'TenantBrandingLogos'. Consider explicitly re-exporting to resolve the ambiguity.
-features/tenantBranding/presentation/components/ColorPaletteSelector.tsx(95,19): error TS2339: Property 'subtitle2' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-features/tenantBranding/presentation/pages/TenantBrandingSettingsScreen.tsx(237,19): error TS2339: Property 'subtitle1' does not exist on type '{ h1: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h2: { fontSize: number; fontWeight: "700"; lineHeight: number; letterSpacing: number; }; h3: { fontSize: number; fontWeight: "600"; lineHeight: number; }; ... 6 more ...; button: { ...; }; }'.
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command..
-        2.  Address the ESLint parsing errors by correcting the configuration.
-        3.  Investigate and fix all remaining TypeScript errors. Do not assume they are non-blocking.
-    - **Why fix this issue and what will be achieved with the fix?**: A clean build without type errors is essential for code stability and maintainability.
-    - **Status**: IN PROGRESS
+        1.  Verify the existence and path of  and .
+        2.  Find the component that renders the Add buttons and inspect the  or   property. Ensure it correctly constructs the path with the .
+        3.  Check the component's styling and logic to see why the buttons are faded/disabled.
+    - **Why fix this issue and what will be achieved with the fix?**: Fixes broken core functionality, allowing users to create clinical documents.
+    - **Status**: NOT STARTED
     - **Is recurring issue?**: N
     - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on other issue**: None.
+    - **Blocked on other issue**: Blocked by **Issue 1**, as the user cannot log in to reach this screen.
+
+- **Issue 3: Bug 3 – Quick Action buttons on appointment cards not visible**
+    - **Attempted fixes**: None.
+    - **Next debug checklist**:
+        1.  Inspect  to find the conditional logic or styling that is hiding the quick action buttons.
+        2.  Check the parent screen  to confirm it is passing the necessary callback props (, , etc.) to the list item component.
+    - **Why fix this issue and what will be achieved with the fix?**: Restores a key UI feature regression, improving user workflow for managing appointments.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: Y (This feature was previously working and has now broken).
+    - **Should Test frontend/backend/both after fix?**: Frontend
+    - **Blocked on other issue**: Blocked by **Issue 1**.
 
 **In progress Task List**:
-- **Task 1**: (P0) Finalize the Clinical Documents Module Implementation
-    - **Where to resume**: Start by addressing Issue 1. The codebase has been scaffolded, but it needs a thorough audit, bug fixing, and verification against the user's detailed requirements.
-    - **What will be achieved with this?**: A complete, tested, and user-approved implementation of the Casesheets, Prescriptions, and Treatment Sheets features.
-    - **Status**: IN PROGRESS
-    - **Should Test frontend/backend/both after fix?**: Frontend
-    - **Blocked on something**: None.
+- None.
 
 **Upcoming and Future Tasks**
-- The user has explicitly forbidden work on any future tasks or enhancements until the Clinical Documents module is deemed complete. The next agent should only *capture* ideas for future enhancements as notes, but not implement anything.
+- No upcoming tasks. The sole focus must be on fixing the three specified bugs.
 
 **Completed work in this session**
-- **Scaffolded Full Clinical Documents Module**: Created the complete folder and file structure for Casesheets, Prescriptions, and Treatment Sheets, following the specified // architecture.
-    - **Data Layer**: Created , , and  files for all three modules.
-    - **Domain Layer**: Created , , and use case files for all three modules.
-    - **Presentation Layer**: Created  screens and  components for all three modules.
-- **Routing**: Created new route files under  to integrate the new screens.
-- **Partial Bug Fixes**: Addressed some initial TypeScript errors related to mismatched types and incorrect imports.
+- **Clinical Documents Module Implementation**:
+  - Full scaffolding of Casesheets, Prescriptions, and Treatment Sheets.
+  - Implemented Header/Footer branding display in .
+  - Added a Create Treatment Sheet flow from the casesheet detail view.
+  - Added UI for managing casesheet extensions in .
+- **TypeScript Error Resolution**:
+  - Fixed incorrect  vs  imports codebase-wide.
+  - Resolved numerous type errors and duplicate exports.
+- **Code Verification**:
+  - The testing agent performed a code review on the Clinical Documents module, which passed with a 100% score (). UI testing was blocked.
 
 **Earlier issues found/mentioned but not fixed**
-- **TypeScript Errors**: The previous agent intentionally left unresolved TypeScript errors related to Expo Router, assuming they were not critical.
-- **ESLint Configuration**: The linter is not correctly configured for TypeScript files, causing parsing errors during the lint process.
+- **ESLint Configuration**: The ESLint configuration in  is broken and cannot parse TypeScript files correctly, leading to parser errors during the  command. This does not block compilation but hinders code quality checks.
 
 **Known issue recurrence from previous fork**
 - N/A
 
 **Code Architecture**
-The codebase follows a strict feature-sliced architecture as mandated by the user.
 
 
 **Key Technical Concepts**
-- **Frontend Framework**: React Native with Expo
+- **Frontend**: React Native with Expo
 - **Routing**: Expo Router v3
-- **State Management**: TanStack React Query for server state, React Hooks for UI state.
-- **API Client**: Axios (with a shared, pre-configured client)
-- **Forms**: React Hook Form with Zod for validation
+- **API**: Axios
+- **State Management**: TanStack React Query
 
 **key DB schema**
 - N/A (Frontend-only work)
@@ -271,61 +114,56 @@ The codebase follows a strict feature-sliced architecture as mandated by the use
 - None
 
 **All files of reference**
-- **User Guide**: 
-- **OpenAPI Spec**: 
-- **Key Created Files**:
-    -  (and all sub-directories)
-    -  (and all sub-directories)
-    -  (and all sub-directories)
-    - 
-    - 
-    - 
+- **Bug 1 (Login):**
+  - 
+  - 
+  - 
+- **Bug 2 (Routing):**
+  - 
+  - 
+- **Bug 3 (Appointments):**
+  - 
+  - 
+- **Test Report**: 
 
 **Areas that need refactoring**:
-- **Error Resolution**: The entire codebase needs to be reviewed to fix all remaining TypeScript and linting errors.
-- **Code Review**: Given the volume of code added in one go without testing, a thorough code review is needed to catch potential bugs, inconsistencies, or deviations from the user's guide.
+- The  file needs to be corrected to properly support TypeScript parsing.
 
 **key api endpoints**
-- All API endpoints used must be from the OpenAPI spec and have one of the following tags:
-    - 
-    - 
-    - 
+-  (Relevant for Bug 1)
 
 **Critical Info for New Agent**
-- **Your first task is to respond to the user's verification checklist (message #107).** Do not proceed with any other work until you have audited the existing code against their specific questions and can provide a confident, detailed response.
-- **Do not trust the previous agent's implementation.** The code was generated in a single, massive batch and is untested. Assume there are bugs and gaps in the implementation.
-- **Fix ALL TypeScript errors.** Do not dismiss any errors as non-blocking or pre-existing without thorough investigation. Ensure the application has a clean bill of health from the TypeScript compiler.
-- **Do NOT implement any new features or enhancements.** The user was explicit. The sole focus is to make the existing, incomplete implementation fully functional and compliant with the original request.
+- **Your ONLY priority is to fix the three bugs from the user's last message.** Do not work on any new features or enhancements.
+- **Start with Bug 1 (Login)**. It is a hard blocker for everything else.
+- Do not modify the backend or change the established frontend architecture.
+- After fixing the bugs, you must confirm they are resolved on both mobile and Expo web preview.
 
 **documents and test reports created in this job**
 - 
+- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Msg #28)**: Confirmed the agent should proceed with the full and complete implementation.
-2.  **User (Msg #5)**: The initial, very detailed prompt outlining the entire Clinical Documents module, including architecture, API constraints, features, routing, and acceptance criteria.
-3.  **User (Msg #107)**: The final, critical message from the user. It is a detailed checklist asking for explicit confirmation that all requirements for the Clinical Documents module have been met before they will consider it complete. **This message is the highest priority and is currently unaddressed.**
+- **User (Msg #174)**: The most recent and critical message. The user provided a completely new problem statement, detailing three specific bugs (Login network error, 404 on Add buttons, and missing appointment quick actions) that need to be fixed. This message overrides all previous tasks and sets the current priority.
 
 **Project Health Check:**
-- **Broken**: A massive amount of untested code has been added. There are known, unresolved TypeScript errors. The application is highly likely to be unstable or fail to build.
+- **Broken**: The application is unusable. Login is broken, preventing access. Core navigation for creating documents results in a 404 error. A key UI feature on the appointments screen has regressed and is no longer visible.
 
 **3rd Party Integrations**
-- : Used for server state management.
-- : Used for API calls.
-- : Used for building forms.
-- : Used for schema validation.
-- : Used for file-based routing.
+- 
+- 
+- 
+- 
+- 
 
 **Testing status**
-- **Testing agent used after significant changes**: NO
+- **Testing agent used after significant changes**: YES (for the previous feature, not the current bugs)
 - **Troubleshoot agent used after agent stuck in loop**: NO
 - **Test files created**: None
-- **Known regressions**: N/A (new feature, but the codebase health has degraded due to untyped and untested code).
+- **Known regressions**: Quick action buttons on appointment cards have disappeared.
 
 **Credentials to test flow:**
 - **Email**: 
 - **Password**: 
 
 **What agent forgot to execute**
-- The agent failed to perform any functional testing after a massive code implementation.
-- The agent did not fully resolve all TypeScript errors, dismissing some without proper investigation.
-- Most critically, the agent did not address the user's final, detailed verification request (message #107), instead choosing to  the job with a generic summary. This left the primary acceptance criteria for the entire task unmet.</analysis>
+- The current task is to fix three newly reported bugs. The agent has not yet started work on them. The previous implementation of the Clinical Documents module may have inadvertently caused these regressions.</analysis>

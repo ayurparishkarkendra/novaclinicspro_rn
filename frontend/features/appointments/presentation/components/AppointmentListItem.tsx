@@ -106,7 +106,7 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({
     data-testid={testId}
   >
     <Ionicons name={icon} size={16} color={color} />
-    <Text style={[styles.quickActionText, { color }]}>{label}</Text>
+    <Text style={[styles.quickActionText, { color, marginLeft: 4 }]}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -144,10 +144,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   }, [appointment, onPress, router]);
 
   // ===== RBAC CHECK =====
-  // FIX: Always allow actions for clinic_admin users
-  const normalizedRole = userRole?.toLowerCase().replace(/_/g, '-') || 'clinic-admin';
-  const isClinicAdmin = normalizedRole === 'clinic-admin' || userRole?.toLowerCase() === 'clinic_admin';
-  const canModify = isClinicAdmin || ['receptionist'].includes(normalizedRole);
+  // FIX: Make role check more robust for various role formats
+  const normalizedRole = (userRole || '').toLowerCase().replace(/[_\-\s]+/g, '');
+  const isClinicAdmin = normalizedRole.includes('clinicadmin') || normalizedRole.includes('admin');
+  const isReceptionist = normalizedRole.includes('receptionist');
+  const canModify = isClinicAdmin || isReceptionist;
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
   const status = (appointment.status || '').toLowerCase();
@@ -157,7 +158,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
   const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
   
-  // Debug: Log to verify values
+  // Debug: Log to verify values (enable for debugging)
   // console.log('QuickActions Debug:', { userRole, normalizedRole, isClinicAdmin, canModify, status, canReschedule });
 
   // ===== DISPLAY VALUES =====
@@ -244,11 +245,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* A2: Quick Actions Row - Always visible, no expand/collapse */}
-      {showActions && (canReschedule || canMarkNoShow || canCancelAppt || canComplete) && (
+      {/* A2: Quick Actions Row - Always visible for scheduled/confirmed appointments */}
+      {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
-          {canReschedule && (
+          {['scheduled', 'confirmed'].includes(status) && (
             <QuickActionButton
               icon="calendar-outline"
               label={t('appointments.reschedule') || 'Reschedule'}
@@ -258,7 +259,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* No-Show - scheduled/confirmed */}
-          {canMarkNoShow && onStatusUpdate && (
+          {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="alert-circle"
               label={t('appointments.noShow') || 'No-Show'}
@@ -268,7 +269,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* Cancel - scheduled/confirmed */}
-          {canCancelAppt && onCancel && (
+          {['scheduled', 'confirmed'].includes(status) && onCancel && (
             <QuickActionButton
               icon="close-circle"
               label={t('common.cancel') || 'Cancel'}
@@ -277,8 +278,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               testId="action-cancel"
             />
           )}
-          {/* A2/A3: Complete - confirmed OR in_progress (MUST be present per User Requirement) */}
-          {canComplete && onStatusUpdate && (
+          {/* Complete - confirmed OR in_progress */}
+          {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="checkmark-done-circle"
               label={t('appointments.complete') || 'Complete'}
@@ -426,10 +427,9 @@ const styles = StyleSheet.create({
   quickActionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
   },
@@ -441,7 +441,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     backgroundColor: colors.background.paper,
-    gap: spacing.xs / 2,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
   },
   quickActionText: {
     ...typography.caption,

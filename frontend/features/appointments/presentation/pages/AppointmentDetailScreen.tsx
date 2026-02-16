@@ -160,23 +160,25 @@ const VisitHistoryCard: React.FC<VisitHistoryCardProps> = ({ appointment, onPres
 
   // Handler for Case Sheet action
   const handleCaseSheetPress = useCallback(() => {
-    if (hasCaseSheet) {
+    const clientId = appointment.client_id;
+    if (hasCaseSheet && appointment.case_sheet_id) {
       // View existing case sheet
-      router.push(`/clinic-admin/case-sheets/${appointment.case_sheet_id || appointment.id}` as any);
+      router.push(`/clinic-admin/clients/${clientId}/casesheets/${appointment.case_sheet_id}` as any);
     } else {
       // Add new case sheet
-      router.push(`/clinic-admin/case-sheets/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+      router.push(`/clinic-admin/clients/${clientId}/casesheets/new?appointmentId=${appointment.id}` as any);
     }
   }, [hasCaseSheet, appointment, router]);
 
   // Handler for Prescription action
   const handlePrescriptionPress = useCallback(() => {
-    if (hasPrescription) {
+    const clientId = appointment.client_id;
+    if (hasPrescription && appointment.prescription_id) {
       // View existing prescription
-      router.push(`/clinic-admin/prescriptions/${appointment.prescription_id || appointment.id}` as any);
+      router.push(`/clinic-admin/clients/${clientId}/prescriptions/${appointment.prescription_id}` as any);
     } else {
       // Add new prescription
-      router.push(`/clinic-admin/prescriptions/create?appointmentId=${appointment.id}&clientId=${appointment.client_id}` as any);
+      router.push(`/clinic-admin/clients/${clientId}/prescriptions/new?appointmentId=${appointment.id}` as any);
     }
   }, [hasPrescription, appointment, router]);
   
