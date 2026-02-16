@@ -1874,23 +1874,38 @@ const styles = StyleSheet.create({
     color: colors.background.default,
   },
 
-  // #7: Custom Time Row
+  // #7: Custom Time Section - BUG FIX #6 & #7
+  customTimeSection: {
+    marginTop: spacing.md,
+  },
   customTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary.main + '08',
     padding: spacing.md,
     borderRadius: spacing.sm,
-    marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.primary.main + '30',
     borderStyle: 'dashed',
   },
-  customTimeText: {
+  customTimeRowSelected: {
+    backgroundColor: colors.primary.main + '15',
+    borderColor: colors.primary.main,
+    borderStyle: 'solid',
+  },
+  customTimeContent: {
     flex: 1,
+    marginLeft: spacing.sm,
+  },
+  customTimeText: {
     ...typography.body2,
     color: colors.primary.main,
-    marginLeft: spacing.sm,
+  },
+  customTimeSelectedText: {
+    ...typography.caption,
+    color: colors.success.main,
+    fontWeight: '600',
+    marginTop: spacing.xs / 2,
   },
 
   // #7: Custom Time Picker Modal
