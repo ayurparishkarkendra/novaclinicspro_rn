@@ -22,7 +22,7 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { TherapistNotificationPreferences } from '../../data/models/push.dtos';
+import { TherapistNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '../../data/models/push.dtos';
 
 interface PreferenceItemProps {
   title: string;
