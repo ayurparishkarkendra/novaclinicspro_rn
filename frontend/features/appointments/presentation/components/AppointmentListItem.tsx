@@ -259,16 +259,18 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* No-Show - scheduled/confirmed */}
+          {/* BUG FIX #2: Backend expects uppercase status values */}
           {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="alert-circle"
               label={t('appointments.noShow') || 'No-Show'}
               color={colors.warning.main}
-              onPress={() => onStatusUpdate(appointment.id, 'no_show')}
+              onPress={() => onStatusUpdate(appointment.id, 'NO_SHOW')}
               testId="action-noshow"
             />
           )}
           {/* Cancel - scheduled/confirmed */}
+          {/* BUG FIX #2: Uses onCancel which handles the status internally */}
           {['scheduled', 'confirmed'].includes(status) && onCancel && (
             <QuickActionButton
               icon="close-circle"
@@ -279,12 +281,13 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* Complete - confirmed OR in_progress */}
+          {/* BUG FIX #2 & #3: Backend expects uppercase status values */}
           {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="checkmark-done-circle"
               label={t('appointments.complete') || 'Complete'}
               color={colors.success.main}
-              onPress={() => onStatusUpdate(appointment.id, 'completed')}
+              onPress={() => onStatusUpdate(appointment.id, 'COMPLETED')}
               testId="action-complete"
             />
           )}
