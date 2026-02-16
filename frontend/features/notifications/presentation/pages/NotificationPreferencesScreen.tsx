@@ -232,7 +232,28 @@ export const NotificationPreferencesScreen: React.FC = () => {
         )}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary.main}
+          />
+        }
+      >
+        {/* Error Banner */}
+        {error && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={20} color={colors.error.main} />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={handleRefresh}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Permission Status */}
         {permissionStatus !== 'granted' && (
           <View style={styles.permissionBanner}>
