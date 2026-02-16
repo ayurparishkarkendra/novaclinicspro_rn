@@ -32,9 +32,58 @@ export interface CasesheetFormData {
   };
   extensions?: Array<{
     template_id: string;
+    template_name?: string;
     data: Record<string, any>;
   }>;
 }
+
+// Predefined extension templates for common clinical data
+const EXTENSION_TEMPLATES = [
+  {
+    id: 'vitals',
+    name: 'Vital Signs',
+    icon: 'pulse' as keyof typeof Ionicons.glyphMap,
+    fields: [
+      { id: 'blood_pressure', label: 'Blood Pressure', placeholder: 'e.g., 120/80 mmHg' },
+      { id: 'pulse_rate', label: 'Pulse Rate', placeholder: 'e.g., 72 bpm' },
+      { id: 'temperature', label: 'Temperature', placeholder: 'e.g., 98.6°F' },
+      { id: 'respiratory_rate', label: 'Respiratory Rate', placeholder: 'e.g., 16/min' },
+      { id: 'spo2', label: 'SpO2', placeholder: 'e.g., 98%' },
+      { id: 'weight', label: 'Weight', placeholder: 'e.g., 70 kg' },
+    ],
+  },
+  {
+    id: 'prakriti',
+    name: 'Prakriti Assessment',
+    icon: 'leaf' as keyof typeof Ionicons.glyphMap,
+    fields: [
+      { id: 'vata', label: 'Vata', placeholder: 'Score or description' },
+      { id: 'pitta', label: 'Pitta', placeholder: 'Score or description' },
+      { id: 'kapha', label: 'Kapha', placeholder: 'Score or description' },
+      { id: 'dominant_dosha', label: 'Dominant Dosha', placeholder: 'e.g., Vata-Pitta' },
+    ],
+  },
+  {
+    id: 'nadi_pariksha',
+    name: 'Nadi Pariksha',
+    icon: 'hand-left' as keyof typeof Ionicons.glyphMap,
+    fields: [
+      { id: 'nadi_type', label: 'Nadi Type', placeholder: 'e.g., Vata, Pitta, Kapha' },
+      { id: 'nadi_gati', label: 'Nadi Gati', placeholder: 'Speed/rhythm' },
+      { id: 'nadi_bala', label: 'Nadi Bala', placeholder: 'Strength' },
+      { id: 'observations', label: 'Observations', placeholder: 'Additional notes' },
+    ],
+  },
+  {
+    id: 'custom',
+    name: 'Custom Notes',
+    icon: 'create' as keyof typeof Ionicons.glyphMap,
+    fields: [
+      { id: 'title', label: 'Title', placeholder: 'Extension title' },
+      { id: 'content', label: 'Content', placeholder: 'Additional clinical notes', multiline: true },
+    ],
+  },
+];
 
 interface CasesheetFormProps {
   initialData?: CasesheetFormData;
