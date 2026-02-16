@@ -303,20 +303,38 @@ export const useCancelAppointmentMutation = (tenantId: string) => {
 
 /**
  * Hook to reschedule an appointment
- * BUG FIX #1: Updated to accept appointmentId and newStart in the mutation call
+ * Supports two usage patterns:
+ * 1. useRescheduleAppointmentMutation() - pass tenantId, appointmentId, newStart in mutate
+ * 2. useRescheduleAppointmentMutation(tenantId, appointmentId) - pass only new date in mutate
  */
-export const useRescheduleAppointmentMutation = () => {
+export function useRescheduleAppointmentMutation(): ReturnType<typeof useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>>;
+export function useRescheduleAppointmentMutation(tenantId: string, appointmentId: string): ReturnType<typeof useMutation<AppointmentRescheduleResponse, Error, { new_start: string; new_end?: string }>>;
+export function useRescheduleAppointmentMutation(tenantId?: string, appointmentId?: string) {
   const queryClient = useQueryClient();
 
+  // If tenantId and appointmentId are provided, use the legacy signature
+  if (tenantId && appointmentId) {
+    return useMutation<AppointmentRescheduleResponse, Error, { new_start: string; new_end?: string }>({
+      mutationFn: (payload) => {
+        return rescheduleAppointmentApi(tenantId, appointmentId, payload);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: appointmentsKeys.detail(tenantId, appointmentId) });
+      },
+    });
+  }
+
+  // New signature: pass everything in mutate call
   return useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>({
-    mutationFn: ({ tenantId, appointmentId, newStart }) => {
-      return rescheduleAppointmentApi(tenantId, appointmentId, { new_start: newStart });
+    mutationFn: ({ tenantId: tid, appointmentId: aid, newStart }) => {
+      return rescheduleAppointmentApi(tid, aid, { new_start: newStart, appointment_start: newStart });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
-};
+}
 
 /**
  * Hook to validate appointment
