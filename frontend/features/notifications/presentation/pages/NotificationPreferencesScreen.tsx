@@ -1,6 +1,7 @@
 /**
  * Notification Preferences Screen
  * Allows therapists to customize their push notification settings
+ * Integrated with backend API for preferences management
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -14,6 +15,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
