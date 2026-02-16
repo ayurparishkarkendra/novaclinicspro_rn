@@ -261,6 +261,18 @@ export const TherapistDashboardScreen: React.FC = () => {
 
   const isOnLeave = dashboardData?.on_leave_today || false;
 
+  // Settings icon for notification preferences
+  const settingsButton = (
+    <TouchableOpacity
+      style={styles.settingsButton}
+      onPress={() => router.push('/notifications/preferences')}
+      accessibilityRole="button"
+      accessibilityLabel="Notification settings"
+    >
+      <Ionicons name="settings-outline" size={22} color={colors.text.secondary} />
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
@@ -270,6 +282,7 @@ export const TherapistDashboardScreen: React.FC = () => {
         onNotificationPress={() => router.push('/notifications')}
         onProfilePress={() => {}}
         onLogoutPress={handleLogout}
+        rightAction={settingsButton}
       />
 
       <ScrollView
