@@ -410,11 +410,11 @@ export const CasesheetDetailScreen: React.FC = () => {
               </Text>
             </View>
           )}
-          {casesheet.recorded_by_name && (
+          {(casesheet as any).recorded_by_name && (
             <View style={styles.infoRow}>
               <Ionicons name="person-outline" size={16} color={colors.text.secondary} />
               <Text style={styles.infoLabel}>Recorded by:</Text>
-              <Text style={styles.infoValue}>{casesheet.recorded_by_name}</Text>
+              <Text style={styles.infoValue}>{(casesheet as any).recorded_by_name}</Text>
             </View>
           )}
         </View>
