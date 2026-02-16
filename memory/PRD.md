@@ -3,7 +3,65 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Patient Feedback & Rating System (Feb 2026) - COMPLETED ✅
+## Latest Status: Doctor Dashboard Module (Dec 2025) - COMPLETED ✅
+
+### Doctor Dashboard - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_13.json`
+**Code Review:** 100% Pass for module structure and compilation
+
+**Module Architecture:**
+```
+/app/frontend/features/doctorDashboard/
+├── data/
+│   ├── datasources/
+│   │   └── doctorKpis.api.ts           # Backend KPI API service
+│   ├── models/
+│   │   └── doctorKpis.dtos.ts          # DTOs, types, helpers
+│   └── repositories/
+│       └── doctorKpis.repository.impl.ts # React Query hooks
+├── domain/
+│   └── entities/
+│       └── doctorKpis.entity.ts        # Domain entity & mappers
+├── presentation/
+│   └── components/
+│       ├── KpiPeriodSelector.tsx       # 7d/30d/90d/Custom selector
+│       ├── KpiStatCard.tsx             # KPI metric cards
+│       ├── TimeMetricsBars.tsx         # Time metrics visualization
+│       └── index.ts                    # Component exports
+└── index.ts                            # Feature exports
+```
+
+**API Endpoint Integrated:**
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/clinic/{tenant_id}/staff/{staff_id}/kpis` | GET | JWT | Doctor KPI metrics |
+
+**Query Parameters:**
+- `period`: `7d` | `30d` | `90d` | `custom`
+- `from_date`: ISO date (required if period='custom')
+- `to_date`: ISO date (required if period='custom')
+
+**KPI Metrics Displayed:**
+1. **Consultations Card**: total_completed, completion_rate, no_show_rate, cancellation_rate
+2. **Patients Card**: total_unique, new_patients, returning_patients, retention_rate
+3. **Clinical Productivity Card**: casesheets_created, prescriptions_written, treatment_sheets_created, documents_signed
+4. **Time Metrics**: avg_consultation_duration, peak_hours (top 3), busiest_days (top 3)
+
+**Features:**
+- Period selector with 7d/30d/90d/Custom options
+- Custom date range modal with validation (max 365 days)
+- Loading states with spinner while fetching
+- Error handling for API failures (400/401/403/404/500) with friendly messages
+- Empty states for no data periods
+- Pull-to-refresh support
+- Reuses existing staffDashboards components (AppointmentListItem, EmptyDashboardState, etc.)
+
+**Dashboard Screen:** `/app/frontend/app/doctor.tsx`
+
+---
+
+## Previous Status: Patient Feedback & Rating System (Feb 2026) - COMPLETED ✅
 
 ### Patient Feedback Module - FULLY IMPLEMENTED ✅
 
