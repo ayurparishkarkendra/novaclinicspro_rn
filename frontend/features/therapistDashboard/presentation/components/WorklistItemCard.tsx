@@ -11,10 +11,10 @@ import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import {
   TherapistSessionItem,
-  formatSessionTime,
   getStatusColor,
   getStatusLabel,
 } from '../../../staffDashboards/data/models/staffDashboards.dtos';
+import { formatSessionTime } from '../../data/models/therapistDashboard.dtos';
 import { canStartSession } from '../../domain/entities/therapistDashboard.entity';
 
 interface WorklistItemCardProps {
