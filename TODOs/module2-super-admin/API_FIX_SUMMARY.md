@@ -195,5 +195,5 @@ axiosClient.get(API_ENDPOINTS.TENANTS.GET(tenantId));
 
 **Fixed By:** Emergent AI Agent  
 **Date:** January 2025  
-**Preview URL:** https://nova-appt-preview.preview.emergentagent.com  
+**Preview URL:** https://therapist-alerts.preview.emergentagent.com  
 **Status:** ✅ All API endpoints working correctly
