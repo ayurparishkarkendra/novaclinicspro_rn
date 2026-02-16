@@ -3,7 +3,66 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Push Notifications for Therapists (Feb 2026) - COMPLETED ✅
+## Latest Status: Push Notifications Backend Integration (Dec 2025) - COMPLETED ✅
+
+### Push Notification Backend Integration - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_11.json`
+**Code Review:** 100% Pass (all 6 features verified)
+
+**New Features Implemented:**
+1. **Backend API Integration** - Connected frontend to backend notification APIs
+2. **Device Registration** - Register/unregister device tokens on login/logout
+3. **Preferences Sync** - Fetch and save notification preferences to backend
+4. **Notification History Screen** - New screen at `/notifications` with paginated list
+5. **Mark Read/Delete Actions** - Individual and bulk notification actions
+6. **Logout Device Cleanup** - Automatic device unregistration on logout
+
+**Backend API Endpoints Integrated:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/notifications/{tenant_id}/register-device` | POST | Register device for push |
+| `/notifications/{tenant_id}/unregister-device` | DELETE | Unregister device |
+| `/notifications/{tenant_id}/preferences` | GET/PUT | Fetch/update preferences |
+| `/notifications/{tenant_id}/history` | GET | Paginated notification history |
+| `/notifications/{tenant_id}/history/{id}/mark-read` | PATCH | Mark notification read |
+| `/notifications/{tenant_id}/history/mark-all-read` | POST | Mark all as read |
+| `/notifications/{tenant_id}/history/{id}` | DELETE | Delete notification |
+| `/notifications/{tenant_id}/test` | POST | Send test notification |
+
+**New Files Created:**
+- `push-notifications.api.ts` - Backend API service
+- `push-notifications.repository.impl.ts` - React Query hooks
+- `NotificationHistoryScreen.tsx` - New notification history screen
+
+**Modified Files:**
+- `usePushNotifications.ts` - Integrated with backend API
+- `NotificationPreferencesScreen.tsx` - Added pull-to-refresh, error handling
+- `logout.tsx` - Added device unregistration
+- `index.ts` (notifications) - Added exports for new modules
+
+**Module Architecture (Updated):**
+```
+/app/frontend/features/notifications/
+├── data/
+│   ├── datasources/
+│   │   ├── push.service.interface.ts   # Abstract interface for providers
+│   │   ├── expo-push.service.ts        # Expo Push implementation
+│   │   └── push-notifications.api.ts   # NEW: Backend API service
+│   ├── models/push.dtos.ts             # DTOs & types
+│   └── repositories/
+│       └── push-notifications.repository.impl.ts  # NEW: React Query hooks
+├── presentation/
+│   ├── hooks/usePushNotifications.ts   # Updated: Backend integration
+│   └── pages/
+│       ├── NotificationPreferencesScreen.tsx  # Updated: Pull-to-refresh
+│       └── NotificationHistoryScreen.tsx      # NEW: History screen
+└── index.ts                            # Feature exports (updated)
+```
+
+---
+
+## Previous Status: Push Notifications UI (Feb 2026) - COMPLETED ✅
 
 ### Push Notification System - FULLY IMPLEMENTED ✅
 
@@ -38,20 +97,6 @@ Healthcare scheduling mobile application built with React Native (Expo) connecti
 - Critical Updates (ON, recommended)
 - Leave Updates (ON by default)
 - Quiet Hours with time customization
-
-**Module Architecture:**
-```
-/app/frontend/features/notifications/
-├── data/
-│   ├── datasources/
-│   │   ├── push.service.interface.ts   # Abstract interface for providers
-│   │   └── expo-push.service.ts        # Expo Push implementation
-│   └── models/push.dtos.ts             # DTOs & types
-├── presentation/
-│   ├── hooks/usePushNotifications.ts   # React hook
-│   └── pages/NotificationPreferencesScreen.tsx
-└── index.ts                            # Feature exports (updated)
-```
 
 **Android Notification Channels:**
 - `default` - General notifications
