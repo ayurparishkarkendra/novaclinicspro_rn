@@ -372,6 +372,18 @@ export const TherapistDashboardScreen: React.FC = () => {
         <View style={styles.section}>
           <LearningSection />
         </View>
+
+        {/* Patient Feedback Section */}
+        {tenantId && staffId && (
+          <View style={styles.section}>
+            <StaffFeedbackSection
+              tenantId={tenantId}
+              staffId={staffId}
+              staffType="therapist"
+              testID="therapist-feedback-section"
+            />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
