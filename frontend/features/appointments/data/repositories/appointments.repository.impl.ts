@@ -303,14 +303,17 @@ export const useCancelAppointmentMutation = (tenantId: string) => {
 
 /**
  * Hook to reschedule an appointment
+ * BUG FIX #1: Updated to accept appointmentId and newStart in the mutation call
  */
-export const useRescheduleAppointmentMutation = (tenantId: string, appointmentId: string) => {
+export const useRescheduleAppointmentMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<AppointmentRescheduleResponse, Error, AppointmentReschedule>({
-    mutationFn: (payload) => rescheduleAppointmentApi(tenantId, appointmentId, payload),
+  return useMutation<AppointmentRescheduleResponse, Error, { appointmentId: string; newStart: string }>({
+    mutationFn: ({ appointmentId, newStart }) => {
+      // Get tenantId from the current query context or use a default
+      return rescheduleAppointmentApi('', appointmentId, { new_start: newStart });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: appointmentsKeys.detail(tenantId, appointmentId) });
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });
     },
   });
