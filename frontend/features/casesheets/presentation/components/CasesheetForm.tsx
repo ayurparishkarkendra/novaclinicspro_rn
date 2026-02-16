@@ -445,6 +445,32 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
         {/* Form Sections */}
         {FORM_SECTIONS.map(renderSection)}
 
+        {/* Extensions Section */}
+        {(formData.extensions && formData.extensions.length > 0) && (
+          <View style={styles.extensionsSectionContainer}>
+            <Text style={styles.extensionsSectionTitle}>Extensions</Text>
+            {formData.extensions.map((ext, index) => renderExtension(ext, index))}
+          </View>
+        )}
+
+        {/* Add Extension Button */}
+        {isEditable && !showExtensionPicker && (
+          <TouchableOpacity
+            style={styles.addExtensionButton}
+            onPress={() => setShowExtensionPicker(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add extension"
+            testID="add-extension-btn"
+          >
+            <Ionicons name="extension-puzzle-outline" size={20} color={colors.info.main} />
+            <Text style={styles.addExtensionText}>Add Extension</Text>
+            <Ionicons name="add-circle-outline" size={20} color={colors.info.main} />
+          </TouchableOpacity>
+        )}
+
+        {/* Extension Picker */}
+        {showExtensionPicker && renderExtensionPicker()}
+
         {/* Action Buttons */}
         {isEditable && (
           <View style={styles.actionsContainer}>
@@ -477,7 +503,7 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      </ScrollView>>
     </KeyboardAvoidingView>
   );
 };
