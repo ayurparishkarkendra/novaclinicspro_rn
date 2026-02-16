@@ -3,7 +3,88 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Bug Fixes (Dec 2025) - COMPLETED
+## Latest Status: Therapist Dashboard Module (Feb 2026) - COMPLETED ✅
+
+### Therapist Dashboard Implementation - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_9.json`
+**Code Review:** 100% Pass (all 12 features verified)
+
+**Route:** `/therapist` → `TherapistDashboardScreen`
+
+**API Validation Summary:**
+| Feature | API Status | Implementation |
+|---------|------------|----------------|
+| Worklist/Schedule | ✅ SUPPORTED | Full implementation via therapist dashboard API |
+| KPIs | ✅ SUPPORTED | Derived from session data |
+| Leave Requests | ✅ SUPPORTED | Full CRUD via staff leave API |
+| Documents | ❌ NOT SUPPORTED | Disabled stub with message |
+| Bank Details | ❌ NOT SUPPORTED | Disabled stub with message |
+| Salary/Payslips | ❌ NOT SUPPORTED | Disabled stub with message |
+| Learning | ❌ NOT SUPPORTED | Coming Soon stub |
+
+**Implemented Sections:**
+
+1. **Performance KPI Row** (`TherapistKpiRow.tsx`)
+   - Displays metrics: Total Sessions, Completed, No Shows, Cancelled
+   - Period selector: Today (default)
+   - Metrics derived from worklist data
+
+2. **Worklist/Schedule Section** (`WorklistSection.tsx`)
+   - Period tabs: Today, Next 7 Days, Past 7 Days
+   - Session cards with time, patient name, treatment type, status
+   - Empty state with appropriate messaging
+   - View All navigation to treatment sessions
+
+3. **HR & Self-Service Section** (`HrSection.tsx`)
+   - My Documents: Shows "Not available in this environment" (disabled)
+   - Bank Details: Shows "Not available in this environment" (disabled)
+   - Salary & Payslips: Shows "Not available in this environment" (disabled)
+   - Leave Requests: **ENABLED** - Full functionality
+
+4. **Leave Management Section** (`LeaveSection.tsx`)
+   - Leave history list with status badges
+   - Apply for leave modal with:
+     - Leave type selection (Sick, Casual, Vacation, Personal, Other)
+     - Start/End date inputs
+     - Reason field (optional)
+   - Cancel leave functionality for pending/approved requests
+
+5. **Learning & Growth Section** (`LearningSection.tsx`)
+   - Shows "Coming Soon" badge
+   - Placeholder cards for future features: Training Modules, Certifications, Skill Progress
+
+**Module Architecture:**
+```
+/app/frontend/features/therapistDashboard/
+├── data/
+│   ├── datasources/therapistDashboard.api.ts    # API calls
+│   ├── models/therapistDashboard.dtos.ts        # DTOs & helpers
+│   └── repositories/therapistDashboard.repository.impl.ts  # React Query hooks
+├── domain/
+│   ├── entities/therapistDashboard.entity.ts    # Business logic helpers
+│   └── repositories/therapistDashboard.repository.ts  # Interface
+├── presentation/
+│   ├── components/
+│   │   ├── TherapistKpiRow.tsx
+│   │   ├── WorklistSection.tsx
+│   │   ├── WorklistItemCard.tsx
+│   │   ├── HrSection.tsx
+│   │   ├── LeaveSection.tsx
+│   │   └── LearningSection.tsx
+│   └── pages/TherapistDashboardScreen.tsx
+└── index.ts                                     # Feature exports
+```
+
+**APIs Used:**
+- `GET /api/v1/clinic/{tenant_id}/staff/me/dashboard/therapist` - Dashboard/worklist
+- `GET /api/v1/clinic/{tenant_id}/staff/{staff_id}/leave` - List leave requests
+- `POST /api/v1/clinic/{tenant_id}/staff/{staff_id}/leave` - Create leave request
+- `PATCH /api/v1/clinic/{tenant_id}/leave/{leave_id}/cancel` - Cancel leave
+
+---
+
+## Previous Status: Bug Fixes (Dec 2025) - COMPLETED
 
 ### Bug Fixes Session (Dec 2025) - 3 CRITICAL BUGS FIXED ✅
 
