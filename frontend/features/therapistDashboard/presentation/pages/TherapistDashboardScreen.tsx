@@ -405,6 +405,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.md,
   },
+  settingsButton: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
+  },
 });
 
 export default TherapistDashboardScreen;
