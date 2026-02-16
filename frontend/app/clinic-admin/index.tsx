@@ -579,10 +579,7 @@ export default function ClinicAdminDashboard() {
             <ClinicFeedbackSummarySection
               tenantId={tenantId}
               onStaffPress={(staffId, staffType) => {
-                router.push({
-                  pathname: '/clinic-admin/feedback',
-                  params: { staffId, staffType },
-                });
+                router.push(`/clinic-admin/feedback?staffId=${staffId}&staffType=${staffType}`);
               }}
               testID="clinic-feedback-summary"
             />
