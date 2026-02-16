@@ -230,6 +230,9 @@ export const NotificationPreferencesScreen: React.FC = () => {
         {isSaving && (
           <ActivityIndicator size="small" color={colors.primary.main} style={styles.savingIndicator} />
         )}
+        {isLoading && !isSaving && (
+          <ActivityIndicator size="small" color={colors.primary.main} style={styles.savingIndicator} />
+        )}
       </View>
 
       <ScrollView 
