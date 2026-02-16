@@ -303,6 +303,7 @@ export default function DoctorDashboard() {
         </View>
 
         {/* Navigation */}
+        {/* Switch Dashboard */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Switch Dashboard</Text>
           <View style={styles.dashboardLinks}>
@@ -332,6 +333,18 @@ export default function DoctorDashboard() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Patient Feedback Section */}
+        {tenantId && currentUser?.userId && (
+          <View style={styles.section}>
+            <StaffFeedbackSection
+              tenantId={tenantId}
+              staffId={currentUser.userId}
+              staffType="doctor"
+              testID="doctor-feedback-section"
+            />
+          </View>
+        )}
       </>
     );
   };
