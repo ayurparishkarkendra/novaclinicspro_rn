@@ -86,13 +86,13 @@ export const StaffPerformanceTable: React.FC<StaffPerformanceTableProps> = ({
               <Text style={[styles.cell, styles.nameCell]} numberOfLines={1}>
                 {staff.name}
               </Text>
-              <View style={[styles.cell, styles.ratingCell]}>
+              <View style={styles.ratingCellView}>
                 <StarRatingDisplay rating={staff.average_rating} size={12} />
               </View>
               <Text style={[styles.cell, styles.responsesCell]}>
                 {staff.total_responses}
               </Text>
-              <View style={[styles.cell, styles.trendCell]}>
+              <View style={styles.trendCellView}>
                 <Ionicons
                   name={getTrendIcon(staff.trend) as any}
                   size={16}
