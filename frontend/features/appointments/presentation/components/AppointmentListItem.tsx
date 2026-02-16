@@ -247,6 +247,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
       </TouchableOpacity>
 
       {/* A2: Quick Actions Row - Always visible for scheduled/confirmed appointments */}
+      {/* BUG FIX #3: All quick actions have confirmation dialogs */}
       {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
@@ -255,7 +256,20 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               icon="calendar-outline"
               label={t('appointments.reschedule') || 'Reschedule'}
               color={colors.primary.main}
-              onPress={() => onReschedule ? onReschedule(appointment.id) : handlePress()}
+              onPress={() => {
+                if (onReschedule) {
+                  Alert.alert(
+                    t('appointments.reschedule') || 'Reschedule',
+                    t('appointments.confirmReschedule') || 'Open reschedule options for this appointment?',
+                    [
+                      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                      { text: t('common.yes') || 'Yes', onPress: () => onReschedule(appointment.id) },
+                    ]
+                  );
+                } else {
+                  handlePress();
+                }
+              }}
               testId="action-reschedule"
             />
           )}
@@ -266,12 +280,20 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               icon="alert-circle"
               label={t('appointments.noShow') || 'No-Show'}
               color={colors.warning.main}
-              onPress={() => onStatusUpdate(appointment.id, 'NO_SHOW')}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsNoShow') || 'Mark as No-Show',
+                  t('appointments.confirmNoShow') || 'Are you sure the patient did not show up?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
+                  ]
+                );
+              }}
               testId="action-noshow"
             />
           )}
-          {/* Cancel - scheduled/confirmed */}
-          {/* BUG FIX #2: Uses onCancel which handles the status internally */}
+          {/* Cancel - scheduled/confirmed (Cancel button has its own confirmation in the handler) */}
           {['scheduled', 'confirmed'].includes(status) && onCancel && (
             <QuickActionButton
               icon="close-circle"
@@ -288,7 +310,16 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               icon="checkmark-done-circle"
               label={t('appointments.complete') || 'Complete'}
               color={colors.success.main}
-              onPress={() => onStatusUpdate(appointment.id, 'COMPLETED')}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsCompleted') || 'Mark as Completed',
+                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
+                  ]
+                );
+              }}
               testId="action-complete"
             />
           )}
