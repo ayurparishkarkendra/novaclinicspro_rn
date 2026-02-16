@@ -175,7 +175,7 @@ const [effectiveTimes, setEffectiveTimes] = useState<Map<number, EffectiveTime>>
 
 ## BACKEND
 - **Host**: Koyeb (https://given-dolly-ayurparishkarkendra-e5891817.koyeb.app)
-- **Frontend Preview**: https://expo-device-test.preview.emergentagent.com
+- **Frontend Preview**: https://appt-flow-test.preview.emergentagent.com
 
 ---
 
