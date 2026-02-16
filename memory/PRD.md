@@ -3,9 +3,44 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: 9 Bug Fixes (Feb 2026) - COMPLETED
+## Latest Status: Bug Fixes (Dec 2025) - COMPLETED
 
-### Bug Fixes Session (Feb 16, 2026) - ALL FRONTEND BUGS FIXED ✅
+### Bug Fixes Session (Dec 2025) - 3 CRITICAL BUGS FIXED ✅
+
+**Bugs Fixed This Session:**
+
+| Bug # | Issue | Status | Fix Summary |
+|-------|-------|--------|-------------|
+| Bug 1 | Reschedule API 422 Error (missing appointment_start) | ✅ FIXED | API now sends both `new_start` and `appointment_start` fields |
+| Bug 2 | Confirmation modal showing i18n keys (appointments.confirmNoShow) | ✅ FIXED | Added missing translation keys to en-US.json |
+| Bug 3 | Complete button missing | ✅ FIXED | Added tick icon with color change on touch + confirmation dialog |
+
+### Implementation Details
+
+**Bug 1 - Reschedule API 422 Fix:**
+- File: `features/appointments/data/datasources/appointments.api.ts`
+- Backend expects `appointment_start` field but frontend was sending `new_start`
+- Fix: API transform ensures both fields are included in payload
+- Also fixed overloaded mutation hook to support both usage patterns
+
+**Bug 2 - i18n Translation Keys:**
+- File: `core/localization/translations/en-US.json`
+- Added missing keys:
+  - `appointments.confirmNoShow`: "Are you sure the patient did not show up?"
+  - `appointments.confirmComplete`: "Mark this appointment as completed?"
+  - `appointments.confirmReschedule`: "Open reschedule options for this appointment?"
+
+**Bug 3 - Complete Tick Icon:**
+- File: `features/appointments/presentation/components/AppointmentListItem.tsx`
+- Added `CompleteTickIcon` component with:
+  - Press state for visual feedback (color changes from success.main to success.dark)
+  - Positioned next to navigation arrow for confirmed/in_progress appointments
+  - Confirmation dialog with proper i18n text
+  - data-testid="action-complete-tick" for testing
+
+---
+
+## Previous Bug Fixes (Feb 2026) - ALL FRONTEND BUGS FIXED ✅
 
 **Bugs Fixed: 8 of 9 (1 backend-only bug excluded)**
 
