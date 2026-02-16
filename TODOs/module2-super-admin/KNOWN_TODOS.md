@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://docmodule-staging.preview.emergentagent.com
+**Preview URL:** https://appt-quick-actions.preview.emergentagent.com
 
 ---
 
