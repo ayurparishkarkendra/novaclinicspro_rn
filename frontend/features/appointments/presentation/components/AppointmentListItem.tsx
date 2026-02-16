@@ -245,11 +245,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* A2: Quick Actions Row - Always visible, no expand/collapse */}
-      {showActions && (canReschedule || canMarkNoShow || canCancelAppt || canComplete) && (
+      {/* A2: Quick Actions Row - Always visible for scheduled/confirmed appointments */}
+      {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
-          {canReschedule && (
+          {['scheduled', 'confirmed'].includes(status) && (
             <QuickActionButton
               icon="calendar-outline"
               label={t('appointments.reschedule') || 'Reschedule'}
@@ -259,7 +259,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* No-Show - scheduled/confirmed */}
-          {canMarkNoShow && onStatusUpdate && (
+          {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="alert-circle"
               label={t('appointments.noShow') || 'No-Show'}
@@ -269,7 +269,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           {/* Cancel - scheduled/confirmed */}
-          {canCancelAppt && onCancel && (
+          {['scheduled', 'confirmed'].includes(status) && onCancel && (
             <QuickActionButton
               icon="close-circle"
               label={t('common.cancel') || 'Cancel'}
@@ -278,8 +278,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               testId="action-cancel"
             />
           )}
-          {/* A2/A3: Complete - confirmed OR in_progress (MUST be present per User Requirement) */}
-          {canComplete && onStatusUpdate && (
+          {/* Complete - confirmed OR in_progress */}
+          {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
             <QuickActionButton
               icon="checkmark-done-circle"
               label={t('appointments.complete') || 'Complete'}
