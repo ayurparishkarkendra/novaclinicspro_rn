@@ -509,10 +509,32 @@ const styles = StyleSheet.create({
 
   // A1: Single navigation arrow - vertically centered
   navigationArrow: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Right side container for tick icon + navigation arrow
+  rightActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: spacing.xs,
+  },
+
+  // Complete Tick Icon Button
+  completeTickButton: {
+    padding: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: colors.success.main + '15',
+    marginRight: spacing.xs,
+  },
+  completeTickButtonPressed: {
+    backgroundColor: colors.success.main + '30',
+    transform: [{ scale: 0.95 }],
+  },
+  completeTickButtonDisabled: {
+    opacity: 0.5,
   },
 
   // A2: Quick Actions Row - Icon buttons spread horizontally
