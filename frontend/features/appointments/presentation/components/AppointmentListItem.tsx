@@ -257,13 +257,13 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* A2: Quick Actions Row - Always visible for scheduled/confirmed appointments */}
-      {/* BUG FIX #3: All quick actions have confirmation dialogs */}
+      {/* A2: Quick Actions Row - Icon buttons spread horizontally */}
+      {/* BUG FIX #3: All quick actions have confirmation dialogs, icon-based with tooltips */}
       {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && (
-            <QuickActionButton
+            <QuickActionIconButton
               icon="calendar-outline"
               label={t('appointments.reschedule') || 'Reschedule'}
               color={colors.primary.main}
@@ -284,11 +284,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               testId="action-reschedule"
             />
           )}
+          
           {/* No-Show - scheduled/confirmed */}
-          {/* BUG FIX #2: Backend expects uppercase status values */}
           {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
-            <QuickActionButton
-              icon="alert-circle"
+            <QuickActionIconButton
+              icon="person-remove-outline"
               label={t('appointments.noShow') || 'No-Show'}
               color={colors.warning.main}
               onPress={() => {
@@ -304,21 +304,31 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               testId="action-noshow"
             />
           )}
-          {/* Cancel - scheduled/confirmed (Cancel button has its own confirmation in the handler) */}
+          
+          {/* Cancel - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && onCancel && (
-            <QuickActionButton
-              icon="close-circle"
+            <QuickActionIconButton
+              icon="close-circle-outline"
               label={t('common.cancel') || 'Cancel'}
               color={colors.error.main}
-              onPress={() => onCancel(appointment.id)}
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.cancelAppointment') || 'Cancel Appointment',
+                  t('appointments.confirmCancel') || 'Are you sure you want to cancel this appointment?',
+                  [
+                    { text: t('common.no') || 'No', style: 'cancel' },
+                    { text: t('common.yesCancel') || 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
+                  ]
+                );
+              }}
               testId="action-cancel"
             />
           )}
+          
           {/* Complete - confirmed OR in_progress */}
-          {/* BUG FIX #2 & #3: Backend expects uppercase status values */}
           {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
-            <QuickActionButton
-              icon="checkmark-done-circle"
+            <QuickActionIconButton
+              icon="checkmark-circle-outline"
               label={t('appointments.complete') || 'Complete'}
               color={colors.success.main}
               onPress={() => {
