@@ -61,10 +61,7 @@ export const StaffFeedbackSection: React.FC<StaffFeedbackSectionProps> = ({
   }, []);
 
   const handleViewAllFeedback = useCallback(() => {
-    router.push({
-      pathname: '/clinic-admin/feedback',
-      params: { staffId, staffType },
-    });
+    router.push(`/clinic-admin/feedback?staffId=${staffId}&staffType=${staffType}`);
   }, [router, staffId, staffType]);
 
   // Derived data
