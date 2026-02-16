@@ -609,6 +609,25 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: spacing.xxl,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error.main + '15',
+    padding: spacing.md,
+    margin: spacing.md,
+    borderRadius: 12,
+    gap: spacing.sm,
+  },
+  errorText: {
+    ...typography.body2,
+    color: colors.error.main,
+    flex: 1,
+  },
+  retryText: {
+    ...typography.button,
+    color: colors.error.main,
+    fontWeight: '600',
+  },
 });
 
 export default NotificationPreferencesScreen;
