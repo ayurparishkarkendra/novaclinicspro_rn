@@ -3,27 +3,37 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: 9 Bug Fixes (Feb 2026) - IN PROGRESS
+## Latest Status: 9 Bug Fixes (Feb 2026) - COMPLETED
 
-### Bug Fixes Session (Feb 16, 2026) - CURRENT WORK
+### Bug Fixes Session (Feb 16, 2026) - ALL FRONTEND BUGS FIXED ✅
 
-**Bugs Fixed: 7 of 9**
+**Bugs Fixed: 8 of 9 (1 backend-only bug excluded)**
 
 | Bug # | Issue | Status | Fix Summary |
 |-------|-------|--------|-------------|
-| Bug 2 | No-Show sends lowercase `'no_show'` | ✅ FIXED | Changed to uppercase `'NO_SHOW'` in AppointmentListItem.tsx |
-| Bug 3 | Complete button missing + no confirmations | ✅ FIXED | Uses `'COMPLETED'` (uppercase) + added Alert confirmations to all quick actions |
-| Bug 4 | Previous Visits cards toggle on tap | ✅ FIXED | Removed TouchableOpacity wrapper and chevron from VisitHistoryCard |
-| Bug 6 | Custom time picker hidden when no alternatives | ✅ FIXED | Moved custom time picker outside alternativeSlots conditional |
-| Bug 7 | Selected custom time not reflected in UI | ✅ FIXED | Added `customTimeSelectedText` style to show selected time |
-| Bug 8 | Slow UI updates after API actions | ✅ FIXED | Added optimistic updates to status/cancel mutations |
-| Bug 9 | Treatment sheet 422 error | ✅ FIXED | Added `tenant_id` as query parameter to API call |
+| Bug 1 | Reschedule navigates instead of modal | ✅ FIXED | Added reschedule modal with DateTimePicker directly on list page |
+| Bug 2 | No-Show sends lowercase `'no_show'` | ✅ FIXED | Changed to uppercase `'NO_SHOW'` |
+| Bug 3 | Complete button missing + icons/tooltips | ✅ FIXED | Icon-based buttons with tooltips, spread horizontally, all with confirmations |
+| Bug 4 | Previous Visits cards toggle on tap | ✅ FIXED | Removed TouchableOpacity wrapper and chevron |
+| Bug 5 | Backend auto-complete after 24hrs | ⏭️ SKIPPED | Backend task - handled separately |
+| Bug 6 | Custom time picker hidden when no alternatives | ✅ FIXED | Moved picker outside conditional |
+| Bug 7 | Selected custom time not reflected in UI | ✅ FIXED | Added visual feedback for selected time |
+| Bug 8 | Slow UI updates after API actions | ✅ FIXED | Optimistic updates in mutations |
+| Bug 9 | Treatment sheet 422 error | ✅ FIXED | Added `tenant_id` as query parameter |
 
-**Bugs Pending:**
-| Bug # | Issue | Status | Notes |
-|-------|-------|--------|-------|
-| Bug 1 | Reschedule button navigates instead of opening picker | 🔶 PARTIAL | Navigation to detail page has reschedule picker. Need modal on list item. |
-| Bug 5 | Backend auto-complete after 24hrs | ❌ NOT STARTED | Backend task - requires backend code access |
+### Key Implementation Details
+
+**Bug 1 - Reschedule Modal:**
+- Added full reschedule modal in `AppointmentsListScreen.tsx`
+- Uses `@react-native-community/datetimepicker` for native date/time selection
+- Validates future date/time before API call
+- Updated `useRescheduleAppointmentMutation` to accept dynamic `appointmentId` and `tenantId`
+
+**Bug 3 - Quick Actions UI:**
+- Replaced text buttons with icon-based buttons (`QuickActionIconButton`)
+- Icons: `calendar-outline` (Reschedule), `person-remove-outline` (No-Show), `close-circle-outline` (Cancel), `checkmark-circle-outline` (Complete)
+- Buttons spread horizontally using `flex: 1` and `justifyContent: 'space-between'`
+- All actions wrapped with `Alert.alert()` confirmation dialogs
 
 ---
 
