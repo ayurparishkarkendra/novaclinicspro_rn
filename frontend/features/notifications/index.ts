@@ -7,6 +7,7 @@
  * - Abstracted service interface (IPushNotificationService) allows provider swapping
  * - Expo Push Notifications is the default provider
  * - Can be swapped for FCM in the future without changing consuming code
+ * - Backend API integration for device management and preferences
  */
 
 // ============================================
@@ -42,6 +43,7 @@ export * from './domain/repositories/notifications.repository';
 // Presentation - In-app notification screens
 export { NotificationsListScreen } from './presentation/pages/NotificationsListScreen';
 export { NotificationDetailScreen } from './presentation/pages/NotificationDetailScreen';
+export { NotificationHistoryScreen } from './presentation/pages/NotificationHistoryScreen';
 export { NotificationListItem } from './presentation/components/NotificationListItem';
 export { NotificationCategoryBadge } from './presentation/components/NotificationCategoryBadge';
 export { NotificationsIconWithBadge } from './presentation/components/NotificationsIconWithBadge';
@@ -96,3 +98,13 @@ export { usePushNotifications } from './presentation/hooks/usePushNotifications'
 
 // Notification Preferences Screen
 export { NotificationPreferencesScreen } from './presentation/pages/NotificationPreferencesScreen';
+
+// ============================================
+// BACKEND API INTEGRATION
+// ============================================
+
+// Push Notifications Backend API
+export * from './data/datasources/push-notifications.api';
+
+// Push Notifications Repository (React Query hooks)
+export * from './data/repositories/push-notifications.repository.impl';
