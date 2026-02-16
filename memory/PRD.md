@@ -3,31 +3,31 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: 3 Navigation/UI Bug Fixes Complete (Feb 2026)
+## Latest Status: 9 Bug Fixes (Feb 2026) - IN PROGRESS
 
-### Bug Fixes - ALL FIXED ✅
+### Bug Fixes Session (Feb 16, 2026) - CURRENT WORK
 
-**Bug 1 - New Prescription Navigation:**
-- **Issue**: Create/Cancel buttons didn't navigate away after action
-- **Fix**: Removed Alert dialogs, direct navigation with `router.replace()` after create, `router.back()` for cancel
-- **File Changed**: `features/prescriptions/presentation/pages/CreatePrescriptionScreen.tsx`
+**Bugs Fixed: 7 of 9**
 
-**Bug 2 - New Casesheet Navigation:**
-- **Issue**: Save/Cancel buttons didn't navigate away after action
-- **Fix**: Same approach - direct navigation after successful save, immediate back on cancel
-- **File Changed**: `features/casesheets/presentation/pages/CreateCasesheetScreen.tsx`
+| Bug # | Issue | Status | Fix Summary |
+|-------|-------|--------|-------------|
+| Bug 2 | No-Show sends lowercase `'no_show'` | ✅ FIXED | Changed to uppercase `'NO_SHOW'` in AppointmentListItem.tsx |
+| Bug 3 | Complete button missing + no confirmations | ✅ FIXED | Uses `'COMPLETED'` (uppercase) + added Alert confirmations to all quick actions |
+| Bug 4 | Previous Visits cards toggle on tap | ✅ FIXED | Removed TouchableOpacity wrapper and chevron from VisitHistoryCard |
+| Bug 6 | Custom time picker hidden when no alternatives | ✅ FIXED | Moved custom time picker outside alternativeSlots conditional |
+| Bug 7 | Selected custom time not reflected in UI | ✅ FIXED | Added `customTimeSelectedText` style to show selected time |
+| Bug 8 | Slow UI updates after API actions | ✅ FIXED | Added optimistic updates to status/cancel mutations |
+| Bug 9 | Treatment sheet 422 error | ✅ FIXED | Added `tenant_id` as query parameter to API call |
 
-**Bug 3 - Quick Actions Not Visible on Mobile:**
-- **Issue**: Quick action buttons (Reschedule, No-Show, Cancel, Complete) missing on appointment cards
-- **Fix**: 
-  - Simplified conditional logic for showing quick actions
-  - Improved role normalization to handle various role formats (clinic_admin, ClinicAdmin, CLINIC_ADMIN)
-  - Replaced CSS `gap` with explicit margins for better React Native compatibility
-- **File Changed**: `features/appointments/presentation/components/AppointmentListItem.tsx`
+**Bugs Pending:**
+| Bug # | Issue | Status | Notes |
+|-------|-------|--------|-------|
+| Bug 1 | Reschedule button navigates instead of opening picker | 🔶 PARTIAL | Navigation to detail page has reschedule picker. Need modal on list item. |
+| Bug 5 | Backend auto-complete after 24hrs | ❌ NOT STARTED | Backend task - requires backend code access |
 
 ---
 
-## Previous Status: 3 High-Priority Bug Fixes Complete (Feb 2026)
+## Previous Status: 3 Navigation/UI Bug Fixes Complete (Feb 2026)
 
 ### Clinical Documents Module - FULLY IMPLEMENTED ✅
 
