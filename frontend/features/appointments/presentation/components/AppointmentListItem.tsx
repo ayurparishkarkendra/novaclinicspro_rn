@@ -380,26 +380,6 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               testId="action-cancel"
             />
           )}
-          
-          {/* Complete - confirmed OR in_progress */}
-          {['confirmed', 'in_progress'].includes(status) && onStatusUpdate && (
-            <QuickActionIconButton
-              icon="checkmark-circle-outline"
-              label={t('appointments.complete') || 'Complete'}
-              color={colors.success.main}
-              onPress={() => {
-                Alert.alert(
-                  t('appointments.markAsCompleted') || 'Mark as Completed',
-                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
-                  [
-                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
-                  ]
-                );
-              }}
-              testId="action-complete"
-            />
-          )}
         </View>
       )}
     </View>
