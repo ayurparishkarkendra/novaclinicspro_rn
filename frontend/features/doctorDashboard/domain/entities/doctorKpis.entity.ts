@@ -79,16 +79,6 @@ export interface DoctorKpiSummary {
 export const mapToDoctorKpiSummary = (
   response: DoctorKpiResponseDTO
 ): DoctorKpiSummary => {
-  // Import helper functions
-  const {
-    mapConsultationsToCards,
-    mapPatientsToCards,
-    mapProductivityToCards,
-    mapPeakHoursToBars,
-    mapBusiestDaysToBars,
-    formatDuration,
-  } = require('../../data/models/doctorKpis.dtos');
-
   // Get period label
   const periodLabel = getPeriodDisplayLabel(response.period);
 
