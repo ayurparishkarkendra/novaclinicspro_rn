@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://therapist-alerts.preview.emergentagent.com
+**Preview URL:** https://push-notif-app.preview.emergentagent.com
 
 ---
 

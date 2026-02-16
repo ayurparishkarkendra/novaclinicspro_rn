@@ -370,7 +370,7 @@ backgroundColor: theme.colors.primary.default // New
 
 **Access the theme demo at:**
 ```
-https://therapist-alerts.preview.emergentagent.com/theme-demo
+https://push-notif-app.preview.emergentagent.com/theme-demo
 ```
 
 **Features to try:**

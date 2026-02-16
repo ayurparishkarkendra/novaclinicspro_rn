@@ -70,6 +70,6 @@
   "seed_data_creation": "None",
   "retest_needed": true,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "App accessible via https://therapist-alerts.preview.emergentagent.com. Login with hareshlekkala@gmail.com / Vishnu432!. After login, switch to 'Clinic Admin' dashboard, then navigate to 'Appointments'. Current appointments show 'Unknown Client' and 'Unassigned' staff. i18n is broken - showing raw translation keys. Quick action buttons (Call, WhatsApp) not rendering in list items despite code having them.",
+  "context_for_next_testing_agent": "App accessible via https://push-notif-app.preview.emergentagent.com. Login with hareshlekkala@gmail.com / Vishnu432!. After login, switch to 'Clinic Admin' dashboard, then navigate to 'Appointments'. Current appointments show 'Unknown Client' and 'Unassigned' staff. i18n is broken - showing raw translation keys. Quick action buttons (Call, WhatsApp) not rendering in list items despite code having them.",
   "rca_of_the_issue": "PRIMARY ROOT CAUSE: Translation file structure mismatch. The en-US.json has appointments translations nested under 'errors.appointments.*' but the React components call t('appointments.*') without the 'errors' prefix. This causes the i18n system to return the raw key when translation not found. SECONDARY: Quick action buttons have RBAC checks (canCall, canWhatsApp based on userRole) which may be blocking render. Appointment data from backend appears incomplete (no client names, staff names, treatment names populated)."
 }
