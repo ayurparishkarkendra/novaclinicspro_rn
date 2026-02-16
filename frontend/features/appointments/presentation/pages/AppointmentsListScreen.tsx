@@ -314,6 +314,7 @@ export const AppointmentsListScreen: React.FC = () => {
     setIsRescheduling(true);
     try {
       await rescheduleMutation.mutateAsync({
+        tenantId,
         appointmentId: selectedAppointmentForReschedule.id,
         newStart: newDateTime.toISOString(),
       });
@@ -326,7 +327,7 @@ export const AppointmentsListScreen: React.FC = () => {
     } finally {
       setIsRescheduling(false);
     }
-  }, [selectedAppointmentForReschedule, rescheduleDate, rescheduleTime, rescheduleMutation, refetch]);
+  }, [selectedAppointmentForReschedule, rescheduleDate, rescheduleTime, rescheduleMutation, refetch, tenantId]);
 
   // Use search results if searching, otherwise use date-based data
   const isSearchMode = debouncedQuery.length >= 3;
