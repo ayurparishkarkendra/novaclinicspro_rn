@@ -3,66 +3,107 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Push Notifications Backend Integration (Dec 2025) - COMPLETED ✅
+## Latest Status: Patient Feedback & Rating System (Feb 2026) - COMPLETED ✅
 
-### Push Notification Backend Integration - FULLY IMPLEMENTED ✅
+### Patient Feedback Module - FULLY IMPLEMENTED ✅
 
-**Test Report:** `/app/test_reports/iteration_11.json`
-**Code Review:** 100% Pass (all 6 features verified)
+**Test Report:** `/app/test_reports/iteration_12.json`
+**Code Review:** 100% Pass for module structure and compilation
 
-**New Features Implemented:**
-1. **Backend API Integration** - Connected frontend to backend notification APIs
-2. **Device Registration** - Register/unregister device tokens on login/logout
-3. **Preferences Sync** - Fetch and save notification preferences to backend
-4. **Notification History Screen** - New screen at `/notifications` with paginated list
-5. **Mark Read/Delete Actions** - Individual and bulk notification actions
-6. **Logout Device Cleanup** - Automatic device unregistration on logout
-
-**Backend API Endpoints Integrated:**
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/notifications/{tenant_id}/register-device` | POST | Register device for push |
-| `/notifications/{tenant_id}/unregister-device` | DELETE | Unregister device |
-| `/notifications/{tenant_id}/preferences` | GET/PUT | Fetch/update preferences |
-| `/notifications/{tenant_id}/history` | GET | Paginated notification history |
-| `/notifications/{tenant_id}/history/{id}/mark-read` | PATCH | Mark notification read |
-| `/notifications/{tenant_id}/history/mark-all-read` | POST | Mark all as read |
-| `/notifications/{tenant_id}/history/{id}` | DELETE | Delete notification |
-| `/notifications/{tenant_id}/test` | POST | Send test notification |
-
-**New Files Created:**
-- `push-notifications.api.ts` - Backend API service
-- `push-notifications.repository.impl.ts` - React Query hooks
-- `NotificationHistoryScreen.tsx` - New notification history screen
-
-**Modified Files:**
-- `usePushNotifications.ts` - Integrated with backend API
-- `NotificationPreferencesScreen.tsx` - Added pull-to-refresh, error handling
-- `logout.tsx` - Added device unregistration
-- `index.ts` (notifications) - Added exports for new modules
-
-**Module Architecture (Updated):**
+**Module Architecture:**
 ```
-/app/frontend/features/notifications/
+/app/frontend/features/feedback/
 ├── data/
 │   ├── datasources/
-│   │   ├── push.service.interface.ts   # Abstract interface for providers
-│   │   ├── expo-push.service.ts        # Expo Push implementation
-│   │   └── push-notifications.api.ts   # NEW: Backend API service
-│   ├── models/push.dtos.ts             # DTOs & types
+│   │   └── feedback.api.ts           # Backend API service
+│   ├── models/
+│   │   └── feedback.dtos.ts          # DTOs & types
 │   └── repositories/
-│       └── push-notifications.repository.impl.ts  # NEW: React Query hooks
+│       └── feedback.repository.impl.ts  # React Query hooks
+├── domain/
+│   ├── entities/
+│   │   └── feedback.entity.ts        # Business logic helpers
+│   └── repositories/
+│       └── feedback.repository.ts    # Repository interface
 ├── presentation/
-│   ├── hooks/usePushNotifications.ts   # Updated: Backend integration
+│   ├── components/
+│   │   ├── StarRatingInput.tsx       # Interactive star rating
+│   │   ├── StarRatingDisplay.tsx     # Read-only star display
+│   │   ├── RatingDistributionBars.tsx # Bar chart visualization
+│   │   ├── FeedbackKpiCard.tsx       # KPI metric card
+│   │   ├── FeedbackListItem.tsx      # Feedback list entry
+│   │   ├── PeriodSelector.tsx        # Time period filter
+│   │   ├── StaffPerformanceTable.tsx # Staff performance table
+│   │   └── index.ts                  # Component exports
 │   └── pages/
-│       ├── NotificationPreferencesScreen.tsx  # Updated: Pull-to-refresh
-│       └── NotificationHistoryScreen.tsx      # NEW: History screen
-└── index.ts                            # Feature exports (updated)
+│       ├── FeedbackFormScreen.tsx    # Public patient form
+│       ├── StaffFeedbackListScreen.tsx # Staff feedback list
+│       ├── StaffFeedbackSection.tsx  # Dashboard KPI section
+│       └── ClinicFeedbackSummarySection.tsx # Admin summary
+└── index.ts                          # Feature exports
 ```
+
+**Routes Added:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/feedback/[token]` | FeedbackFormScreen | Public patient feedback form |
+| `/clinic-admin/feedback` | StaffFeedbackListScreen | Admin feedback list view |
+
+**API Endpoints Integrated:**
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/feedback/{token}` | GET | None | Get feedback form data |
+| `/api/v1/feedback/{token}` | POST | None | Submit patient feedback |
+| `/api/v1/clinic/{tenant_id}/staff/{staff_id}/kpis` | GET | JWT | Staff KPI metrics |
+| `/api/v1/feedback/clinic/{tenant_id}/staff/{staff_id}/feedback` | GET | JWT | Staff feedback list |
+| `/api/v1/feedback/clinic/{tenant_id}/summary` | GET | JWT | Clinic feedback summary |
+
+**Features Implemented:**
+
+1. **Patient Feedback Form** (Public)
+   - Conditional sections: Doctor, Therapist(s), Clinic
+   - Star rating input (1-5) with sub-questions
+   - Comment fields with 500 character limit
+   - Google Review opt-in checkbox
+   - Error handling: Invalid/expired/already used tokens
+   - Success state with Google Review redirect (if eligible)
+
+2. **Staff KPI Dashboard Section**
+   - Integrated into Doctor and Therapist dashboards
+   - Period selector (7d/30d/90d)
+   - KPI metrics: Average rating, total responses, response rate
+   - Trend indicator (↑ improving / ↓ declining / → stable)
+   - Rating distribution bar chart
+   - Question score breakdown
+   - "View All Feedback" navigation
+
+3. **Clinic Admin Feedback Summary**
+   - Integrated into Clinic Admin dashboard
+   - Overall rating card with response count
+   - Rating distribution visualization
+   - Google Reviews conversion stats
+   - Staff performance table (doctors/therapists tabs)
+   - Ambience scores (cleanliness, comfort, staff, scheduling, value)
+
+4. **Staff Feedback List**
+   - Paginated feedback entries
+   - Period/date filtering
+   - "Needs Attention" badges for low ratings
+   - Question scores display
+   - Comments with timestamps
+
+**Dashboard Integrations:**
+- `app/doctor.tsx` - Added StaffFeedbackSection
+- `app/therapist.tsx` (TherapistDashboardScreen) - Added StaffFeedbackSection
+- `app/clinic-admin/index.tsx` - Added ClinicFeedbackSummarySection
+
+**Files Created:** 18 new files
+**ESLint Status:** 0 errors
+**TypeScript Status:** 0 errors in feedback module
 
 ---
 
-## Previous Status: Push Notifications UI (Feb 2026) - COMPLETED ✅
+## Previous Status: Push Notifications Backend Integration (Dec 2025) - COMPLETED ✅
 
 ### Push Notification System - FULLY IMPLEMENTED ✅
 
