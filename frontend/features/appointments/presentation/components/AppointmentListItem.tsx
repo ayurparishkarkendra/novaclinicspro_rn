@@ -288,9 +288,28 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           )}
         </View>
 
-        {/* A1: Single navigation arrow, vertically centered */}
-        <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
-          <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+        {/* Right side: Complete tick (for confirmed/in_progress) + Navigation arrow */}
+        <View style={styles.rightActionsContainer}>
+          {/* Complete Tick Icon - visible for confirmed/in_progress appointments */}
+          {canComplete && onStatusUpdate && (
+            <CompleteTickIcon
+              onPress={() => {
+                Alert.alert(
+                  t('appointments.markAsCompleted') || 'Mark as Completed',
+                  t('appointments.confirmComplete') || 'Mark this appointment as completed?',
+                  [
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
+                  ]
+                );
+              }}
+            />
+          )}
+          
+          {/* A1: Single navigation arrow, vertically centered */}
+          <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
+            <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+          </View>
         </View>
       </TouchableOpacity>
 
