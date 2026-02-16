@@ -3,22 +3,26 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Clinical Documents Module - TypeScript Fixes (Dec 2025)
+## Latest Status: Clinical Documents Module - Features Complete (Dec 2025)
 
-### Clinical Documents Module - VERIFICATION READY
+### Clinical Documents Module - FULLY IMPLEMENTED ✅
 
-Completed all TypeScript error fixes for the Clinical Documents module (Casesheets, Prescriptions, Treatment Sheets).
+**Test Report:** `/app/test_reports/iteration_6.json`
+**Code Review:** 100% Pass (all 10 features verified)
 
-**Fixed Issues:**
-- API client imports (`apiClient` → `axiosClient`)
-- Duplicate export errors in index.ts files
-- Added missing typography styles (`subtitle1`, `subtitle2`)
-- Fixed AuthUserSession entity (added `id`, `fullName`)
-- Fixed Expo Router typed routes
-- Fixed useDebounce hook timeout type
-- Fixed expo-localization API
+**Implemented Features:**
+1. **Header/Footer Branding** - CasesheetDetailScreen renders clinic branding from `header_snapshot` and `footer_snapshot`
+2. **Create Treatment Sheet from Casesheet** - Modal with duration picker (7, 14, 21, 30, 45, 60 days) + custom input
+3. **Casesheet Extensions UI** - Add/remove/edit extensions with predefined templates:
+   - Vital Signs (BP, pulse, temp, respiratory rate, SpO2, weight)
+   - Prakriti Assessment (Vata, Pitta, Kapha scoring)
+   - Nadi Pariksha (pulse diagnosis)
+   - Custom Notes
 
-**Verification Status:** ✅ No TypeScript errors in Clinical Documents module
+**Known Issue (Pre-existing):**
+- Expo Router web navigation causes session loss on page reload
+- Root cause: ProtectedRoute checks auth before bootstrap completes
+- Does NOT affect mobile app or functionality, only web-based UI testing
 
 ---
 
