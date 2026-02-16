@@ -8,7 +8,13 @@
 // Data layer
 export * from './data/models/localization.dtos';
 export * from './data/datasources/localization.api';
-export * from './data/repositories/localization.repository.impl';
+export {
+  useSupportedLocalesQuery,
+  useUserLocaleQuery,
+  useUpdateUserLocaleMutation,
+  useTenantDefaultLocaleQuery,
+  useUpdateTenantDefaultLocaleMutation,
+} from './data/repositories/localization.repository.impl';
 
 // Domain layer
 export * from './domain/entities/locale.entity';

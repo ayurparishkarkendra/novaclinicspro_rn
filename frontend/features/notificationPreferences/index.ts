@@ -5,13 +5,33 @@
  * Note: API endpoints are not yet available - UI will show placeholder state.
  */
 
-// Data layer
-export * from './data/models/notificationPreferences.dtos';
+// Data layer - explicitly export DTOs
+export {
+  type NotificationPreferenceDto,
+  type NotificationPreferencesListResponse,
+  type UpdateNotificationPreferenceRequest,
+  type BulkUpdateNotificationPreferencesRequest,
+  type EventTypeCategory,
+  toPreferenceEntity,
+  getChannelLabel,
+  getFrequencyLabel,
+  getEventTypeLabel,
+  getEventTypeDescription,
+  eventTypeCategories,
+} from './data/models/notificationPreferences.dtos';
 export * from './data/datasources/notificationPreferences.api';
 export * from './data/repositories/notificationPreferences.repository.impl';
 
-// Domain layer
-export * from './domain/entities/notification-preference.entity';
+// Domain layer - export entity types
+export {
+  type NotificationChannel,
+  type NotificationFrequency,
+  type NotificationEventType,
+  type NotificationPreference,
+  isPreferenceEnabled,
+  filterByChannel,
+  filterByEventType,
+} from './domain/entities/notification-preference.entity';
 export * from './domain/repositories/notificationPreferences.repository';
 
 // Presentation layer
