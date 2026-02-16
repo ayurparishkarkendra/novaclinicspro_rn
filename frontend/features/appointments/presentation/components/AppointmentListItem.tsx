@@ -106,7 +106,7 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({
     data-testid={testId}
   >
     <Ionicons name={icon} size={16} color={color} />
-    <Text style={[styles.quickActionText, { color }]}>{label}</Text>
+    <Text style={[styles.quickActionText, { color, marginLeft: 4 }]}>{label}</Text>
   </TouchableOpacity>
 );
 
