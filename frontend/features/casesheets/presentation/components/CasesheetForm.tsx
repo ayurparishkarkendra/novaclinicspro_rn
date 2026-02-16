@@ -191,6 +191,8 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
     new Set(['chief', 'soap', 'diagnosis'])
   );
 
+  const [showExtensionPicker, setShowExtensionPicker] = useState(false);
+
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -198,6 +200,48 @@ export const CasesheetForm: React.FC<CasesheetFormProps> = ({
         ...prev.basic,
         [fieldId]: value,
       },
+    }));
+  }, []);
+
+  const handleExtensionFieldChange = useCallback((extensionIndex: number, fieldId: string, value: string) => {
+    setFormData(prev => {
+      const newExtensions = [...(prev.extensions || [])];
+      if (newExtensions[extensionIndex]) {
+        newExtensions[extensionIndex] = {
+          ...newExtensions[extensionIndex],
+          data: {
+            ...newExtensions[extensionIndex].data,
+            [fieldId]: value,
+          },
+        };
+      }
+      return { ...prev, extensions: newExtensions };
+    });
+  }, []);
+
+  const handleAddExtension = useCallback((templateId: string) => {
+    const template = EXTENSION_TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+
+    setFormData(prev => ({
+      ...prev,
+      extensions: [
+        ...(prev.extensions || []),
+        {
+          template_id: templateId,
+          template_name: template.name,
+          data: {},
+        },
+      ],
+    }));
+    setShowExtensionPicker(false);
+    setExpandedSections(prev => new Set([...prev, `ext-${templateId}-${(formData.extensions?.length || 0)}`]));
+  }, [formData.extensions?.length]);
+
+  const handleRemoveExtension = useCallback((index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      extensions: prev.extensions?.filter((_, i) => i !== index) || [],
     }));
   }, []);
 
