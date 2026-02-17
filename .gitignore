@@ -237,3 +237,8 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+frontend/ios/
+.kiro/
+frontend/.metro-cache/
+*.md
+frontend/docs/

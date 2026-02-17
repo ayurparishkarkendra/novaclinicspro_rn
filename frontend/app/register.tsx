@@ -133,10 +133,10 @@ export default function ClinicOwnerRegistrationScreen() {
             email: data.email,
           },
           clinic_address: {
-            line1: data.address_line1,
+            street: data.address_line1,
             city: data.city,
             state: data.state,
-            postal_code: data.postal_code,
+            pincode: data.postal_code,
             country: 'India',
           },
         },
