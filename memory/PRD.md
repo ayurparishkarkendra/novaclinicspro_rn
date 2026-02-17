@@ -3,7 +3,48 @@
 ## Project Overview
 Healthcare scheduling mobile application built with React Native (Expo) connecting to a backend on Koyeb. The app handles appointments, clients, staff, treatments, billing, and clinical documentation for Ayurvedic clinics.
 
-## Latest Status: Doctor Dashboard Module (Dec 2025) - COMPLETED ✅
+## Latest Status: Forgot Password Feature (Dec 2025) - COMPLETED ✅
+
+### Forgot Password / Reset Password - FULLY IMPLEMENTED ✅
+
+**Test Report:** `/app/test_reports/iteration_14.json`
+**Code Review:** 100% Pass
+
+**Routes:**
+| Route | File | Description |
+|-------|------|-------------|
+| `/forgot-password` | `app/forgot-password.tsx` | Send password reset email |
+| `/reset-password` | `app/reset-password.tsx` | Set new password from reset link |
+
+**Features:**
+1. **Forgot Password Screen**
+   - Email input with validation
+   - Sends reset email via Supabase `resetPasswordForEmail()`
+   - Success state: "Check Your Email" confirmation
+   - Error handling for rate limits, network errors
+
+2. **Reset Password Screen**
+   - Verifies recovery session from URL hash (web) or deep link (mobile)
+   - Password validation: 8+ chars, uppercase, lowercase, number
+   - Confirm password match validation
+   - Error state: "Link Expired" with recovery options
+   - Success state: "Password Updated!" with login redirect
+
+**Auth DTOs Enhanced:**
+- `PasswordResetRequest` - Email for reset request
+- `PasswordResetConfirmation` - New password and confirmation
+- `AuthErrorCode` - Typed error codes (INVALID_CREDENTIALS, TOKEN_EXPIRED, etc.)
+- `mapAuthError()` - Map Supabase errors to error codes
+- `getAuthErrorMessage()` - User-friendly error messages
+
+**Files Created/Updated:**
+- `/app/frontend/app/reset-password.tsx` (NEW)
+- `/app/frontend/app/forgot-password.tsx` (testID attributes added)
+- `/app/frontend/features/auth/data/models/auth.dtos.ts` (enhanced with error mapping)
+
+---
+
+## Previous Status: Doctor Dashboard Module (Dec 2025) - COMPLETED ✅
 
 ### Doctor Dashboard - FULLY IMPLEMENTED ✅
 

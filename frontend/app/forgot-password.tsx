@@ -197,6 +197,7 @@ export default function ForgotPasswordScreen() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!isLoading}
+                      testID="email-input"
                     />
                   </View>
                 )}
@@ -219,6 +220,7 @@ export default function ForgotPasswordScreen() {
               ]}
               onPress={handleSubmit(onSubmit)}
               disabled={isLoading}
+              testID="send-reset-link-button"
             >
               {isLoading ? (
                 <ActivityIndicator color={theme.colors.primary.onPrimary} />
@@ -234,6 +236,7 @@ export default function ForgotPasswordScreen() {
               style={styles.loginLink}
               onPress={() => router.push('/login')}
               disabled={isLoading}
+              testID="back-to-login-link"
             >
               <Text style={[styles.loginLinkText, { color: theme.colors.primary.default }]}>
                 Back to Login
