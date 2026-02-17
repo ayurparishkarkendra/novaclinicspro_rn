@@ -20,11 +20,11 @@ export interface ClinicOwnerRegistrationRequest {
 
 export interface BusinessProfile {
   business_name?: string;
-  business_type?: 'individual' | 'partnership' | 'company' | 'trust';
+  business_type?: string;
   registration_number?: string;
   tax_id?: string;
   established_year?: number;
-  staff_count?: '1-5' | '6-20' | '21-50' | '50+';
+  staff_count?: string;
   specializations?: string[];
   services_offered?: string[];
   current_systems?: string[];
@@ -43,38 +43,37 @@ export interface PrimaryContact {
   phone: string;
   email: string;
   designation?: string;
+  whatsapp?: string;
 }
 
 export interface ClinicAddress {
-  line1: string;
-  line2?: string;
+  street: string;
   city: string;
   state: string;
-  postal_code: string;
+  pincode: string;
   country: string;
-  landmark?: string;
 }
 
 export interface WeeklyOperatingHours {
-  monday?: DayOperatingHours;
-  tuesday?: DayOperatingHours;
-  wednesday?: DayOperatingHours;
-  thursday?: DayOperatingHours;
-  friday?: DayOperatingHours;
-  saturday?: DayOperatingHours;
-  sunday?: DayOperatingHours;
+  monday?: OperatingHours;
+  tuesday?: OperatingHours;
+  wednesday?: OperatingHours;
+  thursday?: OperatingHours;
+  friday?: OperatingHours;
+  saturday?: OperatingHours;
+  sunday?: OperatingHours;
 }
 
-export interface DayOperatingHours {
-  open: string;
-  close: string;
+export interface OperatingHours {
+  open?: string;
+  close?: string;
   closed?: boolean;
 }
 
 export interface EmergencyContact {
-  name: string;
-  phone: string;
-  relationship?: string;
+  available: boolean;
+  phone?: string;
+  hours?: string;
 }
 
 export interface AppContext {
@@ -89,16 +88,14 @@ export interface AppContext {
 
 export interface DeviceInfo {
   platform: string;
+  version?: string;
   device_model?: string;
-  os_version?: string;
-  app_version?: string;
 }
 
 export interface OnboardingPreferences {
-  preferred_contact_method?: 'email' | 'phone' | 'whatsapp';
-  preferred_language?: string;
-  demo_requested?: boolean;
-  training_required?: boolean;
+  demo_mode_requested?: boolean;
+  quick_setup?: boolean;
+  guided_tour?: boolean;
 }
 
 // === Response DTOs ===
@@ -110,7 +107,7 @@ export interface ClinicOwnerRegistrationResponse {
   tenant_id?: string;
   component_recommendations: ComponentRecommendation[];
   auto_approval_result: AutoApprovalResult;
-  application_status?: 'draft' | 'pending_review' | 'approved' | 'active';
+  application_status?: string;
   approved_components?: string[];
   completion_percentage?: number;
   validation_errors?: string[];
@@ -170,3 +167,15 @@ export const PAIN_POINTS = [
   'communication',
   'compliance',
 ] as const;
+
+// === Registration Status DTOs ===
+
+export interface RegistrationStatusResponse {
+  status: 'registered' | 'no_applications';
+  application_id?: string;
+  application_status?: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  tenant_name?: string;
+  tenant_id?: string;
+  created_at?: string;
+  last_updated?: string;
+}
