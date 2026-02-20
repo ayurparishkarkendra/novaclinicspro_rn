@@ -141,13 +141,13 @@ export const ClinicFeedbackSummarySection: React.FC<ClinicFeedbackSummarySection
         <View style={styles.overallRatingRow}>
           <View style={styles.overallRatingLeft}>
             <Text style={styles.overallRatingValue}>
-              {data.overall_rating.toFixed(1)}
+              {(data.overall_rating || 0).toFixed(1)}
             </Text>
-            <StarRatingDisplay rating={data.overall_rating} showNumeric={false} size={18} />
+            <StarRatingDisplay rating={data.overall_rating || 0} showNumeric={false} size={18} />
           </View>
           <View style={styles.overallRatingRight}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{data.total_responses}</Text>
+              <Text style={styles.statValue}>{data.total_responses || 0}</Text>
               <Text style={styles.statLabel}>Responses</Text>
             </View>
             <View style={styles.statItem}>
@@ -175,21 +175,21 @@ export const ClinicFeedbackSummarySection: React.FC<ClinicFeedbackSummarySection
         </View>
         <View style={styles.googleStatsRow}>
           <View style={styles.googleStat}>
-            <Text style={styles.googleStatValue}>{data.google_review_stats.prompted}</Text>
+            <Text style={styles.googleStatValue}>{data.google_review_stats?.prompted || 0}</Text>
             <Text style={styles.googleStatLabel}>Prompted</Text>
           </View>
           <View style={styles.googleStatDivider} />
           <View style={styles.googleStat}>
-            <Text style={styles.googleStatValue}>{data.google_review_stats.posted}</Text>
+            <Text style={styles.googleStatValue}>{data.google_review_stats?.posted || 0}</Text>
             <Text style={styles.googleStatLabel}>Posted</Text>
           </View>
           <View style={styles.googleStatDivider} />
           <View style={styles.googleStat}>
             <Text style={[
               styles.googleStatValue,
-              { color: getRatingColor(data.google_review_stats.conversion_rate / 20) }
+              { color: getRatingColor((data.google_review_stats?.conversion_rate || 0) / 20) }
             ]}>
-              {formatPercentage(data.google_review_stats.conversion_rate)}
+              {formatPercentage(data.google_review_stats?.conversion_rate || 0)}
             </Text>
             <Text style={styles.googleStatLabel}>Conversion</Text>
           </View>
@@ -200,8 +200,8 @@ export const ClinicFeedbackSummarySection: React.FC<ClinicFeedbackSummarySection
       <View style={styles.staffSection}>
         <Text style={styles.cardTitle}>Staff Performance</Text>
         <StaffPerformanceTable
-          doctors={data.staff_performance.doctors}
-          therapists={data.staff_performance.therapists}
+          doctors={data.staff_performance?.doctors || []}
+          therapists={data.staff_performance?.therapists || []}
           onStaffPress={onStaffPress}
           testID={`${testID}-staff`}
         />

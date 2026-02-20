@@ -26,6 +26,7 @@ import { useClinicTheme } from '../core/theme/useClinicTheme';
 import { spacing } from '../core/theme/spacing';
 import { registerClinicOwnerApi } from '../features/registration/data/datasources/registration.api';
 import { ClinicOwnerRegistrationRequest, CLINIC_TYPES } from '../features/registration/data/models/registration.dtos';
+import { supabase } from '../core/api/supabaseClient';
 
 // Simplified registration schema
 const registrationSchema = z.object({
@@ -62,6 +63,8 @@ export default function ClinicOwnerRegistrationScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     control,
@@ -152,16 +155,47 @@ export default function ClinicOwnerRegistrationScreen() {
       const response = await registerClinicOwnerApi(payload);
 
       if (response.success) {
-        Alert.alert(
-          'Registration Successful!',
-          `Your application has been submitted. ${response.next_steps?.[0] || 'You can now login with your credentials.'}`,
-          [
-            {
-              text: 'Go to Login',
-              onPress: () => router.replace('/login'),
-            },
-          ]
-        );
+        // Sign out the user immediately after registration
+        // This prevents session issues when redirecting
+        await supabase.auth.signOut();
+        console.log('[Register] User signed out after registration');
+
+        // Check if application was auto-approved
+        const isAutoApproved = response.auto_approval_result?.eligible && 
+                               response.application_status?.toUpperCase() === 'APPROVED';
+        
+        if (Platform.OS === 'web') {
+          // Web: Use direct navigation instead of Alert
+          console.log('[Register] Web platform - redirecting to login');
+          router.replace('/login');
+        } else {
+          // Mobile: Use Alert with callback
+          if (isAutoApproved) {
+            // Auto-approved - go directly to login (they need to log in first)
+            Alert.alert(
+              'Registration Successful!',
+              'Your application has been approved! Please login to continue setting up your clinic.',
+              [
+                {
+                  text: 'Go to Login',
+                  onPress: () => router.replace('/login'),
+                },
+              ]
+            );
+          } else {
+            // Pending review - go to login
+            Alert.alert(
+              'Registration Successful!',
+              `Your application has been submitted for review. ${response.next_steps?.[0] || 'You can now login with your credentials.'}`,
+              [
+                {
+                  text: 'Go to Login',
+                  onPress: () => router.replace('/login'),
+                },
+              ]
+            );
+          }
+        }
       } else {
         throw new Error(response.validation_errors?.[0] || 'Registration failed');
       }
@@ -344,25 +378,39 @@ export default function ClinicOwnerRegistrationScreen() {
           control={control}
           name="password"
           render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface.default,
-                  color: theme.colors.text.primary,
-                  borderColor: errors.password
-                    ? theme.colors.feedback.error
-                    : theme.colors.border.default,
-                },
-              ]}
-              placeholder="Minimum 8 characters"
-              placeholderTextColor={theme.colors.text.tertiary}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry
-              editable={!isLoading}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  {
+                    backgroundColor: theme.colors.surface.default,
+                    color: theme.colors.text.primary,
+                    borderColor: errors.password
+                      ? theme.colors.feedback.error
+                      : theme.colors.border.default,
+                  },
+                ]}
+                placeholder="Minimum 8 characters"
+                placeholderTextColor={theme.colors.text.tertiary}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                secureTextEntry={!showPassword}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={24}
+                  color={theme.colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
           )}
         />
         {errors.password && (
@@ -381,25 +429,39 @@ export default function ClinicOwnerRegistrationScreen() {
           control={control}
           name="confirmPassword"
           render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface.default,
-                  color: theme.colors.text.primary,
-                  borderColor: errors.confirmPassword
-                    ? theme.colors.feedback.error
-                    : theme.colors.border.default,
-                },
-              ]}
-              placeholder="Re-enter password"
-              placeholderTextColor={theme.colors.text.tertiary}
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              secureTextEntry
-              editable={!isLoading}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  {
+                    backgroundColor: theme.colors.surface.default,
+                    color: theme.colors.text.primary,
+                    borderColor: errors.confirmPassword
+                      ? theme.colors.feedback.error
+                      : theme.colors.border.default,
+                  },
+                ]}
+                placeholder="Re-enter password"
+                placeholderTextColor={theme.colors.text.tertiary}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                secureTextEntry={!showConfirmPassword}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={24}
+                  color={theme.colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
           )}
         />
         {errors.confirmPassword && (
@@ -845,6 +907,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     fontSize: 16,
   },
+  passwordContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordInput: {
+    paddingRight: 50,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 8,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
   errorText: {
     fontSize: 12,
     marginTop: spacing.xs,
@@ -882,6 +959,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
+    cursor: 'pointer' as any,
   },
   backButtonText: {
     fontSize: 16,
@@ -895,6 +973,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: 8,
     gap: spacing.xs,
+    cursor: 'pointer' as any,
   },
   nextButtonText: {
     fontSize: 16,
@@ -908,6 +987,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: 8,
     gap: spacing.xs,
+    cursor: 'pointer' as any,
   },
   submitButtonText: {
     fontSize: 16,

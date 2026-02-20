@@ -25,6 +25,8 @@ import {
   useDeleteTreatmentMutation,
   useSearchTreatmentsQuery,
 } from '../../data/repositories/treatments.repository.impl';
+import { useTenantQuery } from '../../../tenants/data/repositories/tenants.repository.impl';
+import { useFeatures, isAyurvedaClinic as checkIsAyurveda } from '../../../../core/hooks/useFeatures';
 import {
   TreatmentResponse,
   formatPrice,
@@ -46,7 +48,8 @@ const TreatmentCard: React.FC<{
   treatment: TreatmentResponse;
   onPress: () => void;
   onDelete: () => void;
-}> = ({ treatment, onPress, onDelete }) => {
+  isAyurvedaClinic?: boolean;
+}> = ({ treatment, onPress, onDelete, isAyurvedaClinic = false }) => {
   const effectivePrice = treatment.price || treatment.base_price;
   const doshaInfo = getDoshaSummary(treatment.dosha_benefits);
 
@@ -93,8 +96,8 @@ const TreatmentCard: React.FC<{
           )}
         </View>
 
-        {/* Dosha Benefits */}
-        {treatment.dosha_benefits && (
+        {/* Dosha Benefits - Only show for Ayurveda clinics */}
+        {isAyurvedaClinic && treatment.dosha_benefits && (
           <View style={styles.doshaRow}>
             {treatment.dosha_benefits.vata?.balances && (
               <View style={[styles.doshaBadge, { backgroundColor: DOSHA_COLORS.vata + '15' }]}>
@@ -135,6 +138,17 @@ export const TreatmentsScreen: React.FC = () => {
   const tenantId = currentUser?.tenantId || '';
 
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get feature configuration from JWT token
+  const features = useFeatures();
+  
+  // Fetch tenant data (keeping for backward compatibility, but features come from JWT now)
+  const { data: tenant } = useTenantQuery(tenantId, {
+    enabled: !!tenantId,
+  });
+
+  // Check if clinic is Ayurveda type using feature flags from JWT
+  const isAyurvedaClinic = checkIsAyurveda(features);
   
   // Debounce search query - only trigger API call after user stops typing
   const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
@@ -225,8 +239,9 @@ export const TreatmentsScreen: React.FC = () => {
       treatment={item}
       onPress={() => router.push(`/clinic-admin/settings/treatments/${item.id}` as any)}
       onDelete={() => handleDeleteTreatment(item)}
+      isAyurvedaClinic={isAyurvedaClinic}
     />
-  ), [router, handleDeleteTreatment]);
+  ), [router, handleDeleteTreatment, isAyurvedaClinic]);
 
   const activeTreatments = treatmentsData?.items.filter(t => t.is_active).length || 0;
   const totalTreatments = treatmentsData?.total || 0;

@@ -1,0 +1,219 @@
+/**
+ * DemoStatusBanner Component Tests
+ */
+
+import React from 'react';
+import { render, fireEvent } from '@testing-library/react-native';
+import { DemoStatusBanner } from '../../features/onboarding/presentation/components/DemoStatusBanner';
+
+// Mock theme hook
+jest.mock('../../core/theme/useClinicTheme', () => ({
+  useClinicTheme: () => ({
+    colors: {
+      primary: { default: '#2F6F4E', soft: '#E8F5E9' },
+      surface: { default: '#FFFFFF', elevated: '#F9FAFB' },
+      border: { default: '#E5E7EB' },
+      text: { primary: '#111827', secondary: '#6B7280', onPrimary: '#FFFFFF' },
+      feedback: {
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
+        errorLight: '#FEE2E2',
+      },
+    },
+    spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
+    typography: {
+      h6: { fontSize: 16, fontWeight: '600' },
+      body2: { fontSize: 14 },
+      button: { fontSize: 14, fontWeight: '600' },
+    },
+  }),
+}));
+
+describe('DemoStatusBanner Component', () => {
+  const mockOnExtendDemo = jest.fn();
+  const mockOnTransitionToLive = jest.fn();
+
+  const futureDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(); // 5 days from now
+  const trialFutureDate = new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(); // 25 days from now
+
+  beforeEach(() => {
+    mockOnExtendDemo.mockClear();
+    mockOnTransitionToLive.mockClear();
+  });
+
+  it('renders demo mode banner when demo is active', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onExtendDemo={mockOnExtendDemo}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    expect(getByText('Demo Mode')).toBeTruthy();
+  });
+
+  it('renders trial period banner when demo is expired', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={new Date(Date.now() - 1000).toISOString()}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={true}
+        isTrialExpired={false}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    expect(getByText('Trial Period')).toBeTruthy();
+  });
+
+  it('shows extend demo button when demo is active and can extend', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onExtendDemo={mockOnExtendDemo}
+        onTransitionToLive={mockOnTransitionToLive}
+        canExtendDemo={true}
+      />
+    );
+
+    expect(getByText('Extend Demo')).toBeTruthy();
+  });
+
+  it('hides extend demo button when cannot extend', () => {
+    const { queryByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onExtendDemo={mockOnExtendDemo}
+        onTransitionToLive={mockOnTransitionToLive}
+        canExtendDemo={false}
+      />
+    );
+
+    expect(queryByText('Extend Demo')).toBeNull();
+  });
+
+  it('shows "Go Live Now" button when demo is active', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    expect(getByText('Go Live Now')).toBeTruthy();
+  });
+
+  it('shows "Complete Setup" button when demo is expired', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={new Date(Date.now() - 1000).toISOString()}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={true}
+        isTrialExpired={false}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    expect(getByText('Complete Setup')).toBeTruthy();
+  });
+
+  it('calls onExtendDemo when extend button is pressed', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onExtendDemo={mockOnExtendDemo}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    fireEvent.press(getByText('Extend Demo'));
+    expect(mockOnExtendDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onTransitionToLive when go live button is pressed', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+        onTransitionToLive={mockOnTransitionToLive}
+      />
+    );
+
+    fireEvent.press(getByText('Go Live Now'));
+    expect(mockOnTransitionToLive).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows trial expired message when both demo and trial are expired', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={new Date(Date.now() - 1000).toISOString()}
+        trialExpiresAt={new Date(Date.now() - 1000).toISOString()}
+        isDemoExpired={true}
+        isTrialExpired={true}
+      />
+    );
+
+    expect(getByText('Trial Expired')).toBeTruthy();
+    expect(
+      getByText('Your trial period has ended. Please contact support to reactivate your account.')
+    ).toBeTruthy();
+  });
+
+  it('displays demo countdown when demo is active', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+      />
+    );
+
+    expect(getByText(/Demo expires in:/)).toBeTruthy();
+  });
+
+  it('displays trial countdown', () => {
+    const { getByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={futureDate}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={false}
+        isTrialExpired={false}
+      />
+    );
+
+    expect(getByText(/Trial expires in:/)).toBeTruthy();
+  });
+
+  it('does not show demo countdown when demo is expired', () => {
+    const { queryByText } = render(
+      <DemoStatusBanner
+        demoExpiresAt={new Date(Date.now() - 1000).toISOString()}
+        trialExpiresAt={trialFutureDate}
+        isDemoExpired={true}
+        isTrialExpired={false}
+      />
+    );
+
+    expect(queryByText(/Demo expires in:/)).toBeNull();
+  });
+});

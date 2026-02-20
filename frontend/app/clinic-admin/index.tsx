@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { DashboardHeader } from '../../core/components/DashboardHeader';
 import { StatCard } from '../../core/components/StatCard';
 import { QuickActionButton } from '../../core/components/QuickActionButton';
@@ -33,6 +33,7 @@ import { formatInrCurrency } from '../../core/utils/currency';
 import { t, ErrorTokens } from '../../core/localization';
 import { useStaffListQuery } from '../../features/staff/data/repositories/staff.repository.impl';
 import { ClinicFeedbackSummarySection } from '../../features/feedback';
+import { useOnboardingStatusQuery } from '../../features/onboarding/data/repositories/onboarding.repository.impl';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
@@ -87,6 +88,27 @@ export default function ClinicAdminDashboard() {
   const staffMembers = staffData?.items?.slice(0, 3) || [];
   const activeStaffCount = staffData?.total || 0;
 
+  // Fetch onboarding status to check if setup is complete
+  const { data: onboardingStatus, refetch: refetchOnboardingStatus } = useOnboardingStatusQuery(
+    tenantId,
+    { enabled: !!tenantId }
+  );
+
+  // Refetch onboarding status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (tenantId) {
+        refetchOnboardingStatus();
+      }
+    }, [tenantId, refetchOnboardingStatus])
+  );
+
+  // Only show setup banner if onboarding is not complete AND user is still in onboarding status
+  // Hide banner for active customers even if they have incomplete optional steps
+  const showSetupBanner = onboardingStatus && 
+    !onboardingStatus.is_ready_to_go_live && 
+    currentUser?.applicationStatus === 'onboarding';
+
   const handleLogout = async () => {
     // Use confirm for web, Alert for native
     if (Platform.OS === 'web') {
@@ -136,6 +158,32 @@ export default function ClinicAdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Setup Wizard Banner - Show only if setup is not complete */}
+        {showSetupBanner && (
+          <TouchableOpacity
+            style={styles.setupBanner}
+            onPress={() => {
+              if (tenantId) {
+                // Navigate to the wizard flow instead of individual steps
+                console.log('[ClinicAdmin] Navigating to setup wizard');
+                router.push(`/onboarding/wizard-flow?tenantId=${tenantId}`);
+              } else {
+                Alert.alert('Error', 'Tenant ID not found. Please contact support.');
+              }
+            }}
+          >
+            <View style={styles.setupBannerContent}>
+              <Ionicons name="rocket" size={32} color={colors.primary.main} />
+              <View style={styles.setupBannerText}>
+                <Text style={styles.setupBannerTitle}>Complete Your Clinic Setup</Text>
+                <Text style={styles.setupBannerSubtitle}>
+                  {onboardingStatus?.completed_steps || 0} of {onboardingStatus?.total_steps || 0} steps completed
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={colors.primary.main} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Clinic Stats */}
         <View style={styles.section}>
@@ -889,5 +937,32 @@ const styles = StyleSheet.create({
     color: colors.warning.main,
     marginTop: spacing.xs,
     marginLeft: 48 + spacing.md,
+  },
+  setupBanner: {
+    backgroundColor: colors.primary.main + '15',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.primary.main,
+  },
+  setupBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  setupBannerText: {
+    flex: 1,
+  },
+  setupBannerTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  setupBannerSubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
   },
 });

@@ -13,6 +13,8 @@ export interface CurrentUserResponse {
   roles: string[];
   permissions: string[];
   is_org_admin: boolean;
+  application_status?: 'draft' | 'pending_review' | 'approved' | 'onboarding' | 'active' | 'rejected' | null;
+  full_name?: string;
 }
 
 /**

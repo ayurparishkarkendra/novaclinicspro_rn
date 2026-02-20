@@ -226,12 +226,23 @@ export interface AmbienceScoreItem {
 export function getAmbienceScoreItems(
   scores: ClinicFeedbackSummaryResponse['ambience_scores']
 ): AmbienceScoreItem[] {
+  // Handle case where scores might be undefined or null
+  if (!scores) {
+    return [
+      { key: 'cleanliness', label: 'Cleanliness', score: 0, icon: 'sparkles' },
+      { key: 'comfort', label: 'Comfort', score: 0, icon: 'bed' },
+      { key: 'staff_professionalism', label: 'Staff', score: 0, icon: 'people' },
+      { key: 'scheduling_ease', label: 'Scheduling', score: 0, icon: 'calendar' },
+      { key: 'value_for_money', label: 'Value', score: 0, icon: 'cash' },
+    ];
+  }
+  
   return [
-    { key: 'cleanliness', label: 'Cleanliness', score: scores.cleanliness, icon: 'sparkles' },
-    { key: 'comfort', label: 'Comfort', score: scores.comfort, icon: 'bed' },
-    { key: 'staff_professionalism', label: 'Staff', score: scores.staff_professionalism, icon: 'people' },
-    { key: 'scheduling_ease', label: 'Scheduling', score: scores.scheduling_ease, icon: 'calendar' },
-    { key: 'value_for_money', label: 'Value', score: scores.value_for_money, icon: 'cash' },
+    { key: 'cleanliness', label: 'Cleanliness', score: scores.cleanliness || 0, icon: 'sparkles' },
+    { key: 'comfort', label: 'Comfort', score: scores.comfort || 0, icon: 'bed' },
+    { key: 'staff_professionalism', label: 'Staff', score: scores.staff_professionalism || 0, icon: 'people' },
+    { key: 'scheduling_ease', label: 'Scheduling', score: scores.scheduling_ease || 0, icon: 'calendar' },
+    { key: 'value_for_money', label: 'Value', score: scores.value_for_money || 0, icon: 'cash' },
   ];
 }
 

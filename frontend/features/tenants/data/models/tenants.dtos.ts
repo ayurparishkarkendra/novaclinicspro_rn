@@ -78,14 +78,12 @@ export interface OrgTenantResponse {
 // === Constants ===
 
 export const CLINIC_TYPES = [
+  'general',
   'ayurveda',
-  'homeopathy',
-  'naturopathy',
-  'physiotherapy',
   'allopathy',
-  'general_practice',
-  'multi_specialty',
-  'other',
+  'dental',
+  'physio',
+  'multispeciality',
 ] as const;
 
 export const TENANT_STATUSES = [

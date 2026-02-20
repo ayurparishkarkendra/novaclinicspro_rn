@@ -19,8 +19,8 @@ interface UseAuthReturn {
   setSelectedClinic: (clinicId: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  bootstrapSession: () => Promise<void>;
-  navigateToLanding: () => void;
+  bootstrapSession: () => Promise<{ authenticated: boolean; session: AuthUserSession | null }>;
+  refreshSession: () => Promise<void>;
 }
 
 export const useAuth = (): UseAuthReturn => {
@@ -88,15 +88,8 @@ export const useAuth = (): UseAuthReturn => {
           const userSession = await authRepository.getCurrentUser();
           setCurrentUser(userSession);
 
-          // Navigate using centralized logic
-          const route = getLandingRoute(userSession);
-          console.log('[useAuth] Post-login navigation:', { 
-            isOrgAdmin: userSession.isOrgAdmin, 
-            tenantId: userSession.tenantId,
-            ownedClinics: userSession.ownedClinics.length,
-            route,
-          });
-          router.replace(route as any);
+          // Navigate based on status
+          navigateBasedOnStatus(userSession);
         } catch (backendError: any) {
           console.error('Backend context error:', backendError);
           // If backend fails, sign out from Supabase to avoid inconsistent state
@@ -153,7 +146,119 @@ export const useAuth = (): UseAuthReturn => {
     if (result.authenticated && result.session) {
       setCurrentUser(result.session);
     }
+    
+    return result;
   }, [setCurrentUser]);
+
+  /**
+   * Refresh session to get updated JWT token with tenant_id
+   * CRITICAL: Must be called after demo creation to get tenant_id in token
+   */
+  const refreshSession = useCallback(async () => {
+    try {
+      console.log('[useAuth] Refreshing session to get updated token...');
+      
+      // Refresh the Supabase session to get new JWT with tenant_id
+      const { data, error } = await supabase.auth.refreshSession();
+
+      if (error) {
+        console.error('[useAuth] Token refresh error:', error);
+        throw new Error('Failed to refresh session');
+      }
+
+      if (!data.session) {
+        throw new Error('No session returned from refresh');
+      }
+
+      console.log('[useAuth] Session refreshed successfully');
+      console.log('[useAuth] New access token (first 50 chars):', data.session.access_token.substring(0, 50));
+
+      // Store new tokens
+      await setTokens(data.session.access_token, data.session.refresh_token);
+
+      // CRITICAL: Wait for Supabase to update its internal storage
+      // This ensures getSession() returns the new token in axios interceptor
+      console.log('[useAuth] Waiting for token to propagate in Supabase storage...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify the token is now available via getSession()
+      const { data: { session: verifySession } } = await supabase.auth.getSession();
+      if (verifySession?.access_token) {
+        console.log('[useAuth] Verified token in storage (first 50 chars):', verifySession.access_token.substring(0, 50));
+        
+        if (verifySession.access_token !== data.session.access_token) {
+          console.error('[useAuth] WARNING: getSession() returned different token than refreshSession()!');
+          console.error('[useAuth] This means axios interceptor will use the old token!');
+        } else {
+          console.log('[useAuth] ✅ Token verified - getSession() returns the refreshed token');
+        }
+      }
+
+      // Fetch updated user context from backend (now includes tenant_id)
+      console.log('[useAuth] Fetching updated user context...');
+      const userSession = await authRepository.getCurrentUser();
+      setCurrentUser(userSession);
+
+      console.log('[useAuth] User context updated:', {
+        tenantId: userSession.tenantId,
+        email: userSession.email,
+        isOrgAdmin: userSession.isOrgAdmin,
+      });
+    } catch (error) {
+      console.error('[useAuth] Refresh session error:', error);
+      throw error;
+    }
+  }, [setTokens, setCurrentUser]);
+
+  /**
+   * Navigate based on user status and permissions
+   * Priority:
+   * 1. Super admin → /super-admin
+   * 2. Application status → onboarding flow or active
+   * 3. Fallback → /
+   */
+  const navigateBasedOnStatus = (user: AuthUserSession) => {
+    console.log('[useAuth] Navigating based on status:', { 
+      isOrgAdmin: user.isOrgAdmin, 
+      tenantId: user.tenantId,
+      applicationStatus: user.applicationStatus,
+      permissions: user.permissions 
+    });
+    
+    // Super admin always goes to super-admin dashboard
+    if (user.isOrgAdmin) {
+      router.replace('/super-admin');
+      return;
+    }
+
+    // Route based on application status
+    switch (user.applicationStatus) {
+      case 'onboarding':
+        console.log('[useAuth] Status is onboarding, navigating to wizard');
+        router.replace('/onboarding/wizard-flow');
+        break;
+        
+      case 'active':
+        console.log('[useAuth] Status is active, navigating to clinic-admin');
+        router.replace('/clinic-admin');
+        break;
+        
+      case 'pending_review':
+        console.log('[useAuth] Status is pending_review');
+        router.replace('/onboarding/pending-review');
+        break;
+        
+      case 'rejected':
+        console.log('[useAuth] Status is rejected');
+        router.replace('/onboarding/rejected');
+        break;
+        
+      default:
+        // No tenant or unknown status - fallback to index
+        console.log('[useAuth] Unknown or null status, navigating to index');
+        router.replace('/');
+    }
+  };
 
   return {
     currentUser,
@@ -164,6 +269,7 @@ export const useAuth = (): UseAuthReturn => {
     login,
     logout,
     bootstrapSession,
+    refreshSession,
     navigateToLanding,
   };
 };

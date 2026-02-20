@@ -23,6 +23,18 @@ const queryClient = new QueryClient({
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
+    mutations: {
+      // Suppress error notifications - errors are handled in UI
+      onError: () => {
+        // Errors are displayed in the UI, no need for global notifications
+      },
+    },
+  },
+  // Suppress React Query's default error logging
+  logger: {
+    log: console.log,
+    warn: console.warn,
+    error: () => {}, // Suppress error logs from React Query
   },
 });
 

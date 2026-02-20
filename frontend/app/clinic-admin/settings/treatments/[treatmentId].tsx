@@ -28,6 +28,8 @@ import {
   useUpdateTreatmentMutation,
   useDeleteTreatmentMutation,
 } from '../../../../features/treatments/data/repositories/treatments.repository.impl';
+import { useTenantQuery } from '../../../../features/tenants/data/repositories/tenants.repository.impl';
+import { useFeatures, isAyurvedaClinic as checkIsAyurveda } from '../../../../core/hooks/useFeatures';
 import { 
   formatPrice, 
   formatDuration, 
@@ -51,8 +53,18 @@ export default function TreatmentDetailScreen() {
     enabled: !!tenantId && !!treatmentId,
   });
 
+  const { data: tenant } = useTenantQuery(tenantId, {
+    enabled: !!tenantId,
+  });
+
+  // Get feature configuration from JWT token
+  const features = useFeatures();
+
   const updateMutation = useUpdateTreatmentMutation(tenantId, treatmentId || '');
   const deleteMutation = useDeleteTreatmentMutation(tenantId);
+
+  // Check if clinic is Ayurveda type using feature flags from JWT
+  const isAyurvedaClinic = checkIsAyurveda(features);
 
   const handleToggleActive = useCallback(async () => {
     if (!treatmentQuery.data) return;
@@ -202,52 +214,54 @@ export default function TreatmentDetailScreen() {
           </Text>
         </View>
 
-        {/* Dosha Benefits */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ayurvedic Properties</Text>
-          
-          {treatment.dosha_benefits?.vata?.balances ? (
-            <View style={styles.doshaItem}>
-              <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.vata }]} />
-              <View style={styles.doshaContent}>
-                <Text style={styles.doshaName}>Balances Vata</Text>
-                {treatment.dosha_benefits.vata.notes && (
-                  <Text style={styles.doshaNote}>{treatment.dosha_benefits.vata.notes}</Text>
-                )}
+        {/* Ayurvedic Properties - Only show for Ayurveda clinics */}
+        {isAyurvedaClinic && treatment.dosha_benefits && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ayurvedic Properties</Text>
+            
+            {treatment.dosha_benefits?.vata?.balances ? (
+              <View style={styles.doshaItem}>
+                <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.vata }]} />
+                <View style={styles.doshaContent}>
+                  <Text style={styles.doshaName}>Balances Vata</Text>
+                  {treatment.dosha_benefits.vata.notes && (
+                    <Text style={styles.doshaNote}>{treatment.dosha_benefits.vata.notes}</Text>
+                  )}
+                </View>
               </View>
-            </View>
-          ) : null}
-          
-          {treatment.dosha_benefits?.pitta?.balances ? (
-            <View style={styles.doshaItem}>
-              <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.pitta }]} />
-              <View style={styles.doshaContent}>
-                <Text style={styles.doshaName}>Balances Pitta</Text>
-                {treatment.dosha_benefits.pitta.notes && (
-                  <Text style={styles.doshaNote}>{treatment.dosha_benefits.pitta.notes}</Text>
-                )}
+            ) : null}
+            
+            {treatment.dosha_benefits?.pitta?.balances ? (
+              <View style={styles.doshaItem}>
+                <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.pitta }]} />
+                <View style={styles.doshaContent}>
+                  <Text style={styles.doshaName}>Balances Pitta</Text>
+                  {treatment.dosha_benefits.pitta.notes && (
+                    <Text style={styles.doshaNote}>{treatment.dosha_benefits.pitta.notes}</Text>
+                  )}
+                </View>
               </View>
-            </View>
-          ) : null}
-          
-          {treatment.dosha_benefits?.kapha?.balances ? (
-            <View style={styles.doshaItem}>
-              <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.kapha }]} />
-              <View style={styles.doshaContent}>
-                <Text style={styles.doshaName}>Balances Kapha</Text>
-                {treatment.dosha_benefits.kapha.notes && (
-                  <Text style={styles.doshaNote}>{treatment.dosha_benefits.kapha.notes}</Text>
-                )}
+            ) : null}
+            
+            {treatment.dosha_benefits?.kapha?.balances ? (
+              <View style={styles.doshaItem}>
+                <View style={[styles.doshaIndicator, { backgroundColor: DOSHA_COLORS.kapha }]} />
+                <View style={styles.doshaContent}>
+                  <Text style={styles.doshaName}>Balances Kapha</Text>
+                  {treatment.dosha_benefits.kapha.notes && (
+                    <Text style={styles.doshaNote}>{treatment.dosha_benefits.kapha.notes}</Text>
+                  )}
+                </View>
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {!treatment.dosha_benefits?.vata?.balances && 
-           !treatment.dosha_benefits?.pitta?.balances && 
-           !treatment.dosha_benefits?.kapha?.balances && (
-            <Text style={styles.emptyText}>No Ayurvedic properties specified</Text>
-          )}
-        </View>
+            {!treatment.dosha_benefits?.vata?.balances && 
+             !treatment.dosha_benefits?.pitta?.balances && 
+             !treatment.dosha_benefits?.kapha?.balances && (
+              <Text style={styles.emptyText}>No Ayurvedic properties specified</Text>
+            )}
+          </View>
+        )}
 
         {/* Contraindications */}
         <View style={[styles.section, treatment.contraindications && styles.warningSection]}>

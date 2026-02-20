@@ -13,6 +13,8 @@ import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'rea
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
+import { useRegistrationStatus } from '../features/registration/presentation/hooks/useRegistrationStatus';
+import { useOnboardingStatusQuery } from '../features/onboarding/data/repositories/onboarding.repository.impl';
 import { colors } from '../core/theme/colors';
 import { typography } from '../core/theme/typography';
 import { spacing } from '../core/theme/spacing';
@@ -20,13 +22,38 @@ import { spacing } from '../core/theme/spacing';
 export default function Index() {
   const router = useRouter();
   const { isAuthenticated, isLoading, currentUser, logout } = useAuth();
+  
+  // Fetch registration status only when user has no tenant and is not org admin
+  const { data: regStatus, isLoading: isLoadingRegStatus } = useRegistrationStatus(
+    currentUser?.userId || '',
+    { enabled: !!currentUser && !currentUser.tenantId && !currentUser.isOrgAdmin }
+  );
+
+  // Fetch onboarding status if user has a tenant
+  const { data: onboardingStatus, isLoading: isLoadingOnboarding } = useOnboardingStatusQuery(
+    currentUser?.tenantId || '',
+    { enabled: !!currentUser?.tenantId, retry: false }
+  );
 
   useEffect(() => {
-    // Wait for auth to be determined
-    if (isLoading) return;
+    console.log('[Index] useEffect triggered', {
+      isLoading,
+      isLoadingRegStatus,
+      isLoadingOnboarding,
+      isAuthenticated,
+      hasCurrentUser: !!currentUser,
+      applicationStatus: currentUser?.applicationStatus,
+    });
+
+    // Wait for auth and registration status to be determined
+    if (isLoading || isLoadingRegStatus || isLoadingOnboarding) {
+      console.log('[Index] Still loading, waiting...');
+      return;
+    }
 
     // Redirect to login if not authenticated
     if (!isAuthenticated || !currentUser) {
+      console.log('[Index] Not authenticated, redirecting to login');
       router.replace('/login');
       return;
     }
@@ -34,24 +61,116 @@ export default function Index() {
     console.log('[Index] Redirecting user based on context:', { 
       isOrgAdmin: currentUser.isOrgAdmin, 
       tenantId: currentUser.tenantId,
+      applicationStatus: currentUser.applicationStatus,
       email: currentUser.email,
-      permissions: currentUser.permissions 
+      permissions: currentUser.permissions,
+      regStatus: regStatus,
+      onboardingComplete: onboardingStatus?.is_ready_to_go_live
     });
 
-    // Priority: Org Admin (Super Admin) > Tenant User (Clinic Admin)
+    // Priority 1: Org Admin (Super Admin) always goes to super-admin
     if (currentUser.isOrgAdmin) {
       console.log('[Index] User is Org Admin, redirecting to Super Admin dashboard');
       router.replace('/super-admin');
-    } else if (currentUser.tenantId) {
-      console.log('[Index] User has tenantId, redirecting to Clinic Admin dashboard');
-      router.replace('/clinic-admin');
+      return;
     }
-    // If no tenantId and not org admin, show the "no tenant" state in render
+
+    // Priority 2: Route based on application_status from /auth/me
+    if (currentUser.applicationStatus) {
+      console.log('[Index] Has applicationStatus:', currentUser.applicationStatus);
+      switch (currentUser.applicationStatus) {
+        case 'onboarding':
+          console.log('[Index] Application status is onboarding, redirecting to wizard');
+          router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
+          return;
+        case 'active':
+          console.log('[Index] Application status is active, redirecting to clinic-admin');
+          router.replace('/clinic-admin');
+          return;
+        case 'pending_review':
+          console.log('[Index] Application status is pending_review');
+          router.replace('/onboarding/pending-review');
+          return;
+        case 'rejected':
+          console.log('[Index] Application status is rejected');
+          router.replace('/onboarding/rejected');
+          return;
+      }
+    }
+
+    // Priority 3: Fallback to tenant-based routing (for backward compatibility)
+    if (currentUser.tenantId) {
+      console.log('[Index] Has tenantId, checking onboarding status');
+      console.log('[Index] onboardingStatus:', onboardingStatus);
+      console.log('[Index] isLoadingOnboarding:', isLoadingOnboarding);
+      
+      // If onboarding status query failed or is still loading, don't make routing decisions yet
+      if (isLoadingOnboarding) {
+        console.log('[Index] Still loading onboarding status, waiting...');
+        return;
+      }
+      
+      // User has a tenant - check if onboarding is complete
+      if (onboardingStatus && !onboardingStatus.is_ready_to_go_live) {
+        console.log('[Index] User has tenant but onboarding incomplete, redirecting to setup wizard');
+        router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
+      } else if (onboardingStatus && onboardingStatus.is_ready_to_go_live) {
+        console.log('[Index] User has tenantId and onboarding complete, redirecting to Clinic Admin dashboard');
+        router.replace('/clinic-admin');
+      } else {
+        // onboardingStatus is null/undefined (query failed)
+        // Assume onboarding is not complete and route to wizard
+        console.log('[Index] Onboarding status unavailable (query failed), assuming onboarding incomplete');
+        router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
+      }
+      return;
+    }
+
+    // Priority 4: Handle registration status routing (legacy flow)
+    if (regStatus) {
+      console.log('[Index] Checking registration status:', regStatus);
+      
+      if (regStatus.status === 'no_applications') {
+        // No application found - show "No Clinic Assigned" message
+        return;
+      }
+
+      switch (regStatus.application_status?.toUpperCase()) {
+        case 'PENDING_REVIEW':
+          console.log('[Index] Redirecting to pending review');
+          router.replace(`/onboarding/pending-review?applicationId=${regStatus.application_id}`);
+          break;
+        case 'APPROVED':
+          console.log('[Index] Redirecting to choice screen');
+          router.replace(`/onboarding/choice?applicationId=${regStatus.application_id}`);
+          break;
+        case 'REJECTED':
+          console.log('[Index] Redirecting to rejected screen');
+          router.replace(`/onboarding/rejected?applicationId=${regStatus.application_id}`);
+          break;
+        case 'DRAFT':
+          console.log('[Index] Application is DRAFT - user already registered, redirecting to pending review');
+          // DRAFT status means validation issues, but user is already in system
+          // Can't change email or core details, so show pending review with support message
+          router.replace(`/onboarding/pending-review?applicationId=${regStatus.application_id}`);
+          break;
+        case 'ACTIVE':
+          console.log('[Index] Application is active but no tenant_id - backend issue');
+          // Application is active but tenant_id not assigned - this is a backend data issue
+          // Show "No Clinic Assigned" message with more context
+          return;
+        default:
+          // Show "No Clinic Assigned" for unknown status
+          console.log('[Index] Unknown application status:', regStatus.application_status);
+          return;
+      }
+    }
+    // If no tenantId, not org admin, and no regStatus, show the "no tenant" state in render
     
-  }, [isAuthenticated, isLoading, currentUser, router]);
+  }, [isAuthenticated, isLoading, isLoadingRegStatus, isLoadingOnboarding, currentUser, regStatus, onboardingStatus, router]);
 
   // Show loading while determining auth and redirecting
-  if (isLoading) {
+  if (isLoading || isLoadingRegStatus || isLoadingOnboarding) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary.main} />

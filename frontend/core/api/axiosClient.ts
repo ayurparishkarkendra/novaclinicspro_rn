@@ -33,13 +33,15 @@ export const axiosClient = axios.create({
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
-      // Get current session from Supabase
+      // IMPORTANT: getSession() returns cached session
+      // After refreshSession() is called elsewhere, this will get the updated token
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.access_token) {
         // Add JWT to Authorization header
         config.headers.Authorization = `Bearer ${session.access_token}`;
         console.log('🔐 JWT added to request:', config.url);
+        console.log('🔐 Token (first 50 chars):', session.access_token.substring(0, 50));
       } else {
         console.log('ℹ️ No JWT available for request:', config.url);
       }
@@ -71,14 +73,16 @@ axiosClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // Log CORS errors specifically
+    // Log CORS errors specifically (using console.log to avoid error banners)
     if (error.message?.includes('CORS') || error.message?.includes('Network Error')) {
-      console.error('🚫 CORS/Network error:', {
-        url: originalRequest.url,
-        method: originalRequest.method,
-        status: error.response?.status,
-        message: error.message,
-      });
+      if (__DEV__) {
+        console.log('🚫 CORS/Network error:', {
+          url: originalRequest.url,
+          method: originalRequest.method,
+          status: error.response?.status,
+          message: error.message,
+        });
+      }
     }
 
     // Handle 401 errors - attempt token refresh
@@ -109,12 +113,15 @@ axiosClient.interceptors.response.use(
       }
     }
 
-    console.error('❌ API error:', {
-      url: originalRequest.url,
-      status: error.response?.status,
-      message: error.message,
-      data: error.response?.data,
-    });
+    // Log error details (using console.log to avoid error banners in UI)
+    if (__DEV__) {
+      console.log('❌ API error:', {
+        url: originalRequest.url,
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data,
+      });
+    }
 
     return Promise.reject(error);
   }

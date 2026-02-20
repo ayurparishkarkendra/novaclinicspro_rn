@@ -54,7 +54,10 @@ import {
   ValidateAppointmentRequest,
 } from '../../data/models/appointments.dtos';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
+import { useFeatures } from '../../../../core/hooks/useFeatures';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
+import { useQuery } from '@tanstack/react-query';
+import { axiosClient } from '../../../../core/api/axiosClient';
 
 // ============================================
 // TYPES
@@ -111,9 +114,10 @@ interface MultiDayFormState {
 interface TypeSelectorProps {
   value: AppointmentType;
   onChange: (type: AppointmentType) => void;
+  allowMultiDay?: boolean; // Feature flag
 }
 
-const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
+const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange, allowMultiDay = false }) => (
   <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Appointment Type">
     <TouchableOpacity
       style={[styles.typeOption, value === 'SINGLE' && styles.typeOptionSelected]}
@@ -132,23 +136,27 @@ const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
       </Text>
       <Text style={styles.typeOptionSubtitle}>One-time appointment</Text>
     </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.typeOption, value === 'MULTI' && styles.typeOptionSelected]}
-      onPress={() => onChange('MULTI')}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: value === 'MULTI' }}
-      accessibilityLabel="Multi Day therapy series"
-    >
-      <Ionicons
-        name="calendar"
-        size={24}
-        color={value === 'MULTI' ? colors.primary.main : colors.text.secondary}
-      />
-      <Text style={[styles.typeOptionTitle, value === 'MULTI' && styles.typeOptionTitleSelected]}>
-        Multi Day
-      </Text>
-      <Text style={styles.typeOptionSubtitle}>Therapy series</Text>
-    </TouchableOpacity>
+    
+    {/* Multi-day option - only show for Ayurveda and Physio clinics */}
+    {allowMultiDay && (
+      <TouchableOpacity
+        style={[styles.typeOption, value === 'MULTI' && styles.typeOptionSelected]}
+        onPress={() => onChange('MULTI')}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === 'MULTI' }}
+        accessibilityLabel="Multi Day therapy series"
+      >
+        <Ionicons
+          name="calendar"
+          size={24}
+          color={value === 'MULTI' ? colors.primary.main : colors.text.secondary}
+        />
+        <Text style={[styles.typeOptionTitle, value === 'MULTI' && styles.typeOptionTitleSelected]}>
+          Multi Day
+        </Text>
+        <Text style={styles.typeOptionSubtitle}>Therapy series</Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -591,6 +599,32 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
   const scrollRef = useRef<ScrollView>(null);
+
+  // Get feature configuration from JWT token
+  const features = useFeatures();
+  
+  // FALLBACK: If JWT doesn't have features yet, check tenant clinic_type directly
+  // Use inline query to avoid org admin permission issues
+  const { data: tenant } = useQuery({
+    queryKey: ['tenant', tenantId],
+    queryFn: async () => {
+      const response = await axiosClient.get(`/api/v1/tenants/${tenantId}`);
+      return response.data;
+    },
+    enabled: !!tenantId,
+  });
+  
+  // Determine if multi-day appointments are allowed
+  // Priority: JWT features > Tenant clinic_type fallback
+  const allowMultiDay = features.appointments.allow_multiday || 
+    (tenant?.clinic_type?.toLowerCase() === 'ayurveda') ||
+    (tenant?.clinic_type?.toLowerCase() === 'physio');
+  
+  console.log('[CreateAppointmentScreen] Feature check:', {
+    jwtFeatures: features,
+    tenantClinicType: tenant?.clinic_type,
+    allowMultiDay,
+  });
 
   // ===== TOP-LEVEL STATE =====
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('SINGLE');
@@ -1231,11 +1265,13 @@ export const CreateAppointmentScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
-            {/* Appointment Type */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Appointment Type</Text>
-              <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} />
-            </View>
+            {/* Appointment Type - Only show if multi-day is available */}
+            {allowMultiDay && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Appointment Type</Text>
+                <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} allowMultiDay={allowMultiDay} />
+              </View>
+            )}
 
             {/* Session Type Toggle (Single day only) */}
             {appointmentType === 'SINGLE' && (

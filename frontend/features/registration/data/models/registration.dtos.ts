@@ -130,14 +130,12 @@ export interface AutoApprovalResult {
 
 // === Clinic Types ===
 export const CLINIC_TYPES = [
+  'general',
   'ayurveda',
-  'homeopathy',
-  'naturopathy',
-  'physiotherapy',
   'allopathy',
-  'general_practice',
-  'multi_specialty',
-  'other',
+  'dental',
+  'physio',
+  'multispeciality',
 ] as const;
 
 export type ClinicType = typeof CLINIC_TYPES[number];
@@ -167,6 +165,18 @@ export const PAIN_POINTS = [
   'communication',
   'compliance',
 ] as const;
+
+// === Registration Status DTOs ===
+
+export interface RegistrationStatusResponse {
+  status: 'registered' | 'no_applications';
+  application_id?: string;
+  application_status?: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  tenant_name?: string;
+  tenant_id?: string;
+  created_at?: string;
+  last_updated?: string;
+}
 
 // === Registration Status DTOs ===
 
