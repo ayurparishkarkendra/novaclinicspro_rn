@@ -45,15 +45,17 @@ import {
   AppointmentSummary,
   getStatusLabel,
   getStatusColor,
+  generateDateRange,
+  calculateDuration,
+} from '../../data/models/appointments.dtos';
+import {
   formatTime,
   formatShortDate,
   formatDayOfWeek,
-  isToday,
-  generateDateRange,
-  toISODateString,
   formatDate,
-  calculateDuration,
-} from '../../data/models/appointments.dtos';
+  isToday,
+  toISODateString,
+} from '../../../../core/utils/dateTimeUtils';
 import { AppointmentListItem } from '../components/AppointmentListItem';
 
 // ============================================

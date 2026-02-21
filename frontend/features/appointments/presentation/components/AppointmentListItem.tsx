@@ -91,6 +91,7 @@ interface QuickActionIconButtonProps {
   backgroundColor?: string;
   onPress: () => void;
   testId: string;
+  disabled?: boolean;
 }
 
 const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
@@ -100,6 +101,7 @@ const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
   backgroundColor,
   onPress,
   testId,
+  disabled = false,
 }) => (
   <TouchableOpacity
     style={[
@@ -107,16 +109,19 @@ const QuickActionIconButton: React.FC<QuickActionIconButtonProps> = ({
       { 
         backgroundColor: backgroundColor || color + '12',
         borderColor: color + '30',
-      }
+      },
+      disabled && styles.quickActionIconBtnDisabled,
     ]}
     onPress={onPress}
+    disabled={disabled}
     accessibilityLabel={label}
-    accessibilityHint={`Tap to ${label.toLowerCase()}`}
+    accessibilityHint={disabled ? 'Available at appointment start time' : `Tap to ${label.toLowerCase()}`}
     accessibilityRole="button"
+    accessibilityState={{ disabled }}
     data-testid={testId}
   >
-    <Ionicons name={icon} size={20} color={color} />
-    <Text style={[styles.quickActionTooltip, { color }]} numberOfLines={1}>
+    <Ionicons name={icon} size={20} color={disabled ? colors.grey[400] : color} />
+    <Text style={[styles.quickActionTooltip, { color: disabled ? colors.grey[400] : color }]} numberOfLines={2}>
       {label}
     </Text>
   </TouchableOpacity>
@@ -201,11 +206,47 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
   const status = (appointment.status || '').toLowerCase();
+  
+  // Terminal statuses - no quick actions should be shown
+  const terminalStatuses = ['completed', 'cancelled', 'no_show'];
+  const isTerminalStatus = terminalStatuses.includes(status);
+  
   const canReschedule = canModify && ['scheduled', 'confirmed'].includes(status);
   const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
   const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
+  
+  // Time-based enabling for No-Show and Record Visit buttons
+  // Buttons are ENABLED for past and current appointments (at or after start time)
+  // Buttons are DISABLED for future appointments (before start time)
+  
+  // CRITICAL: Backend stores LOCAL times with Z suffix (e.g., "07:30:00Z" means 7:30 AM local, NOT UTC)
+  // We must extract the time components and treat them as local time
+  const now = new Date();
+  const appointmentStartStr = appointment.appointment_start;
+  
+  // Extract date/time components from ISO string
+  const match = appointmentStartStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  let isAtOrAfterStartTime = false;
+  
+  if (match) {
+    const [, year, month, day, hour, minute, second] = match;
+    // Create Date using LOCAL time components (not UTC)
+    const appointmentStartLocal = new Date(
+      parseInt(year),
+      parseInt(month) - 1, // Month is 0-indexed
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute),
+      parseInt(second)
+    );
+    
+    isAtOrAfterStartTime = now >= appointmentStartLocal;
+  }
+  
+  // Record Visit button: enabled at or after start time for scheduled/confirmed/in_progress
+  const canRecordVisit = canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status);
   
   // Debug: Log to verify values (enable for debugging)
   // console.log('QuickActions Debug:', { userRole, normalizedRole, isClinicAdmin, canModify, status, canReschedule });
@@ -315,22 +356,23 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
 
       {/* A2: Quick Actions Row - Icon buttons spread horizontally */}
       {/* BUG FIX #3: All quick actions have confirmation dialogs, icon-based with tooltips */}
-      {showActions && canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
+      {/* Terminal statuses (completed, cancelled, no_show) don't show quick actions */}
+      {showActions && canModify && !isTerminalStatus && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Reschedule - scheduled/confirmed */}
           {['scheduled', 'confirmed'].includes(status) && (
             <QuickActionIconButton
               icon="calendar-outline"
-              label={t('appointments.reschedule') || 'Reschedule'}
+              label="Reschedule"
               color={colors.primary.main}
               onPress={() => {
                 if (onReschedule) {
                   Alert.alert(
-                    t('appointments.reschedule') || 'Reschedule',
-                    t('appointments.confirmReschedule') || 'Open reschedule options for this appointment?',
+                    'Reschedule',
+                    'Open reschedule options for this appointment?',
                     [
-                      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-                      { text: t('common.yes') || 'Yes', onPress: () => onReschedule(appointment.id) },
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Yes', onPress: () => onReschedule(appointment.id) },
                     ]
                   );
                 } else {
@@ -341,19 +383,45 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           
-          {/* No-Show - scheduled/confirmed */}
+          {/* Record Visit - scheduled/confirmed/in_progress, enabled at or after start time */}
+          {canRecordVisit && onStatusUpdate && (
+            <QuickActionIconButton
+              icon="clipboard-outline"
+              label="Record Visit"
+              color={colors.success.main}
+              disabled={!isAtOrAfterStartTime}
+              onPress={() => {
+                Alert.alert(
+                  'Record Visit',
+                  'Mark this appointment as completed?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Yes', 
+                      onPress: () => onStatusUpdate(appointment.id, 'COMPLETED'),
+                      style: 'default'
+                    },
+                  ]
+                );
+              }}
+              testId="action-record-visit"
+            />
+          )}
+          
+          {/* No-Show - scheduled/confirmed, enabled at or after start time */}
           {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
             <QuickActionIconButton
               icon="person-remove-outline"
-              label={t('appointments.noShow') || 'No-Show'}
+              label="No-Show"
               color={colors.warning.main}
+              disabled={!isAtOrAfterStartTime}
               onPress={() => {
                 Alert.alert(
-                  t('appointments.markAsNoShow') || 'Mark as No-Show',
-                  t('appointments.confirmNoShow') || 'Are you sure the patient did not show up?',
+                  'Mark as No-Show',
+                  'Are you sure the patient did not show up?',
                   [
-                    { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-                    { text: t('common.yes') || 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
                   ]
                 );
               }}
@@ -365,15 +433,15 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {['scheduled', 'confirmed'].includes(status) && onCancel && (
             <QuickActionIconButton
               icon="close-circle-outline"
-              label={t('common.cancel') || 'Cancel'}
+              label="Cancel"
               color={colors.error.main}
               onPress={() => {
                 Alert.alert(
-                  t('appointments.cancelAppointment') || 'Cancel Appointment',
-                  t('appointments.confirmCancel') || 'Are you sure you want to cancel this appointment?',
+                  'Cancel Appointment',
+                  'Are you sure you want to cancel this appointment?',
                   [
-                    { text: t('common.no') || 'No', style: 'cancel' },
-                    { text: t('common.yesCancel') || 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
+                    { text: 'No', style: 'cancel' },
+                    { text: 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
                   ]
                 );
               }}
@@ -556,17 +624,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.xs / 2,
     borderRadius: 10,
     borderWidth: 1,
-    minHeight: 56,
+    minHeight: 64,
+  },
+  quickActionIconBtnDisabled: {
+    opacity: 0.6,
+    backgroundColor: colors.grey[50],
   },
   quickActionTooltip: {
     ...typography.caption,
     fontWeight: '600',
-    fontSize: 10,
+    fontSize: 11,
     marginTop: 4,
     textAlign: 'center',
+    lineHeight: 14,
   },
   
   // Legacy styles (kept for compatibility)

@@ -38,6 +38,7 @@ import { useClientsListQuery, useSearchClientsQuery, useCreateClientMutation } f
 import { useTreatmentsListQuery } from '../../../treatments/data/repositories/treatments.repository.impl';
 import { useStaffListQuery } from '../../../staff/data/repositories/staff.repository.impl';
 import { useRoomsListQuery } from '../../../rooms/data/repositories/rooms.repository.impl';
+import { useOperatingHoursListQuery } from '../../../operatingHours/data/repositories/operatingHours.repository.impl';
 import {
   useCreateAppointmentMutation,
   useAppointmentsByDateQuery,
@@ -53,6 +54,7 @@ import {
   toISODateString,
   ValidateAppointmentRequest,
 } from '../../data/models/appointments.dtos';
+import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { useFeatures } from '../../../../core/hooks/useFeatures';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
@@ -755,6 +757,9 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   const { data: roomsData, isLoading: isLoadingRooms } = useRoomsListQuery(tenantId);
   
+  // Operating hours for validation
+  const { data: operatingHoursData } = useOperatingHoursListQuery(tenantId);
+  
   // Booked appointments for selected doctor and date
   const doctorDateStr = toISODateString(doctorForm.appointmentDate);
   const { data: bookedData, isLoading: isLoadingBooked } = useAppointmentsByDateQuery(
@@ -1037,11 +1042,50 @@ export const CreateAppointmentScreen: React.FC = () => {
 
     const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
 
+    // TASK 4: Frontend validation for appointment time
+    const operatingHours = operatingHoursData?.items || [];
+    const validationResult = validateAppointmentTime(startDateTime, operatingHours);
+    
+    if (validationResult.hasWarnings) {
+      const message = formatValidationMessage(validationResult);
+      
+      // Show confirmation dialog
+      Alert.alert(
+        'Booking Warning',
+        message,
+        [
+          { text: 'No, Cancel', style: 'cancel' },
+          { 
+            text: 'Yes, Proceed', 
+            onPress: () => proceedWithBooking(validationResult)
+          }
+        ]
+      );
+      return;
+    }
+    
+    // No warnings - proceed directly
+    await proceedWithBooking(validationResult);
+  };
+  
+  // Extract booking logic into separate function
+  const proceedWithBooking = async (validationResult: ValidationResult) => {
+    const isDoctor = sessionType === 'DOCTOR';
+    const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
+    const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
+    
+    const startDateTime = new Date(appointmentDate);
+    startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
+
+    const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
+
     // BUG FIX #5: For therapy appointments, validate before creating (conflict check)
     if (!isDoctor && staffId) {
       try {
         const validationPayload: ValidateAppointmentRequest = {
-          client_id: selectedClientId,
+          client_id: selectedClientId!,
           staff_id: staffId,
           room_id: therapyForm.selectedRoomId || undefined,
           appointment_start: startDateTime.toISOString(),
@@ -1050,21 +1094,21 @@ export const CreateAppointmentScreen: React.FC = () => {
         
         console.log('[CreateAppointment] Validating single therapy appointment:', validationPayload);
         
-        const validationResult = await validateMutation.mutateAsync(validationPayload);
-        console.log('[CreateAppointment] Validation result:', validationResult);
+        const validationApiResult = await validateMutation.mutateAsync(validationPayload);
+        console.log('[CreateAppointment] Validation result:', validationApiResult);
         
         // If validation fails, show conflict message and alternatives
-        if (!validationResult.is_valid) {
+        if (!validationApiResult.is_valid) {
           const conflictMessages = [];
           
-          if (validationResult.conflicts?.staff_conflict) {
+          if (validationApiResult.conflicts?.staff_conflict) {
             conflictMessages.push(`The selected therapist is already booked at this time.`);
           }
-          if (validationResult.conflicts?.room_conflict) {
+          if (validationApiResult.conflicts?.room_conflict) {
             conflictMessages.push(`The selected room is not available at this time.`);
           }
-          if (validationResult.errors?.length > 0) {
-            conflictMessages.push(...validationResult.errors);
+          if (validationApiResult.errors?.length > 0) {
+            conflictMessages.push(...validationApiResult.errors);
           }
           
           // BUG FIX #7: Use styled modal instead of raw Alert
@@ -1082,7 +1126,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     }
 
     const payload: AppointmentCreate = {
-      client_id: selectedClientId,
+      client_id: selectedClientId!,
       staff_id: staffId,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
@@ -1091,6 +1135,11 @@ export const CreateAppointmentScreen: React.FC = () => {
       status: 'scheduled',
       notes: isDoctor ? doctorForm.notes : therapyForm.notes,
       appointment_type: 'SINGLE',
+      // Add validation flags
+      is_past_booking: validationResult.isPast,
+      is_outside_operating_hours: validationResult.isOutsideOperatingHours,
+      is_during_break_time: validationResult.isDuringBreak,
+      is_on_weekly_off: validationResult.isOnWeeklyOff,
     };
 
     try {

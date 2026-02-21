@@ -37,6 +37,7 @@ import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useOperatingHoursListQuery } from '../../../operatingHours/data/repositories/operatingHours.repository.impl';
 import {
   useCreateAppointmentMutation,
   useGenerateTherapyPlanMutation,
@@ -46,6 +47,7 @@ import {
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
+import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 // Import centralized date/time utils
 import {
@@ -57,6 +59,7 @@ import {
   extractTimePattern,
   extractHour,
   extractMinute,
+  buildLocalTimeISO,
 } from '../../../../core/utils/dateTimeUtils';
 
 // ============================================
@@ -438,20 +441,35 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <TouchableOpacity
               style={[
                 styles.customTimeRow,
-                effectiveTime.is_resolved && styles.customTimeRowSelected,
+                effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start)) &&
+                  styles.customTimeRowSelected,
               ]}
               onPress={() => onOpenCustomTimePicker?.(session.session_number)}
               data-testid={`custom-time-${session.session_number}`}
             >
-              <Ionicons name="time-outline" size={18} color={colors.primary.main} />
+              <Ionicons 
+                name={effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start))
+                  ? "checkmark-circle" 
+                  : "time-outline"
+                } 
+                size={18} 
+                color={effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start))
+                  ? colors.success.main
+                  : colors.primary.main
+                } 
+              />
               <View style={styles.customTimeContent}>
                 <Text style={styles.customTimeText}>
                   {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
                 </Text>
                 {/* BUG FIX #7: Show the selected custom time if one was chosen */}
-                {effectiveTime.is_resolved && alternativeSlots.length === 0 && (
+                {effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start)) && (
                   <Text style={styles.customTimeSelectedText}>
-                    {t('appointments.selectedTime') || 'Selected'}: {safeFormatTime(effectiveTime.start)}
+                    {t('appointments.selectedTime') || 'Selected'}: {safeFormatTime(effectiveTime.start)} - {safeFormatTime(effectiveTime.end)}
                   </Text>
                 )}
               </View>
@@ -511,13 +529,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
   // #7: Custom Time Picker State
   const [customTimePickerSession, setCustomTimePickerSession] = useState<number | null>(null);
-  const [customTimePickerDate, setCustomTimePickerDate] = useState<Date>(new Date());
   const [showCustomTimePicker, setShowCustomTimePicker] = useState(false);
   const [isValidatingCustomTime, setIsValidatingCustomTime] = useState(false);
+  const [validationToast, setValidationToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ visible: false, message: '', type: 'success' });
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
   const generatePlanMutation = useGenerateTherapyPlanMutation();
+  
+  // Operating hours for validation
+  const { data: operatingHoursData } = useOperatingHoursListQuery(tenantId);
 
   // Extract params with fallbacks
   const clientId = params.clientId || '';
@@ -650,6 +675,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           treatment_id: treatmentId,
           staff_ids: staffIds,
           start_date: startDateStr,
+          start_date_parsed: new Date(startDateStr).toLocaleString('en-IN'),
           duration_days: durationDays,
           // NOTE: NOT sending preferred_time_hour - backend extracts time from start_date
         });
@@ -783,28 +809,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // ============================================
 
   const handleOpenCustomTimePicker = useCallback((sessionNumber: number) => {
-    const session = sessions.find(s => s.session_number === sessionNumber);
-    if (!session) return;
-
-    // Initialize picker with session date and preferred time
-    const sessionDate = new Date(session.appointment_start);
-    sessionDate.setHours(preferredTimeHourLocal, preferredTimeMinutesLocal, 0, 0);
-    
     setCustomTimePickerSession(sessionNumber);
-    setCustomTimePickerDate(sessionDate);
     setShowCustomTimePicker(true);
-  }, [sessions, preferredTimeHourLocal, preferredTimeMinutesLocal]);
+  }, []);
 
-  const handleCustomTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowCustomTimePicker(false);
+  const handleCustomTimeChange = useCallback(async (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowCustomTimePicker(false);
+    
+    // User cancelled
+    if (event.type === 'dismissed' || !selectedDate) {
+      setCustomTimePickerSession(null);
+      return;
     }
-    if (selectedDate) {
-      setCustomTimePickerDate(selectedDate);
-    }
-  };
 
-  const handleConfirmCustomTime = useCallback(async () => {
+    // User selected a time - validate it immediately
     if (customTimePickerSession === null) return;
 
     const session = sessions.find(s => s.session_number === customTimePickerSession);
@@ -813,80 +831,113 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     setIsValidatingCustomTime(true);
 
     try {
-      // Build custom time slot from picker
+      const pickerHours = selectedDate.getHours();
+      const pickerMinutes = selectedDate.getMinutes();
+      
+      // Build ISO string with LOCAL time preserved (not converted to UTC)
       const sessionDate = new Date(session.appointment_start);
-      const pickerHours = customTimePickerDate.getHours();
-      const pickerMinutes = customTimePickerDate.getMinutes();
+      const startDateTimeISO = buildLocalTimeISO(sessionDate, selectedDate);
       
-      // Build ISO start/end using session date + picker time
-      const startDate = new Date(sessionDate);
-      startDate.setHours(pickerHours, pickerMinutes, 0, 0);
-      
-      const endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
+      // Calculate end time
+      const endTime = new Date(selectedDate);
+      endTime.setMinutes(endTime.getMinutes() + durationMinutes);
+      const endDateTimeISO = buildLocalTimeISO(sessionDate, endTime);
 
-      // For custom time validation, we'll check available slots for that date
-      const dateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = new Date(startDate.getTime() + 86400000).toISOString().split('T')[0]; // Next day
-      
-      const validationResult = await getAvailableSlotsApi({
-        start_date: dateStr,
-        end_date: endDateStr,
-        treatment_id: treatmentId,
-        duration_minutes: durationMinutes,
+      console.log('[CustomTime] Validating custom time:', {
+        session: customTimePickerSession,
+        requestedTime: `${pickerHours}:${pickerMinutes}`,
+        startDateTime: startDateTimeISO,
+        endDateTime: endDateTimeISO,
       });
 
-      // Check if requested time is available in returned slots
-      const requestedHour = pickerHours;
-      const requestedMinute = pickerMinutes;
-      const isTimeAvailable = validationResult.slots?.some(slot => {
-        // AvailableSlot uses 'start' not 'start_time'
-        const slotHour = extractHour(slot.start);
-        const slotMinute = extractMinute(slot.start);
-        return slotHour === requestedHour && slotMinute === requestedMinute;
-      }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
+      // Call therapy plan API with the new start time to validate
+      const validationResponse = await generatePlanMutation.mutateAsync({
+        client_id: clientId,
+        treatment_id: treatmentId,
+        staff_ids: staffIds,
+        start_date: startDateTimeISO,
+        duration_days: durationDays,
+      });
 
-      if (isTimeAvailable || validationResult.slots === undefined) {
-        // Update effectiveTimes with custom selection
-        setEffectiveTimes(prevMap => {
-          const newMap = new Map(prevMap);
-          newMap.set(customTimePickerSession, {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            staff_id: staffIds[0] || null,
-            staff_name: staffNames || null,
-            room_id: null,
-            room_name: null,
-            is_resolved: true,
-          });
-          return newMap;
-        });
-
-        console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
-        
-        setShowCustomTimePicker(false);
-        setCustomTimePickerSession(null);
-      } else {
-        Alert.alert(
-          t('common.error') || 'Error',
-          t('appointments.timeNotAvailable') || 'Selected time is not available. Please choose another time.'
-        );
-      }
-    } catch (error) {
-      console.error('[CustomTime] Validation failed:', error);
-      Alert.alert(
-        t('common.error') || 'Error',
-        t('appointments.validationFailed') || 'Could not validate the selected time. Please try again.'
+      // Find the corresponding session in the validation response
+      const validatedSession = validationResponse.sessions?.find(
+        (s: any) => s.session_number === customTimePickerSession
       );
+
+      if (!validatedSession) {
+        throw new Error('Session not found in validation response');
+      }
+
+      // Check if the custom time has conflicts
+      if (validatedSession.is_conflicted) {
+        console.log('[CustomTime] Custom time has conflicts:', validatedSession.conflict);
+        
+        // Show error toast
+        setValidationToast({
+          visible: true,
+          message: validatedSession.conflict?.message || 'Selected time is not available',
+          type: 'error',
+        });
+        
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+          setValidationToast({ visible: false, message: '', type: 'success' });
+        }, 3000);
+        
+        return;
+      }
+
+      // Time is available - update effectiveTimes
+      setEffectiveTimes(prevMap => {
+        const newMap = new Map(prevMap);
+        newMap.set(customTimePickerSession, {
+          start: validatedSession.appointment_start,
+          end: validatedSession.appointment_end,
+          staff_id: validatedSession.staff_id || staffIds[0] || null,
+          staff_name: validatedSession.staff_name || 
+            (validatedSession.staff_assignments?.[0]?.name) || 
+            staffNames || null,
+          room_id: validatedSession.room_id || null,
+          room_name: validatedSession.room_name || null,
+          is_resolved: true,
+        });
+        return newMap;
+      });
+
+      console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
+      
+      // Show success toast
+      setValidationToast({
+        visible: true,
+        message: `Time ${formatTimeFromParts(pickerHours, pickerMinutes)} is available!`,
+        type: 'success',
+      });
+      
+      // Hide toast after 2 seconds
+      setTimeout(() => {
+        setValidationToast({ visible: false, message: '', type: 'success' });
+      }, 2000);
+      
+      // Clear global selection since user picked custom time
+      setSelectedGlobalPattern(null);
+    } catch (error: any) {
+      console.error('[CustomTime] Validation failed:', error);
+      
+      // Show error toast
+      setValidationToast({
+        visible: true,
+        message: 'Could not validate the selected time. Please try again.',
+        type: 'error',
+      });
+      
+      setTimeout(() => {
+        setValidationToast({ visible: false, message: '', type: 'success' });
+      }, 3000);
     } finally {
       setIsValidatingCustomTime(false);
+      setCustomTimePickerSession(null);
     }
-  }, [customTimePickerSession, customTimePickerDate, sessions, tenantId, treatmentId, durationMinutes, staffIds, staffNames, t]);
-
-  const handleCancelCustomTimePicker = useCallback(() => {
-    setShowCustomTimePicker(false);
-    setCustomTimePickerSession(null);
-  }, []);
+  }, [customTimePickerSession, sessions, clientId, treatmentId, staffIds, staffNames, durationDays, durationMinutes, generatePlanMutation]);
 
   // ============================================
   // DERIVED STATE (from single source of truth)
@@ -935,6 +986,48 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       return;
     }
 
+    // TASK 4: Frontend validation for first appointment
+    const operatingHours = operatingHoursData?.items || [];
+    const firstSession = sessions[0];
+    if (firstSession) {
+      const firstEffective = effectiveTimes.get(firstSession.session_number);
+      if (firstEffective) {
+        const startDateTime = new Date(firstEffective.start);
+        const validationResult = validateAppointmentTime(startDateTime, operatingHours);
+        
+        if (validationResult.hasWarnings) {
+          const message = formatValidationMessage(validationResult);
+          
+          // Show confirmation dialog
+          Alert.alert(
+            'Booking Warning',
+            message + '\n\nThis applies to the first appointment. Do you want to proceed with all appointments?',
+            [
+              { text: 'No, Cancel', style: 'cancel' },
+              { 
+                text: 'Yes, Proceed', 
+                onPress: () => proceedWithMultiDayBooking(validationResult)
+              }
+            ]
+          );
+          return;
+        }
+      }
+    }
+    
+    // No warnings - proceed directly
+    await proceedWithMultiDayBooking({
+      hasWarnings: false,
+      isPast: false,
+      isOutsideOperatingHours: false,
+      isDuringBreak: false,
+      isOnWeeklyOff: false,
+      warnings: [],
+    });
+  };
+  
+  // Extract booking logic into separate function
+  const proceedWithMultiDayBooking = async (validationResult: ValidationResult) => {
     setIsCreating(true);
     let createdCount = 0;
     const errors: string[] = [];
@@ -954,6 +1047,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           status: 'scheduled',
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
           appointment_type: 'MULTI',
+          // Add validation flags (apply to all appointments in series)
+          is_past_booking: validationResult.isPast,
+          is_outside_operating_hours: validationResult.isOutsideOperatingHours,
+          is_during_break_time: validationResult.isDuringBreak,
+          is_on_weekly_off: validationResult.isOnWeeklyOff,
         };
 
         try {
@@ -1251,94 +1349,42 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </>
       )}
 
-      {/* #7: Custom Time Picker Modal */}
+      {/* #7: Custom Time Picker - Native only, no modal wrapper */}
       {showCustomTimePicker && (
-        <Modal
-          visible={showCustomTimePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={handleCancelCustomTimePicker}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {t('appointments.chooseDifferentTime') || 'Choose a different time'}
-                </Text>
-                <TouchableOpacity onPress={handleCancelCustomTimePicker}>
-                  <Ionicons name="close" size={24} color={colors.text.primary} />
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.modalSubtitle}>
-                {t('appointments.session') || 'Session'} {customTimePickerSession}
-              </Text>
-              
-              {/* Time Picker - Platform-specific rendering */}
-              {Platform.OS === 'web' ? (
-                // Web: Use native HTML time input
-                <View style={styles.webTimePickerContainer}>
-                  <Text style={styles.webTimeLabel}>{t('appointments.selectTime') || 'Select Time'}:</Text>
-                  <input
-                    type="time"
-                    value={`${customTimePickerDate.getHours().toString().padStart(2, '0')}:${customTimePickerDate.getMinutes().toString().padStart(2, '0')}`}
-                    onChange={(e) => {
-                      const [hours, minutes] = e.target.value.split(':').map(Number);
-                      const newDate = new Date(customTimePickerDate);
-                      newDate.setHours(hours, minutes, 0, 0);
-                      setCustomTimePickerDate(newDate);
-                    }}
-                    style={{
-                      fontSize: 24,
-                      padding: 16,
-                      borderRadius: 8,
-                      border: `1px solid ${colors.border.main}`,
-                      backgroundColor: colors.background.paper,
-                      color: colors.text.primary,
-                      width: '100%',
-                      textAlign: 'center',
-                    }}
-                  />
-                  <Text style={styles.webTimePreview}>
-                    {t('appointments.selectedTime') || 'Selected'}: {formatTimeFromParts(customTimePickerDate.getHours(), customTimePickerDate.getMinutes())}
-                  </Text>
-                </View>
-              ) : (
-                // Native: Use DateTimePicker
-                <DateTimePicker
-                  value={customTimePickerDate}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleCustomTimeChange}
-                  minuteInterval={15}
-                />
-              )}
-              
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={handleCancelCustomTimePicker}
-                >
-                  <Text style={styles.modalCancelText}>{t('common.cancel') || 'Cancel'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalConfirmButton,
-                    isValidatingCustomTime && styles.modalButtonDisabled,
-                  ]}
-                  onPress={handleConfirmCustomTime}
-                  disabled={isValidatingCustomTime}
-                >
-                  {isValidatingCustomTime ? (
-                    <ActivityIndicator size="small" color={colors.background.default} />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>{t('common.confirm') || 'Confirm'}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+        <DateTimePicker
+          value={new Date()}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleCustomTimeChange}
+          minuteInterval={15}
+        />
+      )}
+
+      {/* Validation Toast - Bottom notification */}
+      {validationToast.visible && (
+        <View style={[
+          styles.validationToast,
+          validationToast.type === 'error' ? styles.validationToastError : styles.validationToastSuccess,
+        ]}>
+          <Ionicons 
+            name={validationToast.type === 'error' ? 'close-circle' : 'checkmark-circle'} 
+            size={20} 
+            color="#fff" 
+          />
+          <Text style={styles.validationToastText}>{validationToast.message}</Text>
+        </View>
+      )}
+
+      {/* Loading overlay during validation */}
+      {isValidatingCustomTime && (
+        <View style={styles.validationOverlay}>
+          <View style={styles.validationOverlayContent}>
+            <ActivityIndicator size="large" color={colors.primary.main} />
+            <Text style={styles.validationOverlayText}>
+              {t('appointments.validatingTime') || 'Validating time...'}
+            </Text>
           </View>
-        </Modal>
+        </View>
       )}
 
       {/* Success Modal (for web compatibility) */}
@@ -1889,9 +1935,10 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   customTimeRowSelected: {
-    backgroundColor: colors.primary.main + '15',
-    borderColor: colors.primary.main,
+    backgroundColor: colors.success.main + '15',
+    borderColor: colors.success.main,
     borderStyle: 'solid',
+    borderWidth: 2,
   },
   customTimeContent: {
     flex: 1,
@@ -1908,83 +1955,59 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs / 2,
   },
 
-  // #7: Custom Time Picker Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+  // Validation Toast
+  validationToast: {
+    position: 'absolute',
+    bottom: 100,
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  modalContent: {
+  validationToastSuccess: {
+    backgroundColor: colors.success.main,
+  },
+  validationToastError: {
+    backgroundColor: colors.error.main,
+  },
+  validationToastText: {
+    ...typography.body2,
+    color: '#fff',
+    flex: 1,
+  },
+
+  // Validation Overlay
+  validationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  validationOverlayContent: {
     backgroundColor: colors.background.default,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: spacing.xl,
+    borderRadius: spacing.md,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    minWidth: 200,
   },
-  modalTitle: {
-    ...typography.h6,
-    color: colors.text.primary,
-  },
-  modalSubtitle: {
+  validationOverlayText: {
     ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  modalCancelButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.main,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    ...typography.button,
     color: colors.text.primary,
-  },
-  modalConfirmButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.primary.main,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    ...typography.button,
-    color: colors.background.default,
-  },
-  modalButtonDisabled: {
-    opacity: 0.6,
-  },
-  // Web Time Picker Styles
-  webTimePickerContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  webTimeLabel: {
-    ...typography.body1,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-    fontWeight: '600',
-  },
-  webTimePreview: {
-    ...typography.body2,
-    color: colors.primary.main,
     marginTop: spacing.md,
-    fontWeight: '500',
   },
+
   // Success Modal Styles
   successModalContent: {
     backgroundColor: colors.background.default,

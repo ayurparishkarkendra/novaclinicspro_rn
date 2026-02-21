@@ -32,6 +32,11 @@ export interface AppointmentCreate {
   notes?: string | null;
   series_id?: string | null;
   appointment_type?: string | null;
+  // Validation flags
+  is_past_booking?: boolean;
+  is_outside_operating_hours?: boolean;
+  is_during_break_time?: boolean;
+  is_on_weekly_off?: boolean;
 }
 
 /** Request to update an appointment */

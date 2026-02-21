@@ -38,8 +38,10 @@ export function SetupWizardFlow() {
   const [hasManuallyNavigated, setHasManuallyNavigated] = useState(false);
   const currentStepSaveHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
-  // Fetch onboarding status
-  const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId);
+  // Fetch onboarding status - only if tenantId is available
+  const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
+    enabled: !!tenantId, // Only fetch if tenantId exists
+  });
 
   // Refetch status when screen comes into focus (after navigating back from external screens)
   useFocusEffect(
