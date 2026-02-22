@@ -162,11 +162,11 @@ export const listAppointmentsByDateApi = async (
     const appointments = data.items;
     const summary = {
       total: appointments.length,
-      scheduled: appointments.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
-      in_progress: appointments.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
-      completed: appointments.filter((a: AppointmentResponse) => a.status === 'completed').length,
-      cancelled: appointments.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
-      no_show: appointments.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+      scheduled: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'scheduled').length,
+      in_progress: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'in_progress').length,
+      completed: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'completed').length,
+      cancelled: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'cancelled').length,
+      no_show: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'no_show').length,
     };
     return { appointments, summary };
   }
@@ -203,11 +203,11 @@ export const searchAppointmentsApi = async (
       appointments: filtered,
       summary: {
         total: filtered.length,
-        scheduled: filtered.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
-        in_progress: filtered.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
-        completed: filtered.filter((a: AppointmentResponse) => a.status === 'completed').length,
-        cancelled: filtered.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
-        no_show: filtered.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+        scheduled: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'scheduled').length,
+        in_progress: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'in_progress').length,
+        completed: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'completed').length,
+        cancelled: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'cancelled').length,
+        no_show: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'no_show').length,
       }
     };
   }

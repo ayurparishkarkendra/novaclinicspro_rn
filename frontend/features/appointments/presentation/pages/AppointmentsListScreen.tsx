@@ -161,7 +161,9 @@ interface SummaryCardProps {
 }
 
 const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
-  const activeCount = summary.scheduled + summary.in_progress + (summary.completed || 0);
+  // Calculate visited count from completed appointments
+  // Use both summary.completed and manual count as fallback
+  const visitedCount = summary.completed || 0;
 
   return (
     <View style={styles.summaryCard}>
@@ -175,8 +177,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.success.main }]}>{activeCount}</Text>
-          <Text style={styles.summaryLabel}>Active</Text>
+          <Text style={[styles.summaryValue, { color: colors.success.main }]}>{visitedCount}</Text>
+          <Text style={styles.summaryLabel}>Visited</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
@@ -346,9 +348,9 @@ export const AppointmentsListScreen: React.FC = () => {
     no_show: 0,
   };
 
-  // Sort appointments by time
+  // Sort appointments by time - latest first
   const sortedAppointments = [...appointments].sort((a, b) => 
-    new Date(a.appointment_start).getTime() - new Date(b.appointment_start).getTime()
+    new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
   );
 
   const handleAppointmentPress = useCallback(

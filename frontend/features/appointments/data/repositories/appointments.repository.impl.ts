@@ -191,6 +191,25 @@ export const useSeriesAppointmentsQuery = (
   });
 };
 
+/**
+ * Hook to get appointments for an episode
+ * Alias for useAppointmentsListQuery with episode_id filter
+ */
+export const useEpisodeAppointmentsQuery = (
+  tenantId: string,
+  episodeId: string | null,
+  options?: Omit<UseQueryOptions<PaginatedAppointmentsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useAppointmentsListQuery(
+    tenantId,
+    episodeId ? { episode_id: episodeId, limit: 100 } : undefined,
+    {
+      ...options,
+      enabled: !!tenantId && !!episodeId && (options?.enabled !== false),
+    }
+  );
+};
+
 // ============================================
 // MUTATION HOOKS
 // ============================================

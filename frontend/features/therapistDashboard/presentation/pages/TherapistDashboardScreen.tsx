@@ -66,6 +66,31 @@ export const TherapistDashboardScreen: React.FC = () => {
   // For now, we'll use a placeholder since the backend uses /me/ endpoint
   const staffId = currentUser?.userId || '';
 
+  // Route guard - only allow therapist role
+  React.useEffect(() => {
+    if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
+      const userRole = currentUser.roles[0]?.toLowerCase() || '';
+      console.log('[Therapist] Route guard checking role:', userRole);
+      
+      // Allow: therapist only
+      const allowedRoles = ['therapist'];
+      
+      if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
+        console.log('[Therapist] Access denied, redirecting to appropriate dashboard');
+        
+        // Redirect to appropriate dashboard based on role
+        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          router.replace('/doctor');
+        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+          router.replace('/clinic-admin');
+        } else {
+          // Unknown role, redirect to index for proper routing
+          router.replace('/');
+        }
+      }
+    }
+  }, [currentUser, router]);
+
   // State
   const [worklistPeriod, setWorklistPeriod] = useState<WorklistPeriod>('today');
   const [kpiPeriod, setKpiPeriod] = useState<WorklistPeriod>('today');

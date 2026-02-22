@@ -35,6 +35,7 @@ import {
   formatDate,
   getTherapistNames,
 } from '../../data/models/appointments.dtos';
+import { EpisodeBadge } from '../../../episodes/presentation/components/EpisodeBadge';
 
 // ============================================
 // TYPES
@@ -299,6 +300,17 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             {displayClientName}
           </Text>
 
+          {/* Episode Badge (if episode linked) */}
+          {appointment.episode_id && appointment.episode_title && (
+            <View style={styles.episodeBadgeContainer}>
+              <EpisodeBadge
+                title={appointment.episode_title}
+                status={appointment.episode_status || 'ACTIVE'}
+                onPress={() => router.push(`/clinic-admin/episodes/${appointment.episode_id}` as any)}
+              />
+            </View>
+          )}
+
           {/* Staff & Treatment Info */}
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
@@ -537,6 +549,11 @@ const styles = StyleSheet.create({
     ...typography.body1,
     fontWeight: '600',
     color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+
+  // Episode Badge Container
+  episodeBadgeContainer: {
     marginBottom: spacing.xs,
   },
 

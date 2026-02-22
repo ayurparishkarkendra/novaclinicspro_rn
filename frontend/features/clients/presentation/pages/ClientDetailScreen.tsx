@@ -345,6 +345,25 @@ export const ClientDetailScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Episodes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Episodes</Text>
+          <TouchableOpacity
+            style={styles.documentCard}
+            onPress={() => router.push({
+              pathname: '/clinic-admin/clients/[clientId]/episodes',
+              params: { clientId: clientId, clientName: client.full_name },
+            })}
+          >
+            <View style={[styles.documentIcon, { backgroundColor: colors.info.main + '15' }]}>
+              <Ionicons name="albums" size={24} color={colors.info.main} />
+            </View>
+            <Text style={styles.documentTitle}>Episodes of Care</Text>
+            <Text style={styles.documentSubtitle}>View treatment episodes</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Clinical Documents */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Clinical Documents</Text>

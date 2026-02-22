@@ -56,6 +56,31 @@ export default function DoctorDashboard() {
   const tenantId = currentUser?.tenantId || '';
   const staffId = currentUser?.userId || '';
 
+  // Route guard - only allow doctor and tenant_admin roles
+  React.useEffect(() => {
+    if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
+      const userRole = currentUser.roles[0]?.toLowerCase() || '';
+      console.log('[Doctor] Route guard checking role:', userRole);
+      
+      // Allow: doctor, tenant_admin, tenant admin
+      const allowedRoles = ['doctor', 'tenant admin', 'tenant_admin'];
+      
+      if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
+        console.log('[Doctor] Access denied, redirecting to appropriate dashboard');
+        
+        // Redirect to appropriate dashboard based on role
+        if (userRole === 'therapist') {
+          router.replace('/therapist');
+        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+          router.replace('/clinic-admin');
+        } else {
+          // Unknown role, redirect to index for proper routing
+          router.replace('/');
+        }
+      }
+    }
+  }, [currentUser, router]);
+
   // KPI period state
   const [kpiPeriod, setKpiPeriod] = useState<KPIPeriodType>('7d');
   const [customFromDate, setCustomFromDate] = useState<string>();
@@ -459,37 +484,6 @@ export default function DoctorDashboard() {
               />
             ))
           )}
-        </View>
-
-        {/* Switch Dashboard */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Switch Dashboard</Text>
-          <View style={styles.dashboardLinks}>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/super-admin')}
-            >
-              <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
-              <Text style={styles.dashboardLinkText}>Super Admin</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/clinic-admin')}
-            >
-              <Ionicons name="business" size={20} color={colors.success.main} />
-              <Text style={styles.dashboardLinkText}>Clinic Admin</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dashboardLink}
-              onPress={() => router.push('/therapist')}
-            >
-              <Ionicons name="heart" size={20} color={colors.error.main} />
-              <Text style={styles.dashboardLinkText}>Therapist</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Patient Feedback Section */}

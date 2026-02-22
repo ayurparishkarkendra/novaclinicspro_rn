@@ -30,24 +30,35 @@ export default function Index() {
   );
 
   // Fetch onboarding status if user has a tenant
+  // Note: This query may fail for users without tenant.read permission, which is OK
   const { data: onboardingStatus, isLoading: isLoadingOnboarding } = useOnboardingStatusQuery(
     currentUser?.tenantId || '',
     { enabled: !!currentUser?.tenantId, retry: false }
   );
 
   useEffect(() => {
+    console.log('========================================');
     console.log('[Index] useEffect triggered', {
       isLoading,
       isLoadingRegStatus,
       isLoadingOnboarding,
       isAuthenticated,
       hasCurrentUser: !!currentUser,
+      userRole: currentUser?.roles?.[0],
       applicationStatus: currentUser?.applicationStatus,
     });
+    console.log('========================================');
 
     // Wait for auth and registration status to be determined
-    if (isLoading || isLoadingRegStatus || isLoadingOnboarding) {
+    // Don't wait for onboarding status if user has applicationStatus (it's redundant)
+    if (isLoading || isLoadingRegStatus) {
       console.log('[Index] Still loading, waiting...');
+      return;
+    }
+    
+    // Only wait for onboarding status if we don't have applicationStatus
+    if (!currentUser?.applicationStatus && isLoadingOnboarding) {
+      console.log('[Index] Waiting for onboarding status...');
       return;
     }
 
@@ -84,8 +95,25 @@ export default function Index() {
           router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
           return;
         case 'active':
-          console.log('[Index] Application status is active, redirecting to clinic-admin');
-          router.replace('/clinic-admin');
+          console.log('[Index] Application status is active, routing to appropriate dashboard');
+          // Route to appropriate dashboard based on role
+          const userRole = currentUser.roles?.[0]?.toLowerCase() || '';
+          console.log('[Index] User role:', userRole);
+          
+          if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+            console.log('[Index] Routing to doctor dashboard');
+            router.replace('/doctor');
+          } else if (userRole === 'therapist') {
+            console.log('[Index] Routing to therapist dashboard');
+            router.replace('/therapist');
+          } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+            console.log('[Index] Routing to clinic-admin dashboard');
+            router.replace('/clinic-admin');
+          } else {
+            // Default to clinic-admin for unknown roles
+            console.log('[Index] Unknown role, defaulting to clinic-admin dashboard');
+            router.replace('/clinic-admin');
+          }
           return;
         case 'pending_review':
           console.log('[Index] Application status is pending_review');
@@ -115,8 +143,25 @@ export default function Index() {
         console.log('[Index] User has tenant but onboarding incomplete, redirecting to setup wizard');
         router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
       } else if (onboardingStatus && onboardingStatus.is_ready_to_go_live) {
-        console.log('[Index] User has tenantId and onboarding complete, redirecting to Clinic Admin dashboard');
-        router.replace('/clinic-admin');
+        console.log('[Index] User has tenantId and onboarding complete, routing to appropriate dashboard');
+        // Route to appropriate dashboard based on role
+        const userRole = currentUser.roles?.[0]?.toLowerCase() || '';
+        console.log('[Index] User role:', userRole);
+        
+        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          console.log('[Index] Routing to doctor dashboard');
+          router.replace('/doctor');
+        } else if (userRole === 'therapist') {
+          console.log('[Index] Routing to therapist dashboard');
+          router.replace('/therapist');
+        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+          console.log('[Index] Routing to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        } else {
+          // Default to clinic-admin for unknown roles
+          console.log('[Index] Unknown role, defaulting to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        }
       } else {
         // onboardingStatus is null/undefined (query failed)
         // Assume onboarding is not complete and route to wizard

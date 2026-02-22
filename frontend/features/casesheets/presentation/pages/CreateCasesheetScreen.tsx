@@ -20,6 +20,8 @@ import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useCreateCasesheetMutation } from '../../index';
 import { CasesheetForm, CasesheetFormData } from '../components/CasesheetForm';
+import { useAppointmentDetailQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
+import { useEpisodeQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
 
 export const CreateCasesheetScreen: React.FC = () => {
   const router = useRouter();
@@ -31,12 +33,28 @@ export const CreateCasesheetScreen: React.FC = () => {
 
   const createMutation = useCreateCasesheetMutation(tenantId, clientId);
 
+  // Fetch appointment details if appointmentId is provided
+  const { data: appointment } = useAppointmentDetailQuery(
+    tenantId,
+    appointmentId || '',
+    { enabled: !!appointmentId }
+  );
+
+  // Fetch episode details if appointment has episode_id
+  const episodeId = appointment?.episode_id;
+  const { data: episode } = useEpisodeQuery(
+    tenantId,
+    episodeId || '',
+    { enabled: !!episodeId }
+  );
+
   const handleSubmit = useCallback(async (data: CasesheetFormData) => {
     try {
       const result = await createMutation.mutateAsync({
         clinic_type: 'ayurveda', // Default clinic type, can be made configurable
         data_json: data,
         appointment_id: appointmentId,
+        // Do NOT send episode_id - backend auto-inherits from appointment
       });
       
       // Navigate immediately after successful creation
@@ -46,7 +64,16 @@ export const CreateCasesheetScreen: React.FC = () => {
         params: { clientId },
       });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create casesheet.');
+      // Handle EPISODE_MISMATCH error
+      if (err.error_code === 'EPISODE_MISMATCH' || err.message?.includes('episode_id must match')) {
+        Alert.alert(
+          'Episode Mismatch',
+          'Document episode must match appointment episode. Please try again.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', err.message || 'Failed to create casesheet.');
+      }
     }
   }, [createMutation, clientId, appointmentId, router]);
 
@@ -68,9 +95,18 @@ export const CreateCasesheetScreen: React.FC = () => {
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
         <Text style={styles.headerTitle}>New Casesheet</Text>
-        <Text style={styles.headerSubtitle}>
-          Create a new clinical record
-        </Text>
+        {episode ? (
+          <View style={styles.episodeContext}>
+            <Ionicons name="folder-outline" size={14} color={colors.primary.main} />
+            <Text style={styles.episodeContextText}>
+              Episode: {episode.title}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.headerSubtitle}>
+            Create a new clinical record
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -118,6 +154,17 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     ...typography.caption,
     color: colors.text.secondary,
+  },
+  episodeContext: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  episodeContextText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

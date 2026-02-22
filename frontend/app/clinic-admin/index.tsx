@@ -45,6 +45,31 @@ export default function ClinicAdminDashboard() {
   // Determine if we're on mobile (< 768px) or web
   const isMobile = width < 768;
 
+  // Route guard - only allow clinic_admin and receptionist roles
+  React.useEffect(() => {
+    if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
+      const userRole = currentUser.roles[0]?.toLowerCase() || '';
+      console.log('[ClinicAdmin] Route guard checking role:', userRole);
+      
+      // Allow: clinic_admin, clinic admin, receptionist
+      const allowedRoles = ['clinic admin', 'clinic_admin', 'receptionist'];
+      
+      if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
+        console.log('[ClinicAdmin] Access denied, redirecting to appropriate dashboard');
+        
+        // Redirect to appropriate dashboard based on role
+        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          router.replace('/doctor');
+        } else if (userRole === 'therapist') {
+          router.replace('/therapist');
+        } else {
+          // Unknown role, redirect to index for proper routing
+          router.replace('/');
+        }
+      }
+    }
+  }, [currentUser, router]);
+
   // Fetch inventory data for dashboard stats
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItemsListQuery(
     tenantId,
@@ -634,34 +659,6 @@ export default function ClinicAdminDashboard() {
             />
           </View>
         )}
-
-        {/* Navigation */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Switch Dashboard</Text>
-          <View style={styles.dashboardLinks}>
-            <Link href="/super-admin" asChild>
-              <Pressable style={styles.dashboardLink}>
-                <Ionicons name="shield-checkmark" size={20} color={colors.primary.main} />
-                <Text style={styles.dashboardLinkText}>Super Admin</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-              </Pressable>
-            </Link>
-            <Link href="/doctor" asChild>
-              <Pressable style={styles.dashboardLink}>
-                <Ionicons name="medical" size={20} color={colors.success.main} />
-                <Text style={styles.dashboardLinkText}>Doctor</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-              </Pressable>
-            </Link>
-            <Link href="/therapist" asChild>
-              <Pressable style={styles.dashboardLink}>
-                <Ionicons name="heart" size={20} color={colors.error.main} />
-                <Text style={styles.dashboardLinkText}>Therapist</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
-              </Pressable>
-            </Link>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );

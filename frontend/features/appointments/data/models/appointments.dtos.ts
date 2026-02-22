@@ -65,6 +65,7 @@ export interface ListAppointmentsParams {
   status?: string;
   client_id?: string;
   staff_id?: string;
+  episode_id?: string;
   start_date?: string;
   end_date?: string;
   skip?: number;
@@ -100,6 +101,10 @@ export interface AppointmentResponse {
   series_id: string | null;
   session_number?: number;
   total_sessions?: number;
+  // Episode fields (optional, nullable)
+  episode_id?: string | null;
+  episode_title?: string;  // Optional expanded field for fast display
+  episode_status?: 'ACTIVE' | 'CLOSED';  // Optional expanded field for fast display
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;

@@ -48,6 +48,10 @@ import {
   useAppointmentsListQuery,
 } from '../../data/repositories/appointments.repository.impl';
 import {
+  useEpisodeQuery,
+} from '../../../episodes/data/repositories/episodes.repository.impl';
+import { EpisodeCard } from '../../../episodes/presentation/components/EpisodeCard';
+import {
   getStatusLabel,
   getStatusColor,
   formatDate,
@@ -301,7 +305,6 @@ export const AppointmentDetailScreen: React.FC = () => {
   const [rescheduleDate, setRescheduleDate] = useState<Date | null>(null);
   const [showRescheduleTime, setShowRescheduleTime] = useState(false);
   const [rescheduleTime, setRescheduleTime] = useState<Date | null>(null);
-
   // Queries
   const {
     data: appointment,
@@ -320,25 +323,48 @@ export const AppointmentDetailScreen: React.FC = () => {
     { enabled: !!clientId }
   );
 
-  // FIX #4: Filter visit history to ONLY PAST VISITS
-  // Definition: Visit date strictly BEFORE today (excludes today and future dates)
+  // Episode queries
+  const episodeId = appointment?.episode_id;
+  const {
+    data: episode,
+    isLoading: isEpisodeLoading,
+    error: episodeError,
+    refetch: refetchEpisode,
+  } = useEpisodeQuery(tenantId, episodeId || '', { enabled: !!episodeId });
+
+  // Query for episode appointments (for "Visits in This Episode" section)
+  const {
+    data: episodeAppointmentsData,
+    isLoading: isEpisodeAppointmentsLoading,
+  } = useAppointmentsListQuery(
+    tenantId,
+    { episode_id: episodeId, skip: 0, limit: 50 },
+    { enabled: !!episodeId }
+  );
+
+  const episodeAppointments = (episodeAppointmentsData?.items || [])
+    .filter((apt: any) => apt.id !== appointmentId) // Exclude current appointment
+    .sort((a: any, b: any) =>
+      new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
+    );
+
+  // FIX #4: Filter visit history based on episode context
+  // If appointment has episode: show only visits in that episode
+  // If no episode: show message about no episode linkage
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Start of today
   
-  const visitHistory = (clientAppointments?.items || [])
-    .filter((apt: any) => {
-      // Exclude current appointment
-      if (apt.id === appointmentId) return false;
-      
-      // CRITICAL: Only include visits BEFORE today (strict past filter)
-      const visitDate = new Date(apt.appointment_start);
-      visitDate.setHours(0, 0, 0, 0);
-      return visitDate < today;
-    })
-    .sort((a: any, b: any) => 
-      new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
-    )
-    .slice(0, 5);
+  let visitHistory: any[] = [];
+  let showEpisodeVisits = false;
+  
+  if (episodeId) {
+    // Show visits in this episode
+    showEpisodeVisits = true;
+    // We'll fetch episode appointments separately
+  } else {
+    // No episode - we'll show a message instead
+    visitHistory = [];
+  }
 
   // Mutations
   const updateMutation = useUpdateAppointmentMutation(tenantId, appointmentId || '');
@@ -354,15 +380,94 @@ export const AppointmentDetailScreen: React.FC = () => {
 
   // ===== RBAC CHECK =====
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';
-  const canModifyAppointment = ['clinic-admin', 'clinic_admin', 'receptionist'].includes(normalizedRole) ||
-                               ['clinic-admin', 'clinic_admin', 'receptionist'].includes(userRole);
-  const canStartSession = ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(normalizedRole) ||
-                          ['clinic-admin', 'clinic_admin', 'doctor', 'therapist'].includes(userRole);
+  const canModifyAppointment = [
+    'clinic-admin', 
+    'clinic_admin', 
+    'receptionist',
+    'tenant admin',
+    'tenant_admin',
+    'Tenant Admin'
+  ].includes(normalizedRole) || [
+    'clinic-admin', 
+    'clinic_admin', 
+    'receptionist',
+    'Tenant Admin'
+  ].includes(userRole);
+  
+  const canStartSession = [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor', 
+    'therapist',
+    'tenant admin',
+    'tenant_admin',
+    'Tenant Admin'
+  ].includes(normalizedRole) || [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor', 
+    'therapist',
+    'Tenant Admin'
+  ].includes(userRole);
+  
   const canCompleteSession = canStartSession;
   const canMarkNoShow = canModifyAppointment;
-  const canCall = ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(normalizedRole) ||
-                  ['clinic-admin', 'clinic_admin', 'receptionist', 'doctor', 'therapist'].includes(userRole);
+  
+  const canCall = [
+    'clinic-admin', 
+    'clinic_admin', 
+    'receptionist', 
+    'doctor', 
+    'therapist',
+    'tenant admin',
+    'tenant_admin',
+    'Tenant Admin'
+  ].includes(normalizedRole) || [
+    'clinic-admin', 
+    'clinic_admin', 
+    'receptionist', 
+    'doctor', 
+    'therapist',
+    'Tenant Admin'
+  ].includes(userRole);
+  
   const canWhatsApp = canModifyAppointment;
+
+  // Episode RBAC permissions
+  const canLinkAppointment = [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor', 
+    'receptionist',
+    'tenant admin',
+    'tenant_admin',
+    'Tenant Admin'
+  ].includes(normalizedRole) || [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor', 
+    'receptionist',
+    'Tenant Admin'
+  ].includes(userRole);
+  
+  const canCreateEpisode = [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor',
+    'tenant admin',
+    'tenant_admin',
+    'Tenant Admin'
+  ].includes(normalizedRole) || [
+    'clinic-admin', 
+    'clinic_admin', 
+    'doctor',
+    'Tenant Admin'
+  ].includes(userRole);
+
+  console.log('[AppointmentDetail] userRole:', userRole);
+  console.log('[AppointmentDetail] normalizedRole:', normalizedRole);
+  console.log('[AppointmentDetail] canLinkAppointment:', canLinkAppointment);
+  console.log('[AppointmentDetail] canCreateEpisode:', canCreateEpisode);
 
   // Call client directly
   const handleCallClient = useCallback(() => {
@@ -580,6 +685,41 @@ export const AppointmentDetailScreen: React.FC = () => {
     router.push(`/clinic-admin/appointments/${historyAppointmentId}` as any);
   }, [router]);
 
+  // Episode handlers
+  const handleEpisodePress = useCallback(() => {
+    if (episode?.id) {
+      router.push(`/clinic-admin/episodes/${episode.id}` as any);
+    }
+  }, [episode, router]);
+
+  const handleLinkEpisodePress = useCallback(() => {
+    if (!canLinkAppointment) {
+      Alert.alert(
+        t('common.error') || 'Error',
+        'You do not have permission to link episodes'
+      );
+      return;
+    }
+    // Navigate to full-screen link episode sheet
+    router.push(
+      `/clinic-admin/appointments/${appointmentId}/link-episode?clientId=${clientId}` as any
+    );
+  }, [canLinkAppointment, t, router, appointmentId, clientId]);
+
+  const handleCreateEpisodePress = useCallback(() => {
+    if (!canCreateEpisode) {
+      Alert.alert(
+        t('common.error') || 'Error',
+        'You do not have permission to create episodes'
+      );
+      return;
+    }
+    // Navigate to full-screen create episode sheet
+    router.push(
+      `/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any
+    );
+  }, [canCreateEpisode, t, router, appointmentId, clientId]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -679,6 +819,22 @@ export const AppointmentDetailScreen: React.FC = () => {
           )}
         </View>
 
+        {/* EPISODE SECTION */}
+        <View style={styles.section} data-testid="detail-episode-section">
+          <SectionHeader title={t('episodes.episode') || 'Episode'} icon="folder" />
+          <EpisodeCard
+            episode={episode}
+            loading={isEpisodeLoading}
+            error={!!episodeError}
+            appointmentHasEpisode={!!episodeId}
+            onRetry={refetchEpisode}
+            onEpisodePress={handleEpisodePress}
+            onLinkEpisodePress={canLinkAppointment ? handleLinkEpisodePress : undefined}
+            onCreateEpisodePress={canCreateEpisode ? handleCreateEpisodePress : undefined}
+            onChangeEpisodePress={canLinkAppointment ? handleLinkEpisodePress : undefined}
+          />
+        </View>
+
         {/* CLIENT SECTION */}
         <View style={styles.section} data-testid="detail-client-section">
           <SectionHeader title={t('common.client') || 'Client'} icon="person" />
@@ -708,26 +864,105 @@ export const AppointmentDetailScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* B2: VISIT HISTORY SECTION (Redesigned) */}
+        {/* VISITS IN THIS EPISODE SECTION (Replaces "Previous Visits") */}
         <View style={styles.section} data-testid="detail-visit-history-section">
-          <SectionHeader title={t('appointments.visitHistory') || 'Previous Visits'} icon="time" />
-          {visitHistory.length > 0 ? (
-            <View style={styles.visitHistoryContainer}>
-              {visitHistory.map((historyItem: any) => (
-                <VisitHistoryCard
-                  key={historyItem.id}
-                  appointment={historyItem}
-                  onPress={() => handleVisitHistoryPress(historyItem.id)}
-                  t={t}
-                />
-              ))}
-            </View>
+          <SectionHeader 
+            title={episodeId ? (t('episodes.visitsInEpisode') || 'Visits in This Episode') : (t('appointments.visitHistory') || 'Previous Visits')} 
+            icon="time" 
+          />
+          
+          {episodeId ? (
+            // Show visits in this episode
+            <>
+              {isEpisodeAppointmentsLoading ? (
+                <View style={styles.emptyVisitHistory}>
+                  <ActivityIndicator size="small" color={colors.primary.main} />
+                  <Text style={styles.emptyVisitHistoryText}>
+                    {t('common.loading') || 'Loading...'}
+                  </Text>
+                </View>
+              ) : episodeAppointments.length > 0 ? (
+                <>
+                  <View style={styles.visitHistoryContainer}>
+                    {episodeAppointments.map((historyItem: any) => (
+                      <VisitHistoryCard
+                        key={historyItem.id}
+                        appointment={historyItem}
+                        onPress={() => handleVisitHistoryPress(historyItem.id)}
+                        t={t}
+                      />
+                    ))}
+                  </View>
+                  {/* Footer link to view all episodes */}
+                  <TouchableOpacity
+                    style={styles.viewAllEpisodesLink}
+                    onPress={() => router.push(`/clinic-admin/clients/${clientId}?tab=episodes` as any)}
+                  >
+                    <Text style={styles.viewAllEpisodesText}>
+                      {t('episodes.viewAllEpisodes') || 'View all episodes for this client'}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.emptyVisitHistory}>
+                    <Ionicons name="calendar-outline" size={24} color={colors.text.tertiary} />
+                    <Text style={styles.emptyVisitHistoryText}>
+                      {t('episodes.noOtherVisits') || 'No other visits in this episode yet'}
+                    </Text>
+                  </View>
+                  {/* Footer link to view all episodes */}
+                  <TouchableOpacity
+                    style={styles.viewAllEpisodesLink}
+                    onPress={() => router.push(`/clinic-admin/clients/${clientId}?tab=episodes` as any)}
+                  >
+                    <Text style={styles.viewAllEpisodesText}>
+                      {t('episodes.viewAllEpisodes') || 'View all episodes for this client'}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
+                  </TouchableOpacity>
+                </>
+              )}
+            </>
           ) : (
-            <View style={styles.emptyVisitHistory}>
-              <Ionicons name="calendar-outline" size={24} color={colors.text.tertiary} />
-              <Text style={styles.emptyVisitHistoryText}>
-                {t('appointments.noVisitHistory') || 'No previous visits'}
-              </Text>
+            // No episode linked - show message with CTAs
+            <View style={styles.noEpisodeVisitsContainer}>
+              <View style={styles.noEpisodeVisitsMessage}>
+                <Ionicons name="information-circle-outline" size={24} color={colors.text.secondary} />
+                <View style={styles.noEpisodeVisitsTextContainer}>
+                  <Text style={styles.noEpisodeVisitsText}>
+                    {t('episodes.visitNotLinked') || 'This visit is not linked to any episode'}
+                  </Text>
+                  <Text style={styles.noEpisodeVisitsHint}>
+                    Episodes group all visits and documents for a specific condition.
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.noEpisodeVisitsCTAs}>
+                {canLinkAppointment && (
+                  <TouchableOpacity
+                    style={[styles.ctaButton, { borderColor: colors.primary.main }]}
+                    onPress={handleLinkEpisodePress}
+                  >
+                    <Ionicons name="link-outline" size={16} color={colors.primary.main} />
+                    <Text style={[styles.ctaButtonText, { color: colors.primary.main }]}>
+                      {t('episodes.linkToEpisode') || 'Link to Episode'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {canCreateEpisode && (
+                  <TouchableOpacity
+                    style={[styles.ctaButton, styles.ctaButtonPrimary, { backgroundColor: colors.primary.main }]}
+                    onPress={handleCreateEpisodePress}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={colors.background.default} />
+                    <Text style={[styles.ctaButtonText, { color: colors.background.default }]}>
+                      {t('episodes.createNewEpisode') || 'Create New Episode'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -1108,6 +1343,71 @@ const styles = StyleSheet.create({
   emptyVisitHistoryText: {
     ...typography.body2,
     color: colors.text.tertiary,
+  },
+  // View all episodes link
+  viewAllEpisodesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  viewAllEpisodesText: {
+    ...typography.body2,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  // No episode visits container
+  noEpisodeVisitsContainer: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    gap: spacing.md,
+  },
+  noEpisodeVisitsMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  noEpisodeVisitsTextContainer: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  noEpisodeVisitsText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  noEpisodeVisitsHint: {
+    ...typography.caption,
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+  },
+  noEpisodeVisitsCTAs: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 140,
+    justifyContent: 'center',
+  },
+  ctaButtonPrimary: {
+    borderWidth: 0,
+  },
+  ctaButtonText: {
+    ...typography.body2,
+    fontWeight: '600',
   },
   // Visit History Meta (Prescription/Payment info - User Requirement #2)
   visitHistoryMeta: {

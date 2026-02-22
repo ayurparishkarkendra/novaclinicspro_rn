@@ -239,8 +239,25 @@ export const useAuth = (): UseAuthReturn => {
         break;
         
       case 'active':
-        console.log('[useAuth] Status is active, navigating to clinic-admin');
-        router.replace('/clinic-admin');
+        console.log('[useAuth] Status is active, routing based on role');
+        // Route to appropriate dashboard based on role
+        const userRole = user.roles?.[0]?.toLowerCase() || '';
+        console.log('[useAuth] User role:', userRole);
+        
+        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          console.log('[useAuth] Routing to doctor dashboard');
+          router.replace('/doctor');
+        } else if (userRole === 'therapist') {
+          console.log('[useAuth] Routing to therapist dashboard');
+          router.replace('/therapist');
+        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+          console.log('[useAuth] Routing to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        } else {
+          // Default to clinic-admin for unknown roles
+          console.log('[useAuth] Unknown role, defaulting to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        }
         break;
         
       case 'pending_review':
