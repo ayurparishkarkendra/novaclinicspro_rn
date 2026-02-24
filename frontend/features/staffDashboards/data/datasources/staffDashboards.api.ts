@@ -17,11 +17,36 @@ import {
  * GET /api/v1/clinic/{tenant_id}/staff/me/dashboard/doctor
  */
 export const getDoctorDashboardApi = async (
-  tenantId: string
+  tenantId: string,
+  params?: {
+    date?: string;
+  }
 ): Promise<DoctorDashboardResponse> => {
+  console.log('[API] Fetching doctor dashboard:', {
+    tenantId,
+    params,
+    fullParams: {
+      ...params,
+      expand: 'staff,client,treatment'
+    }
+  });
+  
   const response = await axiosClient.get(
-    `/api/v1/clinic/${tenantId}/staff/me/dashboard/doctor`
+    `/api/v1/clinic/${tenantId}/staff/me/dashboard/doctor`,
+    { 
+      params: {
+        ...params,
+        expand: 'staff,client,treatment'
+      }
+    }
   );
+  
+  console.log('[API] Doctor dashboard response:', {
+    appointmentsCount: response.data?.appointments?.length || 0,
+    firstAppointment: response.data?.appointments?.[0],
+    requestedDate: params?.date,
+  });
+  
   return response.data;
 };
 

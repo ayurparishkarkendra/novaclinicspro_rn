@@ -87,7 +87,8 @@ export const EpisodeForm: React.FC<EpisodeFormProps> = ({
       title: initialData?.title || '',
       description: initialData?.description || '',
       episode_code: initialData?.episode_code || '',
-      episode_code_system: initialData?.episode_code_system || null,
+      // Default to INTERNAL code system until SNOMED/ICD-10 integration
+      episode_code_system: initialData?.episode_code_system || 'INTERNAL',
     },
   });
 
@@ -99,7 +100,8 @@ export const EpisodeForm: React.FC<EpisodeFormProps> = ({
       title: data.title,
       description: data.description || undefined,
       episode_code: data.episode_code || undefined,
-      episode_code_system: data.episode_code_system || undefined,
+      // Always use INTERNAL code system until SNOMED/ICD-10 integration
+      episode_code_system: 'INTERNAL',
     };
 
     onSubmit(payload);
@@ -191,13 +193,17 @@ export const EpisodeForm: React.FC<EpisodeFormProps> = ({
           </View>
         </View>
 
-        {/* Diagnosis Codes Section */}
-        <View style={styles.section}>
+        {/* 
+          Diagnosis Codes Section - HIDDEN
+          TODO: Unhide this section when SNOMED or ICD-10 integration is complete.
+          This will allow users to select proper diagnosis code systems.
+          For now, all episodes use INTERNAL code system by default.
+        */}
+        {/* <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
             Diagnosis Codes (Optional)
           </Text>
 
-          {/* Episode Code */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.colors.text.primary }]}>
               Episode Code
@@ -225,7 +231,6 @@ export const EpisodeForm: React.FC<EpisodeFormProps> = ({
             />
           </View>
 
-          {/* Code System Picker */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.colors.text.primary }]}>
               Code System
@@ -332,7 +337,7 @@ export const EpisodeForm: React.FC<EpisodeFormProps> = ({
               )}
             />
           </View>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* Action Buttons */}

@@ -235,3 +235,72 @@ export const formatEpisodeDate = (dateString: string | undefined | null): string
     return '—';
   }
 };
+
+/**
+ * Episode Details API Response Types
+ * Based on backend /episodes/{episode_id}/details endpoint
+ */
+
+/** Document information (casesheet or treatment sheet) */
+export interface DocumentInfo {
+  exists: boolean;
+  id: string | null;
+  status: string | null;
+  created_at: string | null;
+  last_updated: string | null;
+}
+
+/** Documents information for an episode */
+export interface DocumentsInfo {
+  casesheet: DocumentInfo;
+  treatment_sheet: DocumentInfo;
+}
+
+/** Prescription information for a visit */
+export interface PrescriptionInfo {
+  exists: boolean;
+  id: string | null;
+  status: string | null;
+  created_at: string | null;
+}
+
+/** Payment/invoice information for a visit */
+export interface PaymentInfo {
+  exists: boolean;
+  invoice_id: string | null;
+  amount: number | null;
+  status: string | null;
+  paid_amount: number | null;
+}
+
+/** Visit (appointment) information with prescription and payment */
+export interface VisitInfo {
+  appointment_id: string;
+  appointment_date: string;
+  appointment_time: string;
+  appointment_status: string;
+  staff_name: string | null;
+  prescription: PrescriptionInfo;
+  payment: PaymentInfo;
+}
+
+/** Episode basic information with client name */
+export interface EpisodeInfo {
+  id: string;
+  title: string;
+  status: EpisodeStatus;
+  start_date: string;
+  end_date: string | null;
+  description: string | null;
+  client_id: string;
+  client_name: string | null;
+  visits_count: number;
+  last_visit_date: string | null;
+}
+
+/** Complete episode details response */
+export interface EpisodeDetailsResponse {
+  episode: EpisodeInfo;
+  documents: DocumentsInfo;
+  visits: VisitInfo[];
+}

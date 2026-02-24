@@ -18,15 +18,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import {
   useEpisodeQuery,
+  useEpisodeDetailsQuery,
   useCloseEpisodeMutation,
   useReopenEpisodeMutation,
   useUpdateEpisodeMutation,
 } from '../../data/repositories/episodes.repository.impl';
 import { EpisodeStatusBadge } from '../components/EpisodeStatusBadge';
 import { EpisodeFormModal } from '../components/EpisodeFormModal';
-import { EpisodeVisitsSection } from '../components/EpisodeVisitsSection';
-import { EpisodeDocumentsSection } from '../components/EpisodeDocumentsSection';
 import { formatEpisodeDate, EpisodeUpdateRequest } from '../../data/models/episodes.dtos';
+import { useAppointmentsListQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
+import { AppointmentResponse, formatDate, formatTime, getStatusLabel, getStatusColor } from '../../../appointments/data/models/appointments.dtos';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 // ============================================
 // TYPES
@@ -36,9 +38,129 @@ interface EpisodeDetailScreenProps {
   tenantId: string;
   episodeId: string;
   onNavigateToAppointment?: (appointmentId: string) => void;
-  onNavigateToDocument?: (documentId: string, type: string) => void;
+  onNavigateToCasesheet?: (casesheetId: string) => void;
+  onNavigateToTreatmentSheet?: (treatmentSheetId: string) => void;
+  onNavigateToPrescription?: (prescriptionId: string) => void;
+  onCreateCasesheet?: () => void;
+  onCreateTreatmentSheet?: () => void;
+  onCreatePrescription?: (appointmentId: string) => void;
   onBack?: () => void;
 }
+
+// ============================================
+// VISIT ITEM COMPONENT WITH PRESCRIPTION AND PAYMENT
+// ============================================
+
+interface VisitItemProps {
+  appointment: AppointmentResponse;
+  onVisitPress?: () => void;
+  onPrescriptionPress?: () => void;
+  onCreatePrescription?: () => void;
+  hasPrescription: boolean;
+}
+
+const VisitItem: React.FC<VisitItemProps> = ({
+  appointment,
+  onVisitPress,
+  onPrescriptionPress,
+  onCreatePrescription,
+  hasPrescription,
+}) => {
+  const theme = useClinicTheme();
+  const { t } = useTranslation();
+  const statusColor = getStatusColor(appointment.status);
+
+  return (
+    <View style={[styles.visitCard, { backgroundColor: theme.colors.background.default }]}>
+      {/* Visit Header - Clickable */}
+      <TouchableOpacity
+        style={styles.visitHeader}
+        onPress={onVisitPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.visitDateTimeContainer}>
+          <Ionicons name="calendar-outline" size={16} color={theme.colors.text.tertiary} />
+          <Text style={[styles.visitDate, { color: theme.colors.text.primary }]}>
+            {formatDate(appointment.appointment_start)}
+          </Text>
+          <Ionicons name="time-outline" size={16} color={theme.colors.text.tertiary} style={styles.timeIcon} />
+          <Text style={[styles.visitTime, { color: theme.colors.text.secondary }]}>
+            {formatTime(appointment.appointment_start)}
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+          <Text style={[styles.statusText, { color: statusColor }]}>
+            {getStatusLabel(appointment.status)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {appointment.staff_name && (
+        <View style={styles.visitDetail}>
+          <Ionicons name="person-outline" size={14} color={theme.colors.text.tertiary} />
+          <Text style={[styles.visitDetailText, { color: theme.colors.text.secondary }]}>
+            {appointment.staff_name}
+          </Text>
+        </View>
+      )}
+
+      {appointment.treatment_name && (
+        <View style={styles.visitDetail}>
+          <Ionicons name="medical-outline" size={14} color={theme.colors.text.tertiary} />
+          <Text style={[styles.visitDetailText, { color: theme.colors.text.secondary }]}>
+            {appointment.treatment_name}
+          </Text>
+        </View>
+      )}
+
+      {/* Document Actions */}
+      <View style={styles.documentActions}>
+        {/* Row 1: Prescription */}
+        <TouchableOpacity
+          style={[styles.documentActionButton, { borderColor: theme.colors.border.default }]}
+          onPress={() => {
+            console.log('[VisitItem] Prescription button pressed, hasPrescription:', hasPrescription);
+            if (hasPrescription) {
+              onPrescriptionPress?.();
+            } else {
+              onCreatePrescription?.();
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={hasPrescription ? 'document-text' : 'add-circle-outline'}
+            size={20}
+            color={theme.colors.primary.default}
+          />
+          <Text style={[styles.documentActionText, { color: theme.colors.primary.default }]}>
+            {hasPrescription ? t('episodes.viewPrescription') : t('episodes.addPrescription')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Row 2: Payment Details */}
+        <TouchableOpacity
+          style={[styles.documentActionButton, { borderColor: theme.colors.border.default }]}
+          onPress={() => {
+            console.log('[VisitItem] Payment details button pressed for appointment:', appointment.id);
+            // TODO: Navigate to payment details or show payment info
+            Alert.alert(
+              'Payment Details',
+              'Payment details screen is not yet implemented. This will show payment information for this visit.',
+              [{ text: 'OK' }]
+            );
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="cash-outline" size={20} color={theme.colors.text.secondary} />
+          <Text style={[styles.documentActionText, { color: theme.colors.text.secondary }]}>
+            {t('episodes.paymentDetails')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 // ============================================
 // CLOSE EPISODE DIALOG
@@ -111,10 +233,16 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
   tenantId,
   episodeId,
   onNavigateToAppointment,
-  onNavigateToDocument,
+  onNavigateToCasesheet,
+  onNavigateToTreatmentSheet,
+  onNavigateToPrescription,
+  onCreateCasesheet,
+  onCreateTreatmentSheet,
+  onCreatePrescription,
   onBack,
 }) => {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isCloseDialogVisible, setIsCloseDialogVisible] = useState(false);
 
@@ -125,6 +253,74 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
     error,
     refetch,
   } = useEpisodeQuery(tenantId, episodeId);
+
+  // Fetch comprehensive episode details (documents and visits)
+  const {
+    data: episodeDetails,
+    isLoading: isDetailsLoading,
+    error: detailsError,
+    refetch: refetchDetails,
+  } = useEpisodeDetailsQuery(tenantId, episodeId);
+
+  // Debug log the full API response
+  React.useEffect(() => {
+    if (episodeDetails) {
+      console.log('[EpisodeDetail] Full episode details response:', JSON.stringify(episodeDetails, null, 2));
+      console.log('[EpisodeDetail] Documents object:', episodeDetails.documents);
+      console.log('[EpisodeDetail] Casesheet object:', episodeDetails.documents?.casesheet);
+      console.log('[EpisodeDetail] Casesheet exists:', episodeDetails.documents?.casesheet?.exists);
+      console.log('[EpisodeDetail] Casesheet ID:', episodeDetails.documents?.casesheet?.id);
+    }
+  }, [episodeDetails]);
+
+  // Extract document and visit information from details
+  // Check multiple possible response structures for robustness
+  const hasCasesheet = Boolean(
+    episodeDetails?.documents?.casesheet?.exists || 
+    episodeDetails?.documents?.casesheet?.id ||
+    (episodeDetails as any)?.has_casesheet // Fallback for different backend structure
+  );
+  const hasTreatmentSheet = Boolean(
+    episodeDetails?.documents?.treatment_sheet?.exists || 
+    episodeDetails?.documents?.treatment_sheet?.id ||
+    (episodeDetails as any)?.has_treatment_sheet // Fallback for different backend structure
+  );
+  const casesheetId = episodeDetails?.documents?.casesheet?.id || null;
+  const treatmentSheetId = episodeDetails?.documents?.treatment_sheet?.id || null;
+  
+  // Debug log extracted values
+  React.useEffect(() => {
+    console.log('[EpisodeDetail] Extracted values:', {
+      hasCasesheet,
+      hasTreatmentSheet,
+      casesheetId,
+      treatmentSheetId,
+    });
+  }, [hasCasesheet, hasTreatmentSheet, casesheetId, treatmentSheetId]);
+  
+  // Function to get prescription ID for a visit
+  const getPrescriptionForVisit = (appointmentId: string) => {
+    const visit = episodeDetails?.visits?.find(v => v.appointment_id === appointmentId);
+    return visit?.prescription?.id || null;
+  };
+
+  // Function to check if visit has prescription
+  const hasPrescriptionForVisit = (appointmentId: string) => {
+    const visit = episodeDetails?.visits?.find(v => v.appointment_id === appointmentId);
+    return visit?.prescription?.exists || false;
+  };
+
+  // Fetch visits/appointments for this episode
+  const {
+    data: visitsData,
+    isLoading: visitsLoading,
+    error: visitsError,
+    refetch: refetchVisits,
+  } = useAppointmentsListQuery(
+    tenantId,
+    { episode_id: episodeId, skip: 0, limit: 50 },
+    { enabled: !!tenantId && !!episodeId }
+  );
 
   // Mutations
   const closeEpisodeMutation = useCloseEpisodeMutation();
@@ -190,10 +386,14 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
 
   const handleRefresh = () => {
     refetch();
+    refetchDetails();
+    refetchVisits();
   };
 
+  const visits = visitsData?.items || [];
+
   // Loading state
-  if (isLoading) {
+  if (isLoading || isDetailsLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background.default }]}>
         <View style={styles.loadingContainer}>
@@ -207,7 +407,7 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
   }
 
   // Error state
-  if (error || !episode) {
+  if (error || detailsError || !episode) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background.default }]}>
         <View style={styles.errorContainer}>
@@ -246,6 +446,17 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
       >
         {/* Header Section */}
         <View style={[styles.header, { backgroundColor: theme.colors.background.default }]}>
+          {/* Back Button */}
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.headerTop}>
             <View style={styles.titleContainer}>
               <Text style={[styles.title, { color: theme.colors.text.primary }]}>
@@ -337,53 +548,159 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
               </View>
             </View>
           )}
+        </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            {episode.status === 'ACTIVE' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.colors.feedback.error }]}
-                onPress={handleCloseEpisode}
-                disabled={closeEpisodeMutation.isPending}
-              >
-                <Ionicons name="close-circle-outline" size={20} color={theme.colors.background.default} />
-                <Text style={[styles.actionButtonText, { color: theme.colors.background.default }]}>
-                  Close Episode
-                </Text>
-              </TouchableOpacity>
-            )}
+        {/* Episode-Level Documents Section */}
+        <View style={[styles.documentsSection, { backgroundColor: theme.colors.background.default }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            Episode Documents
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.text.secondary }]}>
+            One casesheet per episode, updated across all visits
+          </Text>
 
-            {episode.status === 'CLOSED' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.colors.feedback.success }]}
-                onPress={handleReopenEpisode}
-                disabled={reopenEpisodeMutation.isPending}
-              >
-                <Ionicons name="refresh-circle-outline" size={20} color={theme.colors.background.default} />
-                <Text style={[styles.actionButtonText, { color: theme.colors.background.default }]}>
-                  Reopen Episode
+          <View style={styles.documentButtonsRow}>
+            {/* Casesheet Button */}
+            <TouchableOpacity
+              style={[
+                styles.documentButton,
+                { 
+                  backgroundColor: hasCasesheet 
+                    ? theme.colors.background.default 
+                    : theme.colors.primary.default,
+                  borderColor: theme.colors.border.default,
+                  borderWidth: hasCasesheet ? 1 : 0,
+                }
+              ]}
+              onPress={() => {
+                console.log('[EpisodeDetail] Casesheet button pressed, hasCasesheet:', hasCasesheet, 'casesheetId:', casesheetId);
+                if (hasCasesheet && casesheetId) {
+                  onNavigateToCasesheet?.(casesheetId);
+                } else {
+                  onCreateCasesheet?.();
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.documentButtonContent}>
+                <Ionicons
+                  name={hasCasesheet ? 'document-text' : 'add-circle'}
+                  size={20}
+                  color={hasCasesheet ? theme.colors.primary.default : theme.colors.background.default}
+                />
+                <Text
+                  style={[
+                    styles.documentButtonText,
+                    { color: hasCasesheet ? theme.colors.primary.default : theme.colors.background.default }
+                  ]}
+                >
+                  {hasCasesheet ? t('episodes.viewCasesheet') : t('episodes.addCasesheet')}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
+            </TouchableOpacity>
           </View>
+
+          <Text style={[styles.documentNote, { color: theme.colors.text.tertiary }]}>
+            Treatment sheets are created from the casesheet
+          </Text>
         </View>
 
         {/* Visits Section */}
-        <View style={styles.section}>
-          <EpisodeVisitsSection
-            tenantId={tenantId}
-            episodeId={episodeId}
-            onVisitPress={onNavigateToAppointment}
-          />
+        <View style={styles.visitsSection}>
+          <View style={styles.visitsSectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+              {t('episodes.visitsInEpisode')}
+            </Text>
+            {visits.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: theme.colors.primary.light }]}>
+                <Text style={[styles.countText, { color: theme.colors.primary.default }]}>
+                  {visits.length}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {visitsLoading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary.default} />
+              <Text style={[styles.centerText, { color: theme.colors.text.secondary }]}>
+                Loading visits...
+              </Text>
+            </View>
+          ) : visitsError ? (
+            <View style={styles.centerContainer}>
+              <Ionicons name="alert-circle-outline" size={32} color={theme.colors.feedback.error} />
+              <Text style={[styles.centerText, { color: theme.colors.text.secondary }]}>
+                Failed to load visits
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: theme.colors.primary.default }]}
+                onPress={() => refetchVisits()}
+              >
+                <Text style={[styles.retryButtonText, { color: theme.colors.background.default }]}>
+                  {t('common.retry')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : visits.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Ionicons name="calendar-outline" size={48} color={theme.colors.text.tertiary} />
+              <Text style={[styles.centerText, { color: theme.colors.text.secondary }]}>
+                {t('episodes.noVisitsInEpisode')}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.visitsList}>
+              {visits.map((visit) => (
+                <VisitItem
+                  key={visit.id}
+                  appointment={visit}
+                  onVisitPress={() => onNavigateToAppointment?.(visit.id)}
+                  onPrescriptionPress={() => {
+                    const prescriptionId = getPrescriptionForVisit(visit.id);
+                    if (prescriptionId) {
+                      onNavigateToPrescription?.(prescriptionId);
+                    }
+                  }}
+                  onCreatePrescription={() => onCreatePrescription?.(visit.id)}
+                  hasPrescription={hasPrescriptionForVisit(visit.id)}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
-        {/* Documents Section */}
-        <View style={styles.section}>
-          <EpisodeDocumentsSection
-            tenantId={tenantId}
-            episodeId={episodeId}
-            onDocumentPress={onNavigateToDocument}
-          />
+        {/* Danger Zone - At Bottom */}
+        <View style={[styles.dangerZone, { backgroundColor: theme.colors.background.default, borderColor: theme.colors.feedback.error }]}>
+          <Text style={[styles.dangerZoneTitle, { color: theme.colors.feedback.error }]}>
+            {t('episodes.dangerZone')}
+          </Text>
+          
+          {episode.status === 'ACTIVE' && (
+            <TouchableOpacity
+              style={[styles.dangerButton, { backgroundColor: theme.colors.feedback.error }]}
+              onPress={handleCloseEpisode}
+              disabled={closeEpisodeMutation.isPending}
+            >
+              <Ionicons name="close-circle-outline" size={20} color={theme.colors.background.default} />
+              <Text style={[styles.dangerButtonText, { color: theme.colors.background.default }]}>
+                Close Episode
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {episode.status === 'CLOSED' && (
+            <TouchableOpacity
+              style={[styles.dangerButton, { backgroundColor: theme.colors.feedback.success }]}
+              onPress={handleReopenEpisode}
+              disabled={reopenEpisodeMutation.isPending}
+            >
+              <Ionicons name="refresh-circle-outline" size={20} color={theme.colors.background.default} />
+              <Text style={[styles.dangerButtonText, { color: theme.colors.background.default }]}>
+                Reopen Episode
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
@@ -430,6 +747,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   headerTop: {
     flexDirection: 'row',
@@ -520,6 +845,175 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   actionButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  documentsSection: {
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  documentButtonsRow: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  documentButton: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    minHeight: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  documentButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  documentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  documentNote: {
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  visitsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  visitsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  countBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  visitsList: {
+    gap: 16,
+  },
+  visitCard: {
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  visitHeader: {
+    marginBottom: 8,
+  },
+  visitDateTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  visitDate: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timeIcon: {
+    marginLeft: 8,
+  },
+  visitTime: {
+    fontSize: 14,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  visitDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  visitDetailText: {
+    fontSize: 13,
+  },
+  documentActions: {
+    marginTop: 12,
+    gap: 8,
+  },
+  documentActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  documentActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  centerContainer: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 12,
+  },
+  centerText: {
+    fontSize: 14,
+  },
+  dangerZone: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dangerZoneTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  dangerButtonText: {
     fontSize: 15,
     fontWeight: '600',
   },

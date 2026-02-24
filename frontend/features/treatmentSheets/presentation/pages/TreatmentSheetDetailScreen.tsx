@@ -1,9 +1,9 @@
 /**
  * Treatment Sheet Detail Screen
- * Displays detailed view of a treatment sheet with rows and progress
+ * Displays detailed view of a treatment sheet with inline editable rows
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -31,34 +30,34 @@ import {
   useSyncTreatmentSheetMutation,
   usePrintTreatmentSheetMutation,
   useArchiveTreatmentSheetMutation,
-  useUpdateTreatmentSheetRowMutation,
-  useCompleteTreatmentSheetRowMutation,
   TreatmentSheetStatus,
-  TreatmentSheetRowResponse,
   formatDateTime,
   isEditable,
 } from '../../index';
 import { TreatmentSheetStatusBadge } from '../components/TreatmentSheetStatusBadge';
 import { TreatmentSheetProgress } from '../components/TreatmentSheetProgress';
-import { TreatmentSheetRowItem } from '../components/TreatmentSheetRowItem';
 import { TreatmentSheetActions } from '../components/TreatmentSheetActions';
 import { EmptyTreatmentSheetState } from '../components/EmptyTreatmentSheetState';
+
+interface RowFormData {
+  id: string;
+  day_number: number;
+  session_date: string | null;
+  treatment_description: string;
+  medicines_given: string;
+  instructions: string;
+  isEditing: boolean;
+  isSaving: boolean;
+}
 
 export const TreatmentSheetDetailScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ treatmentSheetId: string; casesheetId?: string }>(); 
   const { currentUser } = useAuth();
   const treatmentSheetId = params.treatmentSheetId || '';
-  // BUG FIX #9: Get tenantId to pass to API
   const tenantId = currentUser?.tenantId || '';
 
-  const [selectedRow, setSelectedRow] = useState<TreatmentSheetRowResponse | null>(null);
-  const [showRowModal, setShowRowModal] = useState(false);
-  const [rowFormData, setRowFormData] = useState({
-    treatment_description: '',
-    medicines_given: '',
-    instructions: '',
-  });
+  const [rowsData, setRowsData] = useState<RowFormData[]>([]);
 
   const {
     data: treatmentSheet,
@@ -74,15 +73,22 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const printMutation = usePrintTreatmentSheetMutation(treatmentSheetId);
   const archiveMutation = useArchiveTreatmentSheetMutation(treatmentSheetId);
 
-  // Row mutations (initialized with empty values, will be re-created when row is selected)
-  const updateRowMutation = useUpdateTreatmentSheetRowMutation(
-    selectedRow?.id || '',
-    treatmentSheetId
-  );
-  const completeRowMutation = useCompleteTreatmentSheetRowMutation(
-    selectedRow?.id || '',
-    treatmentSheetId
-  );
+  // Initialize rows data when treatment sheet loads
+  useEffect(() => {
+    if (treatmentSheet?.rows) {
+      const formattedRows = treatmentSheet.rows.map(row => ({
+        id: row.id,
+        day_number: row.day_number,
+        session_date: row.session_date || null,
+        treatment_description: row.treatment_description || '',
+        medicines_given: row.medicines_given || '',
+        instructions: row.instructions || '',
+        isEditing: false,
+        isSaving: false,
+      }));
+      setRowsData(formattedRows);
+    }
+  }, [treatmentSheet]);
 
   const handleTransition = useCallback(async (newStatus: TreatmentSheetStatus) => {
     try {
@@ -124,54 +130,114 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     }
   }, [archiveMutation, router]);
 
-  const openRowModal = (row: TreatmentSheetRowResponse) => {
-    setSelectedRow(row);
-    setRowFormData({
-      treatment_description: row.treatment_description || '',
-      medicines_given: row.medicines_given || '',
-      instructions: row.instructions || '',
+  const toggleEdit = (index: number) => {
+    setRowsData(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], isEditing: !updated[index].isEditing };
+      return updated;
     });
-    setShowRowModal(true);
   };
 
-  const handleSaveRow = async () => {
-    if (!selectedRow) return;
+  const updateRowField = (index: number, field: keyof RowFormData, value: string) => {
+    setRowsData(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const copyFromAbove = (index: number) => {
+    if (index === 0) {
+      Alert.alert('Info', 'This is the first row. Nothing to copy from.');
+      return;
+    }
+    
+    setRowsData(prev => {
+      const updated = [...prev];
+      const aboveRow = updated[index - 1];
+      updated[index] = {
+        ...updated[index],
+        treatment_description: aboveRow.treatment_description,
+        medicines_given: aboveRow.medicines_given,
+        instructions: aboveRow.instructions,
+        isEditing: true,
+      };
+      return updated;
+    });
+  };
+
+  const saveRow = async (index: number) => {
+    const row = rowsData[index];
+    
+    // Set saving state
+    setRowsData(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], isSaving: true };
+      return updated;
+    });
+
     try {
-      await updateRowMutation.mutateAsync(rowFormData);
-      setShowRowModal(false);
-      Alert.alert('Success', 'Row updated successfully.');
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      
+      await axiosClient.patch(
+        `/api/v1/clinic/treatment-sheets/rows/${row.id}`,
+        {
+          treatment_description: row.treatment_description || null,
+          medicines_given: row.medicines_given || null,
+          instructions: row.instructions || null,
+        }
+      );
+      
+      // Update state: stop editing and saving
+      setRowsData(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], isEditing: false, isSaving: false };
+        return updated;
+      });
+      
+      Alert.alert('Success', `Day ${row.day_number} saved successfully.`);
+      await refetch();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update row.');
+      setRowsData(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], isSaving: false };
+        return updated;
+      });
+      Alert.alert('Error', err.message || 'Failed to save row.');
     }
   };
 
-  const handleCompleteRow = async (row: TreatmentSheetRowResponse) => {
+  const syncSingleRow = async (index: number) => {
+    const row = rowsData[index];
     Alert.alert(
-      'Complete Row',
-      `Mark Day ${row.day_number} as complete?`,
+      'Sync Row',
+      `Sync Day ${row.day_number} with scheduled session?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Complete',
+          text: 'Sync',
           onPress: async () => {
-            try {
-              // Use a fresh mutation for this specific row
-              await completeTreatmentSheetRowMutation(row);
-              Alert.alert('Success', 'Row marked as complete.');
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to complete row.');
-            }
+            // This would call a specific API to sync a single row
+            // For now, we'll just show a message
+            Alert.alert('Info', 'Single row sync feature coming soon. Use the main Sync button to sync all rows.');
           },
         },
       ]
     );
   };
 
-  // Helper to complete a specific row
-  const completeTreatmentSheetRowMutation = async (row: TreatmentSheetRowResponse) => {
-    const { completeTreatmentSheetRowApi } = await import('../../data/datasources/treatmentSheets.api');
-    await completeTreatmentSheetRowApi(row.id, {});
-    refetch();
+  const formatDate = (dateStr: string | null): string => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   const renderHeader = () => (
@@ -194,89 +260,6 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         <TreatmentSheetStatusBadge status={treatmentSheet.status} size="medium" />
       )}
     </View>
-  );
-
-  const renderRowEditModal = () => (
-    <Modal
-      visible={showRowModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowRowModal(false)}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              Edit Day {selectedRow?.day_number}
-            </Text>
-            <TouchableOpacity onPress={() => setShowRowModal(false)}>
-              <Ionicons name="close" size={24} color={colors.text.secondary} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalContent}>
-            <Text style={styles.inputLabel}>Treatment Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              value={rowFormData.treatment_description}
-              onChangeText={(text) =>
-                setRowFormData((prev) => ({ ...prev, treatment_description: text }))
-              }
-              placeholder="Describe the treatment performed..."
-              multiline
-              numberOfLines={3}
-            />
-
-            <Text style={styles.inputLabel}>Medicines Given</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              value={rowFormData.medicines_given}
-              onChangeText={(text) =>
-                setRowFormData((prev) => ({ ...prev, medicines_given: text }))
-              }
-              placeholder="List medicines administered..."
-              multiline
-              numberOfLines={2}
-            />
-
-            <Text style={styles.inputLabel}>Instructions</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              value={rowFormData.instructions}
-              onChangeText={(text) =>
-                setRowFormData((prev) => ({ ...prev, instructions: text }))
-              }
-              placeholder="Instructions for the patient..."
-              multiline
-              numberOfLines={2}
-            />
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowRowModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSaveRow}
-              disabled={updateRowMutation.isPending}
-            >
-              {updateRowMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.background.default} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
   );
 
   const renderContent = () => {
@@ -305,111 +288,214 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
       );
     }
 
-    const rows = treatmentSheet.rows || [];
     const canEdit = isEditable(treatmentSheet.status);
 
+    if (rowsData.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calendar-outline" size={48} color={colors.text.secondary} />
+          <Text style={styles.emptyTitle}>No treatment days yet</Text>
+          <Text style={styles.emptySubtitle}>
+            The treatment sheet was created but has no rows.
+          </Text>
+          {canEdit && (
+            <TouchableOpacity
+              style={styles.syncButton}
+              onPress={handleSync}
+              disabled={syncMutation.isPending}
+            >
+              <Ionicons name="sync" size={18} color={colors.common.white} />
+              <Text style={styles.syncButtonText}>
+                {syncMutation.isPending ? 'Syncing...' : 'Sync with Sessions'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
     return (
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
-            colors={[colors.primary.main]}
-            tintColor={colors.primary.main}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
       >
-        {/* Document Info */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.text.secondary} />
-            <Text style={styles.infoLabel}>Created:</Text>
-            <Text style={styles.infoValue}>{formatDateTime(treatmentSheet.recorded_at)}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={16} color={colors.info.main} />
-            <Text style={styles.infoLabel}>Duration:</Text>
-            <Text style={[styles.infoValue, { color: colors.info.main }]}>
-              {treatmentSheet.duration_days} days
-            </Text>
-          </View>
-          {treatmentSheet.signed_at && (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
+              colors={[colors.primary.main]}
+              tintColor={colors.primary.main}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Document Info */}
+          <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Ionicons name="shield-checkmark" size={16} color={colors.success.main} />
-              <Text style={styles.infoLabel}>Signed:</Text>
-              <Text style={[styles.infoValue, { color: colors.success.main }]}>
-                {formatDateTime(treatmentSheet.signed_at)}
+              <Ionicons name="calendar-outline" size={16} color={colors.text.secondary} />
+              <Text style={styles.infoLabel}>Created:</Text>
+              <Text style={styles.infoValue}>{formatDateTime(treatmentSheet.recorded_at)}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="time-outline" size={16} color={colors.info.main} />
+              <Text style={styles.infoLabel}>Duration:</Text>
+              <Text style={[styles.infoValue, { color: colors.info.main }]}>
+                {treatmentSheet.duration_days} days
               </Text>
             </View>
-          )}
-        </View>
-
-        {/* Progress */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Progress</Text>
-          <TreatmentSheetProgress rows={rows} showDetails />
-        </View>
-
-        {/* Treatment Rows */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Treatment Days ({rows.length})</Text>
-            {canEdit && (
-              <TouchableOpacity
-                style={styles.syncInlineButton}
-                onPress={handleSync}
-                disabled={syncMutation.isPending}
-              >
-                <Ionicons name="sync" size={16} color={colors.primary.main} />
-                <Text style={styles.syncInlineText}>Sync</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
-          {rows.length === 0 ? (
-            <View style={styles.emptyRows}>
-              <Ionicons name="calendar-outline" size={32} color={colors.text.secondary} />
-              <Text style={styles.emptyRowsText}>No treatment days yet.</Text>
-              {canEdit && (
-                <Text style={styles.emptyRowsSubtext}>
-                  Tap "Sync Sessions" to populate from scheduled sessions.
-                </Text>
-              )}
-            </View>
-          ) : (
-            rows.map((row) => (
-              <TreatmentSheetRowItem
-                key={row.id}
-                row={row}
-                onPress={canEdit ? () => openRowModal(row) : undefined}
-                onComplete={canEdit ? () => handleCompleteRow(row) : undefined}
-                isEditable={canEdit}
-              />
-            ))
-          )}
-        </View>
+          {/* Progress */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Progress</Text>
+            <TreatmentSheetProgress rows={treatmentSheet.rows || []} showDetails />
+          </View>
 
-        {/* Actions */}
-        <View style={styles.actionsContainer}>
-          <Text style={styles.actionsTitle}>Actions</Text>
-          <TreatmentSheetActions
-            status={treatmentSheet.status}
-            onTransition={handleTransition}
-            onSync={handleSync}
-            onPrint={handlePrint}
-            onArchive={handleArchive}
-            isLoading={
-              transitionMutation.isPending ||
-              printMutation.isPending ||
-              archiveMutation.isPending
-            }
-            isSyncing={syncMutation.isPending}
-          />
-        </View>
-      </ScrollView>
+          {/* Treatment Rows - Inline Editable */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Treatment Days ({rowsData.length})</Text>
+            </View>
+
+            {rowsData.map((row, index) => (
+              <View key={row.id} style={styles.rowCard}>
+                {/* Row Header with Day/Date and Action Icons */}
+                <View style={styles.rowHeader}>
+                  <View style={styles.rowHeaderLeft}>
+                    <View style={styles.dayBadge}>
+                      <Text style={styles.dayBadgeText}>Day {row.day_number}</Text>
+                    </View>
+                    {row.session_date && (
+                      <Text style={styles.dateText}>{formatDate(row.session_date)}</Text>
+                    )}
+                  </View>
+                  
+                  {canEdit && (
+                    <View style={styles.rowActions}>
+                      {/* Edit/Cancel Icon */}
+                      <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => toggleEdit(index)}
+                        disabled={row.isSaving}
+                      >
+                        <Ionicons 
+                          name={row.isEditing ? "close-circle-outline" : "create-outline"} 
+                          size={20} 
+                          color={row.isEditing ? colors.error.main : colors.primary.main} 
+                        />
+                      </TouchableOpacity>
+
+                      {/* Save Icon */}
+                      {row.isEditing && (
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => saveRow(index)}
+                          disabled={row.isSaving}
+                        >
+                          {row.isSaving ? (
+                            <ActivityIndicator size="small" color={colors.success.main} />
+                          ) : (
+                            <Ionicons name="checkmark-circle" size={20} color={colors.success.main} />
+                          )}
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Copy from Above Icon */}
+                      {index > 0 && (
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => copyFromAbove(index)}
+                          disabled={row.isSaving}
+                        >
+                          <Ionicons name="copy-outline" size={20} color={colors.info.main} />
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Sync Icon */}
+                      <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => syncSingleRow(index)}
+                        disabled={row.isSaving}
+                      >
+                        <Ionicons name="sync-outline" size={20} color={colors.warning.main} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Row Content - Always Visible */}
+                <View style={styles.rowContent}>
+                  <Text style={styles.fieldLabel}>Treatment Description</Text>
+                  <TextInput
+                    style={[
+                      styles.textInput, 
+                      styles.multilineInput,
+                      !row.isEditing && styles.textInputReadOnly
+                    ]}
+                    value={row.treatment_description}
+                    onChangeText={(text) => updateRowField(index, 'treatment_description', text)}
+                    placeholder="Describe the treatment performed..."
+                    multiline
+                    numberOfLines={3}
+                    editable={canEdit && row.isEditing}
+                  />
+
+                  <Text style={styles.fieldLabel}>Medicines Given</Text>
+                  <TextInput
+                    style={[
+                      styles.textInput, 
+                      styles.multilineInput,
+                      !row.isEditing && styles.textInputReadOnly
+                    ]}
+                    value={row.medicines_given}
+                    onChangeText={(text) => updateRowField(index, 'medicines_given', text)}
+                    placeholder="List medicines administered..."
+                    multiline
+                    numberOfLines={2}
+                    editable={canEdit && row.isEditing}
+                  />
+
+                  <Text style={styles.fieldLabel}>Instructions</Text>
+                  <TextInput
+                    style={[
+                      styles.textInput, 
+                      styles.multilineInput,
+                      !row.isEditing && styles.textInputReadOnly
+                    ]}
+                    value={row.instructions}
+                    onChangeText={(text) => updateRowField(index, 'instructions', text)}
+                    placeholder="Instructions for the patient..."
+                    multiline
+                    numberOfLines={2}
+                    editable={canEdit && row.isEditing}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actionsContainer}>
+            <Text style={styles.actionsTitle}>Actions</Text>
+            <TreatmentSheetActions
+              status={treatmentSheet.status}
+              onTransition={handleTransition}
+              onSync={handleSync}
+              onPrint={handlePrint}
+              onArchive={handleArchive}
+              isLoading={
+                transitionMutation.isPending ||
+                printMutation.isPending ||
+                archiveMutation.isPending
+              }
+              isSyncing={syncMutation.isPending}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   };
 
@@ -419,7 +505,6 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
       <View style={styles.content}>
         {renderContent()}
       </View>
-      {renderRowEditModal()}
     </SafeAreaView>
   );
 };
@@ -428,6 +513,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.paper,
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -472,6 +560,37 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.md,
   },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  emptyTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+  },
+  emptySubtitle: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary.main,
+    borderRadius: 8,
+    marginTop: spacing.md,
+  },
+  syncButtonText: {
+    ...typography.button,
+    color: colors.common.white,
+  },
   infoCard: {
     backgroundColor: colors.background.default,
     borderRadius: 12,
@@ -510,39 +629,79 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
-  syncInlineButton: {
+  rowCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  rowHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  rowHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.sm,
+  },
+  dayBadge: {
+    backgroundColor: colors.primary.main + '15',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.primary.main + '15',
     borderRadius: 6,
   },
-  syncInlineText: {
+  dayBadgeText: {
     ...typography.caption,
     color: colors.primary.main,
     fontWeight: '600',
   },
-  emptyRows: {
+  dateText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  rowActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xl,
-    backgroundColor: colors.background.default,
-    borderRadius: 12,
+    gap: spacing.sm,
+  },
+  iconButton: {
+    padding: spacing.xs,
+    borderRadius: 6,
+    backgroundColor: colors.background.paper,
     borderWidth: 1,
     borderColor: colors.border.light,
   },
-  emptyRowsText: {
-    ...typography.body1,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
+  rowContent: {
+    gap: spacing.sm,
   },
-  emptyRowsSubtext: {
+  fieldLabel: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  textInput: {
+    backgroundColor: colors.background.paper,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...typography.body2,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  textInputReadOnly: {
+    backgroundColor: colors.grey[100],
+    borderColor: colors.grey[300],
+  },
+  multilineInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   actionsContainer: {
     marginTop: spacing.md,
@@ -555,82 +714,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: spacing.sm,
     fontWeight: '500',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: colors.background.default,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  modalTitle: {
-    ...typography.h6,
-    color: colors.text.primary,
-  },
-  modalContent: {
-    padding: spacing.md,
-  },
-  inputLabel: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  textInput: {
-    backgroundColor: colors.background.paper,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body1,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: colors.grey[200],
-  },
-  cancelButtonText: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: colors.primary.main,
-  },
-  saveButtonText: {
-    ...typography.button,
-    color: colors.background.default,
   },
 });
 

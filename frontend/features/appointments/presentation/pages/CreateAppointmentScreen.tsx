@@ -34,6 +34,8 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useTranslation } from '../../../../core/localization/useTranslation';
+import { ErrorTokens } from '../../../../core/localization/errorTokens';
 import { useClientsListQuery, useSearchClientsQuery, useCreateClientMutation } from '../../../clients/data/repositories/clients.repository.impl';
 import { useTreatmentsListQuery } from '../../../treatments/data/repositories/treatments.repository.impl';
 import { useStaffListQuery } from '../../../staff/data/repositories/staff.repository.impl';
@@ -54,6 +56,7 @@ import {
   toISODateString,
   ValidateAppointmentRequest,
 } from '../../data/models/appointments.dtos';
+import { toLocalTimeISO, formatTime as formatTimeUtil } from '../../../../core/utils/dateTimeUtils';
 import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { useFeatures } from '../../../../core/hooks/useFeatures';
@@ -599,6 +602,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 export const CreateAppointmentScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   const tenantId = currentUser?.tenantId || '';
   const scrollRef = useRef<ScrollView>(null);
 
@@ -1035,16 +1039,37 @@ export const CreateAppointmentScreen: React.FC = () => {
       return;
     }
 
-    const startDateTime = new Date(appointmentDate);
-    startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
+    // Build startDateTime without timezone conversion
+    // Extract date components from appointmentDate
+    const year = appointmentDate.getFullYear();
+    const month = appointmentDate.getMonth();
+    const day = appointmentDate.getDate();
+    const hours = appointmentTime.getHours();
+    const minutes = appointmentTime.getMinutes();
+    
+    // Create new Date with explicit components (uses local timezone consistently)
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
+
+    // DEBUG: Log the date/time being validated
+    console.log('[CreateAppointment] Validation check:', {
+      selectedDate: appointmentDate.toISOString(),
+      selectedTime: appointmentTime.toISOString(),
+      constructedDateTime: startDateTime.toISOString(),
+      localString: startDateTime.toLocaleString('en-IN'),
+      dayOfWeek: startDateTime.getDay(),
+      hours: startDateTime.getHours(),
+      minutes: startDateTime.getMinutes(),
+    });
 
     const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
 
     // TASK 4: Frontend validation for appointment time
     const operatingHours = operatingHoursData?.items || [];
     const validationResult = validateAppointmentTime(startDateTime, operatingHours);
+    
+    console.log('[CreateAppointment] Validation result:', validationResult);
     
     if (validationResult.hasWarnings) {
       const message = formatValidationMessage(validationResult);
@@ -1074,48 +1099,66 @@ export const CreateAppointmentScreen: React.FC = () => {
     const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
     const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
     
-    const startDateTime = new Date(appointmentDate);
-    startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
+    // Build startDateTime without timezone conversion
+    // Extract date components from appointmentDate
+    const year = appointmentDate.getFullYear();
+    const month = appointmentDate.getMonth();
+    const day = appointmentDate.getDate();
+    const hours = appointmentTime.getHours();
+    const minutes = appointmentTime.getMinutes();
+    
+    // Create new Date with explicit components (uses local timezone consistently)
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
 
+    console.log('[CreateAppointment] DateTime construction:', {
+      appointmentDate: {
+        iso: appointmentDate.toISOString(),
+        local: appointmentDate.toLocaleString('en-IN'),
+        year, month, day,
+      },
+      appointmentTime: {
+        iso: appointmentTime.toISOString(),
+        local: appointmentTime.toLocaleString('en-IN'),
+        hours, minutes,
+      },
+      constructed: {
+        iso: startDateTime.toISOString(),
+        local: startDateTime.toLocaleString('en-IN'),
+        year: startDateTime.getFullYear(),
+        month: startDateTime.getMonth() + 1,
+        day: startDateTime.getDate(),
+        hours: startDateTime.getHours(),
+        minutes: startDateTime.getMinutes(),
+      },
+    });
+
     const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
 
-    // BUG FIX #5: For therapy appointments, validate before creating (conflict check)
-    if (!isDoctor && staffId) {
+    // Validate appointment for conflicts (both doctor and therapy)
+    if (staffId) {
       try {
         const validationPayload: ValidateAppointmentRequest = {
           client_id: selectedClientId!,
           staff_id: staffId,
-          room_id: therapyForm.selectedRoomId || undefined,
-          appointment_start: startDateTime.toISOString(),
-          appointment_end: endDateTime.toISOString(),
+          room_id: isDoctor ? undefined : (therapyForm.selectedRoomId || undefined),
+          appointment_start: toLocalTimeISO(startDateTime),
+          appointment_end: toLocalTimeISO(endDateTime),
         };
         
-        console.log('[CreateAppointment] Validating single therapy appointment:', validationPayload);
+        console.log('[CreateAppointment] Validating appointment:', validationPayload);
         
         const validationApiResult = await validateMutation.mutateAsync(validationPayload);
         console.log('[CreateAppointment] Validation result:', validationApiResult);
         
-        // If validation fails, show conflict message and alternatives
+        // If validation fails, show generic conflict message
         if (!validationApiResult.is_valid) {
-          const conflictMessages = [];
-          
-          if (validationApiResult.conflicts?.staff_conflict) {
-            conflictMessages.push(`The selected therapist is already booked at this time.`);
-          }
-          if (validationApiResult.conflicts?.room_conflict) {
-            conflictMessages.push(`The selected room is not available at this time.`);
-          }
-          if (validationApiResult.errors?.length > 0) {
-            conflictMessages.push(...validationApiResult.errors);
-          }
-          
-          // BUG FIX #7: Use styled modal instead of raw Alert
+          // Show styled modal with localized conflict message
           setConflictModal({
             visible: true,
-            title: 'Booking Conflict',
-            messages: conflictMessages.length > 0 ? conflictMessages : ['This time slot is not available.'],
+            title: t('appointments.bookingConflict'),
+            messages: [t(ErrorTokens.appointments.conflictDetected)],
           });
           return; // Do NOT proceed with booking
         }
@@ -1125,13 +1168,17 @@ export const CreateAppointmentScreen: React.FC = () => {
       }
     }
 
+    // CRITICAL: Backend expects LOCAL time in ISO format, NOT UTC time
+    // User selects 11:00 AM IST → Send "2026-02-22T11:00:00Z" (local time with Z)
+    // NOT "2026-02-22T05:30:00Z" (UTC time)
+    // The backend will treat this as the clinic's local time
     const payload: AppointmentCreate = {
       client_id: selectedClientId!,
       staff_id: staffId,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
-      appointment_start: startDateTime.toISOString(),
-      appointment_end: endDateTime.toISOString(),
+      appointment_start: toLocalTimeISO(startDateTime),
+      appointment_end: toLocalTimeISO(endDateTime),
       status: 'scheduled',
       notes: isDoctor ? doctorForm.notes : therapyForm.notes,
       appointment_type: 'SINGLE',
@@ -1141,6 +1188,13 @@ export const CreateAppointmentScreen: React.FC = () => {
       is_during_break_time: validationResult.isDuringBreak,
       is_on_weekly_off: validationResult.isOnWeeklyOff,
     };
+
+    console.log('[CreateAppointment] Sending to API:', {
+      appointment_start: payload.appointment_start,
+      appointment_end: payload.appointment_end,
+      localTime: startDateTime.toLocaleString('en-IN'),
+      note: 'Sending LOCAL time with Z suffix, not UTC',
+    });
 
     try {
       await createMutation.mutateAsync(payload);
@@ -1183,7 +1237,38 @@ export const CreateAppointmentScreen: React.FC = () => {
         router.back();
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create appointment');
+      console.error('[CreateAppointment] Error creating appointment:', err);
+      
+      // Parse error response from backend
+      let errorMessage = t(ErrorTokens.appointments.createFailed);
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Extract error message from various possible formats
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            errorMessage = errorData.detail[0] || errorMessage;
+          } else if (errorData.detail.error) {
+            errorMessage = errorData.detail.error;
+          }
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        
+        // For overlap/conflict errors, show localized generic message
+        if (errorMessage.includes('overlap') || errorMessage.includes('already has an appointment') || errorMessage.includes('Conflicting')) {
+          errorMessage = t(ErrorTokens.appointments.conflictDetected);
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      Alert.alert(t('common.error') || 'Error', errorMessage);
     }
   };
 
@@ -1202,8 +1287,17 @@ export const CreateAppointmentScreen: React.FC = () => {
       return;
     }
 
-    const startDateTime = new Date(multiDayForm.startDate);
-    startDateTime.setHours(multiDayForm.preferredTime.getHours(), multiDayForm.preferredTime.getMinutes(), 0, 0);
+    // Build startDateTime without timezone conversion
+    const startDate = multiDayForm.startDate;
+    const preferredTime = multiDayForm.preferredTime;
+    
+    const year = startDate.getFullYear();
+    const month = startDate.getMonth();
+    const day = startDate.getDate();
+    const hours = preferredTime.getHours();
+    const minutes = preferredTime.getMinutes();
+    
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
     // Per THERAPY_PLAN_TIME_HANDLING.md:
     // The backend extracts hour and minute from start_date
@@ -1510,7 +1604,34 @@ export const CreateAppointmentScreen: React.FC = () => {
                   minimumDate={new Date()}
                   onChange={(event: DateTimePickerEvent, date?: Date) => {
                     setShowDatePicker(Platform.OS === 'ios');
-                    if (date) setCurrentDate(date);
+                    if (date) {
+                      console.log('[DatePicker] Date selected (RAW):', {
+                        iso: date.toISOString(),
+                        local: date.toLocaleString('en-IN'),
+                        year: date.getFullYear(),
+                        month: date.getMonth(),
+                        day: date.getDate(),
+                      });
+                      
+                      // CRITICAL FIX: DateTimePicker may return date in UTC
+                      // Extract local date components and create a new Date in local timezone
+                      const localYear = date.getFullYear();
+                      const localMonth = date.getMonth();
+                      const localDay = date.getDate();
+                      
+                      // Create a new Date with local date at midnight
+                      const localDate = new Date(localYear, localMonth, localDay, 0, 0, 0, 0);
+                      
+                      console.log('[DatePicker] Date corrected to local:', {
+                        iso: localDate.toISOString(),
+                        local: localDate.toLocaleString('en-IN'),
+                        year: localDate.getFullYear(),
+                        month: localDate.getMonth(),
+                        day: localDate.getDate(),
+                      });
+                      
+                      setCurrentDate(localDate);
+                    }
                   }}
                 />
               )}
@@ -1522,7 +1643,33 @@ export const CreateAppointmentScreen: React.FC = () => {
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(event: DateTimePickerEvent, time?: Date) => {
                     setShowTimePicker(Platform.OS === 'ios');
-                    if (time) setCurrentTime(time);
+                    if (time) {
+                      console.log('[TimePicker] Time selected (RAW):', {
+                        iso: time.toISOString(),
+                        local: time.toLocaleString('en-IN'),
+                        hours: time.getHours(),
+                        minutes: time.getMinutes(),
+                      });
+                      
+                      // CRITICAL FIX: DateTimePicker returns time in UTC, but we need local time
+                      // When user selects 11:00 AM, picker returns a Date with UTC time
+                      // We need to extract the hours/minutes and create a new Date in local timezone
+                      const localHours = time.getHours();
+                      const localMinutes = time.getMinutes();
+                      
+                      // Create a new Date with today's date and the selected time in LOCAL timezone
+                      const localTime = new Date();
+                      localTime.setHours(localHours, localMinutes, 0, 0);
+                      
+                      console.log('[TimePicker] Time corrected to local:', {
+                        iso: localTime.toISOString(),
+                        local: localTime.toLocaleString('en-IN'),
+                        hours: localTime.getHours(),
+                        minutes: localTime.getMinutes(),
+                      });
+                      
+                      setCurrentTime(localTime);
+                    }
                   }}
                 />
               )}
@@ -1675,7 +1822,7 @@ export const CreateAppointmentScreen: React.FC = () => {
           <View style={styles.conflictModalContent}>
             <View style={styles.conflictModalHeader}>
               <View style={styles.conflictModalIconContainer}>
-                <Ionicons name="warning" size={32} color={colors.warning.main} />
+                <Ionicons name="warning" size={28} color={colors.warning.main} />
               </View>
               <Text style={styles.conflictModalTitle}>{conflictModal.title}</Text>
             </View>
@@ -1686,9 +1833,6 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.conflictMessageText}>{message}</Text>
                 </View>
               ))}
-              <Text style={styles.conflictHelpText}>
-                Please select a different time or therapist and try again.
-              </Text>
             </View>
             <TouchableOpacity 
               style={styles.conflictModalButton}
@@ -2263,7 +2407,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.default,
     borderRadius: spacing.md,
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 320,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -2272,26 +2416,28 @@ const styles = StyleSheet.create({
   },
   conflictModalHeader: {
     alignItems: 'center',
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
   conflictModalIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.warning.main + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
   conflictModalTitle: {
     ...typography.h6,
+    fontSize: 18,
     color: colors.text.primary,
     textAlign: 'center',
   },
   conflictModalBody: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   conflictMessageRow: {
     flexDirection: 'row',
@@ -2302,18 +2448,13 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.text.primary,
     flex: 1,
-  },
-  conflictHelpText: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    lineHeight: 20,
   },
   conflictModalButton: {
     backgroundColor: colors.primary.main,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
     borderRadius: spacing.sm,
     alignItems: 'center',
   },

@@ -1,8 +1,3 @@
-/**
- * Link Episode Sheet
- * Full-screen sheet for selecting an existing episode to link to an appointment
- */
-
 import React from 'react';
 import {
   View,
@@ -20,6 +15,7 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import {
   useEpisodesQuery,
   useAttachEpisodeMutation,
@@ -28,12 +24,16 @@ import { EpisodeListItem } from '../components/EpisodeListItem';
 
 export const LinkEpisodeSheet: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation();
   const { appointmentId, clientId } = useLocalSearchParams<{
     appointmentId: string;
     clientId: string;
   }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.tenantId || '';
+  const tenantId = currentUser?.tenantId;
+
+  console.log('[LinkEpisodeSheet] tenantId:', tenantId, 'type:', typeof tenantId);
+  console.log('[LinkEpisodeSheet] currentUser:', currentUser);
 
   // Ensure clientId is a string
   const clientIdString = Array.isArray(clientId) ? clientId[0] : clientId;
@@ -45,17 +45,24 @@ export const LinkEpisodeSheet: React.FC = () => {
     isError,
     error,
     refetch,
-  } = useEpisodesQuery(tenantId, {
+  } = useEpisodesQuery(tenantId || '', {
     client_id: clientIdString,
     status: 'ACTIVE',
     skip: 0,
     limit: 50,
+  }, {
+    enabled: !!tenantId && tenantId !== 'undefined' && !!clientIdString, // Only fetch when we have valid tenantId and clientId
   });
 
   // Attach episode mutation
   const attachMutation = useAttachEpisodeMutation();
 
   const handleEpisodeSelect = async (episodeId: string) => {
+    if (!tenantId) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
+    }
+    
     try {
       await attachMutation.mutateAsync({ 
         tenantId,
@@ -99,8 +106,7 @@ export const LinkEpisodeSheet: React.FC = () => {
         {/* Info text */}
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
-            Select an episode to link this appointment. Episodes group all visits and documents
-            for a specific condition or treatment plan.
+            {t('episodes.linkEpisodeHelpText')}
           </Text>
         </View>
 

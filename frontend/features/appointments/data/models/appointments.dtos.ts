@@ -140,6 +140,9 @@ export interface AppointmentRescheduleResponse {
 /**
  * Get comma-separated therapist names from staff_assignments
  * Uses staff_assignments array (preferred) with fallback to deprecated staff_name
+ * 
+ * IMPORTANT: Backend may not always populate staff_name or staff_assignments.
+ * In such cases, we check if staff_id exists to determine if staff is assigned.
  */
 export const getTherapistNames = (appointment: AppointmentResponse | null): string => {
   if (!appointment) return 'Unassigned';
@@ -152,6 +155,12 @@ export const getTherapistNames = (appointment: AppointmentResponse | null): stri
   // Fallback to deprecated staff_name
   if (appointment.staff_name) {
     return appointment.staff_name;
+  }
+  
+  // If staff_id exists but no name is provided, show "Assigned" instead of "Unassigned"
+  // This indicates that staff is assigned but the name wasn't expanded in the API response
+  if (appointment.staff_id) {
+    return 'Assigned';
   }
   
   return 'Unassigned';
@@ -209,71 +218,34 @@ export const getStatusColor = (status: string): string => {
   return colors[status?.toLowerCase()] || '#6B7280';
 };
 
-/** Format date for display */
+/** 
+ * Format date for display - uses centralized utility
+ * @deprecated Use formatDate from core/utils/dateTimeUtils.ts instead
+ */
 export const formatDate = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatDate: centralizedFormatDate } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatDate(dateStr);
 };
 
 /** 
- * Format time for display - WITHOUT timezone conversion.
- * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents
- * the user's intended local time (4 PM IST). We must NOT convert this to local timezone
- * as that would shift 16:00 UTC to 21:30 IST incorrectly.
- * 
- * Instead, we extract hours/minutes directly from the ISO string.
+ * Format time for display - uses centralized utility
+ * @deprecated Use formatTime from core/utils/dateTimeUtils.ts instead
  */
 export const formatTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    // If it's a string, extract hours/minutes directly from the ISO string
-    // to avoid timezone conversion
-    if (typeof dateStr === 'string') {
-      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
-      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const period = hours >= 12 ? 'pm' : 'am';
-        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-      }
-    }
-    // Fallback for non-ISO strings - use UTC methods to avoid conversion
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '—';
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const period = hours >= 12 ? 'pm' : 'am';
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatTime: centralizedFormatTime } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatTime(dateStr);
 };
 
-/** Format date and time for display */
+/** 
+ * Format date and time for display - uses centralized utility
+ * @deprecated Use formatDateTime from core/utils/dateTimeUtils.ts instead
+ */
 export const formatDateTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatDateTime: centralizedFormatDateTime } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatDateTime(dateStr);
 };
 
 /** Calculate appointment duration in minutes */
@@ -742,28 +714,24 @@ For any changes, please call us at ${clinicPhone}.
 Thank you!`;
 };
 
-/** Format short date for display */
+/** 
+ * Format short date for display - uses centralized utility
+ * @deprecated Use formatShortDate from core/utils/dateTimeUtils.ts instead
+ */
 export const formatShortDate = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatShortDate: centralizedFormatShortDate } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatShortDate(dateStr);
 };
 
-/** Format day of week */
+/** 
+ * Format day of week - uses centralized utility
+ * @deprecated Use formatDayOfWeek from core/utils/dateTimeUtils.ts instead
+ */
 export const formatDayOfWeek = (dateStr: string): string => {
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      weekday: 'short',
-    });
-  } catch {
-    return '';
-  }
+  // Re-export from centralized utility
+  const { formatDayOfWeek: centralizedFormatDayOfWeek } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatDayOfWeek(dateStr);
 };
 
 /** Check if date is today */
@@ -788,7 +756,10 @@ export const generateDateRange = (centerDate: Date, daysAround: number = 7): Dat
   return dates;
 };
 
-/** Format ISO date string (YYYY-MM-DD) */
+/** Format ISO date string (YYYY-MM-DD) using local timezone */
 export const toISODateString = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };

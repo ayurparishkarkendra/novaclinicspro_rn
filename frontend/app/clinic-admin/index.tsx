@@ -45,20 +45,20 @@ export default function ClinicAdminDashboard() {
   // Determine if we're on mobile (< 768px) or web
   const isMobile = width < 768;
 
-  // Route guard - only allow clinic_admin and receptionist roles
+  // Route guard - only allow clinic_admin, receptionist, and tenant_admin roles
   React.useEffect(() => {
     if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
       const userRole = currentUser.roles[0]?.toLowerCase() || '';
       console.log('[ClinicAdmin] Route guard checking role:', userRole);
       
-      // Allow: clinic_admin, clinic admin, receptionist
-      const allowedRoles = ['clinic admin', 'clinic_admin', 'receptionist'];
+      // Allow: clinic_admin, clinic admin, receptionist, tenant_admin, tenant admin
+      const allowedRoles = ['clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'];
       
       if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
         console.log('[ClinicAdmin] Access denied, redirecting to appropriate dashboard');
         
         // Redirect to appropriate dashboard based on role
-        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+        if (userRole === 'doctor') {
           router.replace('/doctor');
         } else if (userRole === 'therapist') {
           router.replace('/therapist');

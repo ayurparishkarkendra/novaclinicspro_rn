@@ -25,11 +25,12 @@ import { useEpisodeQuery } from '../../../episodes/data/repositories/episodes.re
 
 export const CreateCasesheetScreen: React.FC = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ clientId: string; appointmentId?: string }>();
+  const params = useLocalSearchParams<{ clientId: string; appointmentId?: string; episodeId?: string }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
   const clientId = params.clientId || '';
   const appointmentId = params.appointmentId;
+  const episodeIdFromParams = params.episodeId; // Episode ID passed from episode context
 
   const createMutation = useCreateCasesheetMutation(tenantId, clientId);
 
@@ -40,8 +41,8 @@ export const CreateCasesheetScreen: React.FC = () => {
     { enabled: !!appointmentId }
   );
 
-  // Fetch episode details if appointment has episode_id
-  const episodeId = appointment?.episode_id;
+  // Fetch episode details if appointment has episode_id OR if episodeId is passed directly
+  const episodeId = episodeIdFromParams || appointment?.episode_id;
   const { data: episode } = useEpisodeQuery(
     tenantId,
     episodeId || '',
@@ -54,15 +55,20 @@ export const CreateCasesheetScreen: React.FC = () => {
         clinic_type: 'ayurveda', // Default clinic type, can be made configurable
         data_json: data,
         appointment_id: appointmentId,
-        // Do NOT send episode_id - backend auto-inherits from appointment
+        episode_id: episodeId, // Include episode_id when creating from episode context
       });
       
       // Navigate immediately after successful creation
-      // Go to the casesheets list for this client
-      router.replace({
-        pathname: '/clinic-admin/clients/[clientId]/casesheets',
-        params: { clientId },
-      });
+      // If we have an episodeId, go back to the episode details
+      if (episodeId) {
+        router.replace(`/clinic-admin/episodes/${episodeId}` as any);
+      } else {
+        // Otherwise go to the casesheets list for this client
+        router.replace({
+          pathname: '/clinic-admin/clients/[clientId]/casesheets',
+          params: { clientId },
+        });
+      }
     } catch (err: any) {
       // Handle EPISODE_MISMATCH error
       if (err.error_code === 'EPISODE_MISMATCH' || err.message?.includes('episode_id must match')) {
@@ -71,11 +77,17 @@ export const CreateCasesheetScreen: React.FC = () => {
           'Document episode must match appointment episode. Please try again.',
           [{ text: 'OK' }]
         );
+      } else if (err.error_code === 'EPISODE_ALREADY_HAS_CASESHEET' || err.message?.includes('already has a casesheet')) {
+        Alert.alert(
+          'Duplicate Casesheet',
+          'This episode already has a casesheet. Only one casesheet per episode is allowed.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
       } else {
         Alert.alert('Error', err.message || 'Failed to create casesheet.');
       }
     }
-  }, [createMutation, clientId, appointmentId, router]);
+  }, [createMutation, clientId, appointmentId, episodeId, router]);
 
   const handleCancel = useCallback(() => {
     // Navigate back immediately without confirmation for better UX

@@ -1,58 +1,89 @@
 /**
  * Centralized Date/Time Utilities
  * 
- * SINGLE SOURCE OF TRUTH for all date/time formatting in the app.
- * All components should import from this file instead of implementing their own.
+ * SINGLE SOURCE OF TRUTH for all date/time operations in the app.
+ * All components MUST import from this file instead of implementing their own.
  * 
- * IMPORTANT: The backend stores times like "2026-02-14T16:00:00Z" where 16:00
- * represents the user's intended local time (4 PM IST), NOT UTC.
- * We must extract hours/minutes directly from the ISO string to avoid
- * timezone conversion that would shift 16:00 to 21:30 in IST.
+ * CRITICAL UNDERSTANDING - BACKEND BEHAVIOR:
+ * - When SENDING to backend: Send local time WITHOUT Z suffix (e.g., "2026-02-22T11:00:00")
+ * - When RECEIVING from backend: Backend returns UTC time WITH Z suffix (e.g., "2026-02-22T05:30:00Z")
+ * - The backend converts: Local time → UTC for storage/transmission
+ * - Frontend must convert: UTC → Local time for display
+ * 
+ * Example flow:
+ * 1. User selects 11:00 AM IST
+ * 2. Frontend sends: "2026-02-22T11:00:00" (no Z)
+ * 3. Backend stores and returns: "2026-02-22T05:30:00Z" (UTC, with Z)
+ * 4. Frontend displays: "11:00 AM" (converted from UTC to local)
  */
 
 // ============================================
-// TIME EXTRACTION HELPERS
+// CORE PRINCIPLES
+// ============================================
+// 1. SENDING TO API: Use toLocalTimeISO() - sends local time WITHOUT Z suffix
+// 2. RECEIVING FROM API: Backend returns UTC with Z - parse with new Date() to convert to local
+// 3. DISPLAYING: Use format functions - they handle UTC to local conversion
+// 4. VALIDATING: Use Date object methods (.getHours(), .getDay()) - they return local values
+// 5. NEVER use .toISOString() for API calls - it converts to actual UTC
+
+// ============================================
+// API COMMUNICATION (Sending to Backend)
 // ============================================
 
 /**
- * Extract time pattern (HH:MM) from ISO string without timezone conversion
+ * Convert Date to ISO string with LOCAL time (not UTC)
+ * USE THIS when sending appointment times to the backend API
+ * 
+ * CRITICAL: Backend expects local time WITHOUT timezone suffix
+ * The backend will treat this as local clinic time.
+ * 
+ * Example:
+ *   Input: Date representing 11:00 AM IST on Feb 22, 2026
+ *   Output: "2026-02-22T11:00:00" (local time, NO Z suffix)
+ * 
+ * @param date - Date object with local time
+ * @returns ISO string with local time (e.g., "2026-02-22T11:00:00")
  */
-export const extractTimePattern = (dateStr: string): string => {
-  const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-  if (timeMatch) {
-    return `${timeMatch[1]}:${timeMatch[2]}`;
-  }
-  return '00:00';
+export const toLocalTimeISO = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  // NO Z suffix - backend expects local time without timezone indicator
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 };
 
 /**
- * Extract hour from ISO string (0-23)
+ * Convert date to YYYY-MM-DD string using LOCAL date
+ * USE THIS for date-only API parameters
+ * 
+ * @param date - Date object
+ * @returns Date string (e.g., "2026-02-22")
  */
-export const extractHour = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T(\d{2}):/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
-};
-
-/**
- * Extract minute from ISO string (0-59)
- */
-export const extractMinute = (dateStr: string): number => {
-  const timeMatch = dateStr.match(/T\d{2}:(\d{2})/);
-  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
+export const toISODateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // ============================================
-// DATE FORMATTING
+// DISPLAY FORMATTING (Showing to Users)
 // ============================================
 
 /**
  * Format date for display (e.g., "15 Feb 2026")
- * Safe version that handles null/undefined/Date objects
+ * USE THIS to display dates in the UI
+ * 
+ * @param dateStr - ISO string from backend or Date object
+ * @returns Formatted date string
  */
 export const formatDate = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '—';
   try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
     if (isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -66,11 +97,15 @@ export const formatDate = (dateStr: string | Date | undefined | null): string =>
 
 /**
  * Format short date (e.g., "15 Feb")
+ * USE THIS for compact date displays
+ * 
+ * @param dateStr - ISO string from backend or Date object
+ * @returns Formatted short date string
  */
 export const formatShortDate = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '—';
   try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
     if (isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -83,56 +118,57 @@ export const formatShortDate = (dateStr: string | Date | undefined | null): stri
 
 /**
  * Get day of week (e.g., "Sun", "Mon")
+ * USE THIS to display day names
+ * 
+ * @param dateStr - ISO string from backend or Date object
+ * @returns Day of week abbreviation
  */
 export const formatDayOfWeek = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '';
   try {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
     if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-IN', { weekday: 'short' });
+    return date.toLocaleDateString('en-IN', { 
+      weekday: 'short',
+    });
   } catch {
     return '';
   }
 };
 
-// ============================================
-// TIME FORMATTING
-// ============================================
-
 /**
- * Format time for display WITHOUT timezone conversion.
+ * Format time for display (e.g., "04:00 pm")
+ * USE THIS to display times in the UI
  * 
- * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents
- * the user's intended local time (4 PM). We must NOT convert this to local timezone
- * as that would shift 16:00 UTC to 21:30 IST incorrectly.
+ * CRITICAL: Backend returns times in UTC with Z suffix (e.g., "2026-02-22T05:30:00Z")
+ * We need to parse as UTC and convert to local time for display.
  * 
- * @param dateStr - ISO date string, Date object, or null
+ * @param dateStr - ISO string from backend or Date object
  * @returns Formatted time string (e.g., "04:00 pm")
  */
 export const formatTime = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '—';
   try {
-    // If it's a string, extract hours/minutes directly from the ISO string
-    // to avoid timezone conversion
-    if (typeof dateStr === 'string') {
-      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
-      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const period = hours >= 12 ? 'pm' : 'am';
-        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-      }
+    // If it's a Date object, use it directly
+    if (dateStr instanceof Date) {
+      if (isNaN(dateStr.getTime())) return '—';
+      return dateStr.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
     }
-    // Fallback for Date objects - use UTC methods to avoid conversion
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    
+    // Backend returns UTC times with Z suffix (e.g., "2026-02-22T05:30:00Z")
+    // Parse as UTC and convert to local time
+    const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '—';
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const period = hours >= 12 ? 'pm' : 'am';
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+    
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   } catch {
     return '—';
   }
@@ -140,22 +176,36 @@ export const formatTime = (dateStr: string | Date | undefined | null): string =>
 
 /**
  * Format time from hour and minute numbers
+ * USE THIS when you have separate hour/minute values
+ * 
  * @param hour - Hour (0-23)
  * @param minute - Minute (0-59)
- * @returns Formatted time string (e.g., "04:00 pm")
+ * @returns Formatted time string (e.g., "11:00 am", "02:30 pm")
  */
 export const formatTimeFromParts = (hour: number, minute: number): string => {
+  // Determine AM/PM
   const period = hour >= 12 ? 'pm' : 'am';
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+  
+  // Convert 24-hour to 12-hour format
+  // 0 -> 12, 1-11 -> 1-11, 12 -> 12, 13-23 -> 1-11
+  let displayHour = hour % 12;
+  if (displayHour === 0) {
+    displayHour = 12;
+  }
+  
+  // Format with zero-padding
+  const hourStr = String(displayHour).padStart(2, '0');
+  const minuteStr = String(minute).padStart(2, '0');
+  
+  return `${hourStr}:${minuteStr} ${period}`;
 };
-
-// ============================================
-// DATE + TIME FORMATTING
-// ============================================
 
 /**
  * Format date and time together (e.g., "15 Feb, 04:00 pm")
+ * USE THIS to display full date-time in the UI
+ * 
+ * @param dateStr - ISO string from backend or Date object
+ * @returns Formatted date-time string
  */
 export const formatDateTime = (dateStr: string | Date | undefined | null): string => {
   if (!dateStr) return '—';
@@ -171,16 +221,37 @@ export const formatDateTime = (dateStr: string | Date | undefined | null): strin
 
 /**
  * Calculate appointment duration in minutes
+ * USE THIS to compute duration between two times
+ * 
+ * @param start - Start time ISO string
+ * @param end - End time ISO string
+ * @returns Duration in minutes
  */
 export const calculateDuration = (start: string, end: string | null): number | null => {
   if (!end) return null;
-  const startDate = new Date(start);
-  const endDate = new Date(end);
+  
+  // Extract time components from ISO strings
+  const startMatch = start.match(/T(\d{2}):(\d{2})/);
+  const endMatch = end.match(/T(\d{2}):(\d{2})/);
+  
+  if (startMatch && endMatch) {
+    const startMinutes = parseInt(startMatch[1], 10) * 60 + parseInt(startMatch[2], 10);
+    const endMinutes = parseInt(endMatch[1], 10) * 60 + parseInt(endMatch[2], 10);
+    return endMinutes - startMinutes;
+  }
+  
+  // Fallback: use Date parsing
+  const startDate = parseBackendDateTime(start);
+  const endDate = parseBackendDateTime(end);
   return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
 };
 
 /**
  * Format duration for display (e.g., "60 min" or "1h 30min")
+ * USE THIS to display durations in the UI
+ * 
+ * @param minutes - Duration in minutes
+ * @returns Formatted duration string
  */
 export const formatDuration = (minutes: number | null): string => {
   if (!minutes) return '—';
@@ -192,35 +263,40 @@ export const formatDuration = (minutes: number | null): string => {
 };
 
 // ============================================
-// ISO STRING BUILDERS
+// DATE CONSTRUCTION (Creating Date Objects)
 // ============================================
 
 /**
- * Build ISO string from date and time with LOCAL time preservation.
- * The resulting string will have the format YYYY-MM-DDTHH:MM:00Z
- * where HH:MM is the LOCAL time (not converted to UTC).
+ * Build Date object from separate date and time components
+ * USE THIS when combining date picker and time picker values
  * 
  * @param date - Date object for the date part
  * @param time - Date object for the time part (hours/minutes)
- * @returns ISO string with local time
+ * @returns Date object with combined date and time
  */
-export const buildLocalTimeISO = (date: Date, time: Date): string => {
+export const buildDateTime = (date: Date, time: Date): Date => {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(time.getHours()).padStart(2, '0');
-  const minute = String(time.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hour}:${minute}:00Z`;
+  const month = date.getMonth();
+  const day = date.getDate();
+  const hours = time.getHours();
+  const minutes = time.getMinutes();
+  return new Date(year, month, day, hours, minutes, 0, 0);
 };
 
 /**
- * Convert date to YYYY-MM-DD string
+ * Parse ISO string from backend to Date object
+ * USE THIS when receiving date-times from the backend
+ * 
+ * CRITICAL: Backend returns times in UTC with Z suffix (e.g., "2026-02-22T05:30:00Z")
+ * This represents UTC time that needs to be converted to local time for display.
+ * 
+ * @param isoString - ISO string from backend (e.g., "2026-02-22T05:30:00Z")
+ * @returns Date object representing the local time
  */
-export const toISODateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export const parseBackendDateTime = (isoString: string): Date => {
+  // Backend returns UTC times with Z suffix
+  // JavaScript Date constructor handles this correctly
+  return new Date(isoString);
 };
 
 // ============================================
@@ -229,18 +305,26 @@ export const toISODateString = (date: Date): string => {
 
 /**
  * Check if date is today
+ * USE THIS for "today" checks in the UI
+ * 
+ * @param dateStr - ISO string or Date object
+ * @returns True if date is today
  */
 export const isToday = (dateStr: string | Date): boolean => {
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
   const today = new Date();
   return date.toDateString() === today.toDateString();
 };
 
 /**
  * Check if date is before today (strictly past)
+ * USE THIS for past date checks
+ * 
+ * @param dateStr - ISO string or Date object
+ * @returns True if date is before today
  */
 export const isBeforeToday = (dateStr: string | Date): boolean => {
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
@@ -249,10 +333,113 @@ export const isBeforeToday = (dateStr: string | Date): boolean => {
 
 /**
  * Check if date is after today (strictly future)
+ * USE THIS for future date checks
+ * 
+ * @param dateStr - ISO string or Date object
+ * @returns True if date is after today
  */
 export const isAfterToday = (dateStr: string | Date): boolean => {
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  const date = typeof dateStr === 'string' ? parseBackendDateTime(dateStr) : dateStr;
   const today = new Date();
   today.setHours(23, 59, 59, 999);
   return date > today;
+};
+
+// ============================================
+// VALIDATION HELPERS
+// ============================================
+
+/**
+ * Get backend day of week from Date object
+ * USE THIS for operating hours validation
+ * 
+ * Backend uses: 0=Monday, 1=Tuesday, ..., 6=Sunday
+ * JavaScript uses: 0=Sunday, 1=Monday, ..., 6=Saturday
+ * 
+ * @param date - Date object
+ * @returns Backend day of week (0=Monday, 6=Sunday)
+ */
+export const getBackendDayOfWeek = (date: Date): number => {
+  const jsDay = date.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+  return jsDay === 0 ? 6 : jsDay - 1; // Convert to 0=Monday, 6=Sunday
+};
+
+/**
+ * Get day name from Date object
+ * USE THIS to display day names in validation messages
+ * 
+ * @param date - Date object
+ * @returns Day name (e.g., "Sunday", "Monday")
+ */
+export const getDayName = (date: Date): string => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[date.getDay()];
+};
+
+/**
+ * Get time in minutes since midnight
+ * USE THIS for operating hours validation
+ * 
+ * @param date - Date object
+ * @returns Minutes since midnight (e.g., 660 for 11:00 AM)
+ */
+export const getMinutesSinceMidnight = (date: Date): number => {
+  return date.getHours() * 60 + date.getMinutes();
+};
+
+// ============================================
+// EXTRACTION HELPERS
+// ============================================
+
+/**
+ * Extract time pattern (HH:MM) from ISO string
+ * USE THIS when you need just the time part as a string
+ * 
+ * @param dateStr - ISO string
+ * @returns Time pattern (e.g., "11:00")
+ */
+export const extractTimePattern = (dateStr: string): string => {
+  const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
+  if (timeMatch) {
+    return `${timeMatch[1]}:${timeMatch[2]}`;
+  }
+  return '00:00';
+};
+
+/**
+ * Extract hour from ISO string (0-23)
+ * USE THIS when you need just the hour value
+ * 
+ * @param dateStr - ISO string
+ * @returns Hour (0-23)
+ */
+export const extractHour = (dateStr: string): number => {
+  const timeMatch = dateStr.match(/T(\d{2}):/);
+  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
+};
+
+/**
+ * Extract minute from ISO string (0-59)
+ * USE THIS when you need just the minute value
+ * 
+ * @param dateStr - ISO string
+ * @returns Minute (0-59)
+ */
+export const extractMinute = (dateStr: string): number => {
+  const timeMatch = dateStr.match(/T\d{2}:(\d{2})/);
+  return timeMatch ? parseInt(timeMatch[1], 10) : 0;
+};
+
+// ============================================
+// DEPRECATED - DO NOT USE
+// ============================================
+
+/**
+ * @deprecated Use buildDateTime() + toLocalTimeISO() instead
+ * This function is kept for backward compatibility but should not be used.
+ */
+export const buildLocalTimeISO = (date: Date, time: Date): string => {
+  console.warn('buildLocalTimeISO is deprecated. Use buildDateTime() + toLocalTimeISO() instead.');
+  const combined = buildDateTime(date, time);
+  return toLocalTimeISO(combined);
 };

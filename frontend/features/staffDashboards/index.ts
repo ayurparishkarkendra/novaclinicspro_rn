@@ -8,3 +8,4 @@ export * from './data/repositories/staffDashboards.repository.impl';
 
 // Presentation Layer
 export * from './presentation/components';
+export * from './presentation/stores/dashboard.store';

@@ -14,6 +14,7 @@ import {
 import {
   listEpisodesApi,
   getEpisodeApi,
+  getEpisodeDetailsApi,
   createEpisodeApi,
   updateEpisodeApi,
   closeEpisodeApi,
@@ -24,6 +25,7 @@ import {
 import {
   Episode,
   EpisodesListResponse,
+  EpisodeDetailsResponse,
   EpisodeCreateRequest,
   EpisodeUpdateRequest,
   AttachEpisodeRequest,
@@ -67,11 +69,20 @@ export const useEpisodesQuery = (
   params?: ListEpisodesParams,
   options?: Omit<UseQueryOptions<EpisodesListResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
+  const defaultEnabled = !!tenantId && tenantId !== 'undefined';
+  const finalEnabled = options?.enabled !== undefined ? options.enabled && defaultEnabled : defaultEnabled;
+  
+  // Log when query is called with invalid tenantId
+  if (!tenantId || tenantId === 'undefined') {
+    console.error('[useEpisodesQuery] Called with invalid tenantId:', tenantId);
+    console.error('[useEpisodesQuery] Stack:', new Error().stack);
+  }
+  
   return useQuery<EpisodesListResponse, Error>({
     queryKey: episodesKeys.list(tenantId, params),
     queryFn: () => listEpisodesApi(tenantId, params),
-    enabled: !!tenantId,
     ...options,
+    enabled: finalEnabled,
   });
 };
 
@@ -101,6 +112,7 @@ export const useInfiniteEpisodesQuery = (
   const limit = params?.limit || 20;
   
   console.log('[useInfiniteEpisodesQuery] Input params:', params);
+  console.log('[useInfiniteEpisodesQuery] tenantId:', tenantId);
   
   // Build clean params object, filtering out undefined values
   const baseParams: Partial<ListEpisodesParams> = {};
@@ -109,6 +121,9 @@ export const useInfiniteEpisodesQuery = (
   baseParams.limit = limit;
   
   console.log('[useInfiniteEpisodesQuery] Base params:', baseParams);
+  
+  const defaultEnabled = !!tenantId && tenantId !== 'undefined';
+  const finalEnabled = options?.enabled !== undefined ? options.enabled && defaultEnabled : defaultEnabled;
   
   return useInfiniteQuery<EpisodesListResponse, Error>({
     queryKey: episodesKeys.list(tenantId, baseParams as ListEpisodesParams),
@@ -129,7 +144,7 @@ export const useInfiniteEpisodesQuery = (
       return lastPage.skip + lastPage.limit;
     },
     initialPageParam: 0,
-    enabled: options?.enabled !== undefined ? options.enabled : !!tenantId,
+    enabled: finalEnabled,
     staleTime: options?.staleTime,
     gcTime: options?.gcTime,
     refetchOnMount: options?.refetchOnMount,
@@ -154,6 +169,30 @@ export const useEpisodeQuery = (
   return useQuery<Episode, Error>({
     queryKey: episodesKeys.detail(tenantId, episodeId),
     queryFn: () => getEpisodeApi(tenantId, episodeId),
+    enabled: !!tenantId && !!episodeId,
+    ...options,
+  });
+};
+
+/**
+ * Hook to get comprehensive episode details
+ * 
+ * Fetches episode with documents (casesheet, treatment sheet) and visits
+ * (appointments with prescriptions and payments)
+ * 
+ * @param tenantId - Tenant identifier
+ * @param episodeId - Episode identifier
+ * @param options - React Query options
+ * @returns Query result with comprehensive episode details
+ */
+export const useEpisodeDetailsQuery = (
+  tenantId: string,
+  episodeId: string,
+  options?: Omit<UseQueryOptions<EpisodeDetailsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<EpisodeDetailsResponse, Error>({
+    queryKey: [...episodesKeys.detail(tenantId, episodeId), 'details'],
+    queryFn: () => getEpisodeDetailsApi(tenantId, episodeId),
     enabled: !!tenantId && !!episodeId,
     ...options,
   });
@@ -193,6 +232,9 @@ export const useCreateEpisodeMutation = () => {
           queryKey: ['appointment', tenantId, data.appointment_id] 
         });
         queryClient.invalidateQueries({ queryKey: ['appointments'] });
+        
+        // Invalidate dashboard queries to refresh appointment cards
+        queryClient.invalidateQueries({ queryKey: ['staffDashboards'] });
       }
       
       // Set the new episode in cache
@@ -327,6 +369,9 @@ export const useAttachEpisodeMutation = () => {
         queryKey: ['appointment', tenantId, appointmentId] 
       });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      
+      // Invalidate dashboard queries to refresh appointment cards
+      queryClient.invalidateQueries({ queryKey: ['staffDashboards'] });
       
       // Invalidate episode queries (visits_count and last_visit_date may change)
       queryClient.invalidateQueries({ 

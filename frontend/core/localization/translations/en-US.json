@@ -347,6 +347,7 @@
   },
 
   "appointments": {
+    "bookingConflict": "Booking Conflict",
     "noPhoneNumber": "Client phone number is not available",
     "session": "Session",
     "notFound": "Appointment not found",
@@ -473,6 +474,11 @@
     "codeSystem": "Code System",
     "noEpisodesFound": "No episodes found",
     "createFirstEpisode": "Create your first episode to track related visits",
+    "createEpisodeHelpText": "Create an episode to group this appointment with related visits and documents. Episodes help you track treatment for a specific condition over time.",
+    "linkEpisodeHelpText": "Select an episode to link this appointment. Episodes group all visits and documents for a specific condition or treatment plan.",
+    "episodeCreatedAndLinked": "Episode created and linked to this appointment.",
+    "viewEpisode": "View Episode",
+    "linkedToVisit": "Linked to visit",
     "loadFailed": "Could not load episodes. Please try again.",
     "createFailed": "Could not create episode. Please try again.",
     "updateFailed": "Could not update episode. Please try again.",
@@ -481,6 +487,18 @@
     "episodeCreated": "Episode created successfully",
     "episodeUpdated": "Episode updated successfully",
     "appointmentLinked": "Appointment linked to episode",
-    "appointmentUnlinked": "Appointment unlinked from episode"
+    "appointmentUnlinked": "Appointment unlinked from episode",
+    "addCasesheet": "Add Casesheet",
+    "viewCasesheet": "View Casesheet",
+    "addTreatmentSheet": "Add Treatment Sheet",
+    "viewTreatmentSheet": "View Treatment Sheet",
+    "addPrescription": "Add Prescription",
+    "viewPrescription": "View Prescription",
+    "paymentDetails": "Payment Details",
+    "noCasesheetYet": "No casesheet created yet",
+    "noTreatmentSheetYet": "No treatment sheet created yet",
+    "noPrescriptionYet": "No prescription for this visit",
+    "noPaymentYet": "No payment recorded",
+    "dangerZone": "Danger Zone"
   }
 }

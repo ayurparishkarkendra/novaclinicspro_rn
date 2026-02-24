@@ -54,6 +54,16 @@ interface AppointmentListItemProps {
   onCancel?: (appointmentId: string) => void;
   /** Callback for reschedule - navigates to reschedule flow */
   onReschedule?: (appointmentId: string) => void;
+  /** Callback for linking to episode */
+  onLinkEpisode?: (appointmentId: string, clientId: string) => void;
+  /** Callback for creating new episode */
+  onCreateEpisode?: (appointmentId: string, clientId: string) => void;
+  /** Callback for viewing episode details */
+  onViewEpisode?: (episodeId: string) => void;
+  /** Callback for viewing all episodes for this client */
+  onViewAllEpisodes?: (clientId: string, clientName: string) => void;
+  /** Number of episodes for this client (to show/hide "View All Episodes" link) */
+  clientEpisodesCount?: number;
 }
 
 // ============================================
@@ -177,6 +187,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onStatusUpdate,
   onCancel,
   onReschedule,
+  onLinkEpisode,
+  onCreateEpisode,
+  onViewEpisode,
+  onViewAllEpisodes,
+  clientEpisodesCount = 0,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
@@ -203,7 +218,9 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const normalizedRole = (userRole || '').toLowerCase().replace(/[_\-\s]+/g, '');
   const isClinicAdmin = normalizedRole.includes('clinicadmin') || normalizedRole.includes('admin');
   const isReceptionist = normalizedRole.includes('receptionist');
-  const canModify = isClinicAdmin || isReceptionist;
+  const isDoctor = normalizedRole.includes('doctor');
+  const isTherapist = normalizedRole.includes('therapist');
+  const canModify = isClinicAdmin || isReceptionist || isDoctor || isTherapist;
 
   // ===== STATUS-BASED ACTION VISIBILITY (per FRONTEND_QUICK_ACTIONS_GUIDE.md) =====
   const status = (appointment.status || '').toLowerCase();
@@ -265,11 +282,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
       style={[styles.container, { borderLeftColor: statusColor }]}
       data-testid="appointment-list-item"
     >
-      {/* Main Row - Full width clickable */}
+      {/* Main Row - Full width clickable only if onPress is provided */}
       <TouchableOpacity
         style={styles.mainRow}
-        onPress={handlePress}
-        activeOpacity={0.7}
+        onPress={onPress ? handlePress : undefined}
+        activeOpacity={onPress ? 0.7 : 1}
+        disabled={!onPress}
         accessibilityRole="button"
         accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
       >
@@ -299,17 +317,6 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
             {displayClientName}
           </Text>
-
-          {/* Episode Badge (if episode linked) */}
-          {appointment.episode_id && appointment.episode_title && (
-            <View style={styles.episodeBadgeContainer}>
-              <EpisodeBadge
-                title={appointment.episode_title}
-                status={appointment.episode_status || 'ACTIVE'}
-                onPress={() => router.push(`/clinic-admin/episodes/${appointment.episode_id}` as any)}
-              />
-            </View>
-          )}
 
           {/* Staff & Treatment Info */}
           <View style={styles.detailsRow}>
@@ -359,108 +366,229 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           
-          {/* A1: Single navigation arrow, vertically centered */}
-          <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
-            <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
-          </View>
+          {/* A1: Single navigation arrow, vertically centered - only show if onPress is provided */}
+          {onPress && (
+            <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
+              <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+            </View>
+          )}
         </View>
       </TouchableOpacity>
 
       {/* A2: Quick Actions Row - Icon buttons spread horizontally */}
       {/* BUG FIX #3: All quick actions have confirmation dialogs, icon-based with tooltips */}
       {/* Terminal statuses (completed, cancelled, no_show) don't show quick actions */}
-      {showActions && canModify && !isTerminalStatus && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
+      {/* Role-specific actions: Doctor (episode only), Therapist (complete/notes only), Admin/Receptionist (all) */}
+      {showActions && canModify && !isTerminalStatus && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
-          {/* Reschedule - scheduled/confirmed */}
-          {['scheduled', 'confirmed'].includes(status) && (
-            <QuickActionIconButton
-              icon="calendar-outline"
-              label="Reschedule"
-              color={colors.primary.main}
-              onPress={() => {
-                if (onReschedule) {
-                  Alert.alert(
-                    'Reschedule',
-                    'Open reschedule options for this appointment?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Yes', onPress: () => onReschedule(appointment.id) },
-                    ]
-                  );
-                } else {
-                  handlePress();
-                }
-              }}
-              testId="action-reschedule"
-            />
+          {/* Admin/Receptionist actions - Reschedule, Record Visit, No-Show, Cancel */}
+          {(isClinicAdmin || isReceptionist) && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
+            <>
+              {/* Reschedule - scheduled/confirmed */}
+              {['scheduled', 'confirmed'].includes(status) && (
+                <QuickActionIconButton
+                  icon="calendar-outline"
+                  label="Reschedule"
+                  color={colors.primary.main}
+                  onPress={() => {
+                    if (onReschedule) {
+                      Alert.alert(
+                        'Reschedule',
+                        'Open reschedule options for this appointment?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Yes', onPress: () => onReschedule(appointment.id) },
+                        ]
+                      );
+                    } else {
+                      handlePress();
+                    }
+                  }}
+                  testId="action-reschedule"
+                />
+              )}
+              
+              {/* Record Visit - scheduled/confirmed/in_progress, enabled at or after start time */}
+              {canRecordVisit && onStatusUpdate && (
+                <QuickActionIconButton
+                  icon="clipboard-outline"
+                  label="Record Visit"
+                  color={colors.success.main}
+                  disabled={!isAtOrAfterStartTime}
+                  onPress={() => {
+                    Alert.alert(
+                      'Record Visit',
+                      'Mark this appointment as completed?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Yes', 
+                          onPress: () => onStatusUpdate(appointment.id, 'COMPLETED'),
+                          style: 'default'
+                        },
+                      ]
+                    );
+                  }}
+                  testId="action-record-visit"
+                />
+              )}
+              
+              {/* No-Show - scheduled/confirmed, enabled at or after start time */}
+              {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
+                <QuickActionIconButton
+                  icon="person-remove-outline"
+                  label="No-Show"
+                  color={colors.warning.main}
+                  disabled={!isAtOrAfterStartTime}
+                  onPress={() => {
+                    Alert.alert(
+                      'Mark as No-Show',
+                      'Are you sure the patient did not show up?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
+                      ]
+                    );
+                  }}
+                  testId="action-noshow"
+                />
+              )}
+              
+              {/* Cancel - scheduled/confirmed */}
+              {['scheduled', 'confirmed'].includes(status) && onCancel && (
+                <QuickActionIconButton
+                  icon="close-circle-outline"
+                  label="Cancel"
+                  color={colors.error.main}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cancel Appointment',
+                      'Are you sure you want to cancel this appointment?',
+                      [
+                        { text: 'No', style: 'cancel' },
+                        { text: 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
+                      ]
+                    );
+                  }}
+                  testId="action-cancel"
+                />
+              )}
+            </>
           )}
           
-          {/* Record Visit - scheduled/confirmed/in_progress, enabled at or after start time */}
-          {canRecordVisit && onStatusUpdate && (
-            <QuickActionIconButton
-              icon="clipboard-outline"
-              label="Record Visit"
-              color={colors.success.main}
-              disabled={!isAtOrAfterStartTime}
-              onPress={() => {
-                Alert.alert(
-                  'Record Visit',
-                  'Mark this appointment as completed?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Yes', 
-                      onPress: () => onStatusUpdate(appointment.id, 'COMPLETED'),
-                      style: 'default'
-                    },
-                  ]
-                );
-              }}
-              testId="action-record-visit"
-            />
+          {/* Therapist actions - Complete and Notes only */}
+          {isTherapist && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
+            <>
+              {/* Complete - for therapists */}
+              {canComplete && onStatusUpdate && (
+                <QuickActionIconButton
+                  icon="checkmark-circle-outline"
+                  label="Complete"
+                  color={colors.success.main}
+                  onPress={() => {
+                    Alert.alert(
+                      'Mark as Complete',
+                      'Mark this appointment as completed?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
+                      ]
+                    );
+                  }}
+                  testId="action-complete"
+                />
+              )}
+              
+              {/* Notes - for therapists */}
+              <QuickActionIconButton
+                icon="document-text-outline"
+                label="Notes"
+                color={colors.info.main}
+                onPress={() => {
+                  // TODO: Navigate to notes screen or open notes modal
+                  Alert.alert('Notes', 'Notes feature coming soon');
+                }}
+                testId="action-notes"
+              />
+            </>
           )}
           
-          {/* No-Show - scheduled/confirmed, enabled at or after start time */}
-          {['scheduled', 'confirmed'].includes(status) && onStatusUpdate && (
-            <QuickActionIconButton
-              icon="person-remove-outline"
-              label="No-Show"
-              color={colors.warning.main}
-              disabled={!isAtOrAfterStartTime}
-              onPress={() => {
-                Alert.alert(
-                  'Mark as No-Show',
-                  'Are you sure the patient did not show up?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Yes', onPress: () => onStatusUpdate(appointment.id, 'NO_SHOW') },
-                  ]
-                );
-              }}
-              testId="action-noshow"
-            />
-          )}
-          
-          {/* Cancel - scheduled/confirmed */}
-          {['scheduled', 'confirmed'].includes(status) && onCancel && (
-            <QuickActionIconButton
-              icon="close-circle-outline"
-              label="Cancel"
-              color={colors.error.main}
-              onPress={() => {
-                Alert.alert(
-                  'Cancel Appointment',
-                  'Are you sure you want to cancel this appointment?',
-                  [
-                    { text: 'No', style: 'cancel' },
-                    { text: 'Yes, Cancel', style: 'destructive', onPress: () => onCancel(appointment.id) },
-                  ]
-                );
-              }}
-              testId="action-cancel"
-            />
+          {/* Doctor actions - Episode actions in quick actions area */}
+          {isDoctor && (
+            <>
+              {/* If episode IS linked, show ONLY "View Episode" button */}
+              {appointment.episode_id ? (
+                onViewEpisode && (
+                  <QuickActionIconButton
+                    icon="folder-open-outline"
+                    label="View Episode"
+                    color={colors.primary.main}
+                    onPress={() => onViewEpisode(appointment.episode_id!)}
+                    testId="action-view-episode"
+                  />
+                )
+              ) : (
+                // If episode is NOT linked, show "Link Episode" and "New Episode"
+                <>
+                  {onLinkEpisode && (
+                    <QuickActionIconButton
+                      icon="link-outline"
+                      label="Link Episode"
+                      color={colors.info.main}
+                      onPress={() => {
+                        Alert.alert(
+                          'Link to Episode',
+                          'Link this appointment to an existing episode?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Yes', onPress: () => onLinkEpisode(appointment.id, appointment.client_id) },
+                          ]
+                        );
+                      }}
+                      testId="action-link-episode"
+                    />
+                  )}
+                  
+                  {onCreateEpisode && (
+                    <QuickActionIconButton
+                      icon="add-circle-outline"
+                      label="New Episode"
+                      color={colors.success.main}
+                      onPress={() => {
+                        Alert.alert(
+                          'Create New Episode',
+                          'Create a new episode for this appointment?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Yes', onPress: () => onCreateEpisode(appointment.id, appointment.client_id) },
+                          ]
+                        );
+                      }}
+                      testId="action-create-episode"
+                    />
+                  )}
+                </>
+              )}
+            </>
           )}
         </View>
+      )}
+
+      {/* View All Episodes Link - Only for doctors with 1+ episodes */}
+      {isDoctor && onViewAllEpisodes && clientEpisodesCount >= 1 && (
+        <TouchableOpacity
+          style={styles.viewAllEpisodesLink}
+          onPress={() => onViewAllEpisodes(appointment.client_id, appointment.client_name || 'Client')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="albums-outline" size={14} color={colors.primary.main} />
+          <Text style={styles.viewAllEpisodesText}>
+            {clientEpisodesCount === 1 
+              ? `View episode for ${appointment.client_name || 'this client'}`
+              : `View all ${clientEpisodesCount} episodes for ${appointment.client_name || 'this client'}`
+            }
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -552,7 +680,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
 
-  // Episode Badge Container
+  // View Episode Button - Replaces episode badge
+  viewEpisodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.main + '10',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    marginBottom: spacing.xs,
+    alignSelf: 'flex-start',
+    gap: spacing.xs / 2,
+  },
+  viewEpisodeText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  // Episode Badge Container (deprecated - replaced by viewEpisodeButton)
   episodeBadgeContainer: {
     marginBottom: spacing.xs,
   },
@@ -674,6 +821,19 @@ const styles = StyleSheet.create({
   quickActionText: {
     ...typography.caption,
     fontWeight: '600',
+  },
+  viewAllEpisodesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  viewAllEpisodesText: {
+    fontSize: 13,
+    color: colors.primary.main,
+    fontWeight: '500',
   },
 });
 

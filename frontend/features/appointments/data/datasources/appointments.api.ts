@@ -30,6 +30,8 @@ import {
 /**
  * List appointments for a tenant
  * GET /api/v1/clinic/{tenant_id}/appointments
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const listAppointmentsApi = async (
   tenantId: string,
@@ -37,7 +39,7 @@ export const listAppointmentsApi = async (
 ): Promise<PaginatedAppointmentsResponse> => {
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/appointments`,
-    { params }
+    { params: { ...params, expand: 'staff' } }
   );
   return response.data;
 };
@@ -45,13 +47,16 @@ export const listAppointmentsApi = async (
 /**
  * Get a single appointment
  * GET /api/v1/clinic/{tenant_id}/appointments/{appointment_id}
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const getAppointmentApi = async (
   tenantId: string,
   appointmentId: string
 ): Promise<AppointmentResponse> => {
   const response = await axiosClient.get(
-    `/api/v1/clinic/${tenantId}/appointments/${appointmentId}`
+    `/api/v1/clinic/${tenantId}/appointments/${appointmentId}`,
+    { params: { expand: 'staff' } }
   );
   return response.data;
 };
@@ -145,6 +150,8 @@ export const rescheduleAppointmentApi = async (
 /**
  * List appointments with summary for a specific date
  * GET /api/v1/clinic/{tenant_id}/appointments?date={date}
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const listAppointmentsByDateApi = async (
   tenantId: string,
@@ -152,7 +159,7 @@ export const listAppointmentsByDateApi = async (
 ): Promise<AppointmentsListResponse> => {
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/appointments`,
-    { params: { date, limit: 100 } }
+    { params: { date, limit: 100, expand: 'staff' } }
   );
   
   // Transform response to include summary if backend doesn't provide it
@@ -176,6 +183,8 @@ export const listAppointmentsByDateApi = async (
 /**
  * Search appointments
  * GET /api/v1/clinic/{tenant_id}/appointments/search
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const searchAppointmentsApi = async (
   tenantId: string,
@@ -184,14 +193,14 @@ export const searchAppointmentsApi = async (
   try {
     const response = await axiosClient.get(
       `/api/v1/clinic/${tenantId}/appointments/search`,
-      { params }
+      { params: { ...params, expand: 'staff' } }
     );
     return response.data;
   } catch {
     // Fallback to regular list with client-side filtering
     const response = await axiosClient.get(
       `/api/v1/clinic/${tenantId}/appointments`,
-      { params: { limit: 100 } }
+      { params: { limit: 100, expand: 'staff' } }
     );
     const allAppointments = response.data.items || [];
     const query = params.q.toLowerCase();

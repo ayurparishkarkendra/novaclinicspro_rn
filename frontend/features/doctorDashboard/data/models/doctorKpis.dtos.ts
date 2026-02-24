@@ -206,7 +206,6 @@ export const mapConsultationsToCards = (
       value: consultations.total_completed,
       icon: 'checkmark-circle',
       color: '#10b981',
-      subtext: formatPercentage(consultations.completion_rate) + ' completion',
     },
     {
       label: 'Scheduled',
@@ -219,14 +218,12 @@ export const mapConsultationsToCards = (
       value: consultations.total_no_show,
       icon: 'close-circle',
       color: getRateColor(consultations.no_show_rate, 'negative'),
-      subtext: formatPercentage(consultations.no_show_rate) + ' rate',
     },
     {
       label: 'Cancelled',
       value: consultations.total_cancelled,
       icon: 'remove-circle',
       color: getRateColor(consultations.cancellation_rate, 'negative'),
-      subtext: formatPercentage(consultations.cancellation_rate) + ' rate',
     },
   ];
 };
@@ -253,7 +250,6 @@ export const mapPatientsToCards = (
       value: patients.returning_patients,
       icon: 'refresh',
       color: '#7c3aed',
-      subtext: formatPercentage(patients.retention_rate) + ' retention',
     },
   ];
 };
@@ -286,7 +282,6 @@ export const mapProductivityToCards = (
       value: productivity.documents_signed,
       icon: 'create',
       color: '#f59e0b',
-      subtext: `${productivity.avg_documents_per_consultation.toFixed(1)} avg/consult`,
     },
   ];
 };

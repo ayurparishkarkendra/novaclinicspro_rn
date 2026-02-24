@@ -100,13 +100,13 @@ export default function Index() {
           const userRole = currentUser.roles?.[0]?.toLowerCase() || '';
           console.log('[Index] User role:', userRole);
           
-          if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          if (userRole === 'doctor') {
             console.log('[Index] Routing to doctor dashboard');
             router.replace('/doctor');
           } else if (userRole === 'therapist') {
             console.log('[Index] Routing to therapist dashboard');
             router.replace('/therapist');
-          } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+          } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
             console.log('[Index] Routing to clinic-admin dashboard');
             router.replace('/clinic-admin');
           } else {

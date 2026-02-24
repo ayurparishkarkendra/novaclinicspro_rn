@@ -18,6 +18,11 @@ export interface DoctorAppointmentItem {
   notes: string | null;
   treatment_name: string | null;
   room_name: string | null;
+  staff_name?: string | null; // Added: Backend returns this with expand=staff
+  staff_id?: string | null; // Added: Staff assignment
+  episode_id?: string | null; // Added: Episode link
+  episode_title?: string | null; // Added: Episode title
+  episode_status?: string | null; // Added: Episode status
 }
 
 /** Doctor dashboard response */
@@ -90,31 +95,24 @@ export interface FrontdeskDashboardResponse {
 // HELPER FUNCTIONS
 // ============================================
 
-/** Format time for display */
+/** 
+ * Format time for display - uses centralized utility
+ * @deprecated Use formatTime from core/utils/dateTimeUtils.ts instead
+ */
 export const formatTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatTime: centralizedFormatTime } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatTime(dateStr);
 };
 
-/** Format date for display */
+/** 
+ * Format date for display - uses centralized utility
+ * @deprecated Use formatShortDate from core/utils/dateTimeUtils.ts instead
+ */
 export const formatDate = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatShortDate } = require('../../../../core/utils/dateTimeUtils');
+  return formatShortDate(dateStr);
 };
 
 /** Get status color */

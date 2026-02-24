@@ -141,18 +141,14 @@ export const formatDateTime = (dateStr: string | null): string => {
   }
 };
 
-/** Format time for display */
+/** 
+ * Format time for display - uses centralized utility
+ * @deprecated Use formatTime from core/utils/dateTimeUtils.ts instead
+ */
 export const formatTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
+  // Re-export from centralized utility
+  const { formatTime: centralizedFormatTime } = require('../../../../core/utils/dateTimeUtils');
+  return centralizedFormatTime(dateStr);
 };
 
 /** Calculate session duration in minutes */

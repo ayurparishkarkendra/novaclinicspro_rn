@@ -14,6 +14,7 @@ import {
   AttachEpisodeRequest,
   CloseEpisodeRequest,
   EpisodeStatus,
+  EpisodeDetailsResponse,
 } from '../models/episodes.dtos';
 
 /**
@@ -48,6 +49,12 @@ export const listEpisodesApi = async (
   tenantId: string,
   params?: ListEpisodesParams
 ): Promise<EpisodesListResponse> => {
+  // CRITICAL: Prevent API calls with undefined tenantId
+  if (!tenantId || tenantId === 'undefined') {
+    console.error('[listEpisodesApi] BLOCKED: Invalid tenantId:', tenantId);
+    throw new Error('Invalid tenant ID - cannot fetch episodes');
+  }
+  
   // Build query string manually to avoid axios serialization issues
   const queryParts: string[] = [];
   
@@ -71,6 +78,7 @@ export const listEpisodesApi = async (
   
   console.log('[listEpisodesApi] URL:', url);
   console.log('[listEpisodesApi] Params:', params);
+  console.log('[listEpisodesApi] Stack trace:', new Error().stack);
   
   const response = await axiosClient.get(url);
   return response.data;
@@ -87,6 +95,28 @@ export const getEpisodeApi = async (
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/episodes/${episodeId}`
   );
+  return response.data;
+};
+
+/**
+ * Get comprehensive episode details
+ * GET /api/v1/clinic/{tenant_id}/episodes/{id}/details
+ * 
+ * Returns episode info with documents (casesheet, treatment sheet) and visits
+ * (appointments with prescriptions and payments)
+ */
+export const getEpisodeDetailsApi = async (
+  tenantId: string,
+  episodeId: string
+): Promise<EpisodeDetailsResponse> => {
+  const url = `/api/v1/clinic/${tenantId}/episodes/${episodeId}/details`;
+  console.log('[getEpisodeDetailsApi] Fetching from URL:', url);
+  
+  const response = await axiosClient.get(url);
+  
+  console.log('[getEpisodeDetailsApi] Response status:', response.status);
+  console.log('[getEpisodeDetailsApi] Response data:', JSON.stringify(response.data, null, 2));
+  
   return response.data;
 };
 

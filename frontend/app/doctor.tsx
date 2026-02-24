@@ -27,14 +27,16 @@ import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { t, ErrorTokens } from '../core/localization';
+import { useDashboardStore } from '../features/staffDashboards/presentation/stores/dashboard.store';
+import { useQuery } from '@tanstack/react-query';
 import {
   useDoctorDashboardQuery,
-  AppointmentListItem,
   DashboardQuickActions,
   EmptyDashboardState,
   OnLeaveBanner,
   QuickAction,
 } from '../features/staffDashboards';
+import { AppointmentListItem } from '../features/appointments/presentation/components/AppointmentListItem';
 import { StaffFeedbackSection } from '../features/feedback';
 import {
   useDoctorKpisQuery,
@@ -54,16 +56,36 @@ export default function DoctorDashboard() {
   const router = useRouter();
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
-  const staffId = currentUser?.userId || '';
+  const staffId = currentUser?.userId || ''; // Use user_id directly as staff_id
 
-  // Route guard - only allow doctor and tenant_admin roles
+  // Use Zustand store for date selection
+  const selectedDate = useDashboardStore((state) => state.selectedDate);
+  const setSelectedDate = useDashboardStore((state) => state.setSelectedDate);
+  
+  // Ref for date scroll view
+  const dateScrollRef = React.useRef<ScrollView>(null);
+  
+  const selectedDateStr = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const formatted = `${year}-${month}-${day}`;
+    console.log('[DoctorDashboard] Selected date formatted:', {
+      date: selectedDate.toDateString(),
+      formatted,
+      timestamp: selectedDate.getTime(),
+    });
+    return formatted;
+  }, [selectedDate]);
+
+  // Route guard - only allow doctor role
   React.useEffect(() => {
     if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
       const userRole = currentUser.roles[0]?.toLowerCase() || '';
       console.log('[Doctor] Route guard checking role:', userRole);
       
-      // Allow: doctor, tenant_admin, tenant admin
-      const allowedRoles = ['doctor', 'tenant admin', 'tenant_admin'];
+      // Allow: doctor only
+      const allowedRoles = ['doctor'];
       
       if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
         console.log('[Doctor] Access denied, redirecting to appropriate dashboard');
@@ -71,7 +93,7 @@ export default function DoctorDashboard() {
         // Redirect to appropriate dashboard based on role
         if (userRole === 'therapist') {
           router.replace('/therapist');
-        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
           router.replace('/clinic-admin');
         } else {
           // Unknown role, redirect to index for proper routing
@@ -86,7 +108,7 @@ export default function DoctorDashboard() {
   const [customFromDate, setCustomFromDate] = useState<string>();
   const [customToDate, setCustomToDate] = useState<string>();
 
-  // Fetch today's appointments (existing query)
+  // Fetch appointments using dashboard API (backend filters by logged-in user automatically)
   const {
     data: dashboardData,
     isLoading: isDashboardLoading,
@@ -94,9 +116,64 @@ export default function DoctorDashboard() {
     error: dashboardError,
     refetch: refetchDashboard,
     isRefetching: isDashboardRefetching,
-  } = useDoctorDashboardQuery(tenantId, {
-    enabled: !!tenantId,
-  });
+  } = useDoctorDashboardQuery(
+    tenantId,
+    { date: selectedDateStr },
+    {
+      enabled: !!tenantId,
+    }
+  );
+
+  // Debug logging for appointments and KPIs
+  React.useEffect(() => {
+    console.log('[DoctorDashboard] State:', {
+      tenantId,
+      staffId,
+      currentUserUserId: currentUser?.userId,
+      selectedDate: selectedDate.toDateString(),
+      selectedDateStr,
+      kpiPeriod,
+      enabled: !!tenantId && !!staffId,
+    });
+  }, [tenantId, staffId, currentUser?.userId, selectedDate, selectedDateStr, kpiPeriod]);
+
+  // Log dashboard data when it changes
+  React.useEffect(() => {
+    if (dashboardData) {
+      console.log('[DoctorDashboard] Dashboard data received:', {
+        appointmentsCount: dashboardData.appointments?.length || 0,
+        onLeave: dashboardData.on_leave_today,
+        firstAppointment: dashboardData.appointments?.[0],
+        selectedDateStr,
+      });
+    }
+  }, [dashboardData, selectedDateStr]);
+
+  // Extract doctor name from dashboard data or KPI data
+  const doctorName = React.useMemo(() => {
+    // Priority 1: Use staff_name from first appointment in dashboard
+    if (dashboardData?.appointments?.[0]?.staff_name) {
+      return dashboardData.appointments[0].staff_name;
+    }
+    // Priority 2: Use staff_name from KPI data
+    if (kpiData?.staff_name) {
+      return kpiData.staff_name;
+    }
+    // Priority 3: Fallback to generic "Doctor"
+    return 'Doctor';
+  }, [dashboardData?.appointments, kpiData?.staff_name]);
+
+  // Log KPI data when it changes
+  React.useEffect(() => {
+    if (kpiData) {
+      console.log('[DoctorDashboard] KPI Data received:', {
+        consultations: kpiData.consultations,
+        patients: kpiData.patients,
+        productivity: kpiData.clinical_productivity,
+        staffName: kpiData.staff_name,
+      });
+    }
+  }, [kpiData]);
 
   // Fetch KPI metrics from backend
   const {
@@ -140,16 +217,118 @@ export default function DoctorDashboard() {
     refetchKpis();
   }, [refetchDashboard, refetchKpis]);
 
+  // Filter appointments to only show those matching the selected date
+  const filteredAppointments = useMemo(() => {
+    const appointments = dashboardData?.appointments || [];
+    return appointments.filter((appointment) => {
+      // Extract date from appointment_start (e.g., "2026-02-23T04:30:00Z")
+      const appointmentDate = appointment.appointment_start.split('T')[0]; // "2026-02-23"
+      const matches = appointmentDate === selectedDateStr;
+      
+      if (!matches) {
+        console.log('[DoctorDashboard] Filtering out appointment:', {
+          appointmentId: appointment.id,
+          appointmentDate,
+          selectedDateStr,
+          appointmentStart: appointment.appointment_start,
+        });
+      }
+      
+      return matches;
+    });
+  }, [dashboardData?.appointments, selectedDateStr]);
+
+  // Log filtered appointments
+  React.useEffect(() => {
+    if (dashboardData) {
+      console.log('[DoctorDashboard] Filtered appointments:', {
+        total: dashboardData.appointments?.length || 0,
+        filtered: filteredAppointments.length,
+        selectedDateStr,
+      });
+    }
+  }, [dashboardData, filteredAppointments.length, selectedDateStr]);
+
+  // Get unique client IDs from filtered appointments
+  const uniqueClientIds = useMemo(() => {
+    return [...new Set(filteredAppointments.map(apt => apt.client_id))];
+  }, [filteredAppointments]);
+
+  // Fetch episode counts for all unique clients
+  // Use axios client to benefit from automatic token handling and interceptors
+  const { data: episodeCountsData } = useQuery({
+    queryKey: ['episodeCounts', tenantId, uniqueClientIds],
+    queryFn: async () => {
+      console.log('[DoctorDashboard] Fetching episode counts for clients:', uniqueClientIds);
+      const counts: Record<string, number> = {};
+      
+      // Import axios client dynamically to avoid circular dependencies
+      const { axiosClient } = await import('../core/api/axiosClient');
+      
+      // Fetch episodes for each client using axios (has token interceptors)
+      await Promise.all(
+        uniqueClientIds.map(async (clientId) => {
+          try {
+            const url = `/api/v1/clinic/${tenantId}/episodes?client_id=${clientId}&limit=1`;
+            console.log('[DoctorDashboard] Fetching episodes for client:', clientId, 'URL:', url);
+            
+            const response = await axiosClient.get(url);
+            
+            console.log('[DoctorDashboard] Response status for client', clientId, ':', response.status);
+            console.log('[DoctorDashboard] Episode data for client', clientId, ':', response.data);
+            
+            counts[clientId] = response.data.total || 0;
+          } catch (error: any) {
+            console.error(`[DoctorDashboard] Error fetching episode count for client ${clientId}:`, error?.response?.status, error?.response?.data || error?.message);
+            counts[clientId] = 0;
+          }
+        })
+      );
+      
+      console.log('[DoctorDashboard] Final episode counts:', counts);
+      return counts;
+    },
+    enabled: !!tenantId && uniqueClientIds.length > 0,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const episodeCountMap = episodeCountsData || {};
+
+  // Debug log episode counts
+  React.useEffect(() => {
+    console.log('[DoctorDashboard] Episode counts data:', episodeCountsData);
+    console.log('[DoctorDashboard] Episode count map:', episodeCountMap);
+    console.log('[DoctorDashboard] Unique client IDs:', uniqueClientIds);
+  }, [episodeCountsData, episodeCountMap, uniqueClientIds]);
+
   // Map KPI data to card format
   const kpiCards = useMemo(() => {
     if (!kpiData) return null;
+    
+    // Check if we have the required data
+    const hasProductivity = kpiData.clinical_productivity && 
+      typeof kpiData.clinical_productivity === 'object';
+    const hasTimeMetrics = kpiData.time_metrics && 
+      typeof kpiData.time_metrics === 'object';
+    
+    console.log('[DoctorDashboard] KPI data structure:', {
+      hasConsultations: !!kpiData.consultations,
+      hasPatients: !!kpiData.patients,
+      hasProductivity,
+      hasTimeMetrics,
+      keys: Object.keys(kpiData),
+    });
+    
     return {
       consultations: mapConsultationsToCards(kpiData.consultations),
       patients: mapPatientsToCards(kpiData.patients),
-      productivity: mapProductivityToCards(kpiData.clinical_productivity),
-      peakHours: mapPeakHoursToBars(kpiData.time_metrics.peak_hours, 3),
-      busiestDays: mapBusiestDaysToBars(kpiData.time_metrics.busiest_days, 3),
-      avgDuration: formatDuration(kpiData.time_metrics.avg_consultation_duration_minutes),
+      productivity: hasProductivity ? mapProductivityToCards(kpiData.clinical_productivity) : null,
+      peakHours: hasTimeMetrics && kpiData.time_metrics.peak_hours ? 
+        mapPeakHoursToBars(kpiData.time_metrics.peak_hours, 3) : [],
+      busiestDays: hasTimeMetrics && kpiData.time_metrics.busiest_days ? 
+        mapBusiestDaysToBars(kpiData.time_metrics.busiest_days, 3) : [],
+      avgDuration: hasTimeMetrics && kpiData.time_metrics.avg_consultation_duration_minutes ? 
+        formatDuration(kpiData.time_metrics.avg_consultation_duration_minutes) : null,
     };
   }, [kpiData]);
 
@@ -346,6 +525,149 @@ export default function DoctorDashboard() {
           </View>
         )}
 
+        {/* Date Selector */}
+        <View style={styles.section}>
+          <ScrollView 
+            ref={dateScrollRef}
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dateScrollContent}
+            onLayout={(event) => {
+              // Auto-scroll to center today's date after layout
+              const scrollViewWidth = event.nativeEvent.layout.width;
+              const todayIndex = 7; // Today is at index 7 in 14-day range
+              const itemWidth = 72; // 60px width + 12px gap
+              const scrollPosition = (todayIndex * itemWidth) - (scrollViewWidth / 2) + (itemWidth / 2);
+              setTimeout(() => {
+                dateScrollRef.current?.scrollTo({ x: Math.max(0, scrollPosition), animated: false });
+              }, 100);
+            }}
+          >
+            {Array.from({ length: 14 }, (_, i) => {
+              // Create date at midnight to avoid timezone issues
+              const date = new Date();
+              date.setHours(0, 0, 0, 0);
+              date.setDate(date.getDate() - 7 + i);
+              
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              const isSelected = date.getTime() === selectedDate.getTime();
+              const isToday = date.getTime() === today.getTime();
+              
+              return (
+                <TouchableOpacity
+                  key={`date-${i}-${date.getTime()}`}
+                  style={[
+                    styles.dateItem,
+                    isSelected && styles.dateItemSelected,
+                  ]}
+                  onPress={() => {
+                    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    console.log('[DoctorDashboard] Date button pressed:', {
+                      dateString: date.toDateString(),
+                      timestamp: date.getTime(),
+                      formatted: formattedDate,
+                      currentSelectedDate: selectedDate.toDateString(),
+                      willTriggerUpdate: date.getTime() !== selectedDate.getTime(),
+                    });
+                    setSelectedDate(date);
+                  }}
+                >
+                  <Text style={[
+                    styles.dateDayName,
+                    isSelected && styles.dateTextSelected,
+                  ]}>
+                    {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                  </Text>
+                  <Text style={[
+                    styles.dateDay,
+                    isSelected && styles.dateTextSelected,
+                    isToday && !isSelected && styles.dateTodayText,
+                  ]}>
+                    {date.getDate()}
+                  </Text>
+                  <Text style={[
+                    styles.dateMonth,
+                    isSelected && styles.dateTextSelected,
+                  ]}>
+                    {date.toLocaleDateString('en-US', { month: 'short' })}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Today's Appointments - Moved to top */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {selectedDate.toDateString() === new Date().toDateString() 
+                ? "Today's Appointments" 
+                : `Appointments for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/clinic-admin/appointments')}>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {filteredAppointments.length === 0 ? (
+            <EmptyDashboardState
+              icon="calendar-outline"
+              title="No Appointments"
+              message={onLeave ? "You're on leave today." : `No appointments scheduled for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`}
+            />
+          ) : (
+            filteredAppointments.map((appointment) => {
+              // Use staff_name from appointment, or fallback to extracted doctor name
+              const appointmentWithDoctor = {
+                ...appointment,
+                staff_name: appointment.staff_name || doctorName,
+              };
+              
+              return (
+                <AppointmentListItem
+                  key={appointment.id}
+                  appointment={appointmentWithDoctor}
+                  onPress={undefined} // Remove navigation to detail page
+                  showActions={true} // Enable quick actions
+                  userRole="doctor"
+                  onStatusUpdate={(appointmentId, newStatus) => {
+                    console.log('[DoctorDashboard] Status update:', appointmentId, newStatus);
+                    // TODO: Implement status update mutation
+                  }}
+                  onCancel={(appointmentId) => {
+                    console.log('[DoctorDashboard] Cancel:', appointmentId);
+                    // TODO: Implement cancel mutation
+                  }}
+                  onReschedule={(appointmentId) => {
+                    console.log('[DoctorDashboard] Reschedule:', appointmentId);
+                    router.push(`/clinic-admin/appointments/${appointmentId}`);
+                  }}
+                  onLinkEpisode={(appointmentId, clientId) => {
+                    console.log('[DoctorDashboard] Link episode:', appointmentId, clientId);
+                    router.push(`/clinic-admin/appointments/${appointmentId}/link-episode?clientId=${clientId}` as any);
+                  }}
+                  onCreateEpisode={(appointmentId, clientId) => {
+                    console.log('[DoctorDashboard] Create episode:', appointmentId, clientId);
+                    router.push(`/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any);
+                  }}
+                  onViewEpisode={(episodeId) => {
+                    console.log('[DoctorDashboard] View episode:', episodeId);
+                    router.push(`/clinic-admin/episodes/${episodeId}` as any);
+                  }}
+                  onViewAllEpisodes={(clientId, clientName) => {
+                    console.log('[DoctorDashboard] View all episodes for client:', clientId, clientName);
+                    router.push(`/clinic-admin/clients/${clientId}/episodes` as any);
+                  }}
+                  clientEpisodesCount={episodeCountMap[appointment.client_id] || 0}
+                />
+              );
+            })
+          )}
+        </View>
+
         {/* KPI Period Selector */}
         <View style={styles.section}>
           <View style={styles.kpiHeader}>
@@ -405,26 +727,30 @@ export default function DoctorDashboard() {
               <KpiStatsGrid items={kpiCards.patients} testID="patients-grid" />
             </View>
 
-            {/* Clinical Productivity KPIs */}
-            <View style={styles.section}>
-              <Text style={styles.cardSectionTitle}>
-                <Ionicons name="document-text" size={16} color={colors.info.main} /> Clinical Productivity
-              </Text>
-              <KpiStatsGrid items={kpiCards.productivity} testID="productivity-grid" />
-            </View>
+            {/* Clinical Productivity KPIs - Only show if data available */}
+            {kpiCards.productivity && (
+              <View style={styles.section}>
+                <Text style={styles.cardSectionTitle}>
+                  <Ionicons name="document-text" size={16} color={colors.info.main} /> Clinical Productivity
+                </Text>
+                <KpiStatsGrid items={kpiCards.productivity} testID="productivity-grid" />
+              </View>
+            )}
 
-            {/* Time Metrics */}
-            <View style={styles.section}>
-              <Text style={styles.cardSectionTitle}>
-                <Ionicons name="time" size={16} color={colors.warning.main} /> Time Metrics
-              </Text>
-              <TimeMetricsSection
-                avgDuration={kpiCards.avgDuration}
-                peakHours={kpiCards.peakHours}
-                busiestDays={kpiCards.busiestDays}
-                testID="time-metrics"
-              />
-            </View>
+            {/* Time Metrics - Only show if data available */}
+            {(kpiCards.avgDuration || kpiCards.peakHours.length > 0 || kpiCards.busiestDays.length > 0) && (
+              <View style={styles.section}>
+                <Text style={styles.cardSectionTitle}>
+                  <Ionicons name="time" size={16} color={colors.warning.main} /> Time Metrics
+                </Text>
+                <TimeMetricsSection
+                  avgDuration={kpiCards.avgDuration}
+                  peakHours={kpiCards.peakHours}
+                  busiestDays={kpiCards.busiestDays}
+                  testID="time-metrics"
+                />
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.section}>
@@ -435,56 +761,6 @@ export default function DoctorDashboard() {
             />
           </View>
         )}
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <DashboardQuickActions actions={quickActions} />
-        </View>
-
-        {/* Clinical Documents */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Clinical Documents</Text>
-          <DashboardQuickActions actions={clinicalActions} />
-        </View>
-
-        {/* Today's Appointments */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today&apos;s Appointments</Text>
-            <TouchableOpacity onPress={() => router.push('/clinic-admin/appointments')}>
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {appointments.length === 0 ? (
-            <EmptyDashboardState
-              icon="calendar-outline"
-              title="No Appointments Today"
-              message={onLeave ? "You're on leave today." : "You have no appointments scheduled for today."}
-            />
-          ) : (
-            appointments.map((appointment) => (
-              <AppointmentListItem
-                key={appointment.id}
-                appointment={appointment}
-                onPress={() => {
-                  router.push(`/clinic-admin/appointments/${appointment.id}`);
-                }}
-                onStartPress={() => {
-                  Alert.alert(
-                    'Start Appointment',
-                    `Start appointment with ${appointment.client_name || 'patient'}?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Start', onPress: () => console.log('Start:', appointment.id) },
-                    ]
-                  );
-                }}
-              />
-            ))
-          )}
-        </View>
 
         {/* Patient Feedback Section */}
         {tenantId && staffId && (
@@ -505,8 +781,7 @@ export default function DoctorDashboard() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Doctor Dashboard"
-        subtitle={kpiData?.staff_name || 'Welcome back, Doctor'}
-        userName={currentUser?.email?.split('@')[0] || 'Doctor'}
+        subtitle={`Welcome back, ${doctorName}`}
         onNotificationPress={() => router.push('/notifications/history')}
         onProfilePress={() => console.log('Profile')}
         onLogoutPress={handleLogout}
@@ -644,5 +919,46 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...typography.button,
     color: colors.common.white,
+  },
+  dateScrollContent: {
+    paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
+  },
+  dateItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.background.default,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    minWidth: 60,
+  },
+  dateItemSelected: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  dateDayName: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 11,
+  },
+  dateDay: {
+    ...typography.h6,
+    color: colors.text.primary,
+    marginVertical: 2,
+  },
+  dateMonth: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 10,
+  },
+  dateTextSelected: {
+    color: colors.common.white,
+  },
+  dateTodayText: {
+    color: colors.primary.main,
+    fontWeight: '700',
   },
 });

@@ -36,14 +36,28 @@ export const staffDashboardsKeys = {
  */
 export const useDoctorDashboardQuery = (
   tenantId: string,
+  params?: {
+    date?: string;
+  },
   options?: Omit<UseQueryOptions<DoctorDashboardResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
+  // Ensure params is always an object for consistent query key
+  const normalizedParams = params || {};
+  
+  console.log('[useDoctorDashboardQuery] Query params:', {
+    tenantId,
+    params: normalizedParams,
+    queryKey: [...staffDashboardsKeys.doctor(tenantId), normalizedParams],
+  });
+  
   return useQuery<DoctorDashboardResponse, Error>({
-    queryKey: staffDashboardsKeys.doctor(tenantId),
-    queryFn: () => getDoctorDashboardApi(tenantId),
+    queryKey: [...staffDashboardsKeys.doctor(tenantId), normalizedParams],
+    queryFn: () => {
+      console.log('[useDoctorDashboardQuery] Executing query with params:', normalizedParams);
+      return getDoctorDashboardApi(tenantId, normalizedParams);
+    },
     enabled: !!tenantId,
-    staleTime: 30 * 1000, // 30 seconds - dashboards should refresh frequently
-    refetchInterval: 60 * 1000, // Auto-refresh every minute
+    staleTime: 0, // Always refetch when query key changes
     ...options,
   });
 };

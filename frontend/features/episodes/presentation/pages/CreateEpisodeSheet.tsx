@@ -1,8 +1,3 @@
-/**
- * Create Episode Sheet
- * Full-screen sheet for creating a new episode and linking it to an appointment
- */
-
 import React from 'react';
 import {
   View,
@@ -19,34 +14,51 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useCreateEpisodeMutation } from '../../data/repositories/episodes.repository.impl';
 import { EpisodeForm } from '../components/EpisodeForm';
 import { EpisodeCreateRequest } from '../../data/models/episodes.dtos';
 
 export const CreateEpisodeSheet: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation();
   const { appointmentId, clientId } = useLocalSearchParams<{
     appointmentId: string;
     clientId: string;
   }>();
   const { currentUser } = useAuth();
-  const tenantId = currentUser?.tenantId || '';
+  const tenantId = currentUser?.tenantId;
 
   // Ensure clientId is a string
   const clientIdString = Array.isArray(clientId) ? clientId[0] : clientId;
 
   // Create episode mutation
-  const createMutation = useCreateEpisodeMutation(tenantId);
+  const createMutation = useCreateEpisodeMutation();
 
   const handleSubmit = async (values: Omit<EpisodeCreateRequest, 'client_id' | 'appointment_id'>) => {
+    if (!tenantId) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
+    }
+    
     try {
-      await createMutation.mutateAsync({
-        ...values,
-        client_id: clientIdString,
-        appointment_id: appointmentId,
+      const createdEpisode = await createMutation.mutateAsync({
+        tenantId,
+        data: {
+          ...values,
+          client_id: clientIdString,
+          appointment_id: appointmentId,
+        },
       });
-      Alert.alert('Success', 'Episode created and linked to appointment');
-      router.back();
+      
+      // Show success toast
+      Alert.alert(
+        t('common.success') || 'Success',
+        t('episodes.episodeCreatedAndLinked') || 'Episode created and linked to this appointment.'
+      );
+      
+      // Navigate to Episode Detail instead of going back
+      router.replace(`/clinic-admin/episodes/${createdEpisode.id}` as any);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create episode');
     }
@@ -74,8 +86,7 @@ export const CreateEpisodeSheet: React.FC = () => {
         {/* Info text */}
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
-            Create a new episode to group this appointment with related visits and documents.
-            Episodes help track treatment progress for a specific condition.
+            {t('episodes.createEpisodeHelpText')}
           </Text>
         </View>
 

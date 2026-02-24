@@ -47,6 +47,13 @@ export const ClientEpisodesList: React.FC<ClientEpisodesListProps> = ({
   const tenantId = currentUser?.tenantId || '';
   const userRole = currentUser?.roles?.[0] || 'clinic_admin';
   
+  console.log('[ClientEpisodesList] Render:', {
+    tenantId,
+    tenantIdType: typeof tenantId,
+    currentUser: currentUser ? 'exists' : 'null',
+    clientId,
+  });
+  
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -90,6 +97,9 @@ export const ClientEpisodesList: React.FC<ClientEpisodesListProps> = ({
       client_id: clientIdString,
       status: statusFilter === 'ALL' ? undefined : statusFilter,
       limit: 10,
+    },
+    {
+      enabled: !!tenantId && !!clientIdString && tenantId !== 'undefined',
     }
   );
 

@@ -1,6 +1,9 @@
 /**
  * Appointment Validation Utilities
  * Frontend validation for appointment booking scenarios
+ * 
+ * CRITICAL: This validation runs on LOCAL time for the clinic.
+ * The Date object passed in should represent the clinic's local time.
  */
 
 import { OperatingHourResponse } from '../../operatingHours/data/models/operatingHours.dtos';
@@ -23,12 +26,22 @@ export const isPastAppointment = (appointmentDateTime: Date): boolean => {
 };
 
 /**
- * Get day of week from date (0 = Monday, 6 = Sunday)
+ * Get backend day of week from JS Date
+ * Backend uses: 0=Monday, 1=Tuesday, ..., 6=Sunday
+ * JS uses: 0=Sunday, 1=Monday, ..., 6=Saturday
  */
-const getDayOfWeek = (date: Date): number => {
-  const day = date.getDay();
-  // Convert JS day (0=Sunday) to backend format (0=Monday)
-  return day === 0 ? 6 : day - 1;
+const getBackendDayOfWeek = (jsDay: number): number => {
+  // JS: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // Backend: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+  return jsDay === 0 ? 6 : jsDay - 1;
+};
+
+/**
+ * Get day name from JS day (0=Sunday)
+ */
+const getDayName = (jsDay: number): string => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[jsDay] || 'Unknown';
 };
 
 /**
@@ -42,15 +55,10 @@ const parseTimeToMinutes = (timeStr: string): number => {
 };
 
 /**
- * Get day name from day of week number
- */
-const getDayName = (dayOfWeek: number): string => {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  return days[dayOfWeek] || 'Unknown';
-};
-
-/**
  * Validate appointment and return all flags with warnings
+ * 
+ * IMPORTANT: appointmentDateTime should be a Date object in LOCAL timezone
+ * representing the clinic's local time for the appointment.
  */
 export const validateAppointmentTime = (
   appointmentDateTime: Date,
@@ -65,13 +73,29 @@ export const validateAppointmentTime = (
     warnings: [],
   };
 
-  const dayOfWeek = getDayOfWeek(appointmentDateTime);
-  const dayName = getDayName(dayOfWeek);
+  // Get day of week in LOCAL timezone
+  const jsDay = appointmentDateTime.getDay(); // 0=Sunday, 1=Monday, etc.
+  const backendDay = getBackendDayOfWeek(jsDay); // Convert to backend format
+  const dayName = getDayName(jsDay);
+  
+  // Get time in LOCAL timezone
   const appointmentMinutes = appointmentDateTime.getHours() * 60 + appointmentDateTime.getMinutes();
   const timeStr = appointmentDateTime.toLocaleTimeString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+  });
+
+  // DEBUG: Log validation details
+  console.log('[Validation] Checking appointment:', {
+    dateTime: appointmentDateTime.toISOString(),
+    localString: appointmentDateTime.toLocaleString('en-IN'),
+    jsDay: jsDay,
+    backendDay: backendDay,
+    dayName: dayName,
+    appointmentMinutes: appointmentMinutes,
+    timeStr: timeStr,
+    operatingHoursCount: operatingHours.length,
   });
 
   // Check 1: Past time
@@ -81,10 +105,18 @@ export const validateAppointmentTime = (
     result.warnings.push('This appointment is in the past');
   }
 
-  // Find operating hours for this day
+  // Find operating hours for this day (using backend day format)
   const dayHours = operatingHours.filter(
-    (oh) => oh.day_of_week === dayOfWeek && oh.is_active
+    (oh) => oh.day_of_week === backendDay && oh.is_active
   );
+
+  console.log('[Validation] Operating hours for backend day', backendDay, '(', dayName, '):', dayHours.length, 'periods');
+  console.log('[Validation] All operating hours:', operatingHours.map(oh => ({
+    day: oh.day_of_week,
+    active: oh.is_active,
+    open: oh.open_time,
+    close: oh.close_time,
+  })));
 
   // Check 2: Weekly off
   if (dayHours.length === 0) {
@@ -98,8 +130,10 @@ export const validateAppointmentTime = (
   let isWithinAnyPeriod = false;
 
   for (const hours of dayHours) {
-    // Skip if times are null
-    if (!hours.open_time || !hours.close_time) continue;
+    // Skip if times are null (this indicates a weekly off)
+    if (!hours.open_time || !hours.close_time) {
+      continue;
+    }
     
     const openMinutes = parseTimeToMinutes(hours.open_time);
     const closeMinutes = parseTimeToMinutes(hours.close_time);
