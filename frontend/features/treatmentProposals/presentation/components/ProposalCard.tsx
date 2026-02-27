@@ -74,7 +74,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
   const canSchedule = canScheduleResult?.allowed ?? false;
 
   // Handlers
-  const handleCardPress = () => {
+  const handleViewDetails = () => {
     router.push({
       pathname: '/clinic-admin/proposals/[proposalId]',
       params: { proposalId: proposal.id },
@@ -97,7 +97,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
 
   // Render
   return (
-    <TouchableOpacity
+    <View
       style={[
         styles.card,
         {
@@ -106,8 +106,6 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         },
         compact && styles.cardCompact,
       ]}
-      onPress={handleCardPress}
-      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={`Treatment proposal: ${proposal.treatment_type || proposal.name}, ${proposal.proposed_duration_days || proposal.duration_days} days`}
       accessibilityHint="Tap to view proposal details"
@@ -185,6 +183,23 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actions}>
+        {/* View Details Button */}
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            styles.actionButtonPrimary,
+            { backgroundColor: theme.colors.primary.default + '15' },
+          ]}
+          onPress={handleViewDetails}
+          accessibilityRole="button"
+          accessibilityLabel="View proposal details"
+        >
+          <Ionicons name="eye-outline" size={16} color={theme.colors.primary.default} />
+          <Text style={[styles.actionButtonText, { color: theme.colors.primary.default }]}>
+            View Details
+          </Text>
+        </TouchableOpacity>
+
         {/* Edit Button (conditional) */}
         {isCheckingEdit ? (
           <View style={[styles.actionButton, styles.actionButtonSecondary]}>
@@ -231,7 +246,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
           </TouchableOpacity>
         ) : null}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
