@@ -127,11 +127,11 @@ export const ClientsListScreen: React.FC = () => {
           style={styles.searchInput}
           placeholder={`Search clients... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          value={searchInput}
+          onChangeText={setSearchInput}
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+        {searchInput.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchInput('')}>
             <Ionicons name="close-circle" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
         )}
@@ -144,11 +144,11 @@ export const ClientsListScreen: React.FC = () => {
       <Ionicons name="people-outline" size={64} color={colors.text.tertiary} />
       <Text style={styles.emptyTitle}>No Clients Found</Text>
       <Text style={styles.emptySubtitle}>
-        {searchQuery
+        {debouncedSearchQuery
           ? 'Try adjusting your search'
           : 'Add your first client to get started'}
       </Text>
-      {!searchQuery && (
+      {!debouncedSearchQuery && (
         <TouchableOpacity
           style={styles.emptyButton}
           onPress={() => setShowAddModal(true)}
