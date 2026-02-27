@@ -20,8 +20,20 @@ import { colors } from '../../core/theme/colors';
 import { spacing } from '../../core/theme/spacing';
 import { typography } from '../../core/theme/typography';
 
+type StaffStatus = 'active' | 'on_leave' | 'inactive';
+
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  status: StaffStatus;
+  avatar: string;
+}
+
 // Mock staff data
-const MOCK_STAFF = [
+const MOCK_STAFF: StaffMember[] = [
   {
     id: '1',
     name: 'Dr. Priya Sharma',
@@ -68,16 +80,6 @@ const MOCK_STAFF = [
     avatar: 'M',
   },
 ];
-
-interface StaffMember {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  phone: string;
-  status: 'active' | 'on_leave' | 'inactive';
-  avatar: string;
-}
 
 const getStatusConfig = (status: string) => {
   switch (status) {

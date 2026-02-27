@@ -201,7 +201,7 @@ export default function OwnerDashboardScreen() {
             <Text style={styles.sectionTitle}>My Clinics</Text>
             <TouchableOpacity
               style={styles.addClinicButton}
-              onPress={() => router.push('/owner/add-clinic')}
+              onPress={() => router.push('/owner/add-clinic' as any)}
               testID="add-clinic-button"
             >
               <Ionicons name="add-circle-outline" size={20} color={colors.primary.main} />
@@ -218,7 +218,7 @@ export default function OwnerDashboardScreen() {
               </Text>
               <TouchableOpacity
                 style={styles.emptyStateButton}
-                onPress={() => router.push('/owner/add-clinic')}
+                onPress={() => router.push('/owner/add-clinic' as any)}
                 testID="empty-add-clinic-button"
               >
                 <Ionicons name="add" size={20} color={colors.common.white} />
@@ -252,7 +252,7 @@ export default function OwnerDashboardScreen() {
             </Link>
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => router.push('/owner/add-clinic')}
+              onPress={() => router.push('/owner/add-clinic' as any)}
               testID="quick-action-add-clinic"
             >
               <View style={[styles.quickActionIcon, { backgroundColor: colors.success[50] }]}>
