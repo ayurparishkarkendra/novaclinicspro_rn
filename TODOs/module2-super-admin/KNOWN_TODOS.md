@@ -2,7 +2,7 @@
 
 ## Status: Functionally Complete ✅
 **Completion Date:** January 2025  
-**Preview URL:** https://push-notif-app.preview.emergentagent.com
+**Preview URL:** https://clinic-mgmt-6.preview.emergentagent.com
 
 ---
 
