@@ -9,6 +9,7 @@ import { AuthUserSession } from '../../domain/entities/auth.entity';
 
 const ACCESS_TOKEN_KEY = 'supabase_access_token';
 const REFRESH_TOKEN_KEY = 'supabase_refresh_token';
+const SELECTED_CLINIC_KEY = 'selected_clinic_id';
 
 interface AuthState {
   // State
@@ -17,21 +18,28 @@ interface AuthState {
   currentUser: AuthUserSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * Currently selected clinic ID for multi-clinic owners.
+   * Single source of truth for the active clinic context in clinic admin / staff screens.
+   */
+  selectedClinicId: string | null;
 
   // Actions
   setTokens: (accessToken: string, refreshToken: string) => Promise<void>;
   setCurrentUser: (user: AuthUserSession) => void;
+  setSelectedClinic: (clinicId: string | null) => void;
   clearSession: () => Promise<void>;
   initializeFromStorage: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   // Initial state
   accessToken: null,
   refreshToken: null,
   currentUser: null,
   isAuthenticated: false,
   isLoading: true,
+  selectedClinicId: null,
 
   // Set tokens and persist to secure storage
   setTokens: async (accessToken: string, refreshToken: string) => {
@@ -50,21 +58,50 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   // Set current user
   setCurrentUser: (user: AuthUserSession) => {
-    set({ currentUser: user, isAuthenticated: true, isLoading: false });
+    const currentState = get();
+    
+    // Auto-select clinic if user has exactly one owned clinic and none selected
+    let selectedClinicId = currentState.selectedClinicId;
+    if (!selectedClinicId && user.ownedClinics.length === 1) {
+      selectedClinicId = user.ownedClinics[0].tenantId;
+    } else if (!selectedClinicId && user.tenantId) {
+      selectedClinicId = user.tenantId;
+    }
+    
+    set({ 
+      currentUser: user, 
+      isAuthenticated: true, 
+      isLoading: false,
+      selectedClinicId,
+    });
     console.log('✅ User session established:', user.email);
   },
 
-  // Clear session
+  // Set selected clinic
+  setSelectedClinic: (clinicId: string | null) => {
+    set({ selectedClinicId: clinicId });
+    // Persist selected clinic
+    if (clinicId) {
+      secureStorage.setItem(SELECTED_CLINIC_KEY, clinicId).catch(console.error);
+    } else {
+      secureStorage.removeItem(SELECTED_CLINIC_KEY).catch(console.error);
+    }
+    console.log('✅ Selected clinic changed:', clinicId);
+  },
+
+  // Clear session - resets ALL state including selectedClinicId
   clearSession: async () => {
     try {
       await secureStorage.removeItem(ACCESS_TOKEN_KEY);
       await secureStorage.removeItem(REFRESH_TOKEN_KEY);
+      await secureStorage.removeItem(SELECTED_CLINIC_KEY);
       set({
         accessToken: null,
         refreshToken: null,
         currentUser: null,
         isAuthenticated: false,
         isLoading: false,
+        selectedClinicId: null, // Reset on logout to avoid stale context
       });
       console.log('✅ Session cleared');
     } catch (error) {
@@ -76,6 +113,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         currentUser: null,
         isAuthenticated: false,
         isLoading: false,
+        selectedClinicId: null,
       });
     }
   },
@@ -85,9 +123,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const accessToken = await secureStorage.getItem(ACCESS_TOKEN_KEY);
       const refreshToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
+      const selectedClinicId = await secureStorage.getItem(SELECTED_CLINIC_KEY);
 
       if (accessToken && refreshToken) {
-        set({ accessToken, refreshToken });
+        set({ accessToken, refreshToken, selectedClinicId });
         console.log('✅ Tokens loaded from storage');
       } else {
         console.log('ℹ️ No stored tokens found');
@@ -99,3 +138,27 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+/**
+ * Selector hooks for common state access patterns
+ */
+export const useSelectedClinic = () => {
+  const { currentUser, selectedClinicId, setSelectedClinic } = useAuthStore();
+  
+  // Find the selected clinic from owned clinics
+  const selectedClinic = currentUser?.ownedClinics.find(
+    c => c.tenantId === selectedClinicId
+  );
+  
+  // Get effective tenant ID (selected or default)
+  const effectiveTenantId = selectedClinicId || currentUser?.tenantId || null;
+  
+  return {
+    selectedClinicId,
+    selectedClinic,
+    effectiveTenantId,
+    setSelectedClinic,
+    ownedClinics: currentUser?.ownedClinics || [],
+    hasMultipleClinics: (currentUser?.ownedClinics.length || 0) > 1,
+  };
+};
