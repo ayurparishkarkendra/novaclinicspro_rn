@@ -44,14 +44,14 @@ export const ClientsListScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
 
-  // State
-  const [searchQuery, setSearchQuery] = useState('');
+  // State - raw input value for controlled input
+  const [searchInput, setSearchInput] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Debounce search query - only trigger API call after user stops typing
-  const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
+  // Debounce search input - this prevents jumping by delaying all filtering
+  const debouncedSearchQuery = useDebounce(searchInput, DEBOUNCE_DELAY);
   
-  // Only use search query if >= 3 characters, otherwise don't send to API
+  // Only use search query if >= 3 characters for API call
   const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
     ? debouncedSearchQuery 
     : '';
@@ -78,22 +78,22 @@ export const ClientsListScreen: React.FC = () => {
   const isRefetching = effectiveSearchQuery ? searchResultsQuery.isRefetching : listQuery.isRefetching;
   const refetch = effectiveSearchQuery ? searchResultsQuery.refetch : listQuery.refetch;
 
-  // Client-side filtering for partial search (< 3 chars)
+  // Client-side filtering for partial search (< 3 chars) - uses DEBOUNCED value to prevent jumping
   const filteredClients = useMemo(() => {
     const clients = clientsData?.items || [];
     
-    // If search query is 1-2 characters, filter client-side
-    if (searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH) {
-      const lowerQuery = searchQuery.toLowerCase();
+    // If debounced search query is 1-2 characters, filter client-side
+    if (debouncedSearchQuery.length > 0 && debouncedSearchQuery.length < MIN_SEARCH_LENGTH) {
+      const lowerQuery = debouncedSearchQuery.toLowerCase();
       return clients.filter(c => 
         c.full_name.toLowerCase().includes(lowerQuery) ||
         c.email?.toLowerCase().includes(lowerQuery) ||
-        (c.phone && c.phone.includes(searchQuery))
+        (c.phone && c.phone.includes(debouncedSearchQuery))
       );
     }
     
     return clients;
-  }, [clientsData?.items, searchQuery]);
+  }, [clientsData?.items, debouncedSearchQuery]);
 
   // Mutations
   const createMutation = useCreateClientMutation(tenantId);
