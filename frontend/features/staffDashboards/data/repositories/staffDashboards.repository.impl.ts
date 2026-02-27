@@ -96,3 +96,101 @@ export const useFrontdeskDashboardQuery = (
     ...options,
   });
 };
+
+// ============================================
+// ADMIN DASHBOARD - MULTI-DAY TREATMENTS (F2.5)
+// ============================================
+
+import {
+  getTreatmentStatsApi,
+  getPendingProposalsApi,
+  getTodaySessionStatsApi,
+  getPausedSeriesApi,
+} from '../datasources/staffDashboards.api';
+import {
+  TreatmentStatsResponse,
+  PendingProposalItem,
+  TodaySessionStatsResponse,
+  PausedSeriesItem,
+} from '../models/staffDashboards.dtos';
+
+// Query keys for admin dashboard
+export const adminDashboardKeys = {
+  all: ['adminDashboard'] as const,
+  treatmentStats: (tenantId: string) => [...adminDashboardKeys.all, 'treatmentStats', tenantId] as const,
+  pendingProposals: (tenantId: string, limit: number) => [...adminDashboardKeys.all, 'pendingProposals', tenantId, limit] as const,
+  todaySessionStats: (tenantId: string, date?: string) => [...adminDashboardKeys.all, 'todaySessionStats', tenantId, date] as const,
+  pausedSeries: (tenantId: string, limit: number) => [...adminDashboardKeys.all, 'pausedSeries', tenantId, limit] as const,
+};
+
+/**
+ * Hook to get treatment statistics for admin dashboard
+ */
+export const useTreatmentStatsQuery = (
+  tenantId: string,
+  options?: Omit<UseQueryOptions<TreatmentStatsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<TreatmentStatsResponse, Error>({
+    queryKey: adminDashboardKeys.treatmentStats(tenantId),
+    queryFn: () => getTreatmentStatsApi(tenantId),
+    enabled: !!tenantId,
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    ...options,
+  });
+};
+
+/**
+ * Hook to get pending proposals for admin dashboard
+ */
+export const usePendingProposalsQuery = (
+  tenantId: string,
+  limit: number = 5,
+  options?: Omit<UseQueryOptions<{ proposals: PendingProposalItem[]; total: number }, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<{ proposals: PendingProposalItem[]; total: number }, Error>({
+    queryKey: adminDashboardKeys.pendingProposals(tenantId, limit),
+    queryFn: () => getPendingProposalsApi(tenantId, limit),
+    enabled: !!tenantId,
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    ...options,
+  });
+};
+
+/**
+ * Hook to get today's session statistics for admin dashboard
+ */
+export const useTodaySessionStatsQuery = (
+  tenantId: string,
+  date?: string,
+  options?: Omit<UseQueryOptions<TodaySessionStatsResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<TodaySessionStatsResponse, Error>({
+    queryKey: adminDashboardKeys.todaySessionStats(tenantId, date),
+    queryFn: () => getTodaySessionStatsApi(tenantId, date),
+    enabled: !!tenantId,
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    ...options,
+  });
+};
+
+/**
+ * Hook to get paused series for admin dashboard
+ */
+export const usePausedSeriesQuery = (
+  tenantId: string,
+  limit: number = 5,
+  options?: Omit<UseQueryOptions<{ series: PausedSeriesItem[]; total: number }, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<{ series: PausedSeriesItem[]; total: number }, Error>({
+    queryKey: adminDashboardKeys.pausedSeries(tenantId, limit),
+    queryFn: () => getPausedSeriesApi(tenantId, limit),
+    enabled: !!tenantId,
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    ...options,
+  });
+};
+

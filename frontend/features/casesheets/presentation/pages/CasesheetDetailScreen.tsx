@@ -41,6 +41,8 @@ import {
 import { useCreateTreatmentSheetMutation } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import { CasesheetStatusBadge } from '../components/CasesheetStatusBadge';
 import { EmptyCasesheetsState } from '../components/EmptyCasesheetsState';
+import { ProposedTreatmentPlansSection } from '../../../treatmentProposals/presentation/components/ProposedTreatmentPlansSection';
+import { useQueryClient } from '@tanstack/react-query';
 
 const DURATION_OPTIONS = [
   { days: 7, label: '7 Days' },
@@ -55,6 +57,7 @@ export const CasesheetDetailScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ clientId: string; casesheetId: string }>();
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const tenantId = currentUser?.tenantId || '';
   const clientId = params.clientId || '';
   const casesheetId = params.casesheetId || '';
@@ -530,6 +533,32 @@ export const CasesheetDetailScreen: React.FC = () => {
 
         {/* Extensions */}
         {renderExtensions()}
+
+        {/* Proposed Treatment Plans Section */}
+        {casesheet.episode_id && (
+          <ProposedTreatmentPlansSection
+            tenantId={tenantId}
+            episodeId={casesheet.episode_id}
+            onCreateProposal={() => {
+              router.push(`/clinic-admin/proposals/create?episodeId=${casesheet.episode_id}`);
+            }}
+            onViewProposal={(proposalId) => {
+              // View proposal details - for now just log, detail screen not yet implemented
+              console.log('View proposal:', proposalId);
+              Alert.alert('Proposal Details', `Proposal ID: ${proposalId}\n\nDetailed view screen will be added in a future update.`);
+            }}
+            onEditProposal={(proposalId) => {
+              // Edit proposal - for now just log, edit screen not yet implemented
+              console.log('Edit proposal:', proposalId);
+              Alert.alert('Edit Proposal', `Edit functionality for proposal ${proposalId} will be added in a future update.`);
+            }}
+            onScheduleProposal={(proposalId) => {
+              // Schedule proposal - for now just log, scheduling wizard not yet implemented
+              console.log('Schedule proposal:', proposalId);
+              Alert.alert('Schedule Treatment', `Scheduling wizard for proposal ${proposalId} will be added in a future update.`);
+            }}
+          />
+        )}
 
         {/* Treatment Sheets Section */}
         <View style={styles.treatmentSheetsSection}>

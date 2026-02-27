@@ -992,7 +992,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     if (firstSession) {
       const firstEffective = effectiveTimes.get(firstSession.session_number);
       if (firstEffective) {
+        console.log('[PreviewScreen] First effective time:', firstEffective.start);
         const startDateTime = new Date(firstEffective.start);
+        console.log('[PreviewScreen] Parsed Date object:', {
+          iso: startDateTime.toISOString(),
+          local: startDateTime.toLocaleString('en-IN'),
+          hours: startDateTime.getHours(),
+          minutes: startDateTime.getMinutes(),
+        });
         const validationResult = validateAppointmentTime(startDateTime, operatingHours);
         
         if (validationResult.hasWarnings) {

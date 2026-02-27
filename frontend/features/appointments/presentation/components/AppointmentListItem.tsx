@@ -20,13 +20,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useTranslation } from '../../../../core/localization/useTranslation';
+import { useFeatures, hasMultiDayAppointments } from '../../../../core/hooks/useFeatures';
 import {
   AppointmentResponse,
   getStatusLabel,
@@ -36,6 +39,8 @@ import {
   getTherapistNames,
 } from '../../data/models/appointments.dtos';
 import { EpisodeBadge } from '../../../episodes/presentation/components/EpisodeBadge';
+import { useTreatmentSheetDetailQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
+import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 
 // ============================================
 // TYPES
@@ -169,7 +174,7 @@ const CompleteTickIcon: React.FC<CompleteTickIconProps> = ({ onPress, disabled }
       <Ionicons 
         name="checkmark-circle" 
         size={28} 
-        color={isPressed ? colors.success.dark : colors.success.main} 
+        color={isPressed ? colors.success.main : colors.success.main} 
       />
     </TouchableOpacity>
   );
@@ -193,9 +198,58 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onViewAllEpisodes,
   clientEpisodesCount = 0,
 }) => {
+  // Debug logging for episode information
+  React.useEffect(() => {
+    if (userRole === 'doctor') {
+      console.log('[AppointmentListItem] Episode info:', {
+        appointmentId: appointment.id,
+        clientId: appointment.client_id,
+        clientName: appointment.client_name,
+        episodeId: appointment.episode_id,
+        episodeTitle: appointment.episode_title,
+        clientEpisodesCount,
+        hasEpisodeId: !!appointment.episode_id,
+      });
+    }
+  }, [appointment.id, appointment.episode_id, appointment.client_id, clientEpisodesCount, userRole]);
   const router = useRouter();
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const features = useFeatures();
+  const theme = useClinicTheme();
+  const { colors, spacing, typography } = theme;
   const statusColor = getStatusColor(appointment.status);
+
+  // ===== MULTI-DAY TREATMENT SUPPORT =====
+  // Check if multi-day appointments feature is enabled
+  const isMultiDayEnabled = hasMultiDayAppointments(features);
+  
+  // Check if this appointment is part of a multi-day treatment series
+  const treatmentSheetId = appointment.treatment_sheet_id;
+  const sessionId = appointment.session_id;
+  const isMultiDayAppointment = isMultiDayEnabled && (!!treatmentSheetId || !!sessionId);
+  
+  // Fetch treatment sheet data if this is a multi-day appointment
+  const { data: treatmentSheet, isLoading: isLoadingSheet } = useTreatmentSheetDetailQuery(
+    treatmentSheetId || '',
+    currentUser?.tenantId || undefined,
+    {
+      enabled: !!isMultiDayAppointment && !!treatmentSheetId,
+    }
+  );
+  
+  // Find the row for this session to get day number
+  const sessionRow = treatmentSheet?.rows?.find(row => row.session_id === sessionId);
+  const dayNumber = sessionRow?.day_number;
+  const totalDays = treatmentSheet?.duration_days;
+  const multiDayTreatmentName = treatmentSheet?.rows?.[0]?.treatment_description || 'Multi-Day Treatment';
+  
+  // Calculate progress percentage
+  const completedDays = treatmentSheet?.rows?.filter(row => {
+    // A row is considered completed if it has treatment description filled
+    return row.treatment_description && row.treatment_description.trim().length > 0;
+  }).length || 0;
+  const progressPercentage = totalDays ? Math.round((completedDays / totalDays) * 100) : 0;
 
   // ===== EXTRACT DATA FROM API RESPONSE =====
   const clientName = appointment.client_name || null;
@@ -244,24 +298,9 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const now = new Date();
   const appointmentStartStr = appointment.appointment_start;
   
-  // Extract date/time components from ISO string
-  const match = appointmentStartStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-  let isAtOrAfterStartTime = false;
-  
-  if (match) {
-    const [, year, month, day, hour, minute, second] = match;
-    // Create Date using LOCAL time components (not UTC)
-    const appointmentStartLocal = new Date(
-      parseInt(year),
-      parseInt(month) - 1, // Month is 0-indexed
-      parseInt(day),
-      parseInt(hour),
-      parseInt(minute),
-      parseInt(second)
-    );
-    
-    isAtOrAfterStartTime = now >= appointmentStartLocal;
-  }
+  // Parse ISO string correctly - it's in UTC, so use Date constructor
+  const appointmentStartLocal = new Date(appointmentStartStr);
+  const isAtOrAfterStartTime = now >= appointmentStartLocal;
   
   // Record Visit button: enabled at or after start time for scheduled/confirmed/in_progress
   const canRecordVisit = canModify && ['scheduled', 'confirmed', 'in_progress'].includes(status);
@@ -296,7 +335,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {/* Top Row: Date + Status */}
           <View style={styles.topRow}>
             <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={14} color={colors.primary.main} />
+              <Ionicons name="calendar-outline" size={14} color={colors.primary.default} />
               <Text style={styles.dateText} data-testid="appointment-date">
                 {dateDisplay}
               </Text>
@@ -312,6 +351,42 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               {endTimeDisplay && <Text style={styles.timeEndText}> - {endTimeDisplay}</Text>}
             </Text>
           </View>
+
+          {/* Multi-Day Treatment Indicator */}
+          {isMultiDayAppointment && (
+            <View style={styles.multiDayIndicator} data-testid="multi-day-indicator">
+              <View style={styles.multiDayBadge}>
+                <View style={styles.blueDot} />
+                {isLoadingSheet ? (
+                  <ActivityIndicator size="small" color={colors.primary.default} />
+                ) : (
+                  <>
+                    <Text style={styles.multiDayText} numberOfLines={1}>
+                      {multiDayTreatmentName}
+                    </Text>
+                    {dayNumber && totalDays && (
+                      <Text style={styles.dayNumberText}>
+                        {' '}• Day {dayNumber}/{totalDays}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </View>
+              {!isLoadingSheet && progressPercentage > 0 && (
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBar}>
+                    <View 
+                      style={[
+                        styles.progressFill, 
+                        { width: `${progressPercentage}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.progressText}>{progressPercentage}%</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Client Info */}
           <Text style={styles.clientName} numberOfLines={1} data-testid="appointment-client-name">
@@ -339,7 +414,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {/* Series Badge (if applicable) */}
           {isSeriesAppointment && (
             <View style={styles.seriesBadge} data-testid="appointment-series-badge">
-              <Ionicons name="repeat" size={12} color={colors.primary.main} />
+              <Ionicons name="repeat" size={12} color={colors.primary.default} />
               <Text style={styles.seriesText}>
                 {t('appointments.session') || 'Session'} {appointment.session_number}
                 {appointment.total_sessions && `/${appointment.total_sessions}`}
@@ -369,7 +444,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {/* A1: Single navigation arrow, vertically centered - only show if onPress is provided */}
           {onPress && (
             <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
-              <Ionicons name="chevron-forward" size={20} color={colors.primary.main} />
+              <Ionicons name="chevron-forward" size={20} color={colors.primary.default} />
             </View>
           )}
         </View>
@@ -389,7 +464,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 <QuickActionIconButton
                   icon="calendar-outline"
                   label="Reschedule"
-                  color={colors.primary.main}
+                  color={colors.primary.default}
                   onPress={() => {
                     if (onReschedule) {
                       Alert.alert(
@@ -413,7 +488,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 <QuickActionIconButton
                   icon="clipboard-outline"
                   label="Record Visit"
-                  color={colors.success.main}
+                  color={colors.feedback.success}
                   disabled={!isAtOrAfterStartTime}
                   onPress={() => {
                     Alert.alert(
@@ -438,7 +513,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 <QuickActionIconButton
                   icon="person-remove-outline"
                   label="No-Show"
-                  color={colors.warning.main}
+                  color={colors.feedback.warning}
                   disabled={!isAtOrAfterStartTime}
                   onPress={() => {
                     Alert.alert(
@@ -459,7 +534,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 <QuickActionIconButton
                   icon="close-circle-outline"
                   label="Cancel"
-                  color={colors.error.main}
+                  color={colors.feedback.error}
                   onPress={() => {
                     Alert.alert(
                       'Cancel Appointment',
@@ -484,7 +559,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                 <QuickActionIconButton
                   icon="checkmark-circle-outline"
                   label="Complete"
-                  color={colors.success.main}
+                  color={colors.feedback.success}
                   onPress={() => {
                     Alert.alert(
                       'Mark as Complete',
@@ -503,7 +578,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
               <QuickActionIconButton
                 icon="document-text-outline"
                 label="Notes"
-                color={colors.info.main}
+                color={colors.feedback.info}
                 onPress={() => {
                   // TODO: Navigate to notes screen or open notes modal
                   Alert.alert('Notes', 'Notes feature coming soon');
@@ -522,7 +597,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                   <QuickActionIconButton
                     icon="folder-open-outline"
                     label="View Episode"
-                    color={colors.primary.main}
+                    color={colors.primary.default}
                     onPress={() => onViewEpisode(appointment.episode_id!)}
                     testId="action-view-episode"
                   />
@@ -534,7 +609,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                     <QuickActionIconButton
                       icon="link-outline"
                       label="Link Episode"
-                      color={colors.info.main}
+                      color={colors.feedback.info}
                       onPress={() => {
                         Alert.alert(
                           'Link to Episode',
@@ -553,7 +628,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                     <QuickActionIconButton
                       icon="add-circle-outline"
                       label="New Episode"
-                      color={colors.success.main}
+                      color={colors.feedback.success}
                       onPress={() => {
                         Alert.alert(
                           'Create New Episode',
@@ -581,7 +656,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           onPress={() => onViewAllEpisodes(appointment.client_id, appointment.client_name || 'Client')}
           activeOpacity={0.7}
         >
-          <Ionicons name="albums-outline" size={14} color={colors.primary.main} />
+          <Ionicons name="albums-outline" size={14} color={colors.primary.default} />
           <Text style={styles.viewAllEpisodesText}>
             {clientEpisodesCount === 1 
               ? `View episode for ${appointment.client_name || 'this client'}`
@@ -834,6 +909,63 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primary.main,
     fontWeight: '500',
+  },
+
+  // Multi-Day Treatment Indicator Styles
+  multiDayIndicator: {
+    marginBottom: spacing.xs,
+    backgroundColor: colors.primary.main + '08',
+    borderRadius: 8,
+    padding: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary.main,
+  },
+  multiDayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    marginBottom: spacing.xs / 2,
+  },
+  blueDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary.main,
+  },
+  multiDayText: {
+    ...typography.body2,
+    fontWeight: '600',
+    color: colors.primary.main,
+    flex: 1,
+  },
+  dayNumberText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  progressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: colors.grey[200],
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary.main,
+    borderRadius: 2,
+  },
+  progressText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
+    minWidth: 35,
+    textAlign: 'right',
   },
 });
 

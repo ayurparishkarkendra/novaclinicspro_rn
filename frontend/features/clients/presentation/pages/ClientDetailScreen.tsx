@@ -34,6 +34,8 @@ import {
   formatPhone,
 } from '../../data/models/clients.dtos';
 import { ClientForm } from '../components/ClientForm';
+import { useEpisodesQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
+import { MultiDayTreatmentsSection } from '../components/MultiDayTreatmentsSection';
 
 export const ClientDetailScreen: React.FC = () => {
   const router = useRouter();
@@ -53,6 +55,16 @@ export const ClientDetailScreen: React.FC = () => {
     refetch,
     isRefetching,
   } = useClientDetailQuery(tenantId, clientId || '');
+
+  // Fetch active episodes for this client
+  const {
+    data: episodesData,
+    isLoading: isLoadingEpisodes,
+  } = useEpisodesQuery(
+    tenantId,
+    { client_id: clientId, status: 'ACTIVE' },
+    { enabled: !!tenantId && !!clientId }
+  );
 
   // Mutations
   const updateMutation = useUpdateClientMutation(tenantId, clientId || '');
@@ -363,6 +375,15 @@ export const ClientDetailScreen: React.FC = () => {
             <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
+
+        {/* Multi-Day Treatments */}
+        {!isLoadingEpisodes && episodesData?.items && episodesData.items.length > 0 && (
+          <>
+            {episodesData.items.map((episode) => (
+              <MultiDayTreatmentsSection key={episode.id} episodeId={episode.id} />
+            ))}
+          </>
+        )}
 
         {/* Clinical Documents */}
         <View style={styles.section}>

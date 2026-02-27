@@ -118,7 +118,7 @@ export const ClientsListScreen: React.FC = () => {
     [createMutation]
   );
 
-  const renderHeader = () => (
+  const renderHeader = useCallback(() => (
     <View style={styles.header}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -127,8 +127,10 @@ export const ClientsListScreen: React.FC = () => {
           style={styles.searchInput}
           placeholder={`Search clients... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
-          value={searchInput}
-          onChangeText={setSearchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+          autoCapitalize="none"
         />
         {searchInput.length > 0 && (
           <TouchableOpacity onPress={() => setSearchInput('')}>
@@ -137,9 +139,9 @@ export const ClientsListScreen: React.FC = () => {
         )}
       </View>
     </View>
-  );
+  ), [searchQuery]);
 
-  const renderEmptyList = () => (
+  const renderEmptyList = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Ionicons name="people-outline" size={64} color={colors.text.tertiary} />
       <Text style={styles.emptyTitle}>No Clients Found</Text>
@@ -158,7 +160,13 @@ export const ClientsListScreen: React.FC = () => {
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [searchQuery]);
+
+  const renderItem = useCallback(({ item }: { item: ClientResponse }) => (
+    <ClientListItem client={item} onPress={handleClientPress} />
+  ), [handleClientPress]);
+
+  const keyExtractor = useCallback((item: ClientResponse) => item.id, []);
 
   // Error state
   if (isError && !clientsData) {
@@ -213,10 +221,8 @@ export const ClientsListScreen: React.FC = () => {
           data={filteredClients}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmptyList}
-          renderItem={({ item }) => (
-            <ClientListItem client={item} onPress={handleClientPress} />
-          )}
-          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -226,6 +232,9 @@ export const ClientsListScreen: React.FC = () => {
             />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
       )}
 

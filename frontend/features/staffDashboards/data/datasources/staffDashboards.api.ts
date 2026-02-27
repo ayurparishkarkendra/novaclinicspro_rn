@@ -81,3 +81,93 @@ export const getFrontdeskDashboardApi = async (
   );
   return response.data;
 };
+
+// ============================================
+// ADMIN DASHBOARD - MULTI-DAY TREATMENTS (F2.5)
+// ============================================
+
+import {
+  TreatmentStatsResponse,
+  PendingProposalItem,
+  TodaySessionStatsResponse,
+  PausedSeriesItem,
+} from '../models/staffDashboards.dtos';
+
+/**
+ * Get treatment statistics for admin dashboard
+ * GET /api/v1/clinic/{tenant_id}/treatment-stats
+ */
+export const getTreatmentStatsApi = async (
+  tenantId: string
+): Promise<TreatmentStatsResponse> => {
+  console.log('[API] Fetching treatment stats:', { tenantId });
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-stats`
+  );
+  console.log('[API] Treatment stats response:', response.data);
+  return response.data;
+};
+
+/**
+ * Get pending proposals for admin dashboard
+ * GET /api/v1/clinic/{tenant_id}/treatment-proposals?status=PROPOSED
+ */
+export const getPendingProposalsApi = async (
+  tenantId: string,
+  limit: number = 5
+): Promise<{ proposals: PendingProposalItem[]; total: number }> => {
+  console.log('[API] Fetching pending proposals:', { tenantId, limit });
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-proposals`,
+    { 
+      params: { 
+        status: 'PROPOSED',
+        limit,
+        expand: 'client,created_by'
+      } 
+    }
+  );
+  console.log('[API] Pending proposals response:', response.data);
+  return response.data;
+};
+
+/**
+ * Get today's session statistics for admin dashboard
+ * GET /api/v1/clinic/{tenant_id}/today-session-stats
+ */
+export const getTodaySessionStatsApi = async (
+  tenantId: string,
+  date?: string
+): Promise<TodaySessionStatsResponse> => {
+  console.log('[API] Fetching today session stats:', { tenantId, date });
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/today-session-stats`,
+    { params: { date } }
+  );
+  console.log('[API] Today session stats response:', response.data);
+  return response.data;
+};
+
+/**
+ * Get paused series for admin dashboard
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets?status=PAUSED
+ */
+export const getPausedSeriesApi = async (
+  tenantId: string,
+  limit: number = 5
+): Promise<{ series: PausedSeriesItem[]; total: number }> => {
+  console.log('[API] Fetching paused series:', { tenantId, limit });
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets`,
+    { 
+      params: { 
+        status: 'PAUSED',
+        limit,
+        expand: 'client'
+      } 
+    }
+  );
+  console.log('[API] Paused series response:', response.data);
+  return response.data;
+};
+

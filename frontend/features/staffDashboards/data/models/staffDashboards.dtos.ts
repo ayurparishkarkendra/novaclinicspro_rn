@@ -160,3 +160,55 @@ export const formatDuration = (minutes: number | null): string => {
   if (mins === 0) return `${hours} hr`;
   return `${hours}h ${mins}m`;
 };
+
+// ============================================
+// ADMIN DASHBOARD - MULTI-DAY TREATMENTS (F2.5)
+// ============================================
+
+/** Treatment statistics for admin dashboard */
+export interface TreatmentStatsResponse {
+  active_series: number;
+  pending_proposals: number;
+  paused_series: number;
+  completed_this_month: number;
+}
+
+/** Pending proposal for admin dashboard */
+export interface PendingProposalItem {
+  id: string;
+  name: string;
+  duration_days: number;
+  client_id: string;
+  client_name: string;
+  created_by_staff_id: string;
+  created_by_name: string;
+  created_at: string;
+  days_ago: number;
+  estimated_cost_min?: number;
+  estimated_cost_max?: number;
+  currency?: string;
+}
+
+/** Today's session statistics for admin dashboard */
+export interface TodaySessionStatsResponse {
+  total: number;
+  completed: number;
+  in_progress: number;
+  pending: number;
+}
+
+/** Paused series item for admin dashboard */
+export interface PausedSeriesItem {
+  id: string;
+  treatment_sheet_id: string;
+  treatment_name: string;
+  client_id: string;
+  client_name: string;
+  pause_reason: string;
+  paused_at: string;
+  paused_days_ago: number;
+  remaining_days: number;
+  completed_days: number;
+  total_days: number;
+}
+

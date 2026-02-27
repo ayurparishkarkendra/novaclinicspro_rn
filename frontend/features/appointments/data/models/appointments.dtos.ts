@@ -105,6 +105,9 @@ export interface AppointmentResponse {
   episode_id?: string | null;
   episode_title?: string;  // Optional expanded field for fast display
   episode_status?: 'ACTIVE' | 'CLOSED';  // Optional expanded field for fast display
+  // Multi-day treatment fields (optional, nullable)
+  treatment_sheet_id?: string | null;  // ID of associated treatment sheet (for multi-day treatments)
+  session_id?: string | null;  // ID of treatment session (links to treatment sheet row)
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;

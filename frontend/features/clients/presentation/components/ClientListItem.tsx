@@ -25,14 +25,18 @@ interface ClientListItemProps {
   onPress: (client: ClientResponse) => void;
 }
 
-export const ClientListItem: React.FC<ClientListItemProps> = ({ client, onPress }) => {
+export const ClientListItem: React.FC<ClientListItemProps> = React.memo(({ client, onPress }) => {
   const genderColor = getGenderColor(client.gender);
   const displayAge = client.age || (client.date_of_birth ? calculateAge(client.date_of_birth) : null);
+
+  const handlePress = React.useCallback(() => {
+    onPress(client);
+  }, [client, onPress]);
 
   return (
     <TouchableOpacity
       style={styles.container}
-      onPress={() => onPress(client)}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={styles.content}>
@@ -82,7 +86,7 @@ export const ClientListItem: React.FC<ClientListItemProps> = ({ client, onPress 
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 // Helper function
 const calculateAge = (dateOfBirth: string): number | null => {

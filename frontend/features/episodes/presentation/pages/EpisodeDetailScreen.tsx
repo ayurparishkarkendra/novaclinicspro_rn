@@ -25,6 +25,8 @@ import {
 } from '../../data/repositories/episodes.repository.impl';
 import { EpisodeStatusBadge } from '../components/EpisodeStatusBadge';
 import { EpisodeFormModal } from '../components/EpisodeFormModal';
+import { TreatmentPlansSection } from '../components/TreatmentPlansSection';
+import { TreatmentSheetsSection } from '../components/TreatmentSheetsSection';
 import { formatEpisodeDate, EpisodeUpdateRequest } from '../../data/models/episodes.dtos';
 import { useAppointmentsListQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
 import { AppointmentResponse, formatDate, formatTime, getStatusLabel, getStatusColor } from '../../../appointments/data/models/appointments.dtos';
@@ -604,6 +606,25 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
             Treatment sheets are created from the casesheet
           </Text>
         </View>
+
+        {/* Treatment Plans Section */}
+        <TreatmentPlansSection
+          episodeId={episodeId}
+          onCreateProposal={() => {
+            // TODO: Navigate to proposal creation modal
+            console.log('Create proposal for episode:', episodeId);
+          }}
+        />
+
+        {/* Treatment Sheets Section */}
+        <TreatmentSheetsSection
+          tenantId={tenantId}
+          episodeId={episodeId}
+          onNavigateToSheet={(sheetId) => {
+            console.log('Navigate to treatment sheet:', sheetId);
+            onNavigateToTreatmentSheet?.(sheetId);
+          }}
+        />
 
         {/* Visits Section */}
         <View style={styles.visitsSection}>

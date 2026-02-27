@@ -8,6 +8,7 @@ import {
   createTreatmentSheetApi,
   createSimpleTreatmentSheetApi,
   getTreatmentSheetApi,
+  getTreatmentSheetsByEpisodeApi,
   transitionTreatmentSheetStatusApi,
   syncTreatmentSheetApi,
   printTreatmentSheetApi,
@@ -35,6 +36,8 @@ export const treatmentSheetsKeys = {
   details: () => [...treatmentSheetsKeys.all, 'detail'] as const,
   detail: (treatmentSheetId: string) =>
     [...treatmentSheetsKeys.details(), treatmentSheetId] as const,
+  byEpisode: (episodeId: string) =>
+    [...treatmentSheetsKeys.all, 'episode', episodeId] as const,
 };
 
 // ============================================
@@ -54,6 +57,23 @@ export const useTreatmentSheetDetailQuery = (
     queryKey: treatmentSheetsKeys.detail(treatmentSheetId),
     queryFn: () => getTreatmentSheetApi(treatmentSheetId, tenantId),
     enabled: !!treatmentSheetId,
+    staleTime: 30 * 1000, // 30 seconds
+    ...options,
+  });
+};
+
+/**
+ * Hook to get treatment sheets by episode ID
+ */
+export const useTreatmentSheetsByEpisodeQuery = (
+  tenantId: string,
+  episodeId: string,
+  options?: Omit<UseQueryOptions<{ treatment_sheets: TreatmentSheetResponse[]; total: number }, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<{ treatment_sheets: TreatmentSheetResponse[]; total: number }, Error>({
+    queryKey: treatmentSheetsKeys.byEpisode(episodeId),
+    queryFn: () => getTreatmentSheetsByEpisodeApi(tenantId, episodeId),
+    enabled: !!tenantId && !!episodeId,
     staleTime: 30 * 1000, // 30 seconds
     ...options,
   });

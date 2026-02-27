@@ -6,6 +6,25 @@
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../core/providers/AuthProvider';
+import { LogBox } from 'react-native';
+
+// Ignore only specific non-critical warnings
+LogBox.ignoreLogs([
+  // Expo Go limitations (not relevant for production builds)
+  'expo-notifications: Android Push notifications',
+  'expo-notifications functionality is not fully supported in Expo Go',
+  
+  // Known React Native warnings that don't affect functionality
+  'Require cycle:',
+  'VirtualizedLists should never be nested',
+  
+  // Route warnings (handled by expo-router)
+  'Route "',
+  'is missing the required default export',
+  
+  // Layout warnings
+  '[Layout children]:',
+]);
 
 // Create a client with smart retry logic
 const queryClient = new QueryClient({
@@ -22,19 +41,28 @@ const queryClient = new QueryClient({
         return failureCount < 2;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
+      // Don't show global error notifications - errors are handled in UI
+      onError: () => {
+        // Errors are handled in UI components
+      },
     },
     mutations: {
-      // Suppress error notifications - errors are handled in UI
+      // Don't show global error notifications - errors are handled in UI
       onError: () => {
-        // Errors are displayed in the UI, no need for global notifications
+        // Errors are displayed in the UI
       },
     },
   },
-  // Suppress React Query's default error logging
+  // Keep console logs for debugging but suppress React Query's internal errors
   logger: {
     log: console.log,
     warn: console.warn,
-    error: () => {}, // Suppress error logs from React Query
+    error: (error) => {
+      // Only log real errors, not permission checks or expected failures
+      if (error && !error.message?.includes('can-create') && !error.message?.includes('can-schedule')) {
+        console.error(error);
+      }
+    },
   },
 });
 

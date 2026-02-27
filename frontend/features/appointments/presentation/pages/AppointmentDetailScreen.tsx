@@ -51,6 +51,7 @@ import {
   useEpisodeQuery,
 } from '../../../episodes/data/repositories/episodes.repository.impl';
 import { EpisodeCard } from '../../../episodes/presentation/components/EpisodeCard';
+import { MultiDayTreatmentSection } from '../components/MultiDayTreatmentSection';
 import {
   getStatusLabel,
   getStatusColor,
@@ -325,6 +326,19 @@ export const AppointmentDetailScreen: React.FC = () => {
 
   // Episode queries
   const episodeId = appointment?.episode_id;
+  
+  // Debug logging for episode
+  React.useEffect(() => {
+    console.log('[AppointmentDetailScreen] Episode info:', {
+      appointmentId,
+      episodeId,
+      hasEpisodeId: !!episodeId,
+      episodeTitle: appointment?.episode_title,
+      episodeStatus: appointment?.episode_status,
+      appointmentData: appointment,
+    });
+  }, [appointmentId, episodeId, appointment]);
+  
   const {
     data: episode,
     isLoading: isEpisodeLoading,
@@ -818,6 +832,13 @@ export const AppointmentDetailScreen: React.FC = () => {
             </View>
           )}
         </View>
+
+        {/* MULTI-DAY TREATMENT SECTION */}
+        <MultiDayTreatmentSection
+          appointmentId={appointmentId || ''}
+          treatmentSheetId={(appointment as any)?.treatment_sheet_id}
+          sessionId={(appointment as any)?.session_id || appointment?.id}
+        />
 
         {/* EPISODE SECTION */}
         <View style={styles.section} data-testid="detail-episode-section">

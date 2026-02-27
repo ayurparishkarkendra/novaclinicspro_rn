@@ -1,12 +1,13 @@
 /**
  * Treatment Sheet Status Badge Component
  * Displays document status with appropriate styling
+ * Updated to support multi-day therapy workflow statuses
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../../core/theme/colors';
+import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../core/theme/spacing';
 import { TreatmentSheetStatus, getStatusLabel, getStatusColor } from '../../data/models/treatmentSheets.dtos';
 
@@ -21,6 +22,7 @@ export const TreatmentSheetStatusBadge: React.FC<TreatmentSheetStatusBadgeProps>
   size = 'medium',
   showIcon = true,
 }) => {
+  const theme = useClinicTheme();
   const statusColor = getStatusColor(status);
   const label = getStatusLabel(status);
 
@@ -28,10 +30,20 @@ export const TreatmentSheetStatusBadge: React.FC<TreatmentSheetStatusBadgeProps>
     switch (status) {
       case 'DRAFT':
         return 'create-outline';
-      case 'FINAL':
+      case 'SCHEDULED':
+        return 'calendar-outline';
+      case 'IN_PROGRESS':
+        return 'play-circle-outline';
+      case 'COMPLETED':
         return 'checkmark-circle-outline';
+      case 'CANCELLED':
+        return 'close-circle-outline';
+      case 'PAUSED':
+        return 'pause-circle-outline';
       case 'SIGNED':
         return 'shield-checkmark-outline';
+      case 'FINAL':
+        return 'checkmark-circle-outline';
       default:
         return 'document-outline';
     }

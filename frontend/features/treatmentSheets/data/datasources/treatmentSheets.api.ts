@@ -70,6 +70,21 @@ export const getTreatmentSheetApi = async (
 };
 
 /**
+ * Get treatment sheets by episode ID
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets?episode_id={episode_id}
+ */
+export const getTreatmentSheetsByEpisodeApi = async (
+  tenantId: string,
+  episodeId: string
+): Promise<{ treatment_sheets: TreatmentSheetResponse[]; total: number }> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets`,
+    { params: { episode_id: episodeId } }
+  );
+  return response.data;
+};
+
+/**
  * Transition treatment sheet status (DRAFT → FINAL → SIGNED)
  * PATCH /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/status
  */
