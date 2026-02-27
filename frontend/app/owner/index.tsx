@@ -18,18 +18,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
-import { colors } from '../core/theme/colors';
-import { spacing } from '../core/theme/spacing';
-import { typography } from '../core/theme/typography';
-import { useAuth } from '../features/auth/presentation/hooks/useAuth';
-import { useAuthStore, useSelectedClinic } from '../features/auth/presentation/providers/auth.store';
-import { MetricStatCard, OwnerClinicCard } from '../features/owner-dashboard/presentation/components';
+import { colors } from '../../core/theme/colors';
+import { spacing } from '../../core/theme/spacing';
+import { typography } from '../../core/theme/typography';
+import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
+import { useAuthStore, useSelectedClinic } from '../../features/auth/presentation/providers/auth.store';
+import { MetricStatCard, OwnerClinicCard } from '../../features/owner-dashboard/presentation/components';
 import {
   createPortfolioSummaryFromClinics,
   createClinicSummary,
   unavailableMetric,
-} from '../features/owner-dashboard/domain/entities/owner-dashboard.entity';
-import type { OwnerClinicSummary } from '../features/owner-dashboard/domain/entities/owner-dashboard.entity';
+} from '../../features/owner-dashboard/domain/entities/owner-dashboard.entity';
+import type { OwnerClinicSummary } from '../../features/owner-dashboard/domain/entities/owner-dashboard.entity';
 
 export default function OwnerDashboardScreen() {
   const router = useRouter();
