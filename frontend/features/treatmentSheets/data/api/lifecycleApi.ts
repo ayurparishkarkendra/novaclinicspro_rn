@@ -19,7 +19,7 @@ import {
   CancelSeriesDTO,
   CancelSeriesResponse,
   RuleEvaluationResult,
-} from '../models/treatmentProposals.dtos';
+} from '../models/lifecycle.dtos';
 
 // ============================================
 // ERROR MAPPING

@@ -25,7 +25,7 @@ import { useFeatures, hasMultiDayAppointments } from '../../../../core/hooks/use
 
 interface TreatmentStats {
   active_series: number;
-  pending_proposals: number;
+  unscheduled_sheets: number;
   paused_series: number;
   completed_this_month: number;
 }
@@ -109,13 +109,13 @@ export const MultiDayTreatmentOverviewWidget: React.FC<MultiDayTreatmentOverview
           <Text style={styles.statLabel}>Active Series</Text>
         </View>
 
-        {/* Pending Proposals */}
-        <View style={[styles.statCard, styles.proposalCard]} testID={`${testID}-proposals`}>
+        {/* Unscheduled Sheets */}
+        <View style={[styles.statCard, styles.unscheduledCard]} testID={`${testID}-unscheduled`}>
           <View style={styles.statIconContainer}>
-            <Ionicons name="bulb" size={24} color={colors.warning.main} />
+            <Ionicons name="calendar-outline" size={24} color={colors.warning.main} />
           </View>
-          <Text style={styles.statValue}>{stats.pending_proposals}</Text>
-          <Text style={styles.statLabel}>Awaiting Scheduling</Text>
+          <Text style={styles.statValue}>{stats.unscheduled_sheets}</Text>
+          <Text style={styles.statLabel}>Unscheduled Sheets</Text>
         </View>
 
         {/* Paused Series */}
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: colors.primary.main,
   },
-  proposalCard: {
+  unscheduledCard: {
     borderLeftWidth: 3,
     borderLeftColor: colors.warning.main,
   },

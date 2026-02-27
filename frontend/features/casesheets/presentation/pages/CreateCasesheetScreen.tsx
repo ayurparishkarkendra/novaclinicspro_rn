@@ -58,16 +58,19 @@ export const CreateCasesheetScreen: React.FC = () => {
         episode_id: episodeId, // Include episode_id when creating from episode context
       });
       
-      // Navigate immediately after successful creation
-      // If we have an episodeId, go back to the episode details
-      if (episodeId) {
-        router.replace(`/clinic-admin/episodes/${episodeId}` as any);
+      // Navigate to the newly created casesheet detail page
+      if (result?.id) {
+        router.replace(`/clinic-admin/clients/${clientId}/casesheets/${result.id}` as any);
       } else {
-        // Otherwise go to the casesheets list for this client
-        router.replace({
-          pathname: '/clinic-admin/clients/[clientId]/casesheets',
-          params: { clientId },
-        });
+        // Fallback: go back to episode or client casesheets list
+        if (episodeId) {
+          router.replace(`/clinic-admin/episodes/${episodeId}` as any);
+        } else {
+          router.replace({
+            pathname: '/clinic-admin/clients/[clientId]/casesheets',
+            params: { clientId },
+          });
+        }
       }
     } catch (err: any) {
       // Handle EPISODE_MISMATCH error

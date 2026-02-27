@@ -23,6 +23,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../core/theme/spacing';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   useTreatmentSheetDetailQuery,
   useTransitionTreatmentSheetStatusMutation,
@@ -35,7 +36,6 @@ import {
 } from '../../index';
 import { TreatmentSheetStatusBadge } from '../components/TreatmentSheetStatusBadge';
 import { TreatmentSheetProgress } from '../components/TreatmentSheetProgress';
-import { TreatmentSheetActions } from '../components/TreatmentSheetActions';
 import { EmptyTreatmentSheetState } from '../components/EmptyTreatmentSheetState';
 import { PauseSeriesDialog } from '../components/PauseSeriesDialog';
 import { CancelSeriesDialog } from '../components/CancelSeriesDialog';
@@ -46,10 +46,8 @@ import {
   resumeSeriesApi, 
   canCancelSeriesApi, 
   cancelSeriesApi 
-} from '../../../treatmentProposals/data/api/lifecycleApi';
+} from '../../data/api/lifecycleApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSchedulingWizardStore } from '../../../treatmentProposals/presentation/stores/schedulingWizard.store';
-import { SchedulingWizard } from '../../../treatmentProposals/presentation/pages/SchedulingWizard';
 
 interface RowFormData {
   id: string;
@@ -61,8 +59,8 @@ interface RowFormData {
   treatment_name: string;
   medicines_text: string;
   instructions_text: string;
-  isEditing: boolean;
   isSaving: boolean;
+  isEditing: boolean; // Track if this specific row is in edit mode
 }
 
 export const TreatmentSheetDetailScreen: React.FC = () => {
@@ -76,14 +74,18 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const [rowsData, setRowsData] = useState<RowFormData[]>([]);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+  const [hasBeenSavedOnce, setHasBeenSavedOnce] = useState(false); // Track if global save has been done
+  const [isSavingAll, setIsSavingAll] = useState(false); // Track global save operation
+
+  // Episode and client data for header
+  const [episodeData, setEpisodeData] = useState<any>(null);
+  const [clientData, setClientData] = useState<any>(null);
+  const [isLoadingHeaderData, setIsLoadingHeaderData] = useState(false);
 
   // Lifecycle dialog state
   const [showPauseDialog, setShowPauseDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const queryClient = useQueryClient();
-  
-  // Scheduling wizard store
-  const { openWizardForResume } = useSchedulingWizardStore();
 
   const {
     data: treatmentSheet,
@@ -95,7 +97,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   } = useTreatmentSheetDetailQuery(treatmentSheetId, tenantId);
 
   const transitionMutation = useTransitionTreatmentSheetStatusMutation(treatmentSheetId);
-  const syncMutation = useSyncTreatmentSheetMutation(treatmentSheetId);
+  const syncMutation = useSyncTreatmentSheetMutation(tenantId, treatmentSheetId);
   const printMutation = usePrintTreatmentSheetMutation(treatmentSheetId);
   const archiveMutation = useArchiveTreatmentSheetMutation(treatmentSheetId);
 
@@ -163,33 +165,53 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         treatment_name: row.treatment_name || row.treatment_description || '',
         medicines_text: row.medicines_text || row.medicines_given || '',
         instructions_text: row.instructions_text || row.instructions || '',
-        isEditing: false,
         isSaving: false,
+        isEditing: !hasBeenSavedOnce, // Editable by default until first global save
       }));
       setRowsData(formattedRows);
     }
-  }, [treatmentSheet]);
+  }, [treatmentSheet, hasBeenSavedOnce]);
+
+  // Fetch episode and client data for header
+  useEffect(() => {
+    const fetchHeaderData = async () => {
+      if (!treatmentSheet?.episode_id || !tenantId) return;
+      
+      setIsLoadingHeaderData(true);
+      try {
+        // Fetch episode
+        const episodeResponse = await axiosClient.get(
+          `/api/v1/clinic/${tenantId}/episodes/${treatmentSheet.episode_id}`
+        );
+        setEpisodeData(episodeResponse.data);
+        
+        // Fetch client
+        if (episodeResponse.data.client_id) {
+          const clientResponse = await axiosClient.get(
+            `/api/v1/clinic/${tenantId}/clients/${episodeResponse.data.client_id}`
+          );
+          setClientData(clientResponse.data);
+        }
+      } catch (error) {
+        console.error('[TreatmentSheet] Failed to fetch header data:', error);
+      } finally {
+        setIsLoadingHeaderData(false);
+      }
+    };
+    
+    fetchHeaderData();
+  }, [treatmentSheet?.episode_id, tenantId]);
 
   const handleTransition = useCallback(async (newStatus: TreatmentSheetStatus) => {
     try {
       await transitionMutation.mutateAsync({ status: newStatus });
       Alert.alert('Success', `Treatment sheet ${newStatus.toLowerCase()} successfully.`);
+      // Refetch to update the UI with new status
+      await refetch();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to update status.');
     }
-  }, [transitionMutation]);
-
-  const handleSync = useCallback(async () => {
-    try {
-      const result = await syncMutation.mutateAsync();
-      Alert.alert(
-        'Sync Complete',
-        `Synced with sessions: ${result.created} created, ${result.updated} updated.`
-      );
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to sync with sessions.');
-    }
-  }, [syncMutation]);
+  }, [transitionMutation, refetch]);
 
   const handlePrint = useCallback(async () => {
     try {
@@ -215,6 +237,48 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     setShowPauseDialog(true);
   }, []);
 
+  const handleScheduleAppointments = useCallback(() => {
+    if (!treatmentSheet) return;
+    
+    // Fetch episode to get treatment_id
+    const fetchEpisodeAndNavigate = async () => {
+      try {
+        const episodeResponse = await axiosClient.get(
+          `/api/v1/clinic/${tenantId}/episodes/${treatmentSheet.episode_id}`
+        );
+        const episode = episodeResponse.data;
+        
+        // Navigate to CreateAppointmentScreen with MULTI tab pre-selected
+        // Pass all necessary data for pre-filling the form
+        router.push({
+          pathname: '/clinic-admin/appointments/create',
+          params: {
+            tab: 'MULTI',
+            treatmentSheetId: treatmentSheetId,
+            episodeId: treatmentSheet.episode_id,
+            treatmentId: episode.treatment_id || '',
+            treatmentName: episode.title || '',
+            durationDays: treatmentSheet.duration_days?.toString(),
+          }
+        });
+      } catch (error) {
+        console.error('[TreatmentSheet] Failed to fetch episode:', error);
+        // Navigate anyway with available data
+        router.push({
+          pathname: '/clinic-admin/appointments/create',
+          params: {
+            tab: 'MULTI',
+            treatmentSheetId: treatmentSheetId,
+            episodeId: treatmentSheet.episode_id,
+            durationDays: treatmentSheet.duration_days?.toString(),
+          }
+        });
+      }
+    };
+    
+    fetchEpisodeAndNavigate();
+  }, [treatmentSheet, treatmentSheetId, router, tenantId]);
+
   const handlePauseConfirm = useCallback((reason: string, hasConsent: boolean) => {
     pauseMutation.mutate({ reason, patient_consent: hasConsent });
   }, [pauseMutation]);
@@ -229,14 +293,17 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     ).length;
     const remainingDays = Math.max(0, totalDays - completedDays);
     
-    // Open scheduling wizard in resume mode
-    openWizardForResume(
-      treatmentSheetId,
-      `Resume: ${treatmentSheet.duration_days} Day Treatment`,
-      remainingDays,
-      treatmentSheet.agreed_package_cost
-    );
-  }, [treatmentSheet, rowsData, treatmentSheetId, openWizardForResume]);
+    // Navigate to CreateAppointmentScreen with MULTI tab for remaining days
+    router.push({
+      pathname: '/clinic-admin/appointments/create',
+      params: {
+        tab: 'MULTI',
+        treatmentSheetId: treatmentSheetId,
+        episodeId: treatmentSheet.episode_id,
+        durationDays: remainingDays.toString(),
+      }
+    });
+  }, [treatmentSheet, rowsData, treatmentSheetId, router]);
 
   const handleCancel = useCallback(() => {
     setShowCancelDialog(true);
@@ -245,14 +312,6 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const handleCancelConfirm = useCallback((reason: string) => {
     cancelMutation.mutate({ reason });
   }, [cancelMutation]);
-
-  const toggleEdit = (index: number) => {
-    setRowsData(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], isEditing: !updated[index].isEditing };
-      return updated;
-    });
-  };
 
   const updateRowField = (index: number, field: keyof RowFormData, value: string) => {
     setRowsData(prev => {
@@ -276,13 +335,22 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         treatment_name: aboveRow.treatment_name,
         medicines_text: aboveRow.medicines_text,
         instructions_text: aboveRow.instructions_text,
-        isEditing: true,
       };
       return updated;
     });
   };
 
-  const saveRow = async (index: number) => {
+  // Toggle edit mode for a specific row
+  const toggleEditMode = (index: number) => {
+    setRowsData(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], isEditing: !updated[index].isEditing };
+      return updated;
+    });
+  };
+
+  // Update a single row using PATCH API
+  const updateSingleRow = async (index: number) => {
     const row = rowsData[index];
     
     // Set saving state
@@ -293,25 +361,24 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     });
 
     try {
-      const { axiosClient } = await import('../../../../core/api/axiosClient');
-      
+      // Use single row update API
       await axiosClient.patch(
         `/api/v1/clinic/treatment-sheets/rows/${row.id}`,
         {
-          treatment_name: row.treatment_name || null,
-          medicines_text: row.medicines_text || null,
-          instructions_text: row.instructions_text || null,
+          treatment_description: row.treatment_name || null,
+          medicines_given: row.medicines_text || null,
+          instructions: row.instructions_text || null,
         }
       );
       
-      // Update state: stop editing and saving
+      // Update state: stop saving and exit edit mode
       setRowsData(prev => {
         const updated = [...prev];
-        updated[index] = { ...updated[index], isEditing: false, isSaving: false };
+        updated[index] = { ...updated[index], isSaving: false, isEditing: false };
         return updated;
       });
       
-      Alert.alert('Success', `Day ${row.day_number} saved successfully.`);
+      Alert.alert('Success', `Day ${row.day_number} updated successfully.`);
       await refetch();
     } catch (err: any) {
       setRowsData(prev => {
@@ -319,27 +386,40 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         updated[index] = { ...updated[index], isSaving: false };
         return updated;
       });
-      Alert.alert('Error', err.message || 'Failed to save row.');
+      Alert.alert('Error', err.message || 'Failed to update row.');
     }
   };
 
-  const syncSingleRow = async (index: number) => {
-    const row = rowsData[index];
-    Alert.alert(
-      'Sync Row',
-      `Sync Day ${row.day_number} with scheduled session?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sync',
-          onPress: async () => {
-            // This would call a specific API to sync a single row
-            // For now, we'll just show a message
-            Alert.alert('Info', 'Single row sync feature coming soon. Use the main Sync button to sync all rows.');
-          },
-        },
-      ]
-    );
+  // Save all rows at once (global save) - bulk update
+  const saveAllRows = async () => {
+    setIsSavingAll(true);
+    
+    try {
+      // Prepare rows data for bulk update
+      const rowsPayload = rowsData.map(row => ({
+        id: row.id,
+        treatment_description: row.treatment_name || null,
+        medicines_given: row.medicines_text || null,
+        instructions: row.instructions_text || null,
+      }));
+      
+      // Use bulk update API - single call for all rows
+      await axiosClient.patch(
+        `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/rows`,
+        { rows: rowsPayload }
+      );
+      
+      // Mark as saved once and make all rows non-editable
+      setHasBeenSavedOnce(true);
+      setRowsData(prev => prev.map(row => ({ ...row, isEditing: false })));
+      
+      Alert.alert('Success', 'All treatment days saved successfully.');
+      await refetch();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to save all rows.');
+    } finally {
+      setIsSavingAll(false);
+    }
   };
 
   const formatDate = (dateStr: string | null): string => {
@@ -369,11 +449,42 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
       <View style={styles.headerTitleContainer}>
         <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Treatment Sheet</Text>
         <Text style={[styles.headerSubtitle, { color: theme.colors.text.secondary }]}>
-          {treatmentSheet?.duration_days || 0} Days
+          {treatmentSheet?.duration_days || rowsData.length || 0} Days
         </Text>
       </View>
       {treatmentSheet && (
-        <TreatmentSheetStatusBadge status={treatmentSheet.status} size="medium" />
+        <View style={styles.headerActions}>
+          <TreatmentSheetStatusBadge status={treatmentSheet.status} size="medium" />
+          {/* Print Icon */}
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: theme.colors.background.elevated }]}
+            onPress={handlePrint}
+            disabled={printMutation.isPending}
+          >
+            <Ionicons name="print-outline" size={20} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+          {/* Archive Icon */}
+          <TouchableOpacity
+            style={[styles.headerIconButton, { backgroundColor: theme.colors.background.elevated }]}
+            onPress={() => {
+              Alert.alert(
+                'Archive Treatment Sheet',
+                'This will archive the treatment sheet. It will no longer appear in the active list. Are you sure?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Archive',
+                    style: 'destructive',
+                    onPress: handleArchive,
+                  },
+                ]
+              );
+            }}
+            disabled={archiveMutation.isPending}
+          >
+            <Ionicons name="archive-outline" size={20} color={theme.colors.feedback.error} />
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -414,20 +525,8 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
           <Ionicons name="calendar-outline" size={48} color={theme.colors.text.secondary} />
           <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>No treatment days yet</Text>
           <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
-            The treatment sheet was created but has no rows.
+            The treatment sheet was created but has no rows. Schedule appointments to create treatment days.
           </Text>
-          {canEdit && (
-            <TouchableOpacity
-              style={[styles.syncButton, { backgroundColor: theme.colors.primary.default }]}
-              onPress={handleSync}
-              disabled={syncMutation.isPending}
-            >
-              <Ionicons name="sync" size={18} color={theme.colors.primary.onPrimary} />
-              <Text style={[styles.syncButtonText, { color: theme.colors.primary.onPrimary }]}>
-                {syncMutation.isPending ? 'Syncing...' : 'Sync with Sessions'}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       );
     }
@@ -452,54 +551,81 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         >
           {/* Treatment Sheet Header Info */}
           <View style={[styles.infoCard, { backgroundColor: theme.colors.background.default, borderColor: theme.colors.border.subtle }]}>
-            {/* Name and Date Range */}
-            {treatmentSheet.proposal_id && (
+            {/* Client Name */}
+            {isLoadingHeaderData && !clientData ? (
               <View style={styles.infoRow}>
-                <Ionicons name="document-text-outline" size={16} color={theme.colors.primary.default} />
-                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Treatment:</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text.primary }]}>
-                  {treatmentSheet.duration_days} days
+                <Ionicons name="person-outline" size={16} color={theme.colors.text.disabled} />
+                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Patient:</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.text.disabled }]}>Loading...</Text>
+              </View>
+            ) : clientData ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="person-outline" size={16} color={theme.colors.primary.default} />
+                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Patient:</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.text.primary, fontWeight: '600' }]}>
+                  {clientData.name || clientData.full_name || 'Unknown'}
                 </Text>
               </View>
-            )}
+            ) : null}
             
-            {/* View Original Proposal Link */}
-            {treatmentSheet.proposal_id && (
-              <TouchableOpacity
-                style={styles.proposalLink}
-                onPress={() => router.push(`/proposals/${treatmentSheet.proposal_id}`)}
-              >
-                <Ionicons name="link-outline" size={16} color={theme.colors.primary.default} />
-                <Text style={[styles.proposalLinkText, { color: theme.colors.primary.default }]}>
-                  View Original Proposal
+            {/* Episode Title (Disease/Condition) */}
+            {isLoadingHeaderData && !episodeData ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="medical-outline" size={16} color={theme.colors.text.disabled} />
+                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Condition:</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.text.disabled }]}>Loading...</Text>
+              </View>
+            ) : episodeData ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="medical-outline" size={16} color={theme.colors.feedback.error} />
+                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Condition:</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.text.primary, fontWeight: '600' }]}>
+                  {episodeData.title || 'Not specified'}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
+            ) : null}
+            
+            {/* Duration */}
+            <View style={styles.infoRow}>
+              <Ionicons name="time-outline" size={16} color={theme.colors.feedback.info} />
+              <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Duration:</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.feedback.info, fontWeight: '600' }]}>
+                {treatmentSheet.duration_days || rowsData.length || 0} days treatment
+              </Text>
+            </View>
             
             {/* Package Cost */}
             {treatmentSheet.agreed_package_cost && (
               <View style={styles.infoRow}>
                 <Ionicons name="cash-outline" size={16} color={theme.colors.feedback.success} />
-                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Package:</Text>
+                <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Package Cost:</Text>
                 <Text style={[styles.infoValue, { color: theme.colors.feedback.success, fontWeight: '600' }]}>
                   ₹{treatmentSheet.agreed_package_cost.toLocaleString()}
                 </Text>
               </View>
             )}
             
+            {/* Created Date */}
             <View style={styles.infoRow}>
               <Ionicons name="calendar-outline" size={16} color={theme.colors.text.secondary} />
               <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Created:</Text>
               <Text style={[styles.infoValue, { color: theme.colors.text.primary }]}>{formatDateTime(treatmentSheet.recorded_at)}</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={16} color={theme.colors.feedback.info} />
-              <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>Duration:</Text>
-              <Text style={[styles.infoValue, { color: theme.colors.feedback.info }]}>
-                {treatmentSheet.duration_days} days
-              </Text>
-            </View>
           </View>
+
+          {/* Schedule Appointments Button (only for DRAFT status) */}
+          {treatmentSheet.status === 'DRAFT' && (
+            <TouchableOpacity
+              style={[styles.scheduleButton, { backgroundColor: theme.colors.primary.default }]}
+              onPress={handleScheduleAppointments}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar" size={20} color={theme.colors.primary.onPrimary} />
+              <Text style={[styles.scheduleButtonText, { color: theme.colors.primary.onPrimary }]}>
+                Schedule Appointments
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Progress */}
           <View style={styles.section}>
@@ -511,6 +637,25 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Treatment Days ({rowsData.length})</Text>
+              {/* Global Save All Button - always show when editable */}
+              {canEdit && rowsData.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.saveAllButton, { backgroundColor: theme.colors.feedback.success }]}
+                  onPress={saveAllRows}
+                  disabled={isSavingAll}
+                >
+                  {isSavingAll ? (
+                    <ActivityIndicator size="small" color={theme.colors.primary.onPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-done" size={18} color={theme.colors.primary.onPrimary} />
+                      <Text style={[styles.saveAllButtonText, { color: theme.colors.primary.onPrimary }]}>
+                        {hasBeenSavedOnce ? 'Update All' : 'Save All'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {paginatedRows.map((row, index) => (
@@ -531,24 +676,21 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                   
                   {canEdit && (
                     <View style={styles.rowActions}>
-                      {/* Edit/Cancel Icon */}
-                      <TouchableOpacity
-                        style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                        onPress={() => toggleEdit(index)}
-                        disabled={row.isSaving}
-                      >
-                        <Ionicons 
-                          name={row.isEditing ? "close-circle-outline" : "create-outline"} 
-                          size={20} 
-                          color={row.isEditing ? theme.colors.feedback.error : theme.colors.primary.default} 
-                        />
-                      </TouchableOpacity>
+                      {/* Show Edit button when not editing and has been saved once */}
+                      {!row.isEditing && hasBeenSavedOnce && (
+                        <TouchableOpacity
+                          style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
+                          onPress={() => toggleEditMode(index)}
+                        >
+                          <Ionicons name="create-outline" size={20} color={theme.colors.primary.default} />
+                        </TouchableOpacity>
+                      )}
 
-                      {/* Save Icon */}
+                      {/* Show Update button when editing */}
                       {row.isEditing && (
                         <TouchableOpacity
                           style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                          onPress={() => saveRow(index)}
+                          onPress={() => updateSingleRow(index)}
                           disabled={row.isSaving}
                         >
                           {row.isSaving ? (
@@ -559,8 +701,8 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                         </TouchableOpacity>
                       )}
 
-                      {/* Copy from Above Icon */}
-                      {index > 0 && (
+                      {/* Copy from Above Icon - only show when editing */}
+                      {row.isEditing && index > 0 && (
                         <TouchableOpacity
                           style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
                           onPress={() => copyFromAbove(index)}
@@ -569,20 +711,11 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                           <Ionicons name="copy-outline" size={20} color={theme.colors.feedback.info} />
                         </TouchableOpacity>
                       )}
-
-                      {/* Sync Icon */}
-                      <TouchableOpacity
-                        style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                        onPress={() => syncSingleRow(index)}
-                        disabled={row.isSaving}
-                      >
-                        <Ionicons name="sync-outline" size={20} color={theme.colors.feedback.warning} />
-                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
 
-                {/* Row Content - Always Visible */}
+                {/* Row Content - Conditionally Editable */}
                 <View style={styles.rowContent}>
                   <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Treatment Description</Text>
                   <TextInput
@@ -590,9 +723,10 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                       styles.textInput, 
                       styles.multilineInput,
                       { 
-                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.muted,
-                        borderColor: row.isEditing ? theme.colors.border.subtle : theme.colors.border.subtle,
-                        color: theme.colors.text.primary
+                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.default,
+                        borderColor: theme.colors.border.subtle,
+                        color: theme.colors.text.primary,
+                        opacity: row.isEditing ? 1 : 0.7,
                       }
                     ]}
                     value={row.treatment_name}
@@ -610,9 +744,10 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                       styles.textInput, 
                       styles.multilineInput,
                       { 
-                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.muted,
-                        borderColor: row.isEditing ? theme.colors.border.subtle : theme.colors.border.subtle,
-                        color: theme.colors.text.primary
+                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.default,
+                        borderColor: theme.colors.border.subtle,
+                        color: theme.colors.text.primary,
+                        opacity: row.isEditing ? 1 : 0.7,
                       }
                     ]}
                     value={row.medicines_text}
@@ -630,9 +765,10 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                       styles.textInput, 
                       styles.multilineInput,
                       { 
-                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.muted,
-                        borderColor: row.isEditing ? theme.colors.border.subtle : theme.colors.border.subtle,
-                        color: theme.colors.text.primary
+                        backgroundColor: row.isEditing ? theme.colors.background.elevated : theme.colors.background.default,
+                        borderColor: theme.colors.border.subtle,
+                        color: theme.colors.text.primary,
+                        opacity: row.isEditing ? 1 : 0.7,
                       }
                     ]}
                     value={row.instructions_text}
@@ -665,34 +801,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
           <View style={[styles.actionsContainer, { borderTopColor: theme.colors.border.subtle }]}>
             <Text style={[styles.actionsTitle, { color: theme.colors.text.secondary }]}>Actions</Text>
             
-            {/* Sign Sheet Button (Doctor only, all rows complete) */}
-            {currentUser?.role === 'DOCTOR' && 
-             treatmentSheet.status !== 'SIGNED' && 
-             rowsData.every(r => r.treatment_name) && (
-              <TouchableOpacity
-                style={[styles.signButton, { backgroundColor: theme.colors.feedback.success }]}
-                onPress={() => {
-                  Alert.alert(
-                    'Sign Treatment Sheet',
-                    'Are you sure you want to sign this treatment sheet? Once signed, it cannot be edited.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Sign',
-                        onPress: () => handleTransition('SIGNED' as TreatmentSheetStatus),
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Ionicons name="create-outline" size={20} color={theme.colors.primary.onPrimary} />
-                <Text style={[styles.signButtonText, { color: theme.colors.primary.onPrimary }]}>
-                  Sign Sheet
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Lifecycle Management Buttons */}
+            {/* Lifecycle Management Buttons - Cancel and Finalize in one row */}
             <View style={styles.lifecycleButtons}>
               {/* Pause Button */}
               {canPauseResult?.allowed && (
@@ -734,21 +843,33 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                   </Text>
                 </TouchableOpacity>
               )}
+              
+              {/* Finalize Button */}
+              {treatmentSheet.status !== 'FINAL' && treatmentSheet.status !== 'SIGNED' && (
+                <TouchableOpacity
+                  style={[styles.lifecycleButton, { backgroundColor: theme.colors.feedback.success }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Finalize Treatment Sheet',
+                      'Are you sure you want to finalize this treatment sheet?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Finalize',
+                          onPress: () => handleTransition('FINAL' as TreatmentSheetStatus),
+                        },
+                      ]
+                    );
+                  }}
+                  disabled={transitionMutation.isPending}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.primary.onPrimary} />
+                  <Text style={[styles.lifecycleButtonText, { color: theme.colors.primary.onPrimary }]}>
+                    Finalize
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
-            
-            <TreatmentSheetActions
-              status={treatmentSheet.status}
-              onTransition={handleTransition}
-              onSync={handleSync}
-              onPrint={handlePrint}
-              onArchive={handleArchive}
-              isLoading={
-                transitionMutation.isPending ||
-                printMutation.isPending ||
-                archiveMutation.isPending
-              }
-              isSyncing={syncMutation.isPending}
-            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -781,9 +902,6 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         onCancel={() => setShowCancelDialog(false)}
         loading={cancelMutation.isPending}
       />
-
-      {/* Scheduling Wizard for Resume */}
-      <SchedulingWizard />
     </SafeAreaView>
   );
 };
@@ -815,6 +933,15 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerIconButton: {
+    padding: spacing.xs,
+    borderRadius: 6,
   },
   content: {
     flex: 1,
@@ -884,17 +1011,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  proposalLink: {
+  scheduleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  proposalLinkText: {
-    fontSize: 14,
-    fontWeight: '500',
-    textDecorationLine: 'underline',
+  scheduleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   section: {
     marginBottom: spacing.md,
@@ -909,6 +1038,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: spacing.sm,
+  },
+  saveAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+  },
+  saveAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   rowCard: {
     borderRadius: 12,

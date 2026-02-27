@@ -24,13 +24,8 @@ import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useFeatures, hasMultiDayAppointments } from '../../../../core/hooks/useFeatures';
 import { useTreatmentSheetsByEpisodeQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
-import { useProposalsByEpisodeQuery, useCanScheduleProposalQuery } from '../../../treatmentProposals/data/repositories/proposals.repository.impl';
-import { ProposalStatusBadge } from '../../../treatmentProposals/presentation/components/ProposalStatusBadge';
-import { TreatmentSheetStatusBadge } from '../../../treatmentProposals/presentation/components/TreatmentSheetStatusBadge';
-import { ProgressBar } from '../../../treatmentProposals/presentation/components/ProgressBar';
-import { CostDisplay } from '../../../treatmentProposals/presentation/components/CostDisplay';
-import { useSchedulingWizardStore } from '../../../treatmentProposals/presentation/stores/schedulingWizard.store';
-import { SchedulingWizard } from '../../../treatmentProposals/presentation/pages/SchedulingWizard';
+import { TreatmentSheetStatusBadge } from '../../../treatmentSheets/presentation/components/TreatmentSheetStatusBadge';
+import { ProgressBar } from '../../../treatmentSheets/presentation/components/ProgressBar';
 
 // ============================================
 // TYPES
@@ -66,33 +61,18 @@ export const MultiDayTreatmentsSection: React.FC<MultiDayTreatmentsSectionProps>
     enabled: isFeatureEnabled && !!tenantId && !!episodeId,
   });
 
-  // Fetch proposals (only if feature is enabled)
-  const {
-    data: proposalsData,
-    isLoading: isLoadingProposals,
-    isError: isErrorProposals,
-  } = useProposalsByEpisodeQuery(tenantId, episodeId, {
-    enabled: isFeatureEnabled && !!tenantId && !!episodeId,
-  });
-
   // Don't render if multi-day appointments are not enabled
   if (!isFeatureEnabled) {
     return null;
   }
 
   // Filter for active sheets (IN_PROGRESS or SCHEDULED)
-  // TODO: Update when backend adds multi-day workflow statuses
   const activeSheets = sheetsData?.treatment_sheets?.filter(
-    (sheet) => sheet.status === 'DRAFT' || sheet.status === 'FINAL'
-  ) || [];
-
-  // Filter for proposed proposals
-  const proposedProposals = proposalsData?.proposals?.filter(
-    (proposal) => proposal.status === 'PROPOSED'
+    (sheet) => sheet.status === 'DRAFT' || sheet.status === 'FINAL' || sheet.status === 'IN_PROGRESS' || sheet.status === 'SCHEDULED'
   ) || [];
 
   // Loading state
-  if (isLoadingSheets || isLoadingProposals) {
+  if (isLoadingSheets) {
     return (
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
@@ -109,12 +89,12 @@ export const MultiDayTreatmentsSection: React.FC<MultiDayTreatmentsSectionProps>
   }
 
   // Error state
-  if (isErrorSheets || isErrorProposals) {
+  if (isErrorSheets) {
     return null; // Silently fail - this is not critical
   }
 
   // Empty state
-  if (activeSheets.length === 0 && proposedProposals.length === 0) {
+  if (activeSheets.length === 0) {
     return null; // Don't show section if no multi-day treatments
   }
 
@@ -135,19 +115,15 @@ export const MultiDayTreatmentsSection: React.FC<MultiDayTreatmentsSectionProps>
         />
       ))}
 
-      {/* Proposed Treatments */}
-      {proposedProposals.map((proposal) => (
-        <ProposalCard
-          key={proposal.id}
-          proposal={proposal}
-          tenantId={tenantId}
-          theme={theme}
-          router={router}
-        />
-      ))}
-      
-      {/* Scheduling Wizard Modal */}
-      <SchedulingWizard />
+      {/* Empty State */}
+      {activeSheets.length === 0 && (
+        <View style={styles.emptyState}>
+          <Ionicons name="calendar-outline" size={48} color={theme.colors.text.disabled} />
+          <Text style={[styles.emptyStateText, { color: theme.colors.text.secondary }]}>
+            No active multi-day treatments
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -187,6 +163,9 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
     });
   };
 
+  // Get treatment name from episode or default
+  const treatmentName = sheet.episode_title || 'Multi-Day Treatment';
+
   return (
     <View
       style={[
@@ -204,7 +183,7 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
         </View>
         <View style={styles.cardHeaderText}>
           <Text style={[styles.cardTitle, { color: theme.colors.text.primary }]} numberOfLines={1}>
-            {sheet.proposal?.name || 'Multi-Day Treatment'}
+            {treatmentName}
           </Text>
           <Text style={[styles.cardSubtitle, { color: theme.colors.text.secondary }]}>
             {totalDays} days
@@ -255,148 +234,6 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
 };
 
 // ============================================
-// PROPOSAL CARD
-// ============================================
-
-interface ProposalCardProps {
-  proposal: any;
-  tenantId: string;
-  theme: any;
-  router: any;
-}
-
-const ProposalCard: React.FC<ProposalCardProps> = ({
-  proposal,
-  tenantId,
-  theme,
-  router,
-}) => {
-  // Check if user can schedule (handle permission errors gracefully)
-  const { data: canScheduleResult, isError } = useCanScheduleProposalQuery(tenantId, proposal.id);
-  // If there's a permission error, default to false instead of showing error
-  const canSchedule = isError ? false : (canScheduleResult?.allowed ?? false);
-  
-  // Scheduling wizard store
-  const openWizard = useSchedulingWizardStore((state) => state.openWizard);
-
-  const handleViewProposal = () => {
-    router.push({
-      pathname: '/clinic-admin/proposals/[proposalId]',
-      params: { proposalId: proposal.id },
-    });
-  };
-
-  const handleSchedule = () => {
-    // Open scheduling wizard with proposal data
-    openWizard(
-      proposal.id,
-      proposal.treatment_type || proposal.name || 'Treatment',
-      proposal.proposed_duration_days || proposal.duration_days || 0,
-      proposal.estimated_cost_min || proposal.estimated_cost_max
-    );
-  };
-
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.colors.surface.elevated,
-          borderColor: theme.colors.border.default,
-        },
-      ]}
-    >
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="document-text-outline" size={20} color={theme.colors.feedback.warning} />
-        </View>
-        <View style={styles.cardHeaderText}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text.primary }]} numberOfLines={1}>
-            {proposal.treatment_type || proposal.name || 'Untitled Treatment'}
-          </Text>
-          <Text style={[styles.cardSubtitle, { color: theme.colors.text.secondary }]}>
-            {proposal.proposed_duration_days || proposal.duration_days || 0} days
-          </Text>
-        </View>
-        <ProposalStatusBadge status={proposal.status} size="small" />
-      </View>
-
-      {/* Modalities */}
-      {proposal.modalities && proposal.modalities.length > 0 && (
-        <View style={styles.modalitiesSection}>
-          <Text style={[styles.modalitiesText, { color: theme.colors.text.secondary }]} numberOfLines={2}>
-            {proposal.modalities.join(' • ')}
-          </Text>
-        </View>
-      )}
-
-      {/* Proposed By and Date */}
-      <View style={styles.metadataSection}>
-        {proposal.proposed_by_staff_name && (
-          <View style={styles.metadataItem}>
-            <Ionicons name="person-outline" size={14} color={theme.colors.text.secondary} />
-            <Text style={[styles.metadataText, { color: theme.colors.text.secondary }]}>
-              {proposal.proposed_by_staff_name}
-            </Text>
-          </View>
-        )}
-        {proposal.proposed_at && (
-          <View style={styles.metadataItem}>
-            <Ionicons name="calendar-outline" size={14} color={theme.colors.text.secondary} />
-            <Text style={[styles.metadataText, { color: theme.colors.text.secondary }]}>
-              {formatProposalDate(proposal.proposed_at)}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Cost */}
-      {(proposal.estimated_cost_min || proposal.estimated_cost_max) && (
-        <View style={styles.costSection}>
-          <CostDisplay
-            min={proposal.estimated_cost_min}
-            max={proposal.estimated_cost_max}
-            currency={proposal.currency}
-            label="Estimated"
-            size="small"
-            inline={true}
-          />
-        </View>
-      )}
-
-      {/* Actions */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={[
-            styles.secondaryButton,
-            { borderColor: theme.colors.border.default },
-          ]}
-          onPress={handleViewProposal}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.secondaryButtonText, { color: theme.colors.primary.main }]}>
-            View Proposal
-          </Text>
-        </TouchableOpacity>
-
-        {canSchedule && (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.colors.primary.main }]}
-            onPress={handleSchedule}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.primaryButtonText, { color: theme.colors.surface.elevated }]}>
-              Schedule
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-};
-
-// ============================================
 // HELPERS
 // ============================================
 
@@ -422,25 +259,6 @@ const formatSessionDate = (dateString: string): string => {
     day: 'numeric',
     month: 'short',
   });
-};
-
-const formatProposalDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  const today = new Date();
-  const daysAgo = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (daysAgo === 0) {
-    return 'Today';
-  } else if (daysAgo === 1) {
-    return 'Yesterday';
-  } else if (daysAgo < 7) {
-    return `${daysAgo} days ago`;
-  } else {
-    return date.toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-    });
-  }
 };
 
 // ============================================
@@ -594,5 +412,14 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    marginTop: 12,
   },
 });

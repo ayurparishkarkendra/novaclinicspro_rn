@@ -9,5 +9,4 @@ export { TimeMetricsBars, DurationMetricCard, TimeMetricsSection } from './TimeM
 
 // Multi-Day Therapy Dashboard Widgets
 export { TodaysMultiDaySessionsWidget } from './TodaysMultiDaySessionsWidget';
-export { PendingProposalsWidget } from './PendingProposalsWidget';
 export { TreatmentSeriesAttentionWidget } from './TreatmentSeriesAttentionWidget';

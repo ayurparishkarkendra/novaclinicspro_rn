@@ -7,6 +7,7 @@
  */
 
 import { OperatingHourResponse } from '../../operatingHours/data/models/operatingHours.dtos';
+import { formatTime } from '../../../core/utils/dateTimeUtils';
 
 export interface ValidationResult {
   hasWarnings: boolean;
@@ -78,13 +79,9 @@ export const validateAppointmentTime = (
   const backendDay = getBackendDayOfWeek(jsDay); // Convert to backend format
   const dayName = getDayName(jsDay);
   
-  // Get time in LOCAL timezone
+  // Get time in LOCAL timezone using centralized formatTime
   const appointmentMinutes = appointmentDateTime.getHours() * 60 + appointmentDateTime.getMinutes();
-  const timeStr = appointmentDateTime.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const timeStr = formatTime(appointmentDateTime.toISOString());
 
   // DEBUG: Log validation details
   console.log('[Validation] Checking appointment:', {

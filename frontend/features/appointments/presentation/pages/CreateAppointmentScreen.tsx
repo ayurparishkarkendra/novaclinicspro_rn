@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
@@ -601,6 +601,15 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
 export const CreateAppointmentScreen: React.FC = () => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    tab?: string;
+    treatmentSheetId?: string;
+    episodeId?: string;
+    clientId?: string;
+    durationDays?: string;
+    treatmentId?: string;
+    treatmentName?: string;
+  }>();
   const { currentUser } = useAuth();
   const { t } = useTranslation();
   const tenantId = currentUser?.tenantId || '';
@@ -685,6 +694,103 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [doctorForm, setDoctorForm] = useState<DoctorFormState>(createFreshDoctorForm());
   const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
   const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
+
+  // Pre-fill form when coming from treatment sheet
+  useEffect(() => {
+    if (params.treatmentSheetId && params.tab === 'MULTI') {
+      console.log('[CreateAppointmentScreen] Pre-fill triggered:', {
+        treatmentSheetId: params.treatmentSheetId,
+        tab: params.tab,
+        treatmentId: params.treatmentId,
+        treatmentName: params.treatmentName,
+      });
+      
+      // Switch to MULTI tab
+      setAppointmentType('MULTI');
+      
+      // Fetch treatment sheet details to get client_id and other info
+      const fetchTreatmentSheetDetails = async () => {
+        try {
+          const response = await axiosClient.get(
+            `/api/v1/clinic/treatment-sheets/${params.treatmentSheetId}`
+          );
+          const treatmentSheet = response.data;
+          
+          console.log('[CreateAppointmentScreen] Treatment sheet fetched:', {
+            duration_days: treatmentSheet.duration_days,
+            episode_id: treatmentSheet.episode_id,
+          });
+          
+          // Fetch episode details to get client_id and treatment_id
+          if (treatmentSheet.episode_id) {
+            const episodeResponse = await axiosClient.get(
+              `/api/v1/clinic/${tenantId}/episodes/${treatmentSheet.episode_id}`
+            );
+            const episode = episodeResponse.data;
+            
+            console.log('[CreateAppointmentScreen] Episode fetched:', {
+              client_id: episode.client_id,
+              treatment_id: episode.treatment_id,
+            });
+            
+            // Pre-fill client
+            if (episode.client_id) {
+              setSelectedClientId(episode.client_id);
+              // Fetch client details for display
+              const clientResponse = await axiosClient.get(
+                `/api/v1/clinic/${tenantId}/clients/${episode.client_id}`
+              );
+              const client = clientResponse.data;
+              setSelectedClientInfo({
+                name: client.name || client.full_name || 'Unknown',
+                phone: client.phone || '',
+              });
+              
+              console.log('[CreateAppointmentScreen] Client info set:', {
+                name: client.name || client.full_name,
+                phone: client.phone,
+              });
+            }
+            
+            // Pre-fill treatment from params or episode
+            const treatmentIdToUse = params.treatmentId || episode.treatment_id;
+            const treatmentNameToUse = params.treatmentName || episode.title;
+            
+            if (treatmentIdToUse) {
+              setMultiDayForm(prev => ({
+                ...prev,
+                selectedTreatmentId: treatmentIdToUse,
+                selectedTreatmentName: treatmentNameToUse || '',
+              }));
+              
+              console.log('[CreateAppointmentScreen] Treatment pre-filled:', {
+                treatmentId: treatmentIdToUse,
+                treatmentName: treatmentNameToUse,
+              });
+            }
+          }
+          
+          // Pre-fill number of sessions (duration)
+          if (treatmentSheet.duration_days) {
+            console.log('[CreateAppointmentScreen] Setting numberOfSessions:', treatmentSheet.duration_days);
+            setMultiDayForm(prev => {
+              const updated = {
+                ...prev,
+                numberOfSessions: treatmentSheet.duration_days,
+              };
+              console.log('[CreateAppointmentScreen] MultiDayForm updated:', updated);
+              return updated;
+            });
+          }
+          
+        } catch (error) {
+          console.error('[CreateAppointmentScreen] Failed to fetch treatment sheet details:', error);
+        }
+      };
+      
+      fetchTreatmentSheetDetails();
+    }
+  }, [params.treatmentSheetId, params.tab, params.treatmentId, params.treatmentName, tenantId]);
 
   // Handler for appointment type change - FORCE RESET forms to prevent leakage
   const handleAppointmentTypeChange = useCallback((type: AppointmentType) => {
@@ -1337,6 +1443,8 @@ export const CreateAppointmentScreen: React.FC = () => {
         preferredTimeMinutesLocal: localMinute,  // For UI display only
         durationMinutes: multiDayForm.durationMinutes.toString(),
         notes: multiDayForm.notes,
+        // Pass through treatmentSheetId if coming from treatment sheet
+        treatmentSheetId: params.treatmentSheetId,
       },
     });
   };

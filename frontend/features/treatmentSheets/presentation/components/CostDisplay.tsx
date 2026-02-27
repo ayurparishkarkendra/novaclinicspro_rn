@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
-import { formatCostRange } from '../../data/models/treatmentProposals.dtos';
+import { formatCostRange } from '../../data/models/cost.helpers';
 
 // ============================================
 // TYPES

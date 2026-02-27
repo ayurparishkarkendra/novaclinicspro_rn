@@ -42,6 +42,7 @@ import {
   useCreateAppointmentMutation,
   useGenerateTherapyPlanMutation,
 } from '../../data/repositories/appointments.repository.impl';
+import { syncTreatmentSheetApi } from '../../../treatmentSheets/data/datasources/treatmentSheets.api';
 import {
   AppointmentCreate,
   openWhatsApp,
@@ -504,6 +505,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     preferredTimeMinutesLocal: string;
     durationMinutes: string;
     notes: string;
+    treatmentSheetId?: string; // Added for treatment sheet sync
   }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
@@ -564,6 +566,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
+  const treatmentSheetId = params.treatmentSheetId; // Extract treatmentSheetId
 
   // Parse staffIds once
   const staffIds = useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
@@ -1038,6 +1041,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     setIsCreating(true);
     let createdCount = 0;
     const errors: string[] = [];
+    let seriesId: string | null = null;
 
     try {
       // Create appointments using EFFECTIVE TIMES (single source of truth)
@@ -1062,8 +1066,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         };
 
         try {
-          await createMutation.mutateAsync(payload);
+          const createdAppointment = await createMutation.mutateAsync(payload);
           createdCount++;
+          
+          // Capture series_id from first appointment
+          if (!seriesId && createdAppointment.series_id) {
+            seriesId = createdAppointment.series_id;
+            console.log('[PreviewScreen] Captured series_id:', seriesId);
+          }
         } catch (err: any) {
           errors.push(`${t('appointments.session')} ${session.session_number}: ${err.message || t('common.failed')}`);
         }
@@ -1071,6 +1081,22 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
       // Show result - use modal on web for reliable button handling
       if (createdCount === sessions.length) {
+        // If coming from treatment sheet, sync the appointments
+        if (treatmentSheetId && seriesId) {
+          try {
+            console.log('[PreviewScreen] Syncing treatment sheet:', {
+              tenantId,
+              treatmentSheetId,
+              seriesId,
+            });
+            await syncTreatmentSheetApi(tenantId, treatmentSheetId, seriesId);
+            console.log('[PreviewScreen] Treatment sheet synced successfully');
+          } catch (syncError) {
+            console.error('[PreviewScreen] Failed to sync treatment sheet:', syncError);
+            // Don't block the success flow if sync fails
+          }
+        }
+
         let whatsappUrl: string | null = null;
         if (clientPhone) {
           const firstEffective = effectiveTimes.get(1);
@@ -1086,6 +1112,11 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           whatsappUrl = openWhatsApp(clientPhone, message);
         }
         
+        // Determine navigation target
+        const navigationTarget = treatmentSheetId 
+          ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
+          : '/clinic-admin/appointments' as any;
+        
         // On web, Alert buttons don't work reliably - show success modal instead
         if (Platform.OS === 'web') {
           setSuccessModal({ visible: true, createdCount, whatsappUrl });
@@ -1099,20 +1130,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 { 
                   text: t('common.done'), 
                   style: 'cancel', 
-                  onPress: () => router.replace('/clinic-admin/appointments' as any) 
+                  onPress: () => router.replace(navigationTarget) 
                 },
                 {
                   text: t('appointments.sendWhatsApp'),
                   onPress: () => {
                     Linking.openURL(whatsappUrl!);
-                    router.replace('/clinic-admin/appointments' as any);
+                    router.replace(navigationTarget);
                   },
                 },
               ]
             );
           } else {
             Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
-            router.replace('/clinic-admin/appointments' as any);
+            router.replace(navigationTarget);
           }
         }
       } else if (createdCount > 0) {
@@ -1140,7 +1171,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // Handle success modal actions
   const handleSuccessModalDone = () => {
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    router.replace('/clinic-admin/appointments' as any);
+    const navigationTarget = treatmentSheetId 
+      ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
+      : '/clinic-admin/appointments' as any;
+    router.replace(navigationTarget);
   };
 
   const handleSuccessModalWhatsApp = () => {
@@ -1148,7 +1182,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       Linking.openURL(successModal.whatsappUrl);
     }
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    router.replace('/clinic-admin/appointments' as any);
+    const navigationTarget = treatmentSheetId 
+      ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
+      : '/clinic-admin/appointments' as any;
+    router.replace(navigationTarget);
   };
 
   return (

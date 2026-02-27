@@ -610,10 +610,6 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
         {/* Treatment Plans Section */}
         <TreatmentPlansSection
           episodeId={episodeId}
-          onCreateProposal={() => {
-            // TODO: Navigate to proposal creation modal
-            console.log('Create proposal for episode:', episodeId);
-          }}
         />
 
         {/* Treatment Sheets Section */}

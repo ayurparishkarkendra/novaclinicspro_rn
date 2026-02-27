@@ -1,9 +1,9 @@
 /**
- * Proposals Awaiting Scheduling Widget
- * Shows proposals that need scheduling with "Schedule Now" button
+ * Unscheduled Treatment Sheets Widget
+ * Shows DRAFT treatment sheets that need scheduling with "Schedule Now" button
  * 
- * Requirements: F2.5 - Admin Dashboard Integration
- * Location: features/staffDashboards/presentation/components/ProposalsAwaitingSchedulingWidget.tsx
+ * Requirements: F2.5 - Admin Dashboard Integration (Refactored from ProposalsAwaitingSchedulingWidget)
+ * Location: features/staffDashboards/presentation/components/UnscheduledTreatmentSheetsWidget.tsx
  */
 
 import React from 'react';
@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -24,24 +25,20 @@ import { useFeatures, hasMultiDayAppointments } from '../../../../core/hooks/use
 // TYPES
 // ============================================
 
-interface PendingProposal {
+interface UnscheduledSheet {
   id: string;
-  name: string;
   duration_days: number;
-  client_name: string;
-  created_by_name: string;
+  client_name?: string;
+  episode_title?: string;
   created_at: string;
   days_ago: number;
-  estimated_cost_min?: number;
-  estimated_cost_max?: number;
-  currency?: string;
+  agreed_package_cost?: number;
 }
 
-interface ProposalsAwaitingSchedulingWidgetProps {
-  proposals: PendingProposal[];
+interface UnscheduledTreatmentSheetsWidgetProps {
+  sheets: UnscheduledSheet[];
   isLoading?: boolean;
   onViewAll?: () => void;
-  onScheduleNow?: (proposalId: string) => void;
   testID?: string;
 }
 
@@ -49,40 +46,34 @@ interface ProposalsAwaitingSchedulingWidgetProps {
 // HELPER FUNCTIONS
 // ============================================
 
-const formatCurrency = (amount: number, currency: string = 'INR'): string => {
-  if (currency === 'INR') {
-    return `₹${amount.toLocaleString('en-IN')}`;
-  }
-  return `${currency} ${amount.toLocaleString()}`;
-};
-
-const formatCostRange = (min?: number, max?: number, currency?: string): string => {
-  if (!min && !max) return 'Cost to be determined';
-  if (min && max) {
-    return `${formatCurrency(min, currency)} - ${formatCurrency(max, currency)}`;
-  }
-  if (min) return `From ${formatCurrency(min, currency)}`;
-  if (max) return `Up to ${formatCurrency(max, currency)}`;
-  return 'Cost to be determined';
+const formatCurrency = (amount: number): string => {
+  return `₹${amount.toLocaleString('en-IN')}`;
 };
 
 // ============================================
 // COMPONENT
 // ============================================
 
-export const ProposalsAwaitingSchedulingWidget: React.FC<ProposalsAwaitingSchedulingWidgetProps> = ({
-  proposals,
+export const UnscheduledTreatmentSheetsWidget: React.FC<UnscheduledTreatmentSheetsWidgetProps> = ({
+  sheets,
   isLoading = false,
   onViewAll,
-  onScheduleNow,
-  testID = 'proposals-awaiting-scheduling-widget',
+  testID = 'unscheduled-sheets-widget',
 }) => {
   const features = useFeatures();
+  const router = useRouter();
 
   // Don't render if multi-day appointments are not enabled
   if (!hasMultiDayAppointments(features)) {
     return null;
   }
+
+  const handleScheduleNow = (sheetId: string) => {
+    router.push({
+      pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]',
+      params: { treatmentSheetId: sheetId },
+    });
+  };
 
   // Loading state
   if (isLoading) {
@@ -90,31 +81,31 @@ export const ProposalsAwaitingSchedulingWidget: React.FC<ProposalsAwaitingSchedu
       <View style={styles.container} testID={testID}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Ionicons name="bulb" size={20} color={colors.warning.main} />
-            <Text style={styles.title}>Proposals Awaiting Scheduling</Text>
+            <Ionicons name="calendar-outline" size={20} color={colors.warning.main} />
+            <Text style={styles.title}>Unscheduled Treatment Sheets</Text>
           </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.warning.main} />
-          <Text style={styles.loadingText}>Loading proposals...</Text>
+          <Text style={styles.loadingText}>Loading treatment sheets...</Text>
         </View>
       </View>
     );
   }
 
   // Empty state
-  if (proposals.length === 0) {
+  if (sheets.length === 0) {
     return (
       <View style={styles.container} testID={testID}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Ionicons name="bulb" size={20} color={colors.warning.main} />
-            <Text style={styles.title}>Proposals Awaiting Scheduling</Text>
+            <Ionicons name="calendar-outline" size={20} color={colors.warning.main} />
+            <Text style={styles.title}>Unscheduled Treatment Sheets</Text>
           </View>
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="checkmark-circle-outline" size={48} color={colors.success.main} />
-          <Text style={styles.emptyText}>All proposals have been scheduled</Text>
+          <Text style={styles.emptyText}>All treatment sheets have been scheduled</Text>
         </View>
       </View>
     );
@@ -125,8 +116,8 @@ export const ProposalsAwaitingSchedulingWidget: React.FC<ProposalsAwaitingSchedu
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="bulb" size={20} color={colors.warning.main} />
-          <Text style={styles.title}>Proposals Awaiting Scheduling</Text>
+          <Ionicons name="calendar-outline" size={20} color={colors.warning.main} />
+          <Text style={styles.title}>Unscheduled Treatment Sheets</Text>
         </View>
         {onViewAll && (
           <TouchableOpacity onPress={onViewAll} testID={`${testID}-view-all`}>
@@ -135,71 +126,81 @@ export const ProposalsAwaitingSchedulingWidget: React.FC<ProposalsAwaitingSchedu
         )}
       </View>
 
-      {/* Proposal count */}
+      {/* Sheet count */}
       <Text style={styles.countText}>
-        💡 {proposals.length} proposal{proposals.length !== 1 ? 's' : ''} need{proposals.length === 1 ? 's' : ''} scheduling
+        📅 {sheets.length} treatment sheet{sheets.length !== 1 ? 's' : ''} need{sheets.length === 1 ? 's' : ''} scheduling
       </Text>
 
-      {/* Proposals list */}
-      <View style={styles.proposalsList}>
-        {proposals.map((proposal) => (
+      {/* Sheets list */}
+      <View style={styles.sheetsList}>
+        {sheets.map((sheet) => (
           <View
-            key={proposal.id}
-            style={styles.proposalCard}
-            testID={`${testID}-proposal-${proposal.id}`}
+            key={sheet.id}
+            style={styles.sheetCard}
+            testID={`${testID}-sheet-${sheet.id}`}
           >
-            {/* Proposal header */}
-            <View style={styles.proposalHeader}>
-              <Text style={styles.proposalName} numberOfLines={1}>
-                {proposal.name} - {proposal.duration_days} days
+            {/* Sheet header */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetName} numberOfLines={1}>
+                {sheet.duration_days} Day Treatment
               </Text>
             </View>
 
             {/* Client info */}
-            <View style={styles.infoRow}>
-              <Ionicons name="person-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.infoText}>Client: {proposal.client_name}</Text>
-            </View>
+            {sheet.client_name && (
+              <View style={styles.infoRow}>
+                <Ionicons name="person-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.infoText}>Client: {sheet.client_name}</Text>
+              </View>
+            )}
 
-            {/* Proposed by */}
+            {/* Episode info */}
+            {sheet.episode_title && (
+              <View style={styles.infoRow}>
+                <Ionicons name="document-text-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.infoText}>Episode: {sheet.episode_title}</Text>
+              </View>
+            )}
+
+            {/* Created date */}
             <View style={styles.infoRow}>
-              <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+              <Ionicons name="time-outline" size={14} color={colors.text.secondary} />
               <Text style={styles.infoText}>
-                Proposed by: {proposal.created_by_name} ({proposal.days_ago} day{proposal.days_ago !== 1 ? 's' : ''} ago)
+                Created {sheet.days_ago} day{sheet.days_ago !== 1 ? 's' : ''} ago
               </Text>
             </View>
 
-            {/* Estimated cost */}
-            <View style={styles.infoRow}>
-              <Ionicons name="cash-outline" size={14} color={colors.text.secondary} />
-              <Text style={styles.infoText}>
-                {formatCostRange(proposal.estimated_cost_min, proposal.estimated_cost_max, proposal.currency)}
-              </Text>
-            </View>
+            {/* Package cost */}
+            {sheet.agreed_package_cost && (
+              <View style={styles.infoRow}>
+                <Ionicons name="cash-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.infoText}>
+                  Package: {formatCurrency(sheet.agreed_package_cost)}
+                </Text>
+              </View>
+            )}
 
             {/* Schedule button */}
-            {onScheduleNow && (
-              <TouchableOpacity
-                style={styles.scheduleButton}
-                onPress={() => onScheduleNow(proposal.id)}
-                testID={`${testID}-schedule-${proposal.id}`}
-              >
-                <Ionicons name="calendar" size={16} color={colors.common.white} />
-                <Text style={styles.scheduleButtonText}>Schedule Now</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.scheduleButton}
+              onPress={() => handleScheduleNow(sheet.id)}
+              testID={`${testID}-schedule-${sheet.id}`}
+            >
+              <Ionicons name="calendar" size={16} color={colors.common.white} />
+              <Text style={styles.scheduleButtonText}>Schedule Now</Text>
+            </TouchableOpacity>
           </View>
         ))}
       </View>
 
       {/* View all button */}
-      {onViewAll && proposals.length > 3 && (
+      {onViewAll && sheets.length > 3 && (
         <TouchableOpacity
           style={styles.viewAllButton}
           onPress={onViewAll}
           testID={`${testID}-view-all-bottom`}
         >
-          <Text style={styles.viewAllButtonText}>View All Proposals</Text>
+          <Text style={styles.viewAllButtonText}>View All Treatment Sheets</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -266,10 +267,10 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.text.secondary,
   },
-  proposalsList: {
+  sheetsList: {
     gap: spacing.md,
   },
-  proposalCard: {
+  sheetCard: {
     backgroundColor: colors.background.default,
     borderRadius: 8,
     padding: spacing.md,
@@ -278,10 +279,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: colors.warning.main,
   },
-  proposalHeader: {
+  sheetHeader: {
     marginBottom: spacing.sm,
   },
-  proposalName: {
+  sheetName: {
     ...typography.body1,
     color: colors.text.primary,
     fontWeight: '600',

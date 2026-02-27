@@ -11,7 +11,7 @@ export { OnLeaveBanner } from './OnLeaveBanner';
 
 // Multi-Day Treatment Widgets (F2.5 - Admin Dashboard Integration)
 export { MultiDayTreatmentOverviewWidget } from './MultiDayTreatmentOverviewWidget';
-export { ProposalsAwaitingSchedulingWidget } from './ProposalsAwaitingSchedulingWidget';
+export { UnscheduledTreatmentSheetsWidget } from './UnscheduledTreatmentSheetsWidget';
 export { TodaysMultiDaySessionsAdminWidget } from './TodaysMultiDaySessionsAdminWidget';
 export { PausedSeriesWidget } from './PausedSeriesWidget';
 

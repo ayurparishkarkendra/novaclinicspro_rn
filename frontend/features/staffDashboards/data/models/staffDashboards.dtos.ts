@@ -168,25 +168,9 @@ export const formatDuration = (minutes: number | null): string => {
 /** Treatment statistics for admin dashboard */
 export interface TreatmentStatsResponse {
   active_series: number;
-  pending_proposals: number;
+  unscheduled_sheets: number;
   paused_series: number;
   completed_this_month: number;
-}
-
-/** Pending proposal for admin dashboard */
-export interface PendingProposalItem {
-  id: string;
-  name: string;
-  duration_days: number;
-  client_id: string;
-  client_name: string;
-  created_by_staff_id: string;
-  created_by_name: string;
-  created_at: string;
-  days_ago: number;
-  estimated_cost_min?: number;
-  estimated_cost_max?: number;
-  currency?: string;
 }
 
 /** Today's session statistics for admin dashboard */

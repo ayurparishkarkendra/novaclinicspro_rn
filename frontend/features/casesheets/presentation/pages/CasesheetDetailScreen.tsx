@@ -41,7 +41,6 @@ import {
 import { useCreateTreatmentSheetMutation } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import { CasesheetStatusBadge } from '../components/CasesheetStatusBadge';
 import { EmptyCasesheetsState } from '../components/EmptyCasesheetsState';
-import { ProposedTreatmentPlansSection } from '../../../treatmentProposals/presentation/components/ProposedTreatmentPlansSection';
 import { useQueryClient } from '@tanstack/react-query';
 
 const DURATION_OPTIONS = [
@@ -98,6 +97,49 @@ export const CasesheetDetailScreen: React.FC = () => {
     enabled: !!tenantId && !!clientId,
   });
 
+  // Fetch episode details to show disease name in treatment sheet section
+  const { data: episode } = useQuery({
+    queryKey: ['episode', tenantId, casesheet?.episode_id],
+    queryFn: async () => {
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      const response = await axiosClient.get(`/api/v1/clinic/${tenantId}/episodes/${casesheet?.episode_id}`);
+      return response.data;
+    },
+    enabled: !!tenantId && !!casesheet?.episode_id,
+  });
+
+  // Fetch treatment sheets for this episode
+  // Primary: Use casesheet.treatment_sheet_id if available
+  // Fallback: Fetch by episode_id (always enabled as backend may not update treatment_sheet_id yet)
+  const { data: treatmentSheetsData } = useQuery({
+    queryKey: ['treatment-sheets-by-episode', tenantId, casesheet?.episode_id],
+    queryFn: async () => {
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      const response = await axiosClient.get(
+        `/api/v1/clinic/${tenantId}/treatment-sheets`,
+        { params: { episode_id: casesheet?.episode_id } }
+      );
+      console.log('[CasesheetDetail] Treatment sheets by episode response:', response.data);
+      return response.data;
+    },
+    enabled: !!tenantId && !!casesheet?.episode_id,
+  });
+
+  // Determine which treatment sheet to show:
+  // 1. First priority: casesheet.treatment_sheet_id (direct link from backend)
+  // 2. Fallback: Most recent treatment sheet from episode query
+  const treatmentSheetId = casesheet?.treatment_sheet_id || treatmentSheetsData?.treatment_sheets?.[0]?.id;
+  
+  // Debug logging
+  console.log('[CasesheetDetail] Treatment sheet detection:', {
+    casesheetId: casesheet?.id,
+    treatment_sheet_id: casesheet?.treatment_sheet_id,
+    episodeId: casesheet?.episode_id,
+    fallbackTreatmentSheets: treatmentSheetsData?.treatment_sheets?.length || 0,
+    fallbackTreatmentSheetIds: treatmentSheetsData?.treatment_sheets?.map((ts: any) => ts.id) || [],
+    finalTreatmentSheetId: treatmentSheetId,
+  });
+
   const transitionMutation = useTransitionCasesheetStatusMutation(tenantId, casesheetId);
   const printMutation = usePrintCasesheetMutation(tenantId, casesheetId);
   const archiveMutation = useArchiveCasesheetMutation(tenantId, casesheetId, clientId);
@@ -150,7 +192,8 @@ export const CasesheetDetailScreen: React.FC = () => {
       const result = await createTSMutation.mutateAsync({ duration_days: duration });
       setShowCreateTSModal(false);
       
-      // Refetch casesheet to get updated treatment_sheet_id
+      // Invalidate casesheet query - backend now updates treatment_sheet_id
+      queryClient.invalidateQueries({ queryKey: ['casesheets', 'detail', tenantId, casesheetId] });
       await refetch();
       
       Alert.alert(
@@ -162,7 +205,7 @@ export const CasesheetDetailScreen: React.FC = () => {
             onPress: () => {
               router.push({
                 pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]' as any,
-                params: { treatmentSheetId: result.id },
+                params: { treatmentSheetId: result.id, casesheetId },
               });
             },
           },
@@ -172,7 +215,7 @@ export const CasesheetDetailScreen: React.FC = () => {
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create treatment sheet.');
     }
-  }, [createTSMutation, selectedDuration, customDuration, router, refetch]);
+  }, [createTSMutation, selectedDuration, customDuration, router, refetch, queryClient, tenantId, casesheetId]);
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -534,32 +577,6 @@ export const CasesheetDetailScreen: React.FC = () => {
         {/* Extensions */}
         {renderExtensions()}
 
-        {/* Proposed Treatment Plans Section */}
-        {casesheet.episode_id && (
-          <ProposedTreatmentPlansSection
-            tenantId={tenantId}
-            episodeId={casesheet.episode_id}
-            onCreateProposal={() => {
-              router.push(`/clinic-admin/proposals/create?episodeId=${casesheet.episode_id}`);
-            }}
-            onViewProposal={(proposalId) => {
-              // View proposal details - for now just log, detail screen not yet implemented
-              console.log('View proposal:', proposalId);
-              Alert.alert('Proposal Details', `Proposal ID: ${proposalId}\n\nDetailed view screen will be added in a future update.`);
-            }}
-            onEditProposal={(proposalId) => {
-              // Edit proposal - for now just log, edit screen not yet implemented
-              console.log('Edit proposal:', proposalId);
-              Alert.alert('Edit Proposal', `Edit functionality for proposal ${proposalId} will be added in a future update.`);
-            }}
-            onScheduleProposal={(proposalId) => {
-              // Schedule proposal - for now just log, scheduling wizard not yet implemented
-              console.log('Schedule proposal:', proposalId);
-              Alert.alert('Schedule Treatment', `Scheduling wizard for proposal ${proposalId} will be added in a future update.`);
-            }}
-          />
-        )}
-
         {/* Treatment Sheets Section */}
         <View style={styles.treatmentSheetsSection}>
           <View style={styles.treatmentSheetsHeader}>
@@ -573,13 +590,13 @@ export const CasesheetDetailScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-          {casesheet.treatment_sheet_id ? (
+          {treatmentSheetId ? (
             <TouchableOpacity
               style={styles.viewTreatmentSheetButton}
               onPress={() => {
                 router.push({
                   pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]' as any,
-                  params: { treatmentSheetId: casesheet.treatment_sheet_id },
+                  params: { treatmentSheetId: treatmentSheetId, casesheetId },
                 });
               }}
               accessibilityRole="button"
@@ -587,7 +604,12 @@ export const CasesheetDetailScreen: React.FC = () => {
               testID="view-treatment-sheet-btn"
             >
               <Ionicons name="document-text" size={20} color={colors.success.main} />
-              <Text style={styles.viewTreatmentSheetText}>View Treatment Sheet</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.viewTreatmentSheetText}>View Treatment Sheet</Text>
+                {episode?.title && (
+                  <Text style={styles.treatmentSheetDisease}>{episode.title}</Text>
+                )}
+              </View>
               <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
             </TouchableOpacity>
           ) : (
@@ -1057,7 +1079,11 @@ const styles = StyleSheet.create({
   viewTreatmentSheetText: {
     ...typography.button,
     color: colors.success.main,
-    flex: 1,
+  },
+  treatmentSheetDisease: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
 
   // Modal

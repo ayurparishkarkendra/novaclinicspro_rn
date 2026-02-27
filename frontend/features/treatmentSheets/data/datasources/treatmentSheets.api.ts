@@ -101,13 +101,17 @@ export const transitionTreatmentSheetStatusApi = async (
 
 /**
  * Sync treatment sheet with treatment sessions
- * POST /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/sync
+ * POST /api/v1/clinic/{tenant_id}/treatment-sheets/{sheet_id}/sync?series_id={series_id}
  */
 export const syncTreatmentSheetApi = async (
-  treatmentSheetId: string
+  tenantId: string,
+  treatmentSheetId: string,
+  seriesId: string
 ): Promise<TreatmentSheetSyncResponse> => {
   const response = await axiosClient.post(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/sync`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/sync`,
+    null,
+    { params: { series_id: seriesId } }
   );
   return response.data;
 };
@@ -138,7 +142,22 @@ export const archiveTreatmentSheetApi = async (
 };
 
 /**
- * Update a treatment sheet row
+ * Update all treatment sheet rows (bulk update)
+ * PATCH /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/rows
+ */
+export const updateAllTreatmentSheetRowsApi = async (
+  treatmentSheetId: string,
+  rows: Array<{ id: string } & TreatmentSheetRowUpdateRequest>
+): Promise<TreatmentSheetResponse> => {
+  const response = await axiosClient.patch(
+    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/rows`,
+    { rows }
+  );
+  return response.data;
+};
+
+/**
+ * Update a single treatment sheet row
  * PATCH /api/v1/clinic/treatment-sheets/rows/{row_id}
  */
 export const updateTreatmentSheetRowApi = async (

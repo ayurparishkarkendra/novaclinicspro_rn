@@ -74,7 +74,6 @@ export interface TreatmentSheetResponse {
   id: string;
   tenant_id: string;
   case_sheet_id: string | null;
-  proposal_id?: string | null;
   episode_id?: string | null;
   appointment_id: string | null;
   encounter_id: string | null;

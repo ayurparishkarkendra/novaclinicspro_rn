@@ -142,13 +142,14 @@ export const useTransitionTreatmentSheetStatusMutation = (
  * Hook to sync treatment sheet with sessions
  */
 export const useSyncTreatmentSheetMutation = (
+  tenantId: string,
   treatmentSheetId: string,
-  options?: UseMutationOptions<TreatmentSheetSyncResponse, Error, void>
+  options?: UseMutationOptions<TreatmentSheetSyncResponse, Error, string>
 ) => {
   const queryClient = useQueryClient();
 
-  return useMutation<TreatmentSheetSyncResponse, Error, void>({
-    mutationFn: () => syncTreatmentSheetApi(treatmentSheetId),
+  return useMutation<TreatmentSheetSyncResponse, Error, string>({
+    mutationFn: (seriesId: string) => syncTreatmentSheetApi(tenantId, treatmentSheetId, seriesId),
     onSuccess: () => {
       // Refetch the treatment sheet to get updated rows
       queryClient.invalidateQueries({ queryKey: treatmentSheetsKeys.detail(treatmentSheetId) });

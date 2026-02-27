@@ -25,7 +25,7 @@ import { useRouter } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useTreatmentSheetDetailQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
-import { ProgressBar } from '../../../treatmentProposals/presentation/components/ProgressBar';
+import { ProgressBar } from '../../../treatmentSheets/presentation/components/ProgressBar';
 import { TreatmentSheetRowResponse } from '../../../treatmentSheets/data/models/treatmentSheets.dtos';
 
 // ============================================

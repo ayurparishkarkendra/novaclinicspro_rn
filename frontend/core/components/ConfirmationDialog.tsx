@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useClinicTheme } from '../theme/useClinicTheme';
 
 // ============================================
 // TYPES

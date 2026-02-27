@@ -103,13 +103,11 @@ export const useFrontdeskDashboardQuery = (
 
 import {
   getTreatmentStatsApi,
-  getPendingProposalsApi,
   getTodaySessionStatsApi,
   getPausedSeriesApi,
 } from '../datasources/staffDashboards.api';
 import {
   TreatmentStatsResponse,
-  PendingProposalItem,
   TodaySessionStatsResponse,
   PausedSeriesItem,
 } from '../models/staffDashboards.dtos';
@@ -118,7 +116,6 @@ import {
 export const adminDashboardKeys = {
   all: ['adminDashboard'] as const,
   treatmentStats: (tenantId: string) => [...adminDashboardKeys.all, 'treatmentStats', tenantId] as const,
-  pendingProposals: (tenantId: string, limit: number) => [...adminDashboardKeys.all, 'pendingProposals', tenantId, limit] as const,
   todaySessionStats: (tenantId: string, date?: string) => [...adminDashboardKeys.all, 'todaySessionStats', tenantId, date] as const,
   pausedSeries: (tenantId: string, limit: number) => [...adminDashboardKeys.all, 'pausedSeries', tenantId, limit] as const,
 };
@@ -133,24 +130,6 @@ export const useTreatmentStatsQuery = (
   return useQuery<TreatmentStatsResponse, Error>({
     queryKey: adminDashboardKeys.treatmentStats(tenantId),
     queryFn: () => getTreatmentStatsApi(tenantId),
-    enabled: !!tenantId,
-    staleTime: 60 * 1000, // 1 minute
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
-    ...options,
-  });
-};
-
-/**
- * Hook to get pending proposals for admin dashboard
- */
-export const usePendingProposalsQuery = (
-  tenantId: string,
-  limit: number = 5,
-  options?: Omit<UseQueryOptions<{ proposals: PendingProposalItem[]; total: number }, Error>, 'queryKey' | 'queryFn'>
-) => {
-  return useQuery<{ proposals: PendingProposalItem[]; total: number }, Error>({
-    queryKey: adminDashboardKeys.pendingProposals(tenantId, limit),
-    queryFn: () => getPendingProposalsApi(tenantId, limit),
     enabled: !!tenantId,
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // 5 minutes
