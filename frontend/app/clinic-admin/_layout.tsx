@@ -19,6 +19,7 @@ export default function ClinicAdminLayout() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="staff" />
+        <Stack.Screen name="staff-management" />
         <Stack.Screen name="staff/[staffId]" />
         <Stack.Screen name="staff/leave" />
         <Stack.Screen name="clients" />

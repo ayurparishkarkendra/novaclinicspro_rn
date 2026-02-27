@@ -152,6 +152,7 @@ export default function LoginScreen() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!isLoading}
+                      testID="login-email-input"
                     />
                   </View>
                 )}
@@ -198,6 +199,7 @@ export default function LoginScreen() {
                       onBlur={onBlur}
                       secureTextEntry={!showPassword}
                       editable={!isLoading}
+                      testID="login-password-input"
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
@@ -241,6 +243,7 @@ export default function LoginScreen() {
               ]}
               onPress={handleSubmit(onSubmit)}
               disabled={isLoading}
+              testID="login-submit-button"
             >
               {isLoading ? (
                 <ActivityIndicator color={theme.colors.primary.onPrimary} />

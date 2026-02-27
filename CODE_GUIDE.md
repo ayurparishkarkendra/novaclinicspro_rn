@@ -192,7 +192,7 @@ All files are in: `/app/frontend/`
 
 ### **Option 2: View in Browser**
 You can view the running app at:
-https://push-notif-app.preview.emergentagent.com
+https://clinic-mgmt-6.preview.emergentagent.com
 
 ### **Option 3: Download/Export**
 You can download the entire project using git or file export tools.

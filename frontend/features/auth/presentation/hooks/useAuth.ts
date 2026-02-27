@@ -9,15 +9,18 @@ import { supabase } from '../../../../core/api/supabaseClient';
 import { useAuthStore } from '../providers/auth.store';
 import { authRepository } from '../../data/repositories/auth.repository.impl';
 import { BootstrapSessionUseCase } from '../../domain/usecases/bootstrap-session.usecase';
-import { AuthUserSession } from '../../domain/entities/auth.entity';
+import { AuthUserSession, getLandingRoute } from '../../domain/entities/auth.entity';
 
 interface UseAuthReturn {
   currentUser: AuthUserSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  selectedClinicId: string | null;
+  setSelectedClinic: (clinicId: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   bootstrapSession: () => Promise<void>;
+  navigateToLanding: () => void;
 }
 
 export const useAuth = (): UseAuthReturn => {
@@ -26,10 +29,27 @@ export const useAuth = (): UseAuthReturn => {
     currentUser,
     isAuthenticated,
     isLoading,
+    selectedClinicId,
     setTokens,
     setCurrentUser,
+    setSelectedClinic,
     clearSession,
   } = useAuthStore();
+
+  /**
+   * Navigate to the appropriate landing page based on user context
+   * Uses centralized logic from auth.entity.ts
+   */
+  const navigateToLanding = useCallback(() => {
+    if (!currentUser) {
+      router.replace('/login');
+      return;
+    }
+    
+    const route = getLandingRoute(currentUser);
+    console.log('[useAuth] Navigating to landing:', route);
+    router.replace(route as any);
+  }, [currentUser, router]);
 
   /**
    * Login with email and password
@@ -68,8 +88,15 @@ export const useAuth = (): UseAuthReturn => {
           const userSession = await authRepository.getCurrentUser();
           setCurrentUser(userSession);
 
-          // Navigate based on role
-          navigateBasedOnRole(userSession);
+          // Navigate using centralized logic
+          const route = getLandingRoute(userSession);
+          console.log('[useAuth] Post-login navigation:', { 
+            isOrgAdmin: userSession.isOrgAdmin, 
+            tenantId: userSession.tenantId,
+            ownedClinics: userSession.ownedClinics.length,
+            route,
+          });
+          router.replace(route as any);
         } catch (backendError: any) {
           console.error('Backend context error:', backendError);
           // If backend fails, sign out from Supabase to avoid inconsistent state
@@ -98,14 +125,14 @@ export const useAuth = (): UseAuthReturn => {
   );
 
   /**
-   * Logout
+   * Logout - clears ALL session state including selectedClinicId
    */
   const logout = useCallback(async () => {
     try {
       // Sign out from Supabase
       await supabase.auth.signOut();
 
-      // Clear local session
+      // Clear local session (includes selectedClinicId reset)
       await clearSession();
 
       // Navigate to login
@@ -128,34 +155,36 @@ export const useAuth = (): UseAuthReturn => {
     }
   }, [setCurrentUser]);
 
-  /**
-   * Navigate based on user context (permission-based, not role-based)
-   * - isOrgAdmin -> Super Admin dashboard
-   * - tenantId exists -> Clinic Admin dashboard
-   */
-  const navigateBasedOnRole = (user: AuthUserSession) => {
-    console.log('[useAuth] Navigating based on context:', { 
-      isOrgAdmin: user.isOrgAdmin, 
-      tenantId: user.tenantId,
-      permissions: user.permissions 
-    });
-    
-    if (user.isOrgAdmin) {
-      router.replace('/super-admin');
-    } else if (user.tenantId) {
-      router.replace('/clinic-admin');
-    } else {
-      // User has no tenant assigned - go to index which will show appropriate message
-      router.replace('/');
-    }
-  };
-
   return {
     currentUser,
     isAuthenticated,
     isLoading,
+    selectedClinicId,
+    setSelectedClinic,
     login,
     logout,
     bootstrapSession,
+    navigateToLanding,
   };
+};
+
+/**
+ * Hook for post-login redirect logic
+ * Can be used by any component that needs to redirect after auth state changes
+ */
+export const usePostLoginRedirect = () => {
+  const router = useRouter();
+  const { currentUser, isAuthenticated } = useAuthStore();
+
+  const redirect = useCallback(() => {
+    if (!isAuthenticated || !currentUser) {
+      router.replace('/login');
+      return;
+    }
+
+    const route = getLandingRoute(currentUser);
+    router.replace(route as any);
+  }, [currentUser, isAuthenticated, router]);
+
+  return { redirect, targetRoute: currentUser ? getLandingRoute(currentUser) : '/login' };
 };
