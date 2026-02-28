@@ -47,6 +47,7 @@ import {
   canCancelSeriesApi, 
   cancelSeriesApi 
 } from '../../data/api/lifecycleApi';
+import { PauseSeriesDTO } from '../../data/models/lifecycle.dtos';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface RowFormData {
@@ -122,7 +123,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
 
   // Lifecycle mutations
   const pauseMutation = useMutation({
-    mutationFn: (payload: { reason: string; patient_consent: boolean }) =>
+    mutationFn: (payload: PauseSeriesDTO) =>
       pauseSeriesApi(tenantId, treatmentSheetId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['treatment-sheet', treatmentSheetId] });
@@ -155,6 +156,14 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   // Initialize rows data when treatment sheet loads
   useEffect(() => {
     if (treatmentSheet?.rows) {
+      // Check if any row has content (has been saved before)
+      const hasContent = treatmentSheet.rows.some(row => 
+        row.treatment_description || row.medicines_given || row.instructions
+      );
+      
+      // Set hasBeenSavedOnce based on whether rows have content
+      setHasBeenSavedOnce(hasContent);
+      
       const formattedRows = treatmentSheet.rows.map(row => ({
         id: row.id,
         day_number: row.day_number,
@@ -166,11 +175,11 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         medicines_text: row.medicines_text || row.medicines_given || '',
         instructions_text: row.instructions_text || row.instructions || '',
         isSaving: false,
-        isEditing: !hasBeenSavedOnce, // Editable by default until first global save
+        isEditing: !hasContent, // Not editable if content exists
       }));
       setRowsData(formattedRows);
     }
-  }, [treatmentSheet, hasBeenSavedOnce]);
+  }, [treatmentSheet]);
 
   // Fetch episode and client data for header
   useEffect(() => {
@@ -280,7 +289,11 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   }, [treatmentSheet, treatmentSheetId, router, tenantId]);
 
   const handlePauseConfirm = useCallback((reason: string, hasConsent: boolean) => {
-    pauseMutation.mutate({ reason, patient_consent: hasConsent });
+    pauseMutation.mutate({ 
+      reason, 
+      patient_consent: hasConsent,
+      billing_acknowledged: true // Acknowledge billing implications
+    });
   }, [pauseMutation]);
 
   const handleResume = useCallback(() => {
@@ -613,18 +626,55 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Schedule Appointments Button (only for DRAFT status) */}
+          {/* Schedule Appointments Button or Schedule Summary */}
           {treatmentSheet.status === 'DRAFT' && (
-            <TouchableOpacity
-              style={[styles.scheduleButton, { backgroundColor: theme.colors.primary.default }]}
-              onPress={handleScheduleAppointments}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar" size={20} color={theme.colors.primary.onPrimary} />
-              <Text style={[styles.scheduleButtonText, { color: theme.colors.primary.onPrimary }]}>
-                Schedule Appointments
-              </Text>
-            </TouchableOpacity>
+            <>
+              {/* Check if rows are synced (have session_id) */}
+              {rowsData.some(row => row.session_id) ? (
+                // Show schedule summary
+                <View style={[styles.scheduleSummaryCard, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}>
+                  <View style={styles.scheduleSummaryHeader}>
+                    <Ionicons name="checkmark-circle" size={24} color={theme.colors.feedback.success} />
+                    <Text style={[styles.scheduleSummaryTitle, { color: theme.colors.text.primary }]}>
+                      Appointments Scheduled
+                    </Text>
+                  </View>
+                  <Text style={[styles.scheduleSummaryText, { color: theme.colors.text.secondary }]}>
+                    {rowsData.filter(row => row.session_id).length} of {rowsData.length} sessions have been scheduled
+                  </Text>
+                  {rowsData.filter(row => row.session_date).length > 0 && (
+                    <View style={styles.scheduleSummaryDates}>
+                      <Ionicons name="calendar-outline" size={16} color={theme.colors.text.secondary} />
+                      <Text style={[styles.scheduleSummaryDatesText, { color: theme.colors.text.secondary }]}>
+                        {formatDate(rowsData.find(row => row.session_date)?.session_date || '')} - {formatDate(rowsData[rowsData.length - 1]?.session_date || '')}
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.viewAppointmentsButton, { backgroundColor: theme.colors.primary.default }]}
+                    onPress={() => router.push('/clinic-admin/appointments' as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="list" size={18} color={theme.colors.primary.onPrimary} />
+                    <Text style={[styles.viewAppointmentsButtonText, { color: theme.colors.primary.onPrimary }]}>
+                      View All Appointments
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                // Show schedule button
+                <TouchableOpacity
+                  style={[styles.scheduleButton, { backgroundColor: theme.colors.primary.default }]}
+                  onPress={handleScheduleAppointments}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar" size={20} color={theme.colors.primary.onPrimary} />
+                  <Text style={[styles.scheduleButtonText, { color: theme.colors.primary.onPrimary }]}>
+                    Schedule Appointments
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           {/* Progress */}
@@ -1023,6 +1073,48 @@ const styles = StyleSheet.create({
   },
   scheduleButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  scheduleSummaryCard: {
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+  },
+  scheduleSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  scheduleSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  scheduleSummaryText: {
+    fontSize: 14,
+    marginBottom: spacing.sm,
+  },
+  scheduleSummaryDates: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  scheduleSummaryDatesText: {
+    fontSize: 13,
+  },
+  viewAppointmentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+  },
+  viewAppointmentsButtonText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   section: {

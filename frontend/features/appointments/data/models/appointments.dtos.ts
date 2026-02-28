@@ -23,7 +23,8 @@ export type AppointmentStatus =
 /** Request to create an appointment */
 export interface AppointmentCreate {
   client_id: string;
-  staff_id?: string | null;
+  doctor_id?: string | null;
+  therapist_ids?: string[];
   room_id?: string | null;
   treatment_id?: string | null;
   appointment_start: string; // ISO datetime
@@ -41,7 +42,8 @@ export interface AppointmentCreate {
 
 /** Request to update an appointment */
 export interface AppointmentUpdate {
-  staff_id?: string | null;
+  doctor_id?: string | null;
+  therapist_ids?: string[];
   room_id?: string | null;
   treatment_id?: string | null;
   appointment_start?: string | null;
@@ -64,7 +66,8 @@ export interface AppointmentReschedule {
 export interface ListAppointmentsParams {
   status?: string;
   client_id?: string;
-  staff_id?: string;
+  doctor_id?: string;
+  therapist_id?: string;
   episode_id?: string;
   start_date?: string;
   end_date?: string;
@@ -87,7 +90,8 @@ export interface AppointmentResponse {
   id: string;
   tenant_id: string;
   client_id: string;
-  staff_id: string | null;
+  doctor_id: string | null;
+  therapist_ids: string[];
   room_id: string | null;
   treatment_id: string | null;
   appointment_start: string;
@@ -103,16 +107,16 @@ export interface AppointmentResponse {
   total_sessions?: number;
   // Episode fields (optional, nullable)
   episode_id?: string | null;
-  episode_title?: string;  // Optional expanded field for fast display
-  episode_status?: 'ACTIVE' | 'CLOSED';  // Optional expanded field for fast display
+  episode_title?: string;
+  episode_status?: 'ACTIVE' | 'CLOSED';
   // Multi-day treatment fields (optional, nullable)
-  treatment_sheet_id?: string | null;  // ID of associated treatment sheet (for multi-day treatments)
-  session_id?: string | null;  // ID of treatment session (links to treatment sheet row)
+  treatment_sheet_id?: string | null;
+  session_id?: string | null;
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;
-  staff_name?: string;  // Deprecated - use staff_assignments
-  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
+  doctor_name?: string;
+  staff_assignments?: StaffAssignment[] | null;
   treatment_name?: string;
   room_name?: string;
 }
@@ -142,38 +146,42 @@ export interface AppointmentRescheduleResponse {
 
 /**
  * Get comma-separated therapist names from staff_assignments
- * Uses staff_assignments array (preferred) with fallback to deprecated staff_name
- * 
- * IMPORTANT: Backend may not always populate staff_name or staff_assignments.
- * In such cases, we check if staff_id exists to determine if staff is assigned.
+ * Uses staff_assignments array (therapist names) with fallback logic
  */
 export const getTherapistNames = (appointment: AppointmentResponse | null): string => {
   if (!appointment) return 'Unassigned';
   
-  // Use staff_assignments (new API format)
+  // Use staff_assignments (expanded therapist names)
   if (appointment.staff_assignments && appointment.staff_assignments.length > 0) {
     return appointment.staff_assignments.map(staff => staff.name).join(', ');
   }
   
-  // Fallback to deprecated staff_name
-  if (appointment.staff_name) {
-    return appointment.staff_name;
-  }
-  
-  // If staff_id exists but no name is provided, show "Assigned" instead of "Unassigned"
-  // This indicates that staff is assigned but the name wasn't expanded in the API response
-  if (appointment.staff_id) {
-    return 'Assigned';
+  // If therapist_ids exist but names aren't expanded, show count
+  if (appointment.therapist_ids && appointment.therapist_ids.length > 0) {
+    const count = appointment.therapist_ids.length;
+    return count === 1 ? 'Therapist Assigned' : `${count} Therapists Assigned`;
   }
   
   return 'Unassigned';
 };
 
 /**
- * Get therapist count from staff_assignments
+ * Get therapist count from therapist_ids or staff_assignments
  */
 export const getTherapistCount = (appointment: AppointmentResponse | null): number => {
-  return appointment?.staff_assignments?.length || (appointment?.staff_name ? 1 : 0);
+  if (!appointment) return 0;
+  
+  // Use therapist_ids array length
+  if (appointment.therapist_ids && appointment.therapist_ids.length > 0) {
+    return appointment.therapist_ids.length;
+  }
+  
+  // Fallback to staff_assignments
+  if (appointment.staff_assignments && appointment.staff_assignments.length > 0) {
+    return appointment.staff_assignments.length;
+  }
+  
+  return 0;
 };
 
 /**
@@ -184,13 +192,22 @@ export const hasMultipleTherapists = (appointment: AppointmentResponse | null): 
 };
 
 /**
- * Get all therapist IDs from staff_assignments
+ * Get all therapist IDs from therapist_ids array
  */
 export const getTherapistIds = (appointment: AppointmentResponse | null): string[] => {
-  if (!appointment?.staff_assignments) {
-    return appointment?.staff_id ? [appointment.staff_id] : [];
+  if (!appointment) return [];
+  
+  // Use therapist_ids array
+  if (appointment.therapist_ids && appointment.therapist_ids.length > 0) {
+    return appointment.therapist_ids;
   }
-  return appointment.staff_assignments.map(staff => staff.id);
+  
+  // Fallback to staff_assignments IDs
+  if (appointment.staff_assignments && appointment.staff_assignments.length > 0) {
+    return appointment.staff_assignments.map(staff => staff.id);
+  }
+  
+  return [];
 };
 
 /** Get display name for appointment status */
@@ -433,7 +450,8 @@ export interface TherapyPlanSession {
 export interface TherapyPlanRequest {
   client_id: string;
   treatment_id: string;
-  staff_ids: string[];
+  doctor_id?: string;
+  therapist_ids: string[];
   start_date: string;
   duration_days: number;
   // Per THERAPY_PLAN_TIME_HANDLING.md: preferred_time_hour is OPTIONAL
@@ -462,7 +480,8 @@ export interface TherapyPlanResponse {
 /** Bulk create appointment item */
 export interface BulkAppointmentItem {
   client_id: string;
-  staff_id: string;
+  doctor_id?: string;
+  therapist_ids?: string[];
   room_id?: string;
   treatment_id: string;
   appointment_start: string;

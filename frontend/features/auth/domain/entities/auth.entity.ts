@@ -99,6 +99,11 @@ export const mapCurrentUserToDomain = (dto: {
       isPrimary: c.is_primary,
     })),
   };
+  
+  console.log('[mapCurrentUserToDomain] Mapped entity:', mapped);
+  console.log('[mapCurrentUserToDomain] applicationStatus:', mapped.applicationStatus);
+  
+  return mapped;
 };
 
 /**
@@ -134,9 +139,4 @@ export const getLandingRoute = (session: AuthUserSession): string => {
 
   // No tenant - go to index
   return '/';
-  
-  console.log('[mapCurrentUserToDomain] Mapped entity:', mapped);
-  console.log('[mapCurrentUserToDomain] applicationStatus:', mapped.applicationStatus);
-  
-  return mapped;
 };

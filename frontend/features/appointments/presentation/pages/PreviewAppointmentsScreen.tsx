@@ -137,14 +137,14 @@ interface AlternativeSlot {
 // ============================================
 // SESSION DATA TYPE - Updated per API spec
 // ============================================
-
 interface SessionData {
   session_number: number;
   appointment_start: string;
   appointment_end: string;
-  staff_id: string | null;
-  staff_name: string | null;  // Deprecated - use staff_assignments
-  staff_assignments?: StaffAssignment[] | null;  // All assigned therapists
+  doctor_id?: string | null;
+  therapist_ids?: string[];
+  staff_name: string | null;
+  staff_assignments?: StaffAssignment[] | null;
   room_id: string | null;
   room_name: string | null;
   is_conflicted: boolean;
@@ -638,8 +638,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     const newEffectiveTimes = new Map<number, EffectiveTime>();
     
     newSessions.forEach(session => {
-      // Get staff info
-      let staffId = session.staff_id;
+      // Get staff info - use therapist_ids from new API structure
+      let staffId = session.therapist_ids?.[0] || null;
       let staffName = session.staff_name;
       
       if (session.staff_assignments && session.staff_assignments.length > 0) {
@@ -654,7 +654,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         staff_name: staffName,
         room_id: session.room_id,
         room_name: session.room_name,
-        is_resolved: !session.is_conflicted, // Non-conflicted sessions are already resolved
+        is_resolved: !session.is_conflicted,
       });
     });
     
@@ -676,7 +676,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         console.log('[PreviewAppointments] Fetching therapy plan with:', {
           client_id: clientId,
           treatment_id: treatmentId,
-          staff_ids: staffIds,
+          therapist_ids: staffIds,
           start_date: startDateStr,
           start_date_parsed: new Date(startDateStr).toLocaleString('en-IN'),
           duration_days: durationDays,
@@ -689,7 +689,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
-          staff_ids: staffIds,
+          therapist_ids: staffIds,
           start_date: startDateStr,
           duration_days: durationDays,
           // DO NOT send preferred_time_hour - backend uses start_date time
@@ -857,7 +857,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const validationResponse = await generatePlanMutation.mutateAsync({
         client_id: clientId,
         treatment_id: treatmentId,
-        staff_ids: staffIds,
+        therapist_ids: staffIds,
         start_date: startDateTimeISO,
         duration_days: durationDays,
       });
@@ -897,11 +897,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           start: validatedSession.appointment_start,
           end: validatedSession.appointment_end,
           staff_id: validatedSession.staff_id || staffIds[0] || null,
-          staff_name: validatedSession.staff_name || 
-            (validatedSession.staff_assignments?.[0]?.name) || 
-            staffNames || null,
+          staff_name: staffNames || null,
           room_id: validatedSession.room_id || null,
-          room_name: validatedSession.room_name || null,
+          room_name: null,
           is_resolved: true,
         });
         return newMap;
@@ -996,7 +994,26 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const firstEffective = effectiveTimes.get(firstSession.session_number);
       if (firstEffective) {
         console.log('[PreviewScreen] First effective time:', firstEffective.start);
-        const startDateTime = new Date(firstEffective.start);
+        
+        // Parse ISO string as LOCAL time (not UTC)
+        // The backend sends local time with Z suffix, so we need to parse it correctly
+        const isoStr = firstEffective.start;
+        const match = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+        if (!match) {
+          console.error('[PreviewScreen] Invalid ISO format:', isoStr);
+          return;
+        }
+        
+        const [, year, month, day, hour, minute, second] = match;
+        const startDateTime = new Date(
+          parseInt(year),
+          parseInt(month) - 1, // JS months are 0-indexed
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute),
+          parseInt(second)
+        );
+        
         console.log('[PreviewScreen] Parsed Date object:', {
           iso: startDateTime.toISOString(),
           local: startDateTime.toLocaleString('en-IN'),
@@ -1051,7 +1068,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         const payload: AppointmentCreate = {
           client_id: clientId,
-          staff_id: effective.staff_id || staffIds[0],
+          therapist_ids: staffIds,  // ✨ NEW - Use therapist_ids array
           treatment_id: treatmentId,
           appointment_start: effective.start,
           appointment_end: effective.end,
@@ -2053,6 +2070,13 @@ const styles = StyleSheet.create({
   },
 
   // Success Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
   successModalContent: {
     backgroundColor: colors.background.default,
     borderRadius: spacing.lg,

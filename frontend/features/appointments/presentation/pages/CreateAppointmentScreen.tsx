@@ -1015,7 +1015,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   const doctorBookedAppointments = useMemo(() => {
     if (!doctorForm.selectedDoctorId) return [];
     return (bookedData?.appointments || []).filter(
-      (apt) => apt.staff_id === doctorForm.selectedDoctorId
+      (apt) => apt.doctor_id === doctorForm.selectedDoctorId
     );
   }, [bookedData, doctorForm.selectedDoctorId]);
 
@@ -1240,14 +1240,18 @@ export const CreateAppointmentScreen: React.FC = () => {
       },
     });
 
-    const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
+    const doctorId = isDoctor ? doctorForm.selectedDoctorId : null;
+    const therapistIds = isDoctor ? [] : therapyForm.selectedTherapistIds;
 
     // Validate appointment for conflicts (both doctor and therapy)
-    if (staffId) {
+    // Note: Validation API still uses staff_id for now (legacy)
+    const staffIdForValidation = isDoctor ? doctorId : (therapistIds[0] || null);
+    
+    if (staffIdForValidation) {
       try {
         const validationPayload: ValidateAppointmentRequest = {
           client_id: selectedClientId!,
-          staff_id: staffId,
+          staff_id: staffIdForValidation,
           room_id: isDoctor ? undefined : (therapyForm.selectedRoomId || undefined),
           appointment_start: toLocalTimeISO(startDateTime),
           appointment_end: toLocalTimeISO(endDateTime),
@@ -1280,7 +1284,8 @@ export const CreateAppointmentScreen: React.FC = () => {
     // The backend will treat this as the clinic's local time
     const payload: AppointmentCreate = {
       client_id: selectedClientId!,
-      staff_id: staffId,
+      doctor_id: doctorId,
+      therapist_ids: therapistIds,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
       appointment_start: toLocalTimeISO(startDateTime),

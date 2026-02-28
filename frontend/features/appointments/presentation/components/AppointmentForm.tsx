@@ -37,7 +37,8 @@ import {
 
 const appointmentSchema = z.object({
   client_id: z.string().min(1, 'Client is required'),
-  staff_id: z.string().optional().nullable(),
+  doctor_id: z.string().optional().nullable(),
+  therapist_ids: z.array(z.string()).optional(),
   room_id: z.string().optional().nullable(),
   treatment_id: z.string().optional().nullable(),
   appointment_date: z.string().min(1, 'Date is required'),
@@ -87,7 +88,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
       client_id: initialData?.client_id || '',
-      staff_id: initialData?.staff_id || '',
+      doctor_id: initialData?.doctor_id || '',
+      therapist_ids: initialData?.therapist_ids || [],
       room_id: initialData?.room_id || '',
       treatment_id: initialData?.treatment_id || '',
       appointment_date: initialDateTime.date,
@@ -107,7 +109,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
 
     const payload: AppointmentCreate | AppointmentUpdate = {
       client_id: data.client_id,
-      staff_id: data.staff_id || null,
+      doctor_id: data.doctor_id || null,
+      therapist_ids: data.therapist_ids || [],
       room_id: data.room_id || null,
       treatment_id: data.treatment_id || null,
       appointment_start: appointmentStart,
@@ -170,19 +173,38 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
             <Text style={styles.hint}>Tip: Copy client ID from the Clients screen</Text>
           </View>
 
-          {/* Staff ID */}
+          {/* Doctor ID */}
           <View style={styles.field}>
-            <Text style={styles.label}>Staff ID (Optional)</Text>
+            <Text style={styles.label}>Doctor ID (Optional)</Text>
             <Controller
               control={control}
-              name="staff_id"
+              name="doctor_id"
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
                   style={styles.input}
                   value={value || ''}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  placeholder="Enter staff ID"
+                  placeholder="Enter doctor ID"
+                  placeholderTextColor={colors.text.tertiary}
+                />
+              )}
+            />
+          </View>
+
+          {/* Therapist IDs - Note: This is simplified, in production you'd want a multi-select */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Therapist IDs (Optional, comma-separated)</Text>
+            <Controller
+              control={control}
+              name="therapist_ids"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={styles.input}
+                  value={value?.join(', ') || ''}
+                  onChangeText={(text) => onChange(text.split(',').map(id => id.trim()).filter(Boolean))}
+                  onBlur={onBlur}
+                  placeholder="Enter therapist IDs separated by commas"
                   placeholderTextColor={colors.text.tertiary}
                 />
               )}

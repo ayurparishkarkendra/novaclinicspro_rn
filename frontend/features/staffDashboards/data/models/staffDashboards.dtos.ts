@@ -18,11 +18,12 @@ export interface DoctorAppointmentItem {
   notes: string | null;
   treatment_name: string | null;
   room_name: string | null;
-  staff_name?: string | null; // Added: Backend returns this with expand=staff
-  staff_id?: string | null; // Added: Staff assignment
-  episode_id?: string | null; // Added: Episode link
-  episode_title?: string | null; // Added: Episode title
-  episode_status?: string | null; // Added: Episode status
+  staff_name?: string | null;
+  doctor_id?: string | null;
+  therapist_ids?: string[];
+  episode_id?: string | null;
+  episode_title?: string | null;
+  episode_status?: string | null;
 }
 
 /** Doctor dashboard response */
@@ -65,7 +66,8 @@ export interface FrontdeskAppointmentItem {
   id: string;
   client_id: string;
   client_name: string | null;
-  staff_id: string | null;
+  doctor_id: string | null;
+  therapist_ids: string[];
   staff_name: string | null;
   room_id: string | null;
   room_name: string | null;
