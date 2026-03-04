@@ -41,10 +41,13 @@ import { useOperatingHoursListQuery } from '../../../operatingHours/data/reposit
 import {
   useCreateAppointmentMutation,
   useGenerateTherapyPlanMutation,
+  useBulkCreateAppointmentsMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import { syncTreatmentSheetApi } from '../../../treatmentSheets/data/datasources/treatmentSheets.api';
 import {
   AppointmentCreate,
+  BulkAppointmentItem,
+  BulkCreateRequest,
   openWhatsApp,
   generateWhatsAppSeriesMessage,
 } from '../../data/models/appointments.dtos';
@@ -103,6 +106,27 @@ const safeFormatDate = formatDate;
 const safeFormatTime = formatTime;
 const safeFormatDayOfWeek = formatDayOfWeek;
 const safeFormatShortDate = formatShortDate;
+
+/**
+ * Format time from ISO string
+ * The axios interceptor converts backend UTC times to local ISO strings (without Z)
+ * This function parses the local ISO string and formats it for display
+ */
+const formatLocalTime = (isoString: string): string => {
+  if (!isoString) return '—';
+  
+  // Parse ISO string to Date object
+  // If it has Z suffix (UTC), Date constructor converts to local
+  // If no Z suffix (local ISO from interceptor), Date constructor treats as local
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '—';
+  
+  // Get local time components
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  
+  return formatTimeFromParts(hour, minute);
+};
 
 // ============================================
 // STAFF ASSIGNMENT TYPE (matching backend)
@@ -336,7 +360,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </Text>
           </View>
           <Text style={styles.sessionTime}>
-            {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
+            {formatLocalTime(displayStartTime)} - {formatLocalTime(displayEndTime)}
           </Text>
           {/* Display therapist - BUG FIX #1: No duplicate "Unassigned" */}
           <Text style={[
@@ -401,7 +425,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
-                        {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
+                        {formatLocalTime(alt.start)} - {formatLocalTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
                         {firstStaff?.full_name || t('common.therapist') || 'Therapist'}
@@ -470,7 +494,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                 {effectiveTime.is_resolved && 
                   alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start)) && (
                   <Text style={styles.customTimeSelectedText}>
-                    {t('appointments.selectedTime') || 'Selected'}: {safeFormatTime(effectiveTime.start)} - {safeFormatTime(effectiveTime.end)}
+                    {t('appointments.selectedTime') || 'Selected'}: {formatLocalTime(effectiveTime.start)} - {formatLocalTime(effectiveTime.end)}
                   </Text>
                 )}
               </View>
@@ -496,7 +520,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     clientPhone: string;
     treatmentId: string;
     treatmentName: string;
-    staffIds: string;
+    doctorId?: string;
+    therapistIds: string;
     staffNames: string;
     startDate: string;
     durationDays: string;
@@ -506,6 +531,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     durationMinutes: string;
     notes: string;
     treatmentSheetId?: string; // Added for treatment sheet sync
+    episodeId?: string; // Added for episode linking
+    caseSheetId?: string; // Added for casesheet linking
   }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
@@ -516,6 +543,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   
   // Raw sessions from API (immutable after fetch)
   const [sessions, setSessions] = useState<SessionData[]>([]);
+  
+  // Series ID from therapy plan response (used for bulk create)
+  const [seriesId, setSeriesId] = useState<string | null>(null);
   
   // SINGLE SOURCE OF TRUTH: effectiveTimes indexed by session_number
   // This is the ONLY place to read session times from
@@ -541,6 +571,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
+  const bulkCreateMutation = useBulkCreateAppointmentsMutation();
   const generatePlanMutation = useGenerateTherapyPlanMutation();
   
   // Operating hours for validation
@@ -553,23 +584,43 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
-  const staffIdsStr = params.staffIds || '';
+  const doctorId = params.doctorId || '';
+  const therapistIdsStr = params.therapistIds || '';
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   
-  // Per THERAPY_PLAN_TIME_HANDLING.md: Extract time from startDateStr (not from separate preferredTimeHour param)
-  // The startDateStr contains LOCAL time in ISO format (e.g., "2026-02-15T16:43:00Z")
-  const timeMatch = startDateStr.match(/T(\d{2}):(\d{2})/);
-  const preferredTimeHourLocal = timeMatch ? parseInt(timeMatch[1], 10) : parseInt(params.preferredTimeHourLocal || '10', 10);
-  const preferredTimeMinutesLocal = timeMatch ? parseInt(timeMatch[2], 10) : parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  // Use the local time params passed from CreateAppointmentScreen
+  // These represent the user's selected time in their local timezone
+  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || '10', 10);
+  const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
   
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
   const treatmentSheetId = params.treatmentSheetId; // Extract treatmentSheetId
+  const episodeId = params.episodeId; // Extract episodeId
+  const caseSheetId = params.caseSheetId; // Extract caseSheetId
 
-  // Parse staffIds once
-  const staffIds = useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
+  // Parse therapistIds once
+  const therapistIds = useMemo(() => therapistIdsStr.split(',').filter(Boolean), [therapistIdsStr]);
+
+  // Log params on mount to verify treatmentSheetId is received
+  useEffect(() => {
+    console.log('[PreviewAppointmentsScreen] Received params:', {
+      clientId,
+      treatmentId,
+      doctorId,
+      therapistIds,
+      startDateStr,
+      durationDays,
+      treatmentSheetId,
+      episodeId,
+      caseSheetId,
+      hasTreatmentSheetId: !!treatmentSheetId,
+      hasEpisodeId: !!episodeId,
+      hasCaseSheetId: !!caseSheetId,
+    });
+  }, [clientId, treatmentId, doctorId, therapistIds, startDateStr, durationDays, treatmentSheetId, episodeId, caseSheetId]);
 
   // ============================================
   // COMPUTE PLAN-LEVEL ALTERNATIVES
@@ -667,7 +718,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   
   useEffect(() => {
     if (hasFetched) return;
-    if (!clientId || !treatmentId || staffIds.length === 0) return;
+    if (!clientId || !treatmentId || therapistIds.length === 0) return;
 
     const fetchTherapyPlan = async () => {
       setHasFetched(true);
@@ -676,9 +727,17 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         console.log('[PreviewAppointments] Fetching therapy plan with:', {
           client_id: clientId,
           treatment_id: treatmentId,
-          therapist_ids: staffIds,
+          doctor_id: doctorId || undefined,
+          therapist_ids: therapistIds,
           start_date: startDateStr,
           start_date_parsed: new Date(startDateStr).toLocaleString('en-IN'),
+          start_date_components: {
+            year: startDateStr.match(/^(\d{4})/)?.[1],
+            month: startDateStr.match(/-(\d{2})-/)?.[1],
+            day: startDateStr.match(/-(\d{2})T/)?.[1],
+            hour: startDateStr.match(/T(\d{2}):/)?.[1],
+            minute: startDateStr.match(/:(\d{2}):/)?.[1],
+          },
           duration_days: durationDays,
           // NOTE: NOT sending preferred_time_hour - backend extracts time from start_date
         });
@@ -689,7 +748,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
-          therapist_ids: staffIds,
+          doctor_id: doctorId || undefined,
+          therapist_ids: therapistIds,
           start_date: startDateStr,
           duration_days: durationDays,
           // DO NOT send preferred_time_hour - backend uses start_date time
@@ -697,11 +757,24 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
+        // Capture series_id from therapy plan response
+        if (response.series_id) {
+          setSeriesId(response.series_id);
+          console.log('[PreviewAppointments] Captured series_id from therapy plan:', response.series_id);
+        }
+
         if (response.client_name) {
           setApiClientName(response.client_name);
         }
 
         if (response.sessions && response.sessions.length > 0) {
+          console.log('[PreviewAppointments] First session from backend:', {
+            session_number: response.sessions[0].session_number,
+            appointment_start: response.sessions[0].appointment_start,
+            appointment_end: response.sessions[0].appointment_end,
+            is_conflicted: response.sessions[0].is_conflicted,
+          });
+          
           const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
             session_number: session.session_number,
             appointment_start: session.appointment_start,
@@ -728,7 +801,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     };
 
     fetchTherapyPlan();
-  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, initializeEffectiveTimes]);
+  }, [hasFetched, clientId, treatmentId, doctorId, therapistIds, startDateStr, durationDays, initializeEffectiveTimes]);
 
   // ============================================
   // ALTERNATIVE SELECTION HANDLERS
@@ -857,7 +930,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       const validationResponse = await generatePlanMutation.mutateAsync({
         client_id: clientId,
         treatment_id: treatmentId,
-        therapist_ids: staffIds,
+        doctor_id: doctorId || undefined,
+        therapist_ids: therapistIds,
         start_date: startDateTimeISO,
         duration_days: durationDays,
       });
@@ -896,7 +970,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         newMap.set(customTimePickerSession, {
           start: validatedSession.appointment_start,
           end: validatedSession.appointment_end,
-          staff_id: validatedSession.staff_id || staffIds[0] || null,
+          staff_id: validatedSession.staff_id || therapistIds[0] || null,
           staff_name: staffNames || null,
           room_id: validatedSession.room_id || null,
           room_name: null,
@@ -938,7 +1012,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       setIsValidatingCustomTime(false);
       setCustomTimePickerSession(null);
     }
-  }, [customTimePickerSession, sessions, clientId, treatmentId, staffIds, staffNames, durationDays, durationMinutes, generatePlanMutation]);
+  }, [customTimePickerSession, sessions, clientId, treatmentId, doctorId, therapistIds, staffNames, durationDays, durationMinutes, generatePlanMutation]);
 
   // ============================================
   // DERIVED STATE (from single source of truth)
@@ -1056,48 +1130,75 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // Extract booking logic into separate function
   const proceedWithMultiDayBooking = async (validationResult: ValidationResult) => {
     setIsCreating(true);
-    let createdCount = 0;
-    const errors: string[] = [];
-    let seriesId: string | null = null;
 
     try {
-      // Create appointments using EFFECTIVE TIMES (single source of truth)
-      for (const session of sessions) {
-        const effective = effectiveTimes.get(session.session_number);
-        if (!effective) continue;
+      // Verify we have a series_id from the therapy plan
+      if (!seriesId) {
+        throw new Error('No series_id available. Please refresh and try again.');
+      }
+      
+      console.log('[PreviewScreen] Creating bulk appointments with series_id from therapy plan:', seriesId);
 
-        const payload: AppointmentCreate = {
+      // Build bulk appointment items using EFFECTIVE TIMES (single source of truth)
+      const appointmentItems: BulkAppointmentItem[] = sessions.map(session => {
+        const effective = effectiveTimes.get(session.session_number);
+        if (!effective) {
+          throw new Error(`No effective time found for session ${session.session_number}`);
+        }
+
+        return {
           client_id: clientId,
-          therapist_ids: staffIds,  // ✨ NEW - Use therapist_ids array
+          doctor_id: doctorId || undefined,
+          therapist_ids: therapistIds,
+          room_id: effective.room_id || undefined,
           treatment_id: treatmentId,
           appointment_start: effective.start,
           appointment_end: effective.end,
           status: 'scheduled',
+          session_number: session.session_number,
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
-          appointment_type: 'MULTI',
+          // Link to episode, casesheet, and treatment sheet
+          episode_id: episodeId || undefined,
+          case_sheet_id: caseSheetId || undefined,
+          treatment_sheet_id: treatmentSheetId || undefined,
           // Add validation flags (apply to all appointments in series)
           is_past_booking: validationResult.isPast,
           is_outside_operating_hours: validationResult.isOutsideOperatingHours,
           is_during_break_time: validationResult.isDuringBreak,
           is_on_weekly_off: validationResult.isOnWeeklyOff,
         };
+      });
 
-        try {
-          const createdAppointment = await createMutation.mutateAsync(payload);
-          createdCount++;
-          
-          // Capture series_id from first appointment
-          if (!seriesId && createdAppointment.series_id) {
-            seriesId = createdAppointment.series_id;
-            console.log('[PreviewScreen] Captured series_id:', seriesId);
-          }
-        } catch (err: any) {
-          errors.push(`${t('appointments.session')} ${session.session_number}: ${err.message || t('common.failed')}`);
-        }
-      }
+      // Call bulk create API with series_id from therapy plan
+      const bulkPayload: BulkCreateRequest = {
+        series_id: seriesId, // Use series_id from therapy plan response
+        appointments: appointmentItems,
+      };
 
-      // Show result - use modal on web for reliable button handling
-      if (createdCount === sessions.length) {
+      console.log('[PreviewScreen] Bulk create payload:', {
+        series_id: seriesId,
+        appointment_count: appointmentItems.length,
+        has_episode_id: !!episodeId,
+        has_case_sheet_id: !!caseSheetId,
+        has_treatment_sheet_id: !!treatmentSheetId,
+      });
+
+      const bulkResponse = await bulkCreateMutation.mutateAsync(bulkPayload);
+      
+      console.log('[PreviewScreen] Bulk create response:', {
+        full_response: JSON.stringify(bulkResponse),
+        total_created: bulkResponse.total_created,
+        expected: sessions.length,
+      });
+
+      // Check if all appointments were created
+      if (bulkResponse.total_created === sessions.length) {
+        console.log('[PreviewScreen] All appointments created successfully. Checking for treatment sheet sync:', {
+          treatmentSheetId,
+          seriesId,
+          shouldSync: !!treatmentSheetId && !!seriesId,
+        });
+        
         // If coming from treatment sheet, sync the appointments
         if (treatmentSheetId && seriesId) {
           try {
@@ -1112,6 +1213,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             console.error('[PreviewScreen] Failed to sync treatment sheet:', syncError);
             // Don't block the success flow if sync fails
           }
+        } else {
+          console.log('[PreviewScreen] Skipping treatment sheet sync - no treatmentSheetId or seriesId');
         }
 
         let whatsappUrl: string | null = null;
@@ -1129,20 +1232,34 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           whatsappUrl = openWhatsApp(clientPhone, message);
         }
         
-        // Determine navigation target
-        const navigationTarget = treatmentSheetId 
-          ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
-          : '/clinic-admin/appointments' as any;
+        // Determine navigation target based on user role
+        // Navigate to role-specific dashboard
+        const userRole = currentUser?.roles?.[0];
+        let navigationTarget: any;
+        
+        if (userRole === 'doctor') {
+          navigationTarget = '/doctor' as any;
+        } else if (userRole === 'therapist') {
+          navigationTarget = '/therapist' as any;
+        } else {
+          // clinic_admin, receptionist - go to their dashboard
+          navigationTarget = '/clinic-admin' as any;
+        }
+        
+        console.log('[PreviewScreen] Navigating to role dashboard:', { 
+          userRole, 
+          navigationTarget 
+        });
         
         // On web, Alert buttons don't work reliably - show success modal instead
         if (Platform.OS === 'web') {
-          setSuccessModal({ visible: true, createdCount, whatsappUrl });
+          setSuccessModal({ visible: true, createdCount: bulkResponse.total_created, whatsappUrl });
         } else {
           // Native: use Alert
           if (whatsappUrl) {
             Alert.alert(
               t('appointments.appointmentsCreated'),
-              `${createdCount} ${t('appointments.sessionsScheduled')}`,
+              `${bulkResponse.total_created} ${t('appointments.sessionsScheduled')}`,
               [
                 { 
                   text: t('common.done'), 
@@ -1159,26 +1276,37 @@ export const PreviewAppointmentsScreen: React.FC = () => {
               ]
             );
           } else {
-            Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
+            Alert.alert(t('common.success'), `${bulkResponse.total_created} ${t('appointments.appointmentsCreatedSuccess')}`);
             router.replace(navigationTarget);
           }
         }
-      } else if (createdCount > 0) {
-        // Partial success - navigate directly on web
+      } else {
+        // Partial success - some appointments were created but not all
+        const userRole = currentUser?.roles?.[0];
+        let navigationTarget: any;
+        
+        if (userRole === 'doctor') {
+          navigationTarget = '/doctor' as any;
+        } else if (userRole === 'therapist') {
+          navigationTarget = '/therapist' as any;
+        } else {
+          // clinic_admin, receptionist
+          navigationTarget = '/clinic-admin' as any;
+        }
+        
         if (Platform.OS === 'web') {
-          alert(`${t('appointments.created') || 'Created'} ${createdCount} of ${sessions.length}. Some errors occurred.`);
-          router.replace('/clinic-admin/appointments' as any);
+          alert(`${t('appointments.created') || 'Created'} ${bulkResponse.total_created} of ${sessions.length}. Some appointments failed.`);
+          router.replace(navigationTarget);
         } else {
           Alert.alert(
             t('appointments.partialSuccess'),
-            `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
-            [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
+            `${t('appointments.created')} ${bulkResponse.total_created} of ${sessions.length}.`,
+            [{ text: t('common.ok'), onPress: () => router.replace(navigationTarget) }]
           );
         }
-      } else {
-        Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
     } catch (err: any) {
+      console.error('[PreviewScreen] Bulk create failed:', err);
       Alert.alert(t('common.error'), err.message || t('appointments.failedToCreate'));
     } finally {
       setIsCreating(false);
@@ -1188,9 +1316,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // Handle success modal actions
   const handleSuccessModalDone = () => {
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    const navigationTarget = treatmentSheetId 
-      ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
-      : '/clinic-admin/appointments' as any;
+    
+    // Navigate to role-specific dashboard
+    const userRole = currentUser?.roles?.[0];
+    let navigationTarget: any;
+    
+    if (userRole === 'doctor') {
+      navigationTarget = '/doctor' as any;
+    } else if (userRole === 'therapist') {
+      navigationTarget = '/therapist' as any;
+    } else {
+      // clinic_admin, receptionist
+      navigationTarget = '/clinic-admin' as any;
+    }
+    
     router.replace(navigationTarget);
   };
 
@@ -1199,9 +1338,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       Linking.openURL(successModal.whatsappUrl);
     }
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    const navigationTarget = treatmentSheetId 
-      ? `/clinic-admin/treatment-sheets/${treatmentSheetId}` as any
-      : '/clinic-admin/appointments' as any;
+    
+    // Navigate to role-specific dashboard
+    const userRole = currentUser?.roles?.[0];
+    let navigationTarget: any;
+    
+    if (userRole === 'doctor') {
+      navigationTarget = '/doctor' as any;
+    } else if (userRole === 'therapist') {
+      navigationTarget = '/therapist' as any;
+    } else {
+      // clinic_admin, receptionist
+      navigationTarget = '/clinic-admin' as any;
+    }
+    
     router.replace(navigationTarget);
   };
 
@@ -1294,11 +1444,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 {staffNames || t('appointments.therapistsAssigned')}
               </Text>
               <Text style={styles.clientDetails}>
-                {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
-              </Text>
-              {/* Display the user's REQUESTED time (from params) */}
-              <Text style={styles.preferredTimeText}>
-                {t('appointments.requestedTime') || 'Requested'}: {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)}
+                {t('appointments.starting')} {safeFormatDate(startDateStr)} at {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)} • {durationMinutes} {t('common.minEach')}
               </Text>
             </View>
           </View>

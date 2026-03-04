@@ -33,6 +33,10 @@ export interface AppointmentCreate {
   notes?: string | null;
   series_id?: string | null;
   appointment_type?: string | null;
+  // Linking fields for multi-day appointments
+  episode_id?: string | null;
+  case_sheet_id?: string | null;
+  treatment_sheet_id?: string | null;
   // Validation flags
   is_past_booking?: boolean;
   is_outside_operating_hours?: boolean;
@@ -160,6 +164,11 @@ export const getTherapistNames = (appointment: AppointmentResponse | null): stri
   if (appointment.therapist_ids && appointment.therapist_ids.length > 0) {
     const count = appointment.therapist_ids.length;
     return count === 1 ? 'Therapist Assigned' : `${count} Therapists Assigned`;
+  }
+  
+  // Fallback to doctor name if available
+  if (appointment.doctor_name) {
+    return appointment.doctor_name;
   }
   
   return 'Unassigned';
@@ -489,6 +498,15 @@ export interface BulkAppointmentItem {
   status: string;
   session_number: number;
   notes?: string;
+  // Linking fields for multi-day appointments
+  episode_id?: string;
+  case_sheet_id?: string;
+  treatment_sheet_id?: string;
+  // Validation flags
+  is_past_booking?: boolean;
+  is_outside_operating_hours?: boolean;
+  is_during_break_time?: boolean;
+  is_on_weekly_off?: boolean;
 }
 
 /** Bulk create request */

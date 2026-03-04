@@ -30,7 +30,7 @@ import {
   useCreateClientMutation,
   useSearchClientsQuery,
 } from '../../data/repositories/clients.repository.impl';
-import { ClientResponse, ClientCreate } from '../../data/models/clients.dtos';
+import { ClientResponse, ClientCreate, ClientUpdate } from '../../data/models/clients.dtos';
 import { ClientListItem } from '../components/ClientListItem';
 import { ClientForm } from '../components/ClientForm';
 
@@ -106,9 +106,10 @@ export const ClientsListScreen: React.FC = () => {
   );
 
   const handleCreateClient = useCallback(
-    async (data: ClientCreate) => {
+    async (data: ClientCreate | ClientUpdate) => {
       try {
-        await createMutation.mutateAsync(data);
+        // Cast to ClientCreate since we're only creating in this modal
+        await createMutation.mutateAsync(data as ClientCreate);
         setShowAddModal(false);
         Alert.alert(t('common.success'), t('success.created'));
       } catch (err: any) {
@@ -127,8 +128,8 @@ export const ClientsListScreen: React.FC = () => {
           style={styles.searchInput}
           placeholder={`Search clients... (min ${MIN_SEARCH_LENGTH} chars)`}
           placeholderTextColor={colors.text.tertiary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          value={searchInput}
+          onChangeText={setSearchInput}
           autoCorrect={false}
           autoCapitalize="none"
         />
@@ -139,7 +140,7 @@ export const ClientsListScreen: React.FC = () => {
         )}
       </View>
     </View>
-  ), [searchQuery]);
+  ), [searchInput]);
 
   const renderEmptyList = useCallback(() => (
     <View style={styles.emptyContainer}>
@@ -160,7 +161,7 @@ export const ClientsListScreen: React.FC = () => {
         </TouchableOpacity>
       )}
     </View>
-  ), [searchQuery]);
+  ), [debouncedSearchQuery]);
 
   const renderItem = useCallback(({ item }: { item: ClientResponse }) => (
     <ClientListItem client={item} onPress={handleClientPress} />

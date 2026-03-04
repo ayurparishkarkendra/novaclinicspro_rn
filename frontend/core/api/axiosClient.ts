@@ -29,10 +29,66 @@ export const axiosClient = axios.create({
   withCredentials: false,
 });
 
+/**
+ * Recursively transform Date objects to UTC ISO strings for backend
+ */
+function transformDatesToUTC(obj: any): any {
+  if (obj instanceof Date) {
+    return obj.toISOString(); // Local Date -> UTC ISO with Z
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(transformDatesToUTC);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, transformDatesToUTC(v)])
+    );
+  }
+  return obj;
+}
+
+/**
+ * Recursively convert UTC ISO strings from backend to local ISO strings for display
+ * Backend sends: "2026-03-01T11:06:00Z" (UTC)
+ * Frontend needs: "2026-03-01T16:36:00" (local time in ISO format, no Z)
+ * This allows consistent parsing throughout the app
+ */
+function transformDatesFromUTC(obj: any): any {
+  // Match ISO 8601 datetime strings with Z suffix (UTC from backend)
+  if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(obj)) {
+    // Parse UTC string and convert to local ISO string (without Z)
+    const date = new Date(obj);
+    if (!isNaN(date.getTime())) {
+      // Return local time in ISO format without Z suffix
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      const second = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    }
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(transformDatesFromUTC);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, transformDatesFromUTC(v)])
+    );
+  }
+  return obj;
+}
+
 // Request interceptor - Add JWT token and Content-Type only when needed
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
+      // Transform outgoing dates to UTC
+      if (config.data) {
+        config.data = transformDatesToUTC(config.data);
+      }
+      
       // IMPORTANT: getSession() returns cached session
       // After refreshSession() is called elsewhere, this will get the updated token
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,6 +124,12 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => {
     console.log('✅ API response:', response.config.url, response.status);
+    
+    // Transform incoming UTC dates to local Date objects
+    if (response.data) {
+      response.data = transformDatesFromUTC(response.data);
+    }
+    
     return response;
   },
   async (error: AxiosError) => {

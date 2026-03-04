@@ -249,6 +249,8 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const handleScheduleAppointments = useCallback(() => {
     if (!treatmentSheet) return;
     
+    console.log('[TreatmentSheetDetail] Navigating to create appointments with treatmentSheetId:', treatmentSheetId);
+    
     // Fetch episode to get treatment_id
     const fetchEpisodeAndNavigate = async () => {
       try {
@@ -257,30 +259,39 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         );
         const episode = episodeResponse.data;
         
+        const navParams = {
+          tab: 'MULTI',
+          treatmentSheetId: treatmentSheetId,
+          episodeId: treatmentSheet.episode_id,
+          caseSheetId: treatmentSheet.case_sheet_id || params.casesheetId || '',
+          treatmentId: episode.treatment_id || '',
+          treatmentName: episode.title || '',
+          durationDays: treatmentSheet.duration_days?.toString(),
+        };
+        
+        console.log('[TreatmentSheetDetail] Navigation params:', navParams);
+        
         // Navigate to CreateAppointmentScreen with MULTI tab pre-selected
         // Pass all necessary data for pre-filling the form
         router.push({
           pathname: '/clinic-admin/appointments/create',
-          params: {
-            tab: 'MULTI',
-            treatmentSheetId: treatmentSheetId,
-            episodeId: treatmentSheet.episode_id,
-            treatmentId: episode.treatment_id || '',
-            treatmentName: episode.title || '',
-            durationDays: treatmentSheet.duration_days?.toString(),
-          }
+          params: navParams,
         });
       } catch (error) {
         console.error('[TreatmentSheet] Failed to fetch episode:', error);
         // Navigate anyway with available data
+        const fallbackParams = {
+          tab: 'MULTI',
+          treatmentSheetId: treatmentSheetId,
+          episodeId: treatmentSheet.episode_id,
+          durationDays: treatmentSheet.duration_days?.toString(),
+        };
+        
+        console.log('[TreatmentSheetDetail] Fallback navigation params:', fallbackParams);
+        
         router.push({
           pathname: '/clinic-admin/appointments/create',
-          params: {
-            tab: 'MULTI',
-            treatmentSheetId: treatmentSheetId,
-            episodeId: treatmentSheet.episode_id,
-            durationDays: treatmentSheet.duration_days?.toString(),
-          }
+          params: fallbackParams,
         });
       }
     };

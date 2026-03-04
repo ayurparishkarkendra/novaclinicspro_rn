@@ -104,6 +104,7 @@ interface TherapyFormState {
 // Form state for Multi-day
 interface MultiDayFormState {
   selectedTreatmentId: string | null;
+  selectedDoctorId: string | null;
   selectedTherapistIds: string[];
   durationMinutes: number;
   numberOfSessions: number;
@@ -605,6 +606,7 @@ export const CreateAppointmentScreen: React.FC = () => {
     tab?: string;
     treatmentSheetId?: string;
     episodeId?: string;
+    caseSheetId?: string;
     clientId?: string;
     durationDays?: string;
     treatmentId?: string;
@@ -614,6 +616,20 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { t } = useTranslation();
   const tenantId = currentUser?.tenantId || '';
   const scrollRef = useRef<ScrollView>(null);
+
+  // Log params on mount to verify treatmentSheetId is received
+  useEffect(() => {
+    console.log('[CreateAppointmentScreen] Received params:', {
+      tab: params.tab,
+      treatmentSheetId: params.treatmentSheetId,
+      episodeId: params.episodeId,
+      caseSheetId: params.caseSheetId,
+      clientId: params.clientId,
+      durationDays: params.durationDays,
+      treatmentId: params.treatmentId,
+      treatmentName: params.treatmentName,
+    });
+  }, [params]);
 
   // Get feature configuration from JWT token
   const features = useFeatures();
@@ -683,6 +699,7 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   const createFreshMultiDayForm = (): MultiDayFormState => ({
     selectedTreatmentId: null,
+    selectedDoctorId: null,
     selectedTherapistIds: [],
     durationMinutes: 60,
     numberOfSessions: 7,
@@ -694,6 +711,85 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [doctorForm, setDoctorForm] = useState<DoctorFormState>(createFreshDoctorForm());
   const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
   const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
+
+  // Fetch doctor_id from client's active treatment sheet, casesheet, or episode
+  useEffect(() => {
+    if (!selectedClientId || !tenantId || appointmentType !== 'MULTI') return;
+    
+    const fetchDoctorFromClientRecords = async () => {
+      try {
+        console.log('[CreateAppointmentScreen] Fetching doctor for client:', selectedClientId);
+        
+        // Step 1: Check for active treatment sheet
+        try {
+          const tsResponse = await axiosClient.get(
+            `/api/v1/clinic/${tenantId}/treatment-sheets`,
+            { params: { client_id: selectedClientId, status: 'IN_PROGRESS', limit: 1 } }
+          );
+          
+          const treatmentSheet = tsResponse.data?.items?.[0];
+          if (treatmentSheet?.recorded_by_staff_id) {
+            const doctorId = treatmentSheet.recorded_by_staff_id;
+            console.log('[CreateAppointmentScreen] Found doctor from active treatment sheet (recorded_by_staff_id):', doctorId);
+            setMultiDayForm(prev => ({
+              ...prev,
+              selectedDoctorId: doctorId,
+            }));
+            return;
+          }
+        } catch (err) {
+          console.log('[CreateAppointmentScreen] No active treatment sheet found');
+        }
+        
+        // Step 2: Check for active episode
+        try {
+          const episodeResponse = await axiosClient.get(
+            `/api/v1/clinic/${tenantId}/episodes`,
+            { params: { client_id: selectedClientId, status: 'active', limit: 1 } }
+          );
+          
+          if (episodeResponse.data?.episodes?.[0]?.doctor_id) {
+            const doctorId = episodeResponse.data.episodes[0].doctor_id;
+            console.log('[CreateAppointmentScreen] Found doctor from active episode:', doctorId);
+            setMultiDayForm(prev => ({
+              ...prev,
+              selectedDoctorId: doctorId,
+            }));
+            return;
+          }
+        } catch (err) {
+          console.log('[CreateAppointmentScreen] No active episode found');
+        }
+        
+        // Step 3: Check for latest casesheet
+        try {
+          const casesheetResponse = await axiosClient.get(
+            `/api/v1/clinic/${tenantId}/casesheets`,
+            { params: { client_id: selectedClientId, limit: 1 } }
+          );
+          
+          const casesheet = casesheetResponse.data?.casesheets?.[0];
+          if (casesheet?.recorded_by_staff_id) {
+            const doctorId = casesheet.recorded_by_staff_id;
+            console.log('[CreateAppointmentScreen] Found doctor from latest casesheet (recorded_by_staff_id):', doctorId);
+            setMultiDayForm(prev => ({
+              ...prev,
+              selectedDoctorId: doctorId,
+            }));
+            return;
+          }
+        } catch (err) {
+          console.log('[CreateAppointmentScreen] No casesheet found');
+        }
+        
+        console.warn('[CreateAppointmentScreen] No doctor_id found in treatment sheet, episode, or casesheet for client:', selectedClientId);
+      } catch (error) {
+        console.error('[CreateAppointmentScreen] Error fetching doctor from client records:', error);
+      }
+    };
+    
+    fetchDoctorFromClientRecords();
+  }, [selectedClientId, tenantId, appointmentType]);
 
   // Pre-fill form when coming from treatment sheet
   useEffect(() => {
@@ -717,9 +813,23 @@ export const CreateAppointmentScreen: React.FC = () => {
           const treatmentSheet = response.data;
           
           console.log('[CreateAppointmentScreen] Treatment sheet fetched:', {
+            id: treatmentSheet.id,
             duration_days: treatmentSheet.duration_days,
             episode_id: treatmentSheet.episode_id,
+            doctor_id: treatmentSheet.doctor_id,
+            full_response: treatmentSheet,
           });
+          
+          // Pre-fill doctor from treatment sheet
+          if (treatmentSheet.doctor_id) {
+            setMultiDayForm(prev => ({
+              ...prev,
+              selectedDoctorId: treatmentSheet.doctor_id,
+            }));
+            console.log('[CreateAppointmentScreen] Doctor pre-filled from treatment sheet:', treatmentSheet.doctor_id);
+          } else {
+            console.warn('[CreateAppointmentScreen] No doctor_id found in treatment sheet!');
+          }
           
           // Fetch episode details to get client_id and treatment_id
           if (treatmentSheet.episode_id) {
@@ -731,7 +841,17 @@ export const CreateAppointmentScreen: React.FC = () => {
             console.log('[CreateAppointmentScreen] Episode fetched:', {
               client_id: episode.client_id,
               treatment_id: episode.treatment_id,
+              doctor_id: episode.doctor_id,
             });
+            
+            // Pre-fill doctor from episode if not already set from treatment sheet
+            if (episode.doctor_id && !multiDayForm.selectedDoctorId) {
+              setMultiDayForm(prev => ({
+                ...prev,
+                selectedDoctorId: episode.doctor_id,
+              }));
+              console.log('[CreateAppointmentScreen] Doctor pre-filled from episode:', episode.doctor_id);
+            }
             
             // Pre-fill client
             if (episode.client_id) {
@@ -754,18 +874,16 @@ export const CreateAppointmentScreen: React.FC = () => {
             
             // Pre-fill treatment from params or episode
             const treatmentIdToUse = params.treatmentId || episode.treatment_id;
-            const treatmentNameToUse = params.treatmentName || episode.title;
             
             if (treatmentIdToUse) {
               setMultiDayForm(prev => ({
                 ...prev,
                 selectedTreatmentId: treatmentIdToUse,
-                selectedTreatmentName: treatmentNameToUse || '',
               }));
               
               console.log('[CreateAppointmentScreen] Treatment pre-filled:', {
                 treatmentId: treatmentIdToUse,
-                treatmentName: treatmentNameToUse,
+                treatmentName: params.treatmentName || episode.title,
               });
             }
           }
@@ -1398,7 +1516,7 @@ export const CreateAppointmentScreen: React.FC = () => {
       return;
     }
 
-    // Build startDateTime without timezone conversion
+    // Build startDateTime with proper timezone conversion
     const startDate = multiDayForm.startDate;
     const preferredTime = multiDayForm.preferredTime;
     
@@ -1408,49 +1526,66 @@ export const CreateAppointmentScreen: React.FC = () => {
     const hours = preferredTime.getHours();
     const minutes = preferredTime.getMinutes();
     
+    // Create a Date object with local time
     const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
-    // Per THERAPY_PLAN_TIME_HANDLING.md:
-    // The backend extracts hour and minute from start_date
-    // We need to send the LOCAL time as the ISO string (not converted to UTC)
-    // Format: YYYY-MM-DDTHH:MM:00Z where HH:MM is the LOCAL time the user selected
-    const localYear = startDateTime.getFullYear();
-    const localMonth = String(startDateTime.getMonth() + 1).padStart(2, '0');
-    const localDay = String(startDateTime.getDate()).padStart(2, '0');
-    const localHour = String(startDateTime.getHours()).padStart(2, '0');
-    const localMinute = String(startDateTime.getMinutes()).padStart(2, '0');
+    // CRITICAL FIX: Convert local time to UTC before sending to backend
+    // The backend expects UTC time with Z suffix
+    // User selects 4:00 PM IST (16:00) -> Convert to 10:30 AM UTC -> Send as 2026-03-01T10:30:00Z
+    const startDateISO = startDateTime.toISOString();
     
-    // Build ISO string with LOCAL time (backend will use this time directly)
-    const startDateISO = `${localYear}-${localMonth}-${localDay}T${localHour}:${localMinute}:00Z`;
-    
-    console.log('[CreateAppointment] Sending LOCAL time to backend:', startDateISO);
-    console.log('[CreateAppointment] User selected time:', localHour, ':', localMinute);
+    console.log('[CreateAppointment] User selected LOCAL time:', hours, ':', minutes);
+    console.log('[CreateAppointment] Converted to UTC and sending to backend:', startDateISO);
+    console.log('[CreateAppointment] Local datetime:', startDateTime.toLocaleString());
+    console.log('[CreateAppointment] UTC datetime:', startDateTime.toUTCString());
 
     const selectedStaffNames = therapistOptions
       .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
       .map(t => t.label)
       .join(', ');
 
+    // Get doctor name if doctor is selected
+    const doctorName = multiDayForm.selectedDoctorId 
+      ? doctorOptions.find(d => d.id === multiDayForm.selectedDoctorId)?.label || ''
+      : '';
+
+    console.log('[CreateAppointment] Navigating to preview with:', {
+      doctorId: multiDayForm.selectedDoctorId,
+      therapistIds: multiDayForm.selectedTherapistIds,
+      treatmentId: multiDayForm.selectedTreatmentId,
+      treatmentSheetId: params.treatmentSheetId,
+      startDateISO,
+    });
+
+    const navigationParams = {
+      clientId: selectedClientId,
+      clientName: selectedClientInfo?.name || '',
+      clientPhone: selectedClientInfo?.phone || '',
+      treatmentId: multiDayForm.selectedTreatmentId,
+      treatmentName: selectedTreatment?.label || '',
+      doctorId: multiDayForm.selectedDoctorId || '',
+      therapistIds: multiDayForm.selectedTherapistIds.join(','),
+      staffNames: [doctorName, selectedStaffNames].filter(Boolean).join(', '),
+      startDate: startDateISO,  // UTC time in ISO format
+      durationDays: multiDayForm.numberOfSessions.toString(),
+      // Send local time for UI display purposes
+      preferredTimeHourLocal: hours.toString(),
+      preferredTimeMinutesLocal: minutes.toString(),
+      durationMinutes: multiDayForm.durationMinutes.toString(),
+      notes: multiDayForm.notes,
+      // Pass through treatmentSheetId if coming from treatment sheet
+      ...(params.treatmentSheetId && { treatmentSheetId: params.treatmentSheetId }),
+      // Pass through episodeId if available
+      ...(params.episodeId && { episodeId: params.episodeId }),
+      // Pass through caseSheetId if available
+      ...(params.caseSheetId && { caseSheetId: params.caseSheetId }),
+    };
+
+    console.log('[CreateAppointment] Full navigation params:', navigationParams);
+
     router.push({
       pathname: '/clinic-admin/appointments/preview' as any,
-      params: {
-        clientId: selectedClientId,
-        clientName: selectedClientInfo?.name || '',
-        clientPhone: selectedClientInfo?.phone || '',
-        treatmentId: multiDayForm.selectedTreatmentId,
-        treatmentName: selectedTreatment?.label || '',
-        staffIds: multiDayForm.selectedTherapistIds.join(','),
-        staffNames: selectedStaffNames,
-        startDate: startDateISO,  // LOCAL time in ISO format
-        durationDays: multiDayForm.numberOfSessions.toString(),
-        // Don't send preferredTimeHour - backend extracts from start_date
-        preferredTimeHourLocal: localHour,  // For UI display only
-        preferredTimeMinutesLocal: localMinute,  // For UI display only
-        durationMinutes: multiDayForm.durationMinutes.toString(),
-        notes: multiDayForm.notes,
-        // Pass through treatmentSheetId if coming from treatment sheet
-        treatmentSheetId: params.treatmentSheetId,
-      },
+      params: navigationParams,
     });
   };
 

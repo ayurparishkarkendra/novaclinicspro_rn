@@ -315,10 +315,18 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const timeDisplay = formatTime(appointment.appointment_start);
   const endTimeDisplay = appointment.appointment_end ? formatTime(appointment.appointment_end) : null;
   const isSeriesAppointment = appointment.series_id && appointment.session_number;
+  
+  // Determine if this is a therapy appointment (has therapists) vs doctor consultation
+  const isTherapyAppointment = appointment.therapist_ids && appointment.therapist_ids.length > 0;
+  const staffIcon = isTherapyAppointment ? 'people-outline' : 'person-circle-outline';
 
   return (
     <View
-      style={[styles.container, { borderLeftColor: statusColor }]}
+      style={[
+        styles.container, 
+        { borderLeftColor: statusColor },
+        isTherapyAppointment && styles.therapyAppointmentContainer,
+      ]}
       data-testid="appointment-list-item"
     >
       {/* Main Row - Full width clickable only if onPress is provided */}
@@ -396,7 +404,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {/* Staff & Treatment Info */}
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="person-circle-outline" size={14} color={colors.text.secondary} />
+              <Ionicons name={staffIcon} size={14} color={colors.text.secondary} />
               <Text style={styles.detailText} numberOfLines={1} data-testid="appointment-staff-name">
                 {displayStaffName}
               </Text>
@@ -649,8 +657,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         </View>
       )}
 
-      {/* View All Episodes Link - Only for doctors with 1+ episodes */}
-      {isDoctor && onViewAllEpisodes && clientEpisodesCount >= 1 && (
+      {/* View All Episodes Link - Only for doctors with 2+ episodes */}
+      {isDoctor && onViewAllEpisodes && clientEpisodesCount > 1 && (
         <TouchableOpacity
           style={styles.viewAllEpisodesLink}
           onPress={() => onViewAllEpisodes(appointment.client_id, appointment.client_name || 'Client')}
@@ -658,10 +666,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         >
           <Ionicons name="albums-outline" size={14} color={colors.primary.default} />
           <Text style={styles.viewAllEpisodesText}>
-            {clientEpisodesCount === 1 
-              ? `View episode for ${appointment.client_name || 'this client'}`
-              : `View all ${clientEpisodesCount} episodes for ${appointment.client_name || 'this client'}`
-            }
+            {`View all ${clientEpisodesCount} episodes for ${appointment.client_name || 'this client'}`}
           </Text>
         </TouchableOpacity>
       )}
@@ -686,6 +691,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     overflow: 'hidden',
+  },
+  therapyAppointmentContainer: {
+    backgroundColor: colors.grey[50],
   },
   mainRow: {
     flexDirection: 'row',
