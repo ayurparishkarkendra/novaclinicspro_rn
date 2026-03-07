@@ -600,6 +600,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {isDoctor && (
             <>
               {/* If episode IS linked, show ONLY "View Episode" button */}
+              {/* BUG FIX #3: Remove confirmation dialogs for episode actions */}
               {appointment.episode_id ? (
                 onViewEpisode && (
                   <QuickActionIconButton
@@ -618,16 +619,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                       icon="link-outline"
                       label="Link Episode"
                       color={colors.feedback.info}
-                      onPress={() => {
-                        Alert.alert(
-                          'Link to Episode',
-                          'Link this appointment to an existing episode?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Yes', onPress: () => onLinkEpisode(appointment.id, appointment.client_id) },
-                          ]
-                        );
-                      }}
+                      onPress={() => onLinkEpisode(appointment.id, appointment.client_id)}
                       testId="action-link-episode"
                     />
                   )}
@@ -637,16 +629,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                       icon="add-circle-outline"
                       label="New Episode"
                       color={colors.feedback.success}
-                      onPress={() => {
-                        Alert.alert(
-                          'Create New Episode',
-                          'Create a new episode for this appointment?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Yes', onPress: () => onCreateEpisode(appointment.id, appointment.client_id) },
-                          ]
-                        );
-                      }}
+                      onPress={() => onCreateEpisode(appointment.id, appointment.client_id)}
                       testId="action-create-episode"
                     />
                   )}

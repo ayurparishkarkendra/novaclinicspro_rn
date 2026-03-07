@@ -51,6 +51,12 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             <Text style={styles.patientName} numberOfLines={1}>
               {appointment.client_name || 'Unknown Patient'}
             </Text>
+            {/* BUG FIX #2: Show doctor name from staff_name field (API returns staff_name, not doctor_name) */}
+            {appointment.staff_name && (
+              <Text style={styles.doctorName} numberOfLines={1}>
+                {appointment.staff_name}
+              </Text>
+            )}
             <Text style={styles.visitType} numberOfLines={1}>
               {appointment.treatment_name || 'General Visit'}
             </Text>
@@ -137,6 +143,12 @@ const styles = StyleSheet.create({
   visitType: {
     ...typography.caption,
     color: colors.text.secondary,
+  },
+  doctorName: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm,

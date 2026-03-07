@@ -494,6 +494,8 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
   const createMutation = useCreateClientMutation(tenantId);
 
   const handleCreate = async () => {
@@ -501,10 +503,22 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       Alert.alert('Required', 'Please enter client name');
       return;
     }
+    
+    if (!gender) {
+      Alert.alert('Required', 'Please select gender');
+      return;
+    }
+    
+    if (!age.trim() || isNaN(parseInt(age))) {
+      Alert.alert('Required', 'Please enter a valid age');
+      return;
+    }
 
     try {
       const result = await createMutation.mutateAsync({
         full_name: name.trim(),
+        gender: gender,
+        age: parseInt(age),
         phone: phone.trim() || null,
         email: email.trim() || null,
       });
@@ -513,6 +527,8 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       setName('');
       setPhone('');
       setEmail('');
+      setGender('');
+      setAge('');
       onClose();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create client');
@@ -543,6 +559,45 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 placeholder="Enter client name"
                 placeholderTextColor={colors.text.tertiary}
                 accessibilityLabel="Client name"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Gender *</Text>
+              <View style={styles.genderRow}>
+                {['Male', 'Female', 'Other'].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.genderButton,
+                      gender === g && styles.genderButtonSelected,
+                    ]}
+                    onPress={() => setGender(g)}
+                  >
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        gender === g && styles.genderButtonTextSelected,
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Age *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={age}
+                onChangeText={setAge}
+                placeholder="Enter age"
+                placeholderTextColor={colors.text.tertiary}
+                keyboardType="numeric"
+                maxLength={3}
+                accessibilityLabel="Client age"
               />
             </View>
 
@@ -2604,6 +2659,34 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: colors.text.primary,
     minHeight: 48,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  genderButtonSelected: {
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.main + '10',
+  },
+  genderButtonText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  genderButtonTextSelected: {
+    color: colors.primary.main,
+    fontWeight: '600',
   },
   modalFooter: {
     flexDirection: 'row',

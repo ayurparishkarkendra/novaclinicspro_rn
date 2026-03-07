@@ -352,7 +352,7 @@ export const AppointmentDetailScreen: React.FC = () => {
     isLoading: isEpisodeAppointmentsLoading,
   } = useAppointmentsListQuery(
     tenantId,
-    { episode_id: episodeId, skip: 0, limit: 50 },
+    { episode_id: episodeId || undefined, skip: 0, limit: 50 },
     { enabled: !!episodeId }
   );
 
@@ -886,107 +886,48 @@ export const AppointmentDetailScreen: React.FC = () => {
         </View>
 
         {/* VISITS IN THIS EPISODE SECTION (Replaces "Previous Visits") */}
-        <View style={styles.section} data-testid="detail-visit-history-section">
-          <SectionHeader 
-            title={episodeId ? (t('episodes.visitsInEpisode') || 'Visits in This Episode') : (t('appointments.visitHistory') || 'Previous Visits')} 
-            icon="time" 
-          />
-          
-          {episodeId ? (
-            // Show visits in this episode
-            <>
-              {isEpisodeAppointmentsLoading ? (
-                <View style={styles.emptyVisitHistory}>
-                  <ActivityIndicator size="small" color={colors.primary.main} />
-                  <Text style={styles.emptyVisitHistoryText}>
-                    {t('common.loading') || 'Loading...'}
-                  </Text>
-                </View>
-              ) : episodeAppointments.length > 0 ? (
-                <>
-                  <View style={styles.visitHistoryContainer}>
-                    {episodeAppointments.map((historyItem: any) => (
-                      <VisitHistoryCard
-                        key={historyItem.id}
-                        appointment={historyItem}
-                        onPress={() => handleVisitHistoryPress(historyItem.id)}
-                        t={t}
-                      />
-                    ))}
-                  </View>
-                  {/* Footer link to view all episodes */}
-                  <TouchableOpacity
-                    style={styles.viewAllEpisodesLink}
-                    onPress={() => router.push(`/clinic-admin/clients/${clientId}?tab=episodes` as any)}
-                  >
-                    <Text style={styles.viewAllEpisodesText}>
-                      {t('episodes.viewAllEpisodes') || 'View all episodes for this client'}
-                    </Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <View style={styles.emptyVisitHistory}>
-                    <Ionicons name="calendar-outline" size={24} color={colors.text.tertiary} />
-                    <Text style={styles.emptyVisitHistoryText}>
-                      {t('episodes.noOtherVisits') || 'No other visits in this episode yet'}
-                    </Text>
-                  </View>
-                  {/* Footer link to view all episodes */}
-                  <TouchableOpacity
-                    style={styles.viewAllEpisodesLink}
-                    onPress={() => router.push(`/clinic-admin/clients/${clientId}?tab=episodes` as any)}
-                  >
-                    <Text style={styles.viewAllEpisodesText}>
-                      {t('episodes.viewAllEpisodes') || 'View all episodes for this client'}
-                    </Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
-                  </TouchableOpacity>
-                </>
-              )}
-            </>
-          ) : (
-            // No episode linked - show message with CTAs
-            <View style={styles.noEpisodeVisitsContainer}>
-              <View style={styles.noEpisodeVisitsMessage}>
-                <Ionicons name="information-circle-outline" size={24} color={colors.text.secondary} />
-                <View style={styles.noEpisodeVisitsTextContainer}>
-                  <Text style={styles.noEpisodeVisitsText}>
-                    {t('episodes.visitNotLinked') || 'This visit is not linked to any episode'}
-                  </Text>
-                  <Text style={styles.noEpisodeVisitsHint}>
-                    Episodes group all visits and documents for a specific condition.
-                  </Text>
-                </View>
+        {/* BUG FIX #1: Only show this section if there are previous visits (episodeAppointments.length > 0) */}
+        {episodeId && episodeAppointments.length > 0 && (
+          <View style={styles.section} data-testid="detail-visit-history-section">
+            <SectionHeader 
+              title={t('episodes.visitsInEpisode') || 'Visits in This Episode'} 
+              icon="time" 
+            />
+            
+            {/* Show visits in this episode */}
+            {isEpisodeAppointmentsLoading ? (
+              <View style={styles.emptyVisitHistory}>
+                <ActivityIndicator size="small" color={colors.primary.main} />
+                <Text style={styles.emptyVisitHistoryText}>
+                  {t('common.loading') || 'Loading...'}
+                </Text>
               </View>
-              <View style={styles.noEpisodeVisitsCTAs}>
-                {canLinkAppointment && (
-                  <TouchableOpacity
-                    style={[styles.ctaButton, { borderColor: colors.primary.main }]}
-                    onPress={handleLinkEpisodePress}
-                  >
-                    <Ionicons name="link-outline" size={16} color={colors.primary.main} />
-                    <Text style={[styles.ctaButtonText, { color: colors.primary.main }]}>
-                      {t('episodes.linkToEpisode') || 'Link to Episode'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {canCreateEpisode && (
-                  <TouchableOpacity
-                    style={[styles.ctaButton, styles.ctaButtonPrimary, { backgroundColor: colors.primary.main }]}
-                    onPress={handleCreateEpisodePress}
-                  >
-                    <Ionicons name="add-circle-outline" size={16} color={colors.background.default} />
-                    <Text style={[styles.ctaButtonText, { color: colors.background.default }]}>
-                      {t('episodes.createNewEpisode') || 'Create New Episode'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-        </View>
+            ) : (
+              <>
+                <View style={styles.visitHistoryContainer}>
+                  {episodeAppointments.map((historyItem: any) => (
+                    <VisitHistoryCard
+                      key={historyItem.id}
+                      appointment={historyItem}
+                      onPress={() => handleVisitHistoryPress(historyItem.id)}
+                      t={t}
+                    />
+                  ))}
+                </View>
+                {/* Footer link to view all episodes */}
+                <TouchableOpacity
+                  style={styles.viewAllEpisodesLink}
+                  onPress={() => router.push(`/clinic-admin/clients/${clientId}?tab=episodes` as any)}
+                >
+                  <Text style={styles.viewAllEpisodesText}>
+                    {t('episodes.viewAllEpisodes') || 'View all episodes for this client'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
 
         {/* Notes Section (keep if exists) */}
         {appointment.notes && (

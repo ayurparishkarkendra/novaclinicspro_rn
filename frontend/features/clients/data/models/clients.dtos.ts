@@ -10,14 +10,14 @@
 /** Request to create a client */
 export interface ClientCreate {
   full_name: string;
+  gender: string; // Required
+  age: number; // Required
   phone?: string | null;
   mobile_code?: string;
   alt_mobile?: string | null;
   alt_mobile_code?: string | null;
   email?: string | null;
-  gender?: string | null;
   date_of_birth?: string | null; // ISO date
-  age?: number | null;
   address_line?: string | null;
   city?: string | null;
   state?: string | null;

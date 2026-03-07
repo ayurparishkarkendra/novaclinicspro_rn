@@ -19,6 +19,8 @@ import {
   Modal,
   TextInput,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -154,12 +156,380 @@ export const CasesheetDetailScreen: React.FC = () => {
     }
   }, [transitionMutation]);
 
+  // BUG FIX #5: Show print preview modal with HTML content
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printHtmlContent, setPrintHtmlContent] = useState<string>('');
+
+  // Helper function to format address object to string
+  const formatAddress = (address: any): string => {
+    if (typeof address === 'string') return address;
+    if (!address) return '';
+    
+    const parts = [];
+    if (address.street) parts.push(address.street);
+    if (address.city) parts.push(address.city);
+    if (address.state) parts.push(address.state);
+    if (address.country) parts.push(address.country);
+    if (address.pincode) parts.push(address.pincode);
+    
+    return parts.join(', ');
+  };
+
+  // Helper function to format gender for capsule display
+  const formatGender = (gender: string | null | undefined): string => {
+    if (!gender) return '';
+    const g = gender.toUpperCase();
+    if (g === 'MALE' || g === 'M') return 'M';
+    if (g === 'FEMALE' || g === 'F') return 'F';
+    if (g === 'OTHER' || g === 'O') return 'O';
+    return gender.charAt(0).toUpperCase();
+  };
+
+  // Helper function to create age/gender capsule
+  const getAgeGenderCapsule = (age: any, gender: any): string => {
+    const ageStr = age !== null && age !== undefined ? String(age) : '';
+    const genderStr = formatGender(gender);
+    
+    if (!ageStr && !genderStr) return '';
+    
+    const capsuleText = `${ageStr || '?'}/${genderStr || '?'}`;
+    return `<span style="display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-left: 8px;">${capsuleText}</span>`;
+  };
+
+  // Helper function to generate HTML from casesheet data
+  const generateCasesheetHTML = (data: any): string => {
+    const header = data.header_snapshot || {};
+    const footer = data.footer_snapshot || {};
+    const client = data.client || {};
+    const casesheet = data.casesheet || data;
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Casesheet - ${client.full_name || 'Patient'}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #ffffff;
+      padding: 20px;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 20px;
+      border-bottom: 3px solid #3b82f6;
+      margin-bottom: 30px;
+    }
+    .clinic-logo { max-width: 80px; height: auto; margin-bottom: 10px; }
+    .clinic-name { font-size: 24px; font-weight: 700; color: #1e40af; margin-bottom: 5px; }
+    .clinic-tagline { font-size: 14px; color: #6b7280; font-style: italic; margin-bottom: 10px; }
+    
+    /* Patient Info */
+    .patient-section {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .patient-section h2 {
+      font-size: 18px;
+      color: #1f2937;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 5px;
+    }
+    .patient-column {
+      flex: 1;
+    }
+    .doctor-column {
+      flex: 1;
+      text-align: right;
+    }
+    .patient-info { display: flex; flex-direction: column; gap: 8px; }
+    .doctor-info { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+    .info-item { font-size: 14px; }
+    .info-label { font-weight: 600; color: #4b5563; }
+    .info-value { color: #1f2937; }
+    .doctor-name { font-size: 16px; font-weight: 700; color: #1e40af; margin-bottom: 4px; }
+    .doctor-qualification { font-size: 13px; color: #4b5563; }
+    .doctor-specialization { font-size: 13px; color: #6b7280; font-style: italic; }
+    .doctor-regno { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    
+    /* Casesheet Content */
+    .section {
+      margin-bottom: 25px;
+      page-break-inside: avoid;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .section-content {
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+    
+    /* Extensions */
+    .extensions {
+      background: #eff6ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .extension-item {
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      border-left: 3px solid #3b82f6;
+    }
+    .extension-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 8px;
+    }
+    .extension-field {
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+    .extension-field-label {
+      font-weight: 600;
+      color: #4b5563;
+      text-transform: capitalize;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #e5e7eb;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .footer-address {
+      margin-bottom: 5px;
+    }
+    .footer-contact {
+      margin-bottom: 5px;
+    }
+    
+    /* Print styles */
+    @media print {
+      body { padding: 0; }
+      .container { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      ${header.logo_url ? `<img src="${header.logo_url}" alt="Clinic Logo" class="clinic-logo">` : ''}
+      ${header.clinic_name ? `<div class="clinic-name">${header.clinic_name}</div>` : ''}
+      ${header.tagline ? `<div class="clinic-tagline">${header.tagline}</div>` : ''}
+    </div>
+    
+    <!-- Patient Information -->
+    <div class="patient-section">
+      <div class="patient-column">
+        <h2>Patient Information</h2>
+        <div class="patient-info">
+          <div class="info-item">
+            <span class="info-label">Patient Name:</span>
+            <span class="info-value">${client.full_name || 'N/A'}${getAgeGenderCapsule(client.age, client.gender)}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Phone:</span>
+            <span class="info-value">${client.phone || 'Not provided'}</span>
+          </div>
+        </div>
+      </div>
+      ${footer.recorded_by_name || footer.recorded_by_qualification || footer.recorded_by_specialization || footer.recorded_by_registration_no ? `
+      <div class="doctor-column">
+        <h2>Attending Doctor</h2>
+        <div class="doctor-info">
+          ${footer.recorded_by_name ? `
+          <div class="doctor-name">${footer.recorded_by_name}${footer.recorded_by_qualification ? ` ${footer.recorded_by_qualification}` : ''}</div>
+          ` : ''}
+          ${footer.recorded_by_specialization ? `
+          <div class="doctor-specialization">${footer.recorded_by_specialization}</div>
+          ` : ''}
+          ${footer.recorded_by_registration_no ? `
+          <div class="doctor-regno">Regn No: ${footer.recorded_by_registration_no}</div>
+          ` : ''}
+        </div>
+      </div>
+      ` : ''}
+    </div>
+    
+    <!-- Case Sheet -->
+    <div class="section">
+      <div class="section-title">Case Sheet</div>
+    </div>
+    
+    ${casesheet.chief_complaint ? `
+    <div class="section">
+      <div class="section-title">Chief Complaint</div>
+      <div class="section-content">${casesheet.chief_complaint}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.data_json?.subjective ? `
+    <div class="section">
+      <div class="section-title">Subjective</div>
+      <div class="section-content">${casesheet.data_json.subjective}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.data_json?.objective ? `
+    <div class="section">
+      <div class="section-title">Objective</div>
+      <div class="section-content">${casesheet.data_json.objective}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.data_json?.assessment ? `
+    <div class="section">
+      <div class="section-title">Assessment</div>
+      <div class="section-content">${casesheet.data_json.assessment}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.data_json?.plan ? `
+    <div class="section">
+      <div class="section-title">Plan</div>
+      <div class="section-content">${casesheet.data_json.plan}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.provisional_diagnosis ? `
+    <div class="section">
+      <div class="section-title">Provisional Diagnosis</div>
+      <div class="section-content">${casesheet.provisional_diagnosis}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.final_diagnosis ? `
+    <div class="section">
+      <div class="section-title">Final Diagnosis</div>
+      <div class="section-content">${casesheet.final_diagnosis}</div>
+    </div>
+    ` : ''}
+    
+    ${casesheet.data_json?.extensions && casesheet.data_json.extensions.length > 0 ? `
+    <div class="extensions">
+      <div class="section-title">Extensions</div>
+      ${casesheet.data_json.extensions.map((ext: any) => `
+        <div class="extension-item">
+          <div class="extension-title">${ext.template_name || 'Extension'}</div>
+          ${Object.entries(ext.data || {}).map(([key, value]) => `
+            <div class="extension-field">
+              <span class="extension-field-label">${key.replace(/_/g, ' ')}:</span>
+              ${value}
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+    
+    <!-- Footer -->
+    <div class="footer">
+      ${footer.address ? `<div class="footer-address">${formatAddress(footer.address)}</div>` : ''}
+      ${footer.phone ? `<div class="footer-contact">Phone: ${footer.phone}</div>` : ''}
+      ${footer.email ? `<div class="footer-contact">Email: ${footer.email}</div>` : ''}
+      ${footer.legal_text ? `<div style="margin-top: 10px;">${footer.legal_text}</div>` : ''}
+      ${footer.registration_no ? `<div>Reg. No: ${footer.registration_no}</div>` : ''}
+      ${footer.website ? `<div>${footer.website}</div>` : ''}
+      <div style="margin-top: 10px;">Generated on ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  };
+
   const handlePrint = useCallback(async () => {
     try {
-      const result = await printMutation.mutateAsync();
-      Alert.alert('Print', 'Print content ready. Opening print preview...');
-      // In production, this would open a WebView with the HTML content
+      const result: any = await printMutation.mutateAsync();
+      
+      console.log('[CasesheetPrint] ========== PRINT API RESPONSE DEBUG ==========');
+      console.log('[CasesheetPrint] Raw API response:', JSON.stringify(result, null, 2));
+      console.log('[CasesheetPrint] Response type:', typeof result);
+      console.log('[CasesheetPrint] Response keys:', result ? Object.keys(result) : 'null');
+      
+      // Check if result is already HTML or if it's JSON data
+      let htmlContent: string;
+      
+      if (typeof result === 'string') {
+        console.log('[CasesheetPrint] Result is string, length:', result.length);
+        console.log('[CasesheetPrint] First 500 chars:', result.substring(0, 500));
+        // If it's already HTML string
+        htmlContent = result;
+      } else if (result && typeof result === 'object') {
+        console.log('[CasesheetPrint] Result is object');
+        
+        if ('content' in result) {
+          console.log('[CasesheetPrint] Has content field, content_type:', (result as any).content_type);
+          // If it's a CasesheetPrintResponse object
+          if ((result as any).content_type === 'text/html') {
+            htmlContent = (result as any).content;
+          } else {
+            // If content is JSON data, generate HTML
+            try {
+              const resultContent = (result as any).content;
+              const data = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent;
+              console.log('[CasesheetPrint] ========== PARSED DATA STRUCTURE ==========');
+              console.log('[CasesheetPrint] Client data:', JSON.stringify(data.client, null, 2));
+              console.log('[CasesheetPrint] Casesheet data:', JSON.stringify(data.casesheet || data, null, 2));
+              console.log('[CasesheetPrint] Header snapshot:', JSON.stringify(data.header_snapshot, null, 2));
+              htmlContent = generateCasesheetHTML(data);
+            } catch (parseError) {
+              console.log('[CasesheetPrint] Parse error, treating as HTML:', parseError);
+              // If parsing fails, treat as HTML
+              htmlContent = (result as any).content;
+            }
+          }
+        } else {
+          console.log('[CasesheetPrint] No content field, treating result as data object');
+          console.log('[CasesheetPrint] ========== DIRECT DATA STRUCTURE ==========');
+          console.log('[CasesheetPrint] Client data:', JSON.stringify((result as any).client, null, 2));
+          console.log('[CasesheetPrint] Casesheet data:', JSON.stringify((result as any).casesheet || result, null, 2));
+          console.log('[CasesheetPrint] Header snapshot:', JSON.stringify((result as any).header_snapshot, null, 2));
+          // If result is the data object itself
+          htmlContent = generateCasesheetHTML(result as any);
+        }
+      } else {
+        console.error('[CasesheetPrint] Unexpected result type');
+        Alert.alert('Error', 'Unexpected print response format.');
+        return;
+      }
+      
+      console.log('[CasesheetPrint] Generated HTML length:', htmlContent.length);
+      setPrintHtmlContent(htmlContent);
+      setShowPrintPreview(true);
     } catch (err: any) {
+      console.error('[CasesheetPrint] Error:', err);
       Alert.alert('Error', err.message || 'Failed to print casesheet.');
     }
   }, [printMutation]);
@@ -486,19 +856,25 @@ export const CasesheetDetailScreen: React.FC = () => {
     }
 
     return (
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
-            colors={[colors.primary.main]}
-            tintColor={colors.primary.main}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
+              colors={[colors.primary.main]}
+              tintColor={colors.primary.main}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header Branding */}
         {renderBrandingHeader()}
 
@@ -672,7 +1048,41 @@ export const CasesheetDetailScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  };
+
+  // BUG FIX #5: Print Preview Modal with WebView
+  const renderPrintPreviewModal = () => {
+    // Import WebView dynamically
+    const { WebView } = require('react-native-webview');
+    
+    return (
+      <Modal
+        visible={showPrintPreview}
+        animationType="slide"
+        onRequestClose={() => setShowPrintPreview(false)}
+      >
+        <SafeAreaView style={styles.printPreviewContainer} edges={['top']}>
+          <View style={styles.printPreviewHeader}>
+            <Text style={styles.printPreviewTitle}>Print Preview</Text>
+            <TouchableOpacity
+              onPress={() => setShowPrintPreview(false)}
+              style={styles.printPreviewCloseButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close print preview"
+            >
+              <Ionicons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+          <WebView
+            source={{ html: printHtmlContent }}
+            style={styles.printPreviewWebView}
+            originWhitelist={['*']}
+          />
+        </SafeAreaView>
+      </Modal>
     );
   };
 
@@ -683,6 +1093,7 @@ export const CasesheetDetailScreen: React.FC = () => {
         {renderContent()}
       </View>
       {renderCreateTreatmentSheetModal()}
+      {renderPrintPreviewModal()}
     </SafeAreaView>
   );
 };
@@ -1191,6 +1602,32 @@ const styles = StyleSheet.create({
   modalCreateText: {
     ...typography.button,
     color: colors.common.white,
+  },
+
+  // BUG FIX #5: Print Preview Modal Styles
+  printPreviewContainer: {
+    flex: 1,
+    backgroundColor: colors.background.paper,
+  },
+  printPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.default,
+  },
+  printPreviewTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  printPreviewCloseButton: {
+    padding: spacing.xs,
+  },
+  printPreviewWebView: {
+    flex: 1,
   },
 });
 

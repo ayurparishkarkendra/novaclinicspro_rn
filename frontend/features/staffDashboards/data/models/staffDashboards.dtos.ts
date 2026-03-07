@@ -20,6 +20,7 @@ export interface DoctorAppointmentItem {
   room_name: string | null;
   staff_name?: string | null;
   doctor_id?: string | null;
+  doctor_name?: string | null;
   therapist_ids?: string[];
   episode_id?: string | null;
   episode_title?: string | null;

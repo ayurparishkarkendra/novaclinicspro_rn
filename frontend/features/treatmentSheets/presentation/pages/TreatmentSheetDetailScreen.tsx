@@ -16,6 +16,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -222,11 +223,357 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     }
   }, [transitionMutation, refetch]);
 
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printHtmlContent, setPrintHtmlContent] = useState<string>('');
+
+  // Helper function to format address object to string
+  const formatAddress = (address: any): string => {
+    if (typeof address === 'string') return address;
+    if (!address) return '';
+    
+    const parts = [];
+    if (address.street) parts.push(address.street);
+    if (address.city) parts.push(address.city);
+    if (address.state) parts.push(address.state);
+    if (address.country) parts.push(address.country);
+    if (address.pincode) parts.push(address.pincode);
+    
+    return parts.join(', ');
+  };
+
+  // Helper function to format gender for capsule display
+  const formatGender = (gender: string | null | undefined): string => {
+    if (!gender) return '';
+    const g = gender.toUpperCase();
+    if (g === 'MALE' || g === 'M') return 'M';
+    if (g === 'FEMALE' || g === 'F') return 'F';
+    if (g === 'OTHER' || g === 'O') return 'O';
+    return gender.charAt(0).toUpperCase();
+  };
+
+  // Helper function to create age/gender capsule
+  const getAgeGenderCapsule = (age: any, gender: any): string => {
+    const ageStr = age !== null && age !== undefined ? String(age) : '';
+    const genderStr = formatGender(gender);
+    
+    if (!ageStr && !genderStr) return '';
+    
+    const capsuleText = `${ageStr || '?'}/${genderStr || '?'}`;
+    return `<span style="display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-left: 8px;">${capsuleText}</span>`;
+  };
+
+  // Helper function to generate HTML from treatment sheet data
+  const generateTreatmentSheetHTML = (data: any): string => {
+    const header = data.header_snapshot || {};
+    const footer = data.footer_snapshot || {};
+    const client = data.client || {};
+    const sheet = data.treatment_sheet || data;
+    const rows = sheet.rows || [];
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Treatment Sheet - ${client.full_name || 'Patient'}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #ffffff;
+      padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 20px;
+      border-bottom: 3px solid #10b981;
+      margin-bottom: 30px;
+    }
+    .clinic-logo { max-width: 80px; height: auto; margin-bottom: 10px; }
+    .clinic-name { font-size: 24px; font-weight: 700; color: #059669; margin-bottom: 5px; }
+    .clinic-tagline { font-size: 14px; color: #6b7280; font-style: italic; margin-bottom: 10px; }
+    
+    /* Patient Info */
+    .patient-section {
+      background: #f0fdf4;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #10b981;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .patient-section h2 {
+      font-size: 18px;
+      color: #1f2937;
+      margin-bottom: 10px;
+    }
+    .patient-column {
+      flex: 1;
+    }
+    .doctor-column {
+      flex: 1;
+      text-align: right;
+    }
+    .patient-info { display: flex; flex-direction: column; gap: 8px; }
+    .doctor-info { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+    .info-item { font-size: 14px; }
+    .info-label { font-weight: 600; color: #4b5563; }
+    .info-value { color: #1f2937; }
+    .doctor-name { font-size: 16px; font-weight: 700; color: #059669; margin-bottom: 4px; }
+    .doctor-qualification { font-size: 13px; color: #4b5563; }
+    .doctor-specialization { font-size: 13px; color: #6b7280; font-style: italic; }
+    .doctor-regno { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    
+    /* Treatment Sheet Info */
+    .sheet-info {
+      background: #eff6ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    /* Treatment Rows Table */
+    .treatment-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+      font-size: 13px;
+    }
+    .treatment-table th {
+      background: #10b981;
+      color: white;
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .treatment-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .treatment-table tr:hover {
+      background: #f9fafb;
+    }
+    .day-number {
+      font-weight: 600;
+      color: #059669;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-skipped { background: #fee2e2; color: #991b1b; }
+    
+    /* Footer */
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #e5e7eb;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .footer-address {
+      margin-bottom: 5px;
+    }
+    .footer-contact {
+      margin-bottom: 5px;
+    }
+    
+    /* Print styles */
+    @media print {
+      body { padding: 0; }
+      .container { max-width: 100%; }
+      .treatment-table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      ${header.logo_url ? `<img src="${header.logo_url}" alt="Clinic Logo" class="clinic-logo">` : ''}
+      ${header.clinic_name ? `<div class="clinic-name">${header.clinic_name}</div>` : ''}
+      ${header.tagline ? `<div class="clinic-tagline">${header.tagline}</div>` : ''}
+    </div>
+    
+    <!-- Patient Information -->
+    <div class="patient-section">
+      <div class="patient-column">
+        <h2>Patient Information</h2>
+        <div class="patient-info">
+          <div class="info-item">
+            <span class="info-label">Patient Name:</span>
+            <span class="info-value">${client.full_name || 'N/A'}${getAgeGenderCapsule(client.age, client.gender)}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Phone:</span>
+            <span class="info-value">${client.phone || 'Not provided'}</span>
+          </div>
+        </div>
+      </div>
+      ${footer.recorded_by_name || footer.recorded_by_qualification || footer.recorded_by_specialization || footer.recorded_by_registration_no ? `
+      <div class="doctor-column">
+        <h2>Attending Doctor</h2>
+        <div class="doctor-info">
+          ${footer.recorded_by_name ? `
+          <div class="doctor-name">${footer.recorded_by_name}${footer.recorded_by_qualification ? ` ${footer.recorded_by_qualification}` : ''}</div>
+          ` : ''}
+          ${footer.recorded_by_specialization ? `
+          <div class="doctor-specialization">${footer.recorded_by_specialization}</div>
+          ` : ''}
+          ${footer.recorded_by_registration_no ? `
+          <div class="doctor-regno">Regn No: ${footer.recorded_by_registration_no}</div>
+          ` : ''}
+        </div>
+      </div>
+      ` : ''}
+    </div>
+    
+    <!-- Treatment Sheet Info -->
+    <div class="sheet-info">
+      <h2 style="font-size: 18px; margin-bottom: 10px;">Treatment Sheet</h2>
+      <div class="patient-info">
+        <div class="info-item">
+          <span class="info-label">Duration:</span>
+          <span class="info-value">${sheet.duration_days || 0} days</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Status:</span>
+          <span class="info-value">${sheet.status || 'N/A'}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Start Date:</span>
+          <span class="info-value">${sheet.start_date ? new Date(sheet.start_date).toLocaleDateString('en-IN') : 'N/A'}</span>
+        </div>
+        ${footer.recorded_by_name ? `
+        <div class="info-item">
+          <span class="info-label">Doctor:</span>
+          <span class="info-value">${footer.recorded_by_name}</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+    
+    <!-- Treatment Rows -->
+    <table class="treatment-table">
+      <thead>
+        <tr>
+          <th style="width: 60px;">Day</th>
+          <th style="width: 100px;">Date</th>
+          <th>Treatment</th>
+          <th style="width: 100px;">Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((row: any) => `
+          <tr>
+            <td class="day-number">Day ${row.day_number}</td>
+            <td>${row.session_date ? new Date(row.session_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-'}</td>
+            <td>${row.treatment_description || '-'}</td>
+            <td>
+              <span class="status-badge status-${(row.status || 'pending').toLowerCase()}">
+                ${row.status || 'Pending'}
+              </span>
+            </td>
+            <td style="font-size: 12px; color: #6b7280;">${row.notes || '-'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    
+    <!-- Footer -->
+    <div class="footer">
+      ${footer.address ? `<div class="footer-address">${formatAddress(footer.address)}</div>` : ''}
+      ${footer.phone ? `<div class="footer-contact">Phone: ${footer.phone}</div>` : ''}
+      ${footer.email ? `<div class="footer-contact">Email: ${footer.email}</div>` : ''}
+      ${footer.legal_text ? `<div style="margin-top: 10px;">${footer.legal_text}</div>` : ''}
+      ${footer.registration_no ? `<div>Reg. No: ${footer.registration_no}</div>` : ''}
+      ${footer.website ? `<div>${footer.website}</div>` : ''}
+      <div style="margin-top: 10px;">Generated on ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  };
+
   const handlePrint = useCallback(async () => {
     try {
-      await printMutation.mutateAsync();
-      Alert.alert('Print', 'Print content ready.');
+      const result: any = await printMutation.mutateAsync();
+      
+      console.log('[TreatmentSheetPrint] ========== PRINT API RESPONSE DEBUG ==========');
+      console.log('[TreatmentSheetPrint] Raw API response:', JSON.stringify(result, null, 2));
+      console.log('[TreatmentSheetPrint] Response type:', typeof result);
+      console.log('[TreatmentSheetPrint] Response keys:', result ? Object.keys(result) : 'null');
+      
+      // Check if result is already HTML or if it's JSON data
+      let htmlContent: string;
+      
+      if (typeof result === 'string') {
+        console.log('[TreatmentSheetPrint] Result is string, length:', result.length);
+        console.log('[TreatmentSheetPrint] First 500 chars:', result.substring(0, 500));
+        // If it's already HTML string
+        htmlContent = result;
+      } else if (result && typeof result === 'object') {
+        console.log('[TreatmentSheetPrint] Result is object');
+        
+        if ('content' in result) {
+          console.log('[TreatmentSheetPrint] Has content field, content_type:', (result as any).content_type);
+          // If it's a TreatmentSheetPrintResponse object
+          if ((result as any).content_type === 'text/html') {
+            htmlContent = (result as any).content;
+          } else {
+            // If content is JSON data, generate HTML
+            try {
+              const resultContent = (result as any).content;
+              const data = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent;
+              console.log('[TreatmentSheetPrint] ========== PARSED DATA STRUCTURE ==========');
+              console.log('[TreatmentSheetPrint] Client data:', JSON.stringify(data.client, null, 2));
+              console.log('[TreatmentSheetPrint] Treatment sheet data:', JSON.stringify(data.treatment_sheet || data, null, 2));
+              console.log('[TreatmentSheetPrint] Header snapshot:', JSON.stringify(data.header_snapshot, null, 2));
+              htmlContent = generateTreatmentSheetHTML(data);
+            } catch (parseError) {
+              console.log('[TreatmentSheetPrint] Parse error, treating as HTML:', parseError);
+              // If parsing fails, treat as HTML
+              htmlContent = (result as any).content;
+            }
+          }
+        } else {
+          console.log('[TreatmentSheetPrint] No content field, treating result as data object');
+          console.log('[TreatmentSheetPrint] ========== DIRECT DATA STRUCTURE ==========');
+          console.log('[TreatmentSheetPrint] Client data:', JSON.stringify((result as any).client, null, 2));
+          console.log('[TreatmentSheetPrint] Treatment sheet data:', JSON.stringify((result as any).treatment_sheet || result, null, 2));
+          console.log('[TreatmentSheetPrint] Header snapshot:', JSON.stringify((result as any).header_snapshot, null, 2));
+          // If result is the data object itself
+          htmlContent = generateTreatmentSheetHTML(result as any);
+        }
+      } else {
+        console.error('[TreatmentSheetPrint] Unexpected result type');
+        Alert.alert('Error', 'Unexpected print response format.');
+        return;
+      }
+      
+      console.log('[TreatmentSheetPrint] Generated HTML length:', htmlContent.length);
+      setPrintHtmlContent(htmlContent);
+      setShowPrintPreview(true);
     } catch (err: any) {
+      console.error('[TreatmentSheetPrint] Error:', err);
       Alert.alert('Error', err.message || 'Failed to print.');
     }
   }, [printMutation]);
@@ -954,6 +1301,37 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         loading={pauseMutation.isPending}
       />
 
+      {/* Print Preview Modal */}
+      {showPrintPreview && (() => {
+        const { WebView } = require('react-native-webview');
+        return (
+          <Modal
+            visible={showPrintPreview}
+            animationType="slide"
+            onRequestClose={() => setShowPrintPreview(false)}
+          >
+            <SafeAreaView style={styles.printPreviewContainer} edges={['top']}>
+              <View style={styles.printPreviewHeader}>
+                <Text style={styles.printPreviewTitle}>Print Preview</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPrintPreview(false)}
+                  style={styles.printPreviewCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close print preview"
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+              <WebView
+                source={{ html: printHtmlContent }}
+                style={styles.printPreviewWebView}
+                originWhitelist={['*']}
+              />
+            </SafeAreaView>
+          </Modal>
+        );
+      })()}
+
       {/* Cancel Series Dialog */}
       <CancelSeriesDialog
         visible={showCancelDialog}
@@ -1272,6 +1650,33 @@ const styles = StyleSheet.create({
   lifecycleButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  
+  // Print Preview Modal Styles
+  printPreviewContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  printPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  printPreviewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  printPreviewCloseButton: {
+    padding: 8,
+  },
+  printPreviewWebView: {
+    flex: 1,
   },
 });
 
