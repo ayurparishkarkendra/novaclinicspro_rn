@@ -325,10 +325,10 @@ export const useCancelAppointmentMutation = (tenantId: string) => {
 /**
  * Hook to reschedule an appointment
  * Supports two usage patterns:
- * 1. useRescheduleAppointmentMutation() - pass tenantId, appointmentId, newStart in mutate
+ * 1. useRescheduleAppointmentMutation() - pass tenantId, appointmentId, newStart, newEnd in mutate
  * 2. useRescheduleAppointmentMutation(tenantId, appointmentId) - pass only new date in mutate
  */
-export function useRescheduleAppointmentMutation(): ReturnType<typeof useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>>;
+export function useRescheduleAppointmentMutation(): ReturnType<typeof useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string; newEnd?: string }>>;
 export function useRescheduleAppointmentMutation(tenantId: string, appointmentId: string): ReturnType<typeof useMutation<AppointmentRescheduleResponse, Error, { new_start: string; new_end?: string }>>;
 export function useRescheduleAppointmentMutation(tenantId?: string, appointmentId?: string) {
   const queryClient = useQueryClient();
@@ -347,9 +347,13 @@ export function useRescheduleAppointmentMutation(tenantId?: string, appointmentI
   }
 
   // New signature: pass everything in mutate call
-  return useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string }>({
-    mutationFn: ({ tenantId: tid, appointmentId: aid, newStart }) => {
-      return rescheduleAppointmentApi(tid, aid, { new_start: newStart, appointment_start: newStart });
+  return useMutation<AppointmentRescheduleResponse, Error, { tenantId: string; appointmentId: string; newStart: string; newEnd?: string }>({
+    mutationFn: ({ tenantId: tid, appointmentId: aid, newStart, newEnd }) => {
+      return rescheduleAppointmentApi(tid, aid, { 
+        new_start: newStart, 
+        new_end: newEnd,
+        appointment_start: newStart 
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentsKeys.lists() });

@@ -88,6 +88,12 @@ axiosClient.interceptors.request.use(
       if (config.data) {
         config.data = transformDatesToUTC(config.data);
       }
+
+      // Inject device/browser timezone into all requests as a query param
+      // Works on both React Native (device timezone) and web (browser timezone)
+      // Backend uses this for timezone-aware date filtering (e.g., DATE(appointment_start AT TIME ZONE tz))
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      config.params = { ...config.params, timezone };
       
       // IMPORTANT: getSession() returns cached session
       // After refreshSession() is called elsewhere, this will get the updated token

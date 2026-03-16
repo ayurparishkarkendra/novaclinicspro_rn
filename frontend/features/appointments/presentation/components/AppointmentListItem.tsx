@@ -32,12 +32,13 @@ import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useFeatures, hasMultiDayAppointments } from '../../../../core/hooks/useFeatures';
 import {
   AppointmentResponse,
+} from '../../data/models/appointments.dtos';
+import {
   getStatusLabel,
   getStatusColor,
-  formatTime,
-  formatDate,
-  getTherapistNames,
-} from '../../data/models/appointments.dtos';
+  getStaffName,
+} from '../../domain/helpers';
+import { formatTime, formatDate } from '../../../../core/utils/dateTimeUtils';
 import { EpisodeBadge } from '../../../episodes/presentation/components/EpisodeBadge';
 import { useTreatmentSheetDetailQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
@@ -255,7 +256,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const clientName = appointment.client_name || null;
   const clientPhone = appointment.client_phone || null;
   const treatmentName = appointment.treatment_name || null;
-  const staffName = getTherapistNames(appointment);
+  const staffName = getStaffName(appointment);
 
   // ===== ACTION HANDLERS =====
   

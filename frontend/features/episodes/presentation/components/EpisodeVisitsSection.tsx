@@ -15,7 +15,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAppointmentsListQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
-import { AppointmentResponse, formatDate, formatTime, getStatusLabel, getStatusColor, getTherapistNames } from '../../../appointments/data/models/appointments.dtos';
+import { AppointmentResponse } from '../../../appointments/data/models/appointments.dtos';
+import { formatDate, formatTime } from '../../../../core/utils/dateTimeUtils';
+import { getStatusLabel, getStatusColor, getStaffName } from '../../../appointments/domain/helpers';
 
 // ============================================
 // TYPES
@@ -64,11 +66,11 @@ const VisitItem: React.FC<VisitItemProps> = ({ appointment, onPress }) => {
         </View>
       </View>
 
-      {getTherapistNames(appointment) !== 'Unassigned' && (
+      {getStaffName(appointment) !== 'Unassigned' && (
         <View style={styles.visitDetail}>
           <Ionicons name="person-outline" size={14} color={theme.colors.text.tertiary} />
           <Text style={[styles.visitDetailText, { color: theme.colors.text.secondary }]}>
-            {getTherapistNames(appointment)}
+            {getStaffName(appointment)}
           </Text>
         </View>
       )}

@@ -48,9 +48,11 @@ import {
   AppointmentCreate,
   BulkAppointmentItem,
   BulkCreateRequest,
+} from '../../data/models/appointments.dtos';
+import {
   openWhatsApp,
   generateWhatsAppSeriesMessage,
-} from '../../data/models/appointments.dtos';
+} from '../../domain/helpers';
 import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 // Import centralized date/time utils

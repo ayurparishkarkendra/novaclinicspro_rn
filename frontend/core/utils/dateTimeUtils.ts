@@ -7,24 +7,25 @@
  * CRITICAL UNDERSTANDING - BACKEND BEHAVIOR:
  * - When SENDING to backend: Send local time WITHOUT Z suffix (e.g., "2026-02-22T11:00:00")
  * - When RECEIVING from backend: Backend returns UTC time WITH Z suffix (e.g., "2026-02-22T05:30:00Z")
- * - The backend converts: Local time → UTC for storage/transmission
- * - Frontend must convert: UTC → Local time for display
+ * - The axios response interceptor (transformDatesFromUTC) converts UTC+Z → local ISO (no Z) automatically
+ * - Frontend display code then reads local ISO strings directly
  * 
  * Example flow:
  * 1. User selects 11:00 AM IST
- * 2. Frontend sends: "2026-02-22T11:00:00" (no Z)
+ * 2. Frontend sends: "2026-02-22T11:00:00" (local, no Z) via toLocalTimeISO()
  * 3. Backend stores and returns: "2026-02-22T05:30:00Z" (UTC, with Z)
- * 4. Frontend displays: "11:00 AM" (converted from UTC to local)
+ * 4. Response interceptor converts: "2026-02-22T05:30:00Z" → "2026-02-22T11:00:00" (local, no Z)
+ * 5. Frontend displays: "11:00 AM" (new Date("2026-02-22T11:00:00") treated as local)
  */
 
 // ============================================
 // CORE PRINCIPLES
 // ============================================
 // 1. SENDING TO API: Use toLocalTimeISO() - sends local time WITHOUT Z suffix
-// 2. RECEIVING FROM API: Backend returns UTC with Z - parse with new Date() to convert to local
-// 3. DISPLAYING: Use format functions - they handle UTC to local conversion
+// 2. RECEIVING FROM API: Axios interceptor converts UTC+Z → local ISO (no Z) automatically
+// 3. DISPLAYING: Use format functions - they call new Date(localISOString) which treats it as local
 // 4. VALIDATING: Use Date object methods (.getHours(), .getDay()) - they return local values
-// 5. NEVER use .toISOString() for API calls - it converts to actual UTC
+// 5. NEVER use .toISOString() for API calls - it sends UTC which breaks the interceptor round-trip
 
 // ============================================
 // API COMMUNICATION (Sending to Backend)
@@ -442,4 +443,26 @@ export const buildLocalTimeISO = (date: Date, time: Date): string => {
   console.warn('buildLocalTimeISO is deprecated. Use buildDateTime() + toLocalTimeISO() instead.');
   const combined = buildDateTime(date, time);
   return toLocalTimeISO(combined);
+};
+
+// ============================================
+// DATE RANGE GENERATION
+// ============================================
+
+/**
+ * Generate an array of Date objects around a center date
+ * USE THIS for date sliders and date pickers
+ *
+ * @param centerDate - The center date
+ * @param daysAround - Number of days before and after (default: 7)
+ * @returns Array of Date objects
+ */
+export const generateDateRange = (centerDate: Date, daysAround: number = 7): Date[] => {
+  const dates: Date[] = [];
+  for (let i = -daysAround; i <= daysAround; i++) {
+    const date = new Date(centerDate);
+    date.setDate(centerDate.getDate() + i);
+    dates.push(date);
+  }
+  return dates;
 };

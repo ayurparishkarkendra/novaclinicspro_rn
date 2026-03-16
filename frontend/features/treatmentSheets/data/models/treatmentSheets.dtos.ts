@@ -19,6 +19,17 @@ export interface TreatmentSheetCreateRequest {
   duration_days: number;
   appointment_id?: string;
   encounter_id?: string;
+  // Episode-scoped creation — triggers inline sync with appointments
+  episode_id?: string;
+  rows?: TreatmentSheetRowCreateRequest[];
+}
+
+/** Row data for episode-scoped treatment sheet creation */
+export interface TreatmentSheetRowCreateRequest {
+  day_number: number;
+  treatment_description?: string;
+  medicines_given?: string;
+  instructions?: string;
 }
 
 /** Create treatment sheet simplified request */

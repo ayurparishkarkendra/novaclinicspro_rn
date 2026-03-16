@@ -130,10 +130,11 @@ export const rescheduleAppointmentApi = async (
   appointmentId: string,
   payload: AppointmentReschedule
 ): Promise<AppointmentRescheduleResponse> => {
-  // Ensure payload has appointment_start field (backend requirement)
+  // Ensure payload has appointment_start and appointment_end fields (backend requirement)
   const apiPayload = {
     ...payload,
     appointment_start: payload.new_start || payload.appointment_start,
+    appointment_end: payload.new_end || payload.appointment_end,
   };
   
   const response = await axiosClient.post(
@@ -301,16 +302,32 @@ export const generateTherapyPlanApi = async (
 
 /**
  * Bulk create appointments (for multi-slot)
- * POST /api/v1/appointments/bulk-create
+ * POST /api/v1/clinic/{tenant_id}/appointments/bulk-create
  */
 export const bulkCreateAppointmentsApi = async (
   payload: BulkCreateRequest
 ): Promise<BulkCreateResponse> => {
-  const response = await axiosClient.post(
-    `/api/v1/appointments/bulk-create`,
-    payload
-  );
-  return response.data;
+  console.log('[API] Bulk create appointments:', {
+    series_id: payload.series_id,
+    episode_id: payload.episode_id,
+    count: payload.appointments.length,
+    episode_ids: payload.appointments.map(a => a.episode_id),
+    has_episode_id: payload.appointments.some(a => !!a.episode_id),
+  });
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/appointments/bulk-create`,
+      payload
+    );
+    return response.data;
+  } catch (err: any) {
+    // Surface count-mismatch 400 errors directly to the user
+    const detail = err?.response?.data?.detail || err?.response?.data?.message;
+    if (err?.response?.status === 400 && detail) {
+      throw new Error(detail);
+    }
+    throw err;
+  }
 };
 
 /**

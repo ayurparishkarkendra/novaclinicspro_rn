@@ -26,11 +26,20 @@ export const createTreatmentSheetApi = async (
   casesheetId: string,
   payload: TreatmentSheetCreateRequest
 ): Promise<TreatmentSheetResponse> => {
-  const response = await axiosClient.post(
-    `/api/v1/clinic/casesheets/${casesheetId}/treatment-sheets`,
-    payload
-  );
-  return response.data;
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/clinic/casesheets/${casesheetId}/treatment-sheets`,
+      payload
+    );
+    return response.data;
+  } catch (err: any) {
+    // Surface count-mismatch 400 errors directly to the user
+    const detail = err?.response?.data?.detail || err?.response?.data?.message;
+    if (err?.response?.status === 400 && detail) {
+      throw new Error(detail);
+    }
+    throw err;
+  }
 };
 
 /**

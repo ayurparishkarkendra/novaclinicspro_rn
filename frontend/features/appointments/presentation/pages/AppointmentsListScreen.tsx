@@ -43,18 +43,20 @@ import {
 import {
   AppointmentWithDetails,
   AppointmentSummary,
+} from '../../data/models/appointments.dtos';
+import {
   getStatusLabel,
   getStatusColor,
   generateDateRange,
   calculateDuration,
-} from '../../data/models/appointments.dtos';
+  isToday,
+  toISODateString,
+} from '../../domain/helpers';
 import {
   formatTime,
   formatShortDate,
   formatDayOfWeek,
   formatDate,
-  isToday,
-  toISODateString,
 } from '../../../../core/utils/dateTimeUtils';
 import { AppointmentListItem } from '../components/AppointmentListItem';
 
@@ -317,12 +319,22 @@ export const AppointmentsListScreen: React.FC = () => {
       return;
     }
 
+    // Calculate new end time based on original appointment duration
+    const originalStart = new Date(selectedAppointmentForReschedule.appointment_start);
+    const originalEnd = selectedAppointmentForReschedule.appointment_end 
+      ? new Date(selectedAppointmentForReschedule.appointment_end)
+      : new Date(originalStart.getTime() + 60 * 60 * 1000); // Default 1 hour if no end time
+    
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const newEndDateTime = new Date(newDateTime.getTime() + durationMs);
+
     setIsRescheduling(true);
     try {
       await rescheduleMutation.mutateAsync({
         tenantId,
         appointmentId: selectedAppointmentForReschedule.id,
         newStart: newDateTime.toISOString(),
+        newEnd: newEndDateTime.toISOString(),
       });
       setRescheduleModalVisible(false);
       setSelectedAppointmentForReschedule(null);

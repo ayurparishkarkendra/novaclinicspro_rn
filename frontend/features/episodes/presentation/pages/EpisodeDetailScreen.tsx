@@ -29,7 +29,9 @@ import { TreatmentPlansSection } from '../components/TreatmentPlansSection';
 import { TreatmentSheetsSection } from '../components/TreatmentSheetsSection';
 import { formatEpisodeDate, EpisodeUpdateRequest } from '../../data/models/episodes.dtos';
 import { useAppointmentsListQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
-import { AppointmentResponse, formatDate, formatTime, getStatusLabel, getStatusColor, getTherapistNames } from '../../../appointments/data/models/appointments.dtos';
+import { AppointmentResponse } from '../../../appointments/data/models/appointments.dtos';
+import { formatDate, formatTime } from '../../../../core/utils/dateTimeUtils';
+import { getStatusLabel, getStatusColor, getStaffName } from '../../../appointments/domain/helpers';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 
 // ============================================
@@ -97,11 +99,11 @@ const VisitItem: React.FC<VisitItemProps> = ({
         </View>
       </TouchableOpacity>
 
-      {getTherapistNames(appointment) !== 'Unassigned' && (
+      {getStaffName(appointment) !== 'Unassigned' && (
         <View style={styles.visitDetail}>
           <Ionicons name="person-outline" size={14} color={theme.colors.text.tertiary} />
           <Text style={[styles.visitDetailText, { color: theme.colors.text.secondary }]}>
-            {getTherapistNames(appointment)}
+            {getStaffName(appointment)}
           </Text>
         </View>
       )}

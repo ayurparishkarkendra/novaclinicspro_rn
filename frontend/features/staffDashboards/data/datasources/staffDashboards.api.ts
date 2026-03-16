@@ -41,11 +41,25 @@ export const getDoctorDashboardApi = async (
     }
   );
   
-  console.log('[API] Doctor dashboard response:', {
+  console.log('[API] Doctor dashboard RAW response:', {
+    fullResponse: response.data,
+    appointmentsArray: response.data?.appointments,
     appointmentsCount: response.data?.appointments?.length || 0,
+    totalCount: response.data?.total_count,
+    onLeave: response.data?.on_leave_today,
     firstAppointment: response.data?.appointments?.[0],
+    firstAppointmentDoctorId: response.data?.appointments?.[0]?.doctor_id,
     requestedDate: params?.date,
   });
+  
+  console.log('[API] Doctor dashboard - Appointment doctor IDs:', 
+    response.data?.appointments?.map((apt: any) => ({
+      id: apt.id,
+      doctor_id: apt.doctor_id,
+      client_name: apt.client_name,
+      date: apt.appointment_start?.split('T')[0],
+    }))
+  );
   
   return response.data;
 };

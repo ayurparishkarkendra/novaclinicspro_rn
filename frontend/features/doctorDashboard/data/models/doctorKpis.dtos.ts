@@ -308,8 +308,11 @@ export const mapBusiestDaysToBars = (
   busiestDays: BusiestDayDTO[],
   limit: number = 3
 ): TimeBarItem[] => {
+  if (!busiestDays || busiestDays.length === 0) return [];
+  
   const maxCount = Math.max(...busiestDays.map(d => d.count), 1);
   return busiestDays
+    .filter(day => day && day.day_name) // Filter out invalid entries
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
     .map(day => ({

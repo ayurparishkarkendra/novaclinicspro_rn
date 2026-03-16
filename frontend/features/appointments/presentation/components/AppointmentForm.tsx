@@ -27,9 +27,11 @@ import {
   AppointmentUpdate,
   AppointmentResponse,
   APPOINTMENT_STATUSES,
+} from '../../data/models/appointments.dtos';
+import {
   getStatusLabel,
   getStatusColor,
-} from '../../data/models/appointments.dtos';
+} from '../../domain/helpers';
 
 // ============================================
 // VALIDATION SCHEMA

@@ -55,8 +55,6 @@ import { MultiDayTreatmentSection } from '../components/MultiDayTreatmentSection
 import {
   getStatusLabel,
   getStatusColor,
-  formatDate,
-  formatTime,
   calculateDuration,
   formatDuration,
   openWhatsApp,
@@ -65,8 +63,9 @@ import {
   generateWhatsAppRescheduleMessage,
   generateWhatsAppNoShowMessage,
   generateWhatsAppCompletedMessage,
-  getTherapistNames,
-} from '../../data/models/appointments.dtos';
+  getStaffName,
+} from '../../domain/helpers';
+import { formatDate, formatTime } from '../../../../core/utils/dateTimeUtils';
 
 // ============================================
 // SECTION HEADER COMPONENT
@@ -390,7 +389,7 @@ export const AppointmentDetailScreen: React.FC = () => {
   const clientPhone = appointment?.client_phone || null;
   const treatmentName = appointment?.treatment_name || null;
   const roomName = appointment?.room_name || null;
-  const staffName = appointment ? getTherapistNames(appointment) : null;
+  const staffName = appointment ? getStaffName(appointment) : null;
 
   // ===== RBAC CHECK =====
   const normalizedRole = userRole?.toLowerCase().replace('_', '-') || 'clinic-admin';

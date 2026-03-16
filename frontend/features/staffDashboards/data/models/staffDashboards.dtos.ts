@@ -176,6 +176,20 @@ export interface TreatmentStatsResponse {
   completed_this_month: number;
 }
 
+/** Pending proposal item for admin dashboard */
+export interface PendingProposalItem {
+  id: string;
+  treatment_sheet_id: string;
+  treatment_name: string;
+  client_id: string;
+  client_name: string;
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  total_days: number;
+  estimated_cost: number;
+}
+
 /** Today's session statistics for admin dashboard */
 export interface TodaySessionStatsResponse {
   total: number;

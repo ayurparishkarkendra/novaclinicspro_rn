@@ -49,14 +49,19 @@ import {
 import {
   AppointmentCreate,
   AppointmentType,
-  formatTime,
-  formatDate,
+  ValidateAppointmentRequest,
+} from '../../data/models/appointments.dtos';
+import {
   openWhatsApp,
   generateWhatsAppConfirmationMessage,
   toISODateString,
-  ValidateAppointmentRequest,
-} from '../../data/models/appointments.dtos';
-import { toLocalTimeISO, formatTime as formatTimeUtil } from '../../../../core/utils/dateTimeUtils';
+} from '../../domain/helpers';
+import { 
+  toLocalTimeISO,
+  formatTime, 
+  formatDate,
+  formatTime as formatTimeUtil 
+} from '../../../../core/utils/dateTimeUtils';
 import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { useFeatures } from '../../../../core/hooks/useFeatures';
@@ -1451,10 +1456,10 @@ export const CreateAppointmentScreen: React.FC = () => {
       }
     }
 
-    // CRITICAL: Backend expects LOCAL time in ISO format, NOT UTC time
-    // User selects 11:00 AM IST → Send "2026-02-22T11:00:00Z" (local time with Z)
-    // NOT "2026-02-22T05:30:00Z" (UTC time)
-    // The backend will treat this as the clinic's local time
+    // CRITICAL: Backend expects LOCAL time WITHOUT Z suffix
+    // The request interceptor (transformDatesToUTC) only transforms Date objects, not strings.
+    // The response interceptor (transformDatesFromUTC) converts UTC+Z responses back to local strings.
+    // So we must send local time as a string (no Z) for the round-trip to work correctly.
     const payload: AppointmentCreate = {
       client_id: selectedClientId!,
       doctor_id: doctorId,
@@ -1477,7 +1482,7 @@ export const CreateAppointmentScreen: React.FC = () => {
       appointment_start: payload.appointment_start,
       appointment_end: payload.appointment_end,
       localTime: startDateTime.toLocaleString('en-IN'),
-      note: 'Sending LOCAL time with Z suffix, not UTC',
+      note: 'Sending LOCAL time without Z (established pattern)',
     });
 
     try {
