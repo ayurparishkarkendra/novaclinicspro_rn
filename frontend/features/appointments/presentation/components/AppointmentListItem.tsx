@@ -70,6 +70,8 @@ interface AppointmentListItemProps {
   onViewAllEpisodes?: (clientId: string, clientName: string) => void;
   /** Number of episodes for this client (to show/hide "View All Episodes" link) */
   clientEpisodesCount?: number;
+  /** Therapist-specific: open the materials completion modal directly */
+  onComplete?: (appointmentId: string) => void;
 }
 
 // ============================================
@@ -198,6 +200,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onViewEpisode,
   onViewAllEpisodes,
   clientEpisodesCount = 0,
+  onComplete,
 }) => {
   // Debug logging for episode information
   React.useEffect(() => {
@@ -288,7 +291,11 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
   // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
-  const canComplete = canModify && ['confirmed', 'in_progress'].includes(status);
+  // For therapists, also allow completing scheduled sessions
+  const canComplete = canModify && (
+    ['confirmed', 'in_progress'].includes(status) ||
+    (isTherapist && status === 'scheduled')
+  );
   
   // Time-based enabling for No-Show and Record Visit buttons
   // Buttons are ENABLED for past and current appointments (at or after start time)
@@ -335,8 +342,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
         style={styles.mainRow}
         onPress={onPress ? handlePress : undefined}
         activeOpacity={onPress ? 0.7 : 1}
-        disabled={!onPress}
-        accessibilityRole="button"
+        accessibilityRole={onPress ? 'button' : 'none'}
         accessibilityLabel={`Appointment for ${clientName} at ${timeDisplay}`}
       >
         {/* Main Content */}
@@ -450,7 +456,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             />
           )}
           
-          {/* A1: Single navigation arrow, vertically centered - only show if onPress is provided */}
+          {/* A1: Single navigation arrow — only when onPress provided */}
           {onPress && (
             <View style={styles.navigationArrow} data-testid="appointment-nav-arrow">
               <Ionicons name="chevron-forward" size={20} color={colors.primary.default} />
@@ -560,40 +566,31 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             </>
           )}
           
-          {/* Therapist actions - Complete and Notes only */}
+          {/* Therapist actions - Complete only (opens materials modal) */}
           {isTherapist && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
             <>
-              {/* Complete - for therapists */}
-              {canComplete && onStatusUpdate && (
+              {canComplete && (onComplete || onStatusUpdate) && (
                 <QuickActionIconButton
                   icon="checkmark-circle-outline"
                   label="Complete"
                   color={colors.feedback.success}
                   onPress={() => {
-                    Alert.alert(
-                      'Mark as Complete',
-                      'Mark this appointment as completed?',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Yes', onPress: () => onStatusUpdate(appointment.id, 'COMPLETED') },
-                      ]
-                    );
+                    if (onComplete) {
+                      onComplete(appointment.id);
+                    } else {
+                      Alert.alert(
+                        'Mark as Complete',
+                        'Mark this appointment as completed?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Yes', onPress: () => onStatusUpdate!(appointment.id, 'COMPLETED') },
+                        ]
+                      );
+                    }
                   }}
                   testId="action-complete"
                 />
               )}
-              
-              {/* Notes - for therapists */}
-              <QuickActionIconButton
-                icon="document-text-outline"
-                label="Notes"
-                color={colors.feedback.info}
-                onPress={() => {
-                  // TODO: Navigate to notes screen or open notes modal
-                  Alert.alert('Notes', 'Notes feature coming soon');
-                }}
-                testId="action-notes"
-              />
             </>
           )}
           

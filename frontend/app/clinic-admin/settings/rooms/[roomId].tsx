@@ -273,14 +273,7 @@ export default function RoomDetailScreen() {
           )}
         </View>
 
-        {/* Danger Zone */}
-        <View style={styles.dangerSection}>
-          <Text style={styles.dangerTitle}>Danger Zone</Text>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Ionicons name="trash-outline" size={20} color="#EF4444" />
-            <Text style={styles.deleteButtonText}>Delete Room</Text>
-          </TouchableOpacity>
-        </View>
+        {/* End of scroll content */}
       </ScrollView>
     </SafeAreaView>
   );

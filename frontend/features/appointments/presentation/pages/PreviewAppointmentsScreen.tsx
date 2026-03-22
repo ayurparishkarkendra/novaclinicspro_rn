@@ -80,6 +80,7 @@ interface EffectiveTime {
   start: string;
   end: string;
   staff_id: string | null;
+  staff_ids: string[];           // all assigned therapist ids
   staff_name: string | null;
   room_id: string | null;
   room_name: string | null;
@@ -363,13 +364,6 @@ const SessionCard: React.FC<SessionCardProps> = ({
           </View>
           <Text style={styles.sessionTime}>
             {formatLocalTime(displayStartTime)} - {formatLocalTime(displayEndTime)}
-          </Text>
-          {/* Display therapist - BUG FIX #1: No duplicate "Unassigned" */}
-          <Text style={[
-            styles.sessionStaff,
-            hasConflict && !isResolved && styles.sessionStaffConflict,
-          ]}>
-            {displayStaffName}
           </Text>
           {/* Display room name */}
           <Text style={styles.sessionRoom}>
@@ -693,10 +687,12 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     newSessions.forEach(session => {
       // Get staff info - use therapist_ids from new API structure
       let staffId = session.therapist_ids?.[0] || null;
+      let staffIds: string[] = session.therapist_ids || [];
       let staffName = session.staff_name;
       
       if (session.staff_assignments && session.staff_assignments.length > 0) {
         staffId = session.staff_assignments[0].id;
+        staffIds = session.staff_assignments.map(s => s.id);
         staffName = session.staff_assignments.map(s => s.name).join(', ');
       }
       
@@ -704,6 +700,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         start: session.appointment_start,
         end: session.appointment_end,
         staff_id: staffId,
+        staff_ids: staffIds,
         staff_name: staffName,
         room_id: session.room_id,
         room_name: session.room_name,
@@ -826,7 +823,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         start: alt.start,
         end: alt.end,
         staff_id: firstStaff?.staff_id || null,
-        staff_name: firstStaff?.full_name || null,
+        staff_ids: alt.available_staff?.map(s => s.staff_id) || [],
+        staff_name: alt.available_staff?.map(s => s.full_name).join(', ') || null,
         room_id: firstRoom?.room_id || null,
         room_name: firstRoom?.name || null,
         is_resolved: true,
@@ -861,14 +859,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         );
         
         if (matchingAlt) {
-          const firstStaff = matchingAlt.available_staff?.[0];
           const firstRoom = matchingAlt.available_rooms?.[0];
           
           newMap.set(sessionNumber, {
             start: matchingAlt.start,
             end: matchingAlt.end,
-            staff_id: firstStaff?.staff_id || null,
-            staff_name: firstStaff?.full_name || null,
+            staff_id: matchingAlt.available_staff?.[0]?.staff_id || null,
+            staff_ids: matchingAlt.available_staff?.map(s => s.staff_id) || [],
+            staff_name: matchingAlt.available_staff?.map(s => s.full_name).join(', ') || null,
             room_id: firstRoom?.room_id || null,
             room_name: firstRoom?.name || null,
             is_resolved: true,
@@ -973,6 +971,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           start: validatedSession.appointment_start,
           end: validatedSession.appointment_end,
           staff_id: validatedSession.staff_id || therapistIds[0] || null,
+          staff_ids: therapistIds,
           staff_name: staffNames || null,
           room_id: validatedSession.room_id || null,
           room_name: null,
@@ -1151,7 +1150,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         return {
           client_id: clientId,
           doctor_id: doctorId || undefined,
-          therapist_ids: therapistIds,
+          therapist_ids: effective.staff_ids.length > 0 ? effective.staff_ids : therapistIds,
           room_id: effective.room_id || undefined,
           treatment_id: treatmentId,
           appointment_start: effective.start,

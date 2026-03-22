@@ -47,9 +47,8 @@ const DEBOUNCE_DELAY = 300;
 const TreatmentCard: React.FC<{
   treatment: TreatmentResponse;
   onPress: () => void;
-  onDelete: () => void;
   isAyurvedaClinic?: boolean;
-}> = ({ treatment, onPress, onDelete, isAyurvedaClinic = false }) => {
+}> = ({ treatment, onPress, isAyurvedaClinic = false }) => {
   const effectivePrice = treatment.price || treatment.base_price;
   const doshaInfo = getDoshaSummary(treatment.dosha_benefits);
 
@@ -119,13 +118,6 @@ const TreatmentCard: React.FC<{
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={onDelete}
-          accessibilityLabel={`Delete ${treatment.name}`}
-        >
-          <Ionicons name="trash-outline" size={18} color="#EF4444" />
-        </TouchableOpacity>
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </View>
     </TouchableOpacity>
@@ -138,6 +130,7 @@ export const TreatmentsScreen: React.FC = () => {
   const tenantId = currentUser?.tenantId || '';
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
   
   // Get feature configuration from JWT token
   const features = useFeatures();
@@ -158,12 +151,20 @@ export const TreatmentsScreen: React.FC = () => {
     ? debouncedSearchQuery 
     : '';
 
-  // Use search API when query is >= 3 characters, otherwise use list API
-  const treatmentsQuery = useTreatmentsListQuery(
+  // Two parallel queries — always fetch both so we have accurate counts
+  const activeTreatmentsQuery = useTreatmentsListQuery(
     tenantId,
-    { limit: 100 },
+    { limit: 100, is_active: true },
     { enabled: !!tenantId && effectiveSearchQuery === '' }
   );
+  const inactiveTreatmentsQuery = useTreatmentsListQuery(
+    tenantId,
+    { limit: 100, is_active: false },
+    { enabled: !!tenantId && effectiveSearchQuery === '' }
+  );
+
+  // The query whose items we display (based on filter selection)
+  const treatmentsQuery = showInactive ? inactiveTreatmentsQuery : activeTreatmentsQuery;
   
   const searchTreatmentsQuery = useSearchTreatmentsQuery(
     tenantId,
@@ -185,15 +186,16 @@ export const TreatmentsScreen: React.FC = () => {
     
   const isRefetching = effectiveSearchQuery 
     ? searchTreatmentsQuery.isRefetching 
-    : treatmentsQuery.isRefetching;
+    : (activeTreatmentsQuery.isRefetching || inactiveTreatmentsQuery.isRefetching);
 
   const handleRefresh = useCallback(() => {
     if (effectiveSearchQuery) {
       searchTreatmentsQuery.refetch();
     } else {
-      treatmentsQuery.refetch();
+      activeTreatmentsQuery.refetch();
+      inactiveTreatmentsQuery.refetch();
     }
-  }, [effectiveSearchQuery, searchTreatmentsQuery, treatmentsQuery]);
+  }, [effectiveSearchQuery, searchTreatmentsQuery, activeTreatmentsQuery, inactiveTreatmentsQuery]);
 
   const handleDeleteTreatment = useCallback((treatment: TreatmentResponse) => {
     Alert.alert(
@@ -238,13 +240,12 @@ export const TreatmentsScreen: React.FC = () => {
     <TreatmentCard
       treatment={item}
       onPress={() => router.push(`/clinic-admin/settings/treatments/${item.id}` as any)}
-      onDelete={() => handleDeleteTreatment(item)}
       isAyurvedaClinic={isAyurvedaClinic}
     />
-  ), [router, handleDeleteTreatment, isAyurvedaClinic]);
+  ), [router, isAyurvedaClinic]);
 
-  const activeTreatments = treatmentsData?.items.filter(t => t.is_active).length || 0;
-  const totalTreatments = treatmentsData?.total || 0;
+  const activeTreatments = activeTreatmentsQuery.data?.total || 0;
+  const inactiveTreatments = inactiveTreatmentsQuery.data?.total || 0;
 
   if (!tenantId) {
     return (
@@ -266,8 +267,7 @@ export const TreatmentsScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Treatments & Services"
-        subtitle={`${activeTreatments} active treatments`}
-        onBackPress={() => router.back()}
+        subtitle={`${activeTreatments} active treatments`}        onBackPress={() => router.back()}
       />
 
       {/* Toolbar */}
@@ -296,22 +296,22 @@ export const TreatmentsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Stats */}
+      {/* Stats / Filter */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{totalTreatments}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#10B98115' }]}>
+        <TouchableOpacity
+          style={[styles.statCard, !showInactive && { backgroundColor: '#10B98120', borderColor: '#10B981', borderWidth: 1 }]}
+          onPress={() => setShowInactive(false)}
+        >
           <Text style={[styles.statValue, { color: '#10B981' }]}>{activeTreatments}</Text>
           <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#F59E0B15' }]}>
-          <Text style={[styles.statValue, { color: '#F59E0B' }]}>
-            {totalTreatments - activeTreatments}
-          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statCard, showInactive && { backgroundColor: '#F59E0B20', borderColor: '#F59E0B', borderWidth: 1 }]}
+          onPress={() => setShowInactive(true)}
+        >
+          <Text style={[styles.statValue, { color: '#F59E0B' }]}>{inactiveTreatments}</Text>
           <Text style={styles.statLabel}>Inactive</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Treatment List */}

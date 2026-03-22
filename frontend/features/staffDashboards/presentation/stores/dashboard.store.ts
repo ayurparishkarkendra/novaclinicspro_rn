@@ -1,42 +1,59 @@
 /**
  * Dashboard Store
  * Zustand store for managing dashboard state (date selection, filters, etc.)
+ *
+ * Each role has its own independent date field so navigating between dashboards
+ * never clobbers another role's selection.
  */
 
 import { create } from 'zustand';
 
-interface DashboardState {
-  // Selected date for viewing appointments
-  selectedDate: Date;
-  
-  // Actions
-  setSelectedDate: (date: Date) => void;
-  resetToToday: () => void;
-}
+// ─── helpers ────────────────────────────────────────────────────────────────
 
-// Helper to get today's date at midnight local time
-const getTodayAtMidnight = () => {
+const getTodayAtMidnight = (): Date => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today;
 };
 
+const normalizeToMidnight = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+// ─── state shape ────────────────────────────────────────────────────────────
+
+interface DashboardState {
+  // Doctor dashboard date
+  selectedDate: Date;
+  setSelectedDate: (date: Date) => void;
+  resetToToday: () => void;
+
+  // Therapist dashboard date (independent from doctor)
+  therapistSelectedDate: Date;
+  setTherapistSelectedDate: (date: Date) => void;
+  resetTherapistToToday: () => void;
+}
+
+// ─── store ──────────────────────────────────────────────────────────────────
+
 export const useDashboardStore = create<DashboardState>((set) => ({
-  // Initial state - today's date at midnight
+  // ── Doctor ──────────────────────────────────────────────────────────────
   selectedDate: getTodayAtMidnight(),
-  
-  // Set a specific date
-  setSelectedDate: (date: Date) => {
-    const normalized = new Date(date);
-    normalized.setHours(0, 0, 0, 0);
-    console.log('[DashboardStore] Setting date:', {
-      input: date.toDateString(),
-      normalized: normalized.toDateString(),
-      timestamp: normalized.getTime(),
-    });
-    set({ selectedDate: normalized });
-  },
-  
-  // Reset to today
-  resetToToday: () => set({ selectedDate: getTodayAtMidnight() }),
+
+  setSelectedDate: (date: Date) =>
+    set({ selectedDate: normalizeToMidnight(date) }),
+
+  resetToToday: () =>
+    set({ selectedDate: getTodayAtMidnight() }),
+
+  // ── Therapist ────────────────────────────────────────────────────────────
+  therapistSelectedDate: getTodayAtMidnight(),
+
+  setTherapistSelectedDate: (date: Date) =>
+    set({ therapistSelectedDate: normalizeToMidnight(date) }),
+
+  resetTherapistToToday: () =>
+    set({ therapistSelectedDate: getTodayAtMidnight() }),
 }));

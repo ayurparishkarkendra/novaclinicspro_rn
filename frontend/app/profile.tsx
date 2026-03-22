@@ -24,7 +24,7 @@ import { isClinicOwner } from '../features/auth/domain/entities/auth.entity';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { currentUser, isLoading, logout } = useAuth();
+  const { currentUser, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -56,7 +56,7 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = () => {
-    logout();
+    router.push('/logout');
   };
 
   return (
@@ -83,10 +83,10 @@ export default function ProfileScreen() {
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {currentUser.fullName.charAt(0).toUpperCase()}
+              {(currentUser.fullName || currentUser.email || '?').charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.fullName}>{currentUser.fullName}</Text>
+          <Text style={styles.fullName}>{currentUser.fullName || currentUser.email}</Text>
           <Text style={styles.email}>{currentUser.email}</Text>
         </View>
 

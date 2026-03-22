@@ -1027,8 +1027,8 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
   
   // Staff queries - SEPARATE for doctors and therapists
-  // CRITICAL FIX: Only fetch doctors when in DOCTOR mode
-  const shouldFetchDoctors = appointmentType === 'SINGLE' && sessionType === 'DOCTOR';
+  // CRITICAL FIX: Fetch doctors for DOCTOR mode and MULTI-DAY (doctor assignment)
+  const shouldFetchDoctors = (appointmentType === 'SINGLE' && sessionType === 'DOCTOR') || appointmentType === 'MULTI';
   const { data: doctorsData, isLoading: isLoadingDoctors, isFetched: isDoctorsFetched } = useStaffListQuery(
     tenantId, 
     { staff_type: 'doctor', is_active: true, limit: 100 },
@@ -1421,34 +1421,31 @@ export const CreateAppointmentScreen: React.FC = () => {
     const doctorId = isDoctor ? doctorForm.selectedDoctorId : null;
     const therapistIds = isDoctor ? [] : therapyForm.selectedTherapistIds;
 
-    // Validate appointment for conflicts (both doctor and therapy)
-    // Note: Validation API still uses staff_id for now (legacy)
-    const staffIdForValidation = isDoctor ? doctorId : (therapistIds[0] || null);
-    
-    if (staffIdForValidation) {
+    // Validate appointment for conflicts — doctor appointments only.
+    // The validation endpoint checks doctor schedule conflicts; it incorrectly flags
+    // therapy appointments as conflicting. Therapy conflict detection is handled
+    // server-side by the create endpoint itself.
+    if (isDoctor && doctorId) {
       try {
         const validationPayload: ValidateAppointmentRequest = {
           client_id: selectedClientId!,
-          staff_id: staffIdForValidation,
-          room_id: isDoctor ? undefined : (therapyForm.selectedRoomId || undefined),
+          staff_id: doctorId,
           appointment_start: toLocalTimeISO(startDateTime),
           appointment_end: toLocalTimeISO(endDateTime),
         };
         
-        console.log('[CreateAppointment] Validating appointment:', validationPayload);
+        console.log('[CreateAppointment] Validating doctor appointment:', validationPayload);
         
         const validationApiResult = await validateMutation.mutateAsync(validationPayload);
         console.log('[CreateAppointment] Validation result:', validationApiResult);
         
-        // If validation fails, show generic conflict message
         if (!validationApiResult.is_valid) {
-          // Show styled modal with localized conflict message
           setConflictModal({
             visible: true,
             title: t('appointments.bookingConflict'),
             messages: [t(ErrorTokens.appointments.conflictDetected)],
           });
-          return; // Do NOT proceed with booking
+          return;
         }
       } catch (err: any) {
         console.log('[CreateAppointment] Validation API error (proceeding anyway):', err.message);
@@ -1873,6 +1870,23 @@ export const CreateAppointmentScreen: React.FC = () => {
                     selectedIds={multiDayForm.selectedTherapistIds}
                     maxSelect={2}
                     autoCloseOnSelect={false}
+                  />
+                </View>
+
+                {/* Doctor - Optional, required for doctor dashboard visibility */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Doctor (Optional)</Text>
+                  <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 6 }}>
+                    Assign a doctor so this schedule appears on the Doctor Dashboard
+                  </Text>
+                  <SearchableDropdown
+                    title="Select Doctor"
+                    options={doctorOptions}
+                    selectedId={multiDayForm.selectedDoctorId}
+                    onSelect={(id) => setMultiDayForm(prev => ({ ...prev, selectedDoctorId: id }))}
+                    isLoading={isLoadingDoctors}
+                    emptyText="No doctors available"
+                    autoCloseOnSelect={true}
                   />
                 </View>
               </>

@@ -185,3 +185,84 @@ export const getPausedSeriesApi = async (
   return response.data;
 };
 
+
+// ============================================
+// THERAPIST DASHBOARD — NEW ROW_ID-BASED FLOW
+// ============================================
+
+import {
+  TherapistSessionsResponse,
+  KpiQueryParams,
+  TherapistKpisResponse,
+  SheetRowUsablesResponse,
+  CompleteSheetRowRequest,
+  CompleteSheetRowResponse,
+} from '../models/staffDashboards.dtos';
+
+/**
+ * Get today's sessions for the authenticated therapist.
+ * GET /api/v1/clinic/{tenantId}/staff/me/dashboard/therapist/sessions
+ * Requirements: 4.1, 1.7
+ */
+export const getTherapistSessionsApi = async (
+  tenantId: string,
+  params?: { cursor?: string; limit?: number; date?: string }
+): Promise<TherapistSessionsResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/staff/me/dashboard/therapist/sessions`,
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get KPI metrics for a staff member.
+ * GET /api/v1/clinic/{tenantId}/staff/{staffId}/kpis
+ * Requirements: 9.3, 1.7
+ */
+export const getTherapistKpisApi = async (
+  tenantId: string,
+  staffId: string,
+  params: KpiQueryParams
+): Promise<TherapistKpisResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/staff/${staffId}/kpis`,
+    { params }
+  );
+  return response.data;
+};
+
+/**
+ * Get pre-configured usables (materials) for a treatment sheet row.
+ * GET /api/v1/clinic/{tenantId}/treatment-sheets/rows/{rowId}/usables
+ * Requirements: 5.1, 1.7
+ */
+export const getSheetRowUsablesApi = async (
+  tenantId: string,
+  rowId: string
+): Promise<SheetRowUsablesResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}/usables`
+  );
+  return response.data;
+};
+
+/**
+ * Complete a treatment sheet row using its row_id.
+ * POST /api/v1/clinic/{tenantId}/treatment-sheets/rows/{rowId}/complete
+ *
+ * IMPORTANT: rowId comes from row_id on the session item.
+ * NEVER use session_id or completeTreatmentSessionApi here.
+ * Requirements: 6.1, 6.5, 1.7
+ */
+export const completeSheetRowApi = async (
+  tenantId: string,
+  rowId: string,
+  payload: CompleteSheetRowRequest
+): Promise<CompleteSheetRowResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}/complete`,
+    payload
+  );
+  return response.data;
+};

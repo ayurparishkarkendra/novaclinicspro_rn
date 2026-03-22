@@ -22,12 +22,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { DashboardHeader } from '../core/components/DashboardHeader';
+import { DateStrip, toISODateLocal } from '../core/components/DateStrip';
 import { colors } from '../core/theme/colors';
 import { spacing } from '../core/theme/spacing';
 import { typography } from '../core/theme/typography';
 import { useAuth } from '../features/auth/presentation/hooks/useAuth';
 import { t, ErrorTokens } from '../core/localization';
-import { useDashboardStore } from '../features/staffDashboards/presentation/stores/dashboard.store';
+import { useDoctorDashboardDate } from '../features/staffDashboards/presentation/hooks/useDashboardDate';
+import { filterAppointmentsByDate } from '../features/staffDashboards/domain/utils/filterAppointments';
 import { useQuery } from '@tanstack/react-query';
 import {
   useDoctorDashboardQuery,
@@ -58,25 +60,8 @@ export default function DoctorDashboard() {
   const tenantId = currentUser?.tenantId || '';
   const staffId = currentUser?.userId || ''; // Use user_id directly as staff_id
 
-  // Use Zustand store for date selection
-  const selectedDate = useDashboardStore((state) => state.selectedDate);
-  const setSelectedDate = useDashboardStore((state) => state.setSelectedDate);
-  
-  // Ref for date scroll view
-  const dateScrollRef = React.useRef<ScrollView>(null);
-  
-  const selectedDateStr = useMemo(() => {
-    const year = selectedDate.getFullYear();
-    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const day = String(selectedDate.getDate()).padStart(2, '0');
-    const formatted = `${year}-${month}-${day}`;
-    console.log('[DoctorDashboard] Selected date formatted:', {
-      date: selectedDate.toDateString(),
-      formatted,
-      timestamp: selectedDate.getTime(),
-    });
-    return formatted;
-  }, [selectedDate]);
+  // Shared date hook (reads/writes doctor-specific field in Zustand store)
+  const { selectedDate, setSelectedDate, selectedDateStr } = useDoctorDashboardDate();
 
   // Route guard - only allow doctor role
   React.useEffect(() => {
@@ -149,32 +134,6 @@ export default function DoctorDashboard() {
     }
   }, [dashboardData, selectedDateStr]);
 
-  // Extract doctor name from dashboard data or KPI data
-  const doctorName = React.useMemo(() => {
-    // Priority 1: Use staff_name from first appointment in dashboard
-    if (dashboardData?.appointments?.[0]?.staff_name) {
-      return dashboardData.appointments[0].staff_name;
-    }
-    // Priority 2: Use staff_name from KPI data
-    if (kpiData?.staff_name) {
-      return kpiData.staff_name;
-    }
-    // Priority 3: Fallback to generic "Doctor"
-    return 'Doctor';
-  }, [dashboardData?.appointments, kpiData?.staff_name]);
-
-  // Log KPI data when it changes
-  React.useEffect(() => {
-    if (kpiData) {
-      console.log('[DoctorDashboard] KPI Data received:', {
-        consultations: kpiData.consultations,
-        patients: kpiData.patients,
-        productivity: kpiData.clinical_productivity,
-        staffName: kpiData.staff_name,
-      });
-    }
-  }, [kpiData]);
-
   // Fetch KPI metrics from backend
   const {
     data: kpiData,
@@ -195,6 +154,29 @@ export default function DoctorDashboard() {
       enabled: !!tenantId && !!staffId,
     }
   );
+
+  // Extract doctor name from dashboard data or KPI data
+  const doctorName = React.useMemo(() => {
+    if (dashboardData?.appointments?.[0]?.staff_name) {
+      return dashboardData.appointments[0].staff_name;
+    }
+    if (kpiData?.staff_name) {
+      return kpiData.staff_name;
+    }
+    return 'Doctor';
+  }, [dashboardData?.appointments, kpiData?.staff_name]);
+
+  // Log KPI data when it changes
+  React.useEffect(() => {
+    if (kpiData) {
+      console.log('[DoctorDashboard] KPI Data received:', {
+        consultations: kpiData.consultations,
+        patients: kpiData.patients,
+        productivity: kpiData.clinical_productivity,
+        staffName: kpiData.staff_name,
+      });
+    }
+  }, [kpiData]);
 
   // Handle period change
   const handlePeriodChange = useCallback(
@@ -218,25 +200,10 @@ export default function DoctorDashboard() {
   }, [refetchDashboard, refetchKpis]);
 
   // Filter appointments to only show those matching the selected date
-  const filteredAppointments = useMemo(() => {
-    const appointments = dashboardData?.appointments || [];
-    return appointments.filter((appointment) => {
-      // Extract date from appointment_start (e.g., "2026-02-23T04:30:00Z")
-      const appointmentDate = appointment.appointment_start.split('T')[0]; // "2026-02-23"
-      const matches = appointmentDate === selectedDateStr;
-      
-      if (!matches) {
-        console.log('[DoctorDashboard] Filtering out appointment:', {
-          appointmentId: appointment.id,
-          appointmentDate,
-          selectedDateStr,
-          appointmentStart: appointment.appointment_start,
-        });
-      }
-      
-      return matches;
-    });
-  }, [dashboardData?.appointments, selectedDateStr]);
+  const filteredAppointments = useMemo(
+    () => filterAppointmentsByDate(dashboardData?.appointments, selectedDateStr),
+    [dashboardData?.appointments, selectedDateStr]
+  );
 
   // Log filtered appointments
   React.useEffect(() => {
@@ -527,76 +494,10 @@ export default function DoctorDashboard() {
 
         {/* Date Selector */}
         <View style={styles.section}>
-          <ScrollView 
-            ref={dateScrollRef}
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dateScrollContent}
-            onLayout={(event) => {
-              // Auto-scroll to center today's date after layout
-              const scrollViewWidth = event.nativeEvent.layout.width;
-              const todayIndex = 7; // Today is at index 7 in 14-day range
-              const itemWidth = 72; // 60px width + 12px gap
-              const scrollPosition = (todayIndex * itemWidth) - (scrollViewWidth / 2) + (itemWidth / 2);
-              setTimeout(() => {
-                dateScrollRef.current?.scrollTo({ x: Math.max(0, scrollPosition), animated: false });
-              }, 100);
-            }}
-          >
-            {Array.from({ length: 14 }, (_, i) => {
-              // Create date at midnight to avoid timezone issues
-              const date = new Date();
-              date.setHours(0, 0, 0, 0);
-              date.setDate(date.getDate() - 7 + i);
-              
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              
-              const isSelected = date.getTime() === selectedDate.getTime();
-              const isToday = date.getTime() === today.getTime();
-              
-              return (
-                <TouchableOpacity
-                  key={`date-${i}-${date.getTime()}`}
-                  style={[
-                    styles.dateItem,
-                    isSelected && styles.dateItemSelected,
-                  ]}
-                  onPress={() => {
-                    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                    console.log('[DoctorDashboard] Date button pressed:', {
-                      dateString: date.toDateString(),
-                      timestamp: date.getTime(),
-                      formatted: formattedDate,
-                      currentSelectedDate: selectedDate.toDateString(),
-                      willTriggerUpdate: date.getTime() !== selectedDate.getTime(),
-                    });
-                    setSelectedDate(date);
-                  }}
-                >
-                  <Text style={[
-                    styles.dateDayName,
-                    isSelected && styles.dateTextSelected,
-                  ]}>
-                    {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                  </Text>
-                  <Text style={[
-                    styles.dateDay,
-                    isSelected && styles.dateTextSelected,
-                    isToday && !isSelected && styles.dateTodayText,
-                  ]}>
-                    {date.getDate()}
-                  </Text>
-                  <Text style={[
-                    styles.dateMonth,
-                    isSelected && styles.dateTextSelected,
-                  ]}>
-                    {date.toLocaleDateString('en-US', { month: 'short' })}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <DateStrip
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+          />
         </View>
 
         {/* Today's Appointments - Moved to top */}
@@ -620,16 +521,24 @@ export default function DoctorDashboard() {
             />
           ) : (
             filteredAppointments.map((appointment) => {
-              // Use staff_name from appointment, or fallback to extracted doctor name
-              const appointmentWithDoctor = {
+              // Adapt DoctorAppointmentItem → AppointmentResponse shape for AppointmentListItem
+              const appointmentForList = {
+                tenant_id: tenantId,
+                room_id: appointment.room_name ?? null,
+                treatment_id: null,
+                is_active: true,
+                created_at: '',
+                appointment_type: null,
+                series_id: null,
+                therapist_ids: appointment.therapist_ids ?? [],
                 ...appointment,
                 staff_name: appointment.staff_name || doctorName,
-              };
+              } as import('../features/appointments/data/models/appointments.dtos').AppointmentResponse;
               
               return (
                 <AppointmentListItem
                   key={appointment.id}
-                  appointment={appointmentWithDoctor}
+                  appointment={appointmentForList}
                   onPress={undefined} // Remove navigation to detail page
                   showActions={true} // Enable quick actions
                   userRole="doctor"
@@ -744,7 +653,7 @@ export default function DoctorDashboard() {
                   <Ionicons name="time" size={16} color={colors.warning.main} /> Time Metrics
                 </Text>
                 <TimeMetricsSection
-                  avgDuration={kpiCards.avgDuration}
+                  avgDuration={kpiCards.avgDuration ?? ''}
                   peakHours={kpiCards.peakHours}
                   busiestDays={kpiCards.busiestDays}
                   testID="time-metrics"
@@ -923,42 +832,5 @@ const styles = StyleSheet.create({
   dateScrollContent: {
     paddingHorizontal: spacing.sm,
     gap: spacing.sm,
-  },
-  dateItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.background.default,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    minWidth: 60,
-  },
-  dateItemSelected: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-  },
-  dateDayName: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontSize: 11,
-  },
-  dateDay: {
-    ...typography.h6,
-    color: colors.text.primary,
-    marginVertical: 2,
-  },
-  dateMonth: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontSize: 10,
-  },
-  dateTextSelected: {
-    color: colors.common.white,
-  },
-  dateTodayText: {
-    color: colors.primary.main,
-    fontWeight: '700',
   },
 });

@@ -14,7 +14,9 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
@@ -33,6 +35,9 @@ interface LeaveSectionProps {
   onApplyLeave: (payload: StaffLeaveCreate) => Promise<void>;
   onCancelLeave?: (leaveId: string) => Promise<void>;
   isSubmitting?: boolean;
+  /** When true, opens the apply modal (controlled externally) */
+  externalOpen?: boolean;
+  onExternalOpenHandled?: () => void;
 }
 
 const LEAVE_TYPES = ['SICK', 'CASUAL', 'VACATION', 'PERSONAL', 'OTHER'];
@@ -44,12 +49,46 @@ export const LeaveSection: React.FC<LeaveSectionProps> = ({
   onApplyLeave,
   onCancelLeave,
   isSubmitting = false,
+  externalOpen,
+  onExternalOpenHandled,
 }) => {
   const [showApplyModal, setShowApplyModal] = useState(false);
+
+  // Open modal when triggered externally (e.g. HR section button)
+  React.useEffect(() => {
+    if (externalOpen) {
+      setShowApplyModal(true);
+      onExternalOpenHandled?.();
+    }
+  }, [externalOpen]);
   const [leaveType, setLeaveType] = useState<string>('CASUAL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+
+  // Date picker state
+  const [startDateObj, setStartDateObj] = useState<Date | null>(null);
+  const [endDateObj, setEndDateObj] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  const toISODate = (d: Date) => d.toISOString().split('T')[0];
+
+  const handleStartDateChange = (_: DateTimePickerEvent, selected?: Date) => {
+    setShowStartPicker(Platform.OS === 'ios');
+    if (selected) {
+      setStartDateObj(selected);
+      setStartDate(toISODate(selected));
+    }
+  };
+
+  const handleEndDateChange = (_: DateTimePickerEvent, selected?: Date) => {
+    setShowEndPicker(Platform.OS === 'ios');
+    if (selected) {
+      setEndDateObj(selected);
+      setEndDate(toISODate(selected));
+    }
+  };
 
   const handleApply = async () => {
     if (!startDate || !endDate) {
@@ -91,6 +130,8 @@ export const LeaveSection: React.FC<LeaveSectionProps> = ({
     setLeaveType('CASUAL');
     setStartDate('');
     setEndDate('');
+    setStartDateObj(null);
+    setEndDateObj(null);
     setReason('');
   };
 
@@ -240,26 +281,51 @@ export const LeaveSection: React.FC<LeaveSectionProps> = ({
 
             {/* Start Date */}
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Start Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="2025-12-25"
-                placeholderTextColor={colors.grey[400]}
-              />
+              <Text style={styles.formLabel}>Start Date</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowStartPicker(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Select start date"
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
+                <Text style={[styles.datePickerText, !startDate && styles.datePickerPlaceholder]}>
+                  {startDate || 'Select start date'}
+                </Text>
+              </TouchableOpacity>
+              {showStartPicker && (
+                <DateTimePicker
+                  value={startDateObj ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleStartDateChange}
+                />
+              )}
             </View>
 
             {/* End Date */}
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>End Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="2025-12-26"
-                placeholderTextColor={colors.grey[400]}
-              />
+              <Text style={styles.formLabel}>End Date</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowEndPicker(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Select end date"
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
+                <Text style={[styles.datePickerText, !endDate && styles.datePickerPlaceholder]}>
+                  {endDate || 'Select end date'}
+                </Text>
+              </TouchableOpacity>
+              {showEndPicker && (
+                <DateTimePicker
+                  value={endDateObj ?? new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleEndDateChange}
+                  minimumDate={startDateObj ?? undefined}
+                />
+              )}
             </View>
 
             {/* Reason */}
@@ -320,11 +386,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 1,
+    flexGrow: 1,
+    marginRight: spacing.sm,
+    overflow: 'hidden',
   },
   title: {
     ...typography.subtitle1,
     color: colors.text.primary,
     fontWeight: '600',
+    flexShrink: 1,
   },
   pendingBadge: {
     backgroundColor: colors.warning.main + '20',
@@ -343,9 +414,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primary.main,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 8,
     borderRadius: 8,
     gap: 4,
+    minHeight: 36,
+    flexShrink: 0,
   },
   applyButtonText: {
     ...typography.button,
@@ -502,6 +575,23 @@ const styles = StyleSheet.create({
   textInputMultiline: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    borderRadius: 8,
+    padding: spacing.md,
+    backgroundColor: colors.background.default,
+  },
+  datePickerText: {
+    ...typography.body1,
+    color: colors.text.primary,
+  },
+  datePickerPlaceholder: {
+    color: colors.grey[400],
   },
   modalFooter: {
     flexDirection: 'row',

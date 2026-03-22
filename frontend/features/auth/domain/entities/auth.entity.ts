@@ -25,6 +25,7 @@ export interface AuthUserSession {
   userId: string;
   email: string;
   fullName: string;
+  clinicName: string; // Clinic name for the user's assigned tenant
   tenantId: string | null;
   roles: string[];
   permissions: string[];
@@ -67,6 +68,8 @@ export const mapCurrentUserToDomain = (dto: {
   user_id: string;
   email: string;
   full_name?: string;
+  clinic_name?: string;
+  clinic_names?: string[];
   tenant_id: string | null;
   roles: string[];
   permissions: string[];
@@ -81,23 +84,34 @@ export const mapCurrentUserToDomain = (dto: {
 }): AuthUserSession => {
   console.log('[mapCurrentUserToDomain] Input DTO:', dto);
   console.log('[mapCurrentUserToDomain] application_status from DTO:', dto.application_status);
-  
+
+  const ownedClinics = (dto.owned_clinics || []).map(c => ({
+    tenantId: c.tenant_id,
+    clinicName: c.clinic_name,
+    city: c.city,
+    isPrimary: c.is_primary,
+  }));
+
+  // Resolve clinic name: new list field → legacy single field → owned_clinics
+  const clinicName =
+    dto.clinic_names?.[0] ||
+    dto.clinic_name ||
+    ownedClinics.find(c => c.isPrimary)?.clinicName ||
+    ownedClinics[0]?.clinicName ||
+    '';
+
   const mapped = {
     id: dto.user_id,
     userId: dto.user_id,
     email: dto.email,
-    fullName: dto.full_name || dto.email,
+    fullName: dto.full_name || '',
+    clinicName,
     tenantId: dto.tenant_id,
     roles: dto.roles,
     permissions: dto.permissions,
     isOrgAdmin: dto.is_org_admin,
     applicationStatus: dto.application_status || null,
-    ownedClinics: (dto.owned_clinics || []).map(c => ({
-      tenantId: c.tenant_id,
-      clinicName: c.clinic_name,
-      city: c.city,
-      isPrimary: c.is_primary,
-    })),
+    ownedClinics,
   };
   
   console.log('[mapCurrentUserToDomain] Mapped entity:', mapped);

@@ -40,6 +40,9 @@ export default function ClinicAdminDashboard() {
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
   const notificationCount = useNotificationBadgeCount();
+
+  const clinicName = currentUser?.clinicName || 'My Clinic';
+  const displayName = currentUser?.fullName || currentUser?.email || 'Admin';
   const { width } = useWindowDimensions();
   
   // Determine if we're on mobile (< 768px) or web
@@ -171,10 +174,10 @@ export default function ClinicAdminDashboard() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Clinic Admin Dashboard"
-        subtitle="Springfield Medical Center"
-        userName={currentUser?.email || 'Admin'}
+        subtitle={clinicName}
+        userName={displayName}
         notificationCount={notificationCount}
-        onProfilePress={() => console.log('Profile')}
+        onProfilePress={() => router.push('/profile')}
         onLogoutPress={handleLogout}
       />
 
@@ -273,12 +276,6 @@ export default function ClinicAdminDashboard() {
               color={colors.secondary.main}
             />
             <QuickActionButton
-              icon="fitness"
-              label="Sessions"
-              href="/clinic-admin/treatment-sessions"
-              color={colors.info.main}
-            />
-            <QuickActionButton
               icon="time"
               label="Leave Mgmt"
               href="/clinic-admin/staff/leave"
@@ -295,12 +292,6 @@ export default function ClinicAdminDashboard() {
               label="Billing"
               href="/clinic-admin/billing"
               color={colors.success.main}
-            />
-            <QuickActionButton
-              icon="analytics"
-              label="Analytics"
-              href="/clinic-admin/analytics"
-              color={colors.primary.main}
             />
             <QuickActionButton
               icon="document-text"
