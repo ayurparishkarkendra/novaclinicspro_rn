@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Metro
+.metro-cache/
+**/.metro-cache/
+
 # Native
 .kotlin/
 *.orig.*
