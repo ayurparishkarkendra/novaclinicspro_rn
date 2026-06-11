@@ -334,7 +334,103 @@
       "worklistLoadFailed": "Could not load your schedule. Please try again.",
       "kpiLoadFailed": "Could not load performance metrics. Please try again.",
       "featureNotAvailable": "This feature is not available in this environment."
+    },
+
+    "episodeWorkspace": {
+      "loadFailed": "Could not load episode workspace. Please try again.",
+      "casesheetLoadFailed": "Could not load visit notes. Please try again.",
+      "treatmentSheetsLoadFailed": "Could not load treatment plans. Please try again.",
+      "prescriptionsLoadFailed": "Could not load prescriptions. Please try again."
     }
+  },
+
+  "episodeWorkspace": {
+    "header": {
+      "episode": "Episode",
+      "visit": "Visit",
+      "visitNumber": "Visit {{number}}",
+      "episodeStatus": "Episode Status",
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "tabs": {
+      "visitNotes": "Casesheet",
+      "treatmentPlans": "Treatment Plans",
+      "prescriptions": "Visits"
+    },
+    "visitNotes": {
+      "title": "Casesheet",
+      "addNotes": "Add Casesheet",
+      "editNotes": "View Casesheet",
+      "viewNotes": "View Casesheet",
+      "empty": "No casesheet for this episode yet.",
+      "chiefComplaint": "Chief Complaint",
+      "diagnosis": "Diagnosis",
+      "status": "Status",
+      "draft": "Draft",
+      "final": "Final",
+      "signed": "Signed"
+    },
+    "casesheet": {
+      "title": "Casesheet",
+      "addCasesheet": "Add Casesheet",
+      "viewCasesheet": "View Casesheet",
+      "editCasesheet": "Edit",
+      "empty": "No casesheet for this episode yet.",
+      "chiefComplaint": "Chief Complaint",
+      "diagnosis": "Diagnosis",
+      "progressNotes": "Visit / Progress Notes",
+      "noProgressNotes": "No visits recorded yet.",
+      "noContent": "No details recorded yet.",
+      "save": "Save Casesheet",
+      "status": {
+        "draft": "Draft",
+        "final": "Final",
+        "signed": "Signed"
+      }
+    },
+    "treatmentPlans": {
+      "title": "Treatment Plans",
+      "empty": "No treatment plans yet — create one to start therapy.",
+      "createPlan": "Create Treatment Plan",
+      "openActivePlan": "Open Active Plan",
+      "fillDetails": "Fill Treatment Details",
+      "schedulePlan": "Schedule Plan",
+      "viewSchedule": "View / Edit Schedule",
+      "sendToScheduling": "Send to Scheduling",
+      "viewSchedule": "View Schedule",
+      "waitingForScheduling": "Waiting for Scheduling",
+      "continueDocumentation": "Continue Documentation",
+      "viewCompleted": "View Completed Plan",
+      "sessions": "{{count}} sessions",
+      "schedulingStatus": "Scheduling Status",
+      "pendingScheduling": "Pending Scheduling",
+      "partiallyScheduled": "Partially Scheduled",
+      "fullyScheduled": "Fully Scheduled"
+    },
+    "prescriptions": {
+      "title": "Prescriptions",
+      "empty": "No prescriptions recorded for this episode.",
+      "newPrescription": "New Prescription",
+      "viewPrescription": "View Prescription",
+      "medications": "{{count}} medication(s)",
+      "issued": "Issued {{date}}"
+    },
+    "visits": {
+      "title": "Visits",
+      "empty": "No visits recorded for this episode yet.",
+      "viewPrescription": "View Prescription",
+      "addPrescription": "Add Prescription",
+      "paymentDetails": "Payment Details",
+      "paymentNotImplemented": "Payment details screen is coming soon.",
+      "staffLabel": "Doctor / Therapist",
+      "treatmentLabel": "Treatment"
+    },
+    "actions": {
+      "retry": "Retry",
+      "back": "Back"
+    },
+    "loading": "Loading episode..."
   },
 
   "success": {

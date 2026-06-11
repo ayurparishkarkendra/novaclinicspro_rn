@@ -21,6 +21,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -39,6 +40,10 @@ import {
 } from '../../../staffDashboards/data/repositories/staffDashboards.repository.impl';
 import { TherapistSessionItemV2 } from '../../../staffDashboards/data/models/staffDashboards.dtos';
 import { useUpdateAppointmentStatusMutation } from '../../../appointments/data/repositories/appointments.repository.impl';
+import {
+  useStartSessionMutation,
+  useTreatmentOrderQuery,
+} from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 
 // Domain / use cases
 import { useGetTherapistDashboard } from '../../domain/usecases/get-therapist-dashboard.usecase';
@@ -220,6 +225,13 @@ export const TherapistDashboardScreen: React.FC = () => {
   // ── Completion mutation (single-day: appointment status) ──────────────────
   const updateStatusMutation = useUpdateAppointmentStatusMutation();
 
+  // ── Start session mutation (multi-day: SCHEDULED → IN_PROGRESS) ───────────
+  const startSession = useStartSessionMutation(tenantId);
+  // Track which row is being started (to show per-card loading)
+  const [startingRowId, setStartingRowId] = useState<string | null>(null);
+  // Cache for order versions: sheetId → version
+  const [orderVersionCache, setOrderVersionCache] = useState<Record<string, number>>({});
+
   useEffect(() => {
     if (submitStatus === 'conflict') {
       setCompletionModalOpen(false);
@@ -331,11 +343,61 @@ export const TherapistDashboardScreen: React.FC = () => {
     resetCompletion();
   }, [resetCompletion]);
 
+  /**
+   * Start a multi-day session row (SCHEDULED → IN_PROGRESS).
+   * Fetches the order version on demand if not cached, then calls startSheetRowApi.
+   */
+  const handleStartSession = useCallback(
+    async (session: TherapistSessionItemV2) => {
+      if (!session.row_id || !session.treatment_sheet_id) return;
+      const sheetId = session.treatment_sheet_id;
+      const rowId = session.row_id;
+
+      setStartingRowId(rowId);
+      startSession.reset();
+
+      try {
+        let version = orderVersionCache[sheetId];
+        if (!version) {
+          const { getTreatmentOrderApi } = await import(
+            '../../../treatmentSheets/data/datasources/treatmentOrders.api'
+          );
+          const order = await getTreatmentOrderApi(sheetId, tenantId);
+          version = order.version;
+          setOrderVersionCache((prev) => ({ ...prev, [sheetId]: version }));
+        }
+        startSession.mutate({ sheetId, rowId, version });
+      } catch {
+        Alert.alert('Error', 'Could not fetch session details. Please try again.');
+      } finally {
+        setStartingRowId(null);
+      }
+    },
+    [startSession, orderVersionCache, tenantId]
+  );
+
+  // React to start session status changes
+  useEffect(() => {
+    if (startSession.status === 'success') {
+      setOrderVersionCache({});
+      startSession.reset();
+    } else if (startSession.status === 'conflict') {
+      Alert.alert('Session Updated', startSession.errorMessage ?? 'This session was updated elsewhere. Refreshing…');
+      setOrderVersionCache({});
+      startSession.reset();
+    } else if (startSession.status === 'error' && startSession.errorMessage) {
+      Alert.alert('Error', startSession.errorMessage);
+      startSession.reset();
+    }
+  }, [startSession.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleModalSubmit = useCallback(
     async (payload: Parameters<typeof completeRow>[0]['payload']) => {
       if (selectedRowId) {
         // Multi-day: complete the sheet row (records materials server-side)
-        completeRow({ rowId: selectedRowId, payload });
+        // Find the session to get treatment_sheet_id for order invalidation
+        const session = (sessionsData?.items ?? []).find((s) => s.row_id === selectedRowId);
+        completeRow({ rowId: selectedRowId, payload, sheetId: session?.treatment_sheet_id ?? undefined });
       } else if (selectedAppointmentId) {
         // Single-day: mark appointment completed
         updateStatusMutation.mutate(
@@ -469,16 +531,46 @@ export const TherapistDashboardScreen: React.FC = () => {
               </Text>
             </View>
           ) : (
-          (sessionsData?.items ?? []).map((session) => (
-              <AppointmentListItem
-                key={session.row_id ?? session.appointment_id ?? session.id}
-                appointment={sessionToAppointment(session, tenantId)}
-                onPress={undefined}
-                showActions={true}
-                userRole="therapist"
-                onComplete={handleAppointmentComplete}
-              />
-            ))
+            (sessionsData?.items ?? []).map((session) => {
+              const cardId = session.row_id ?? session.appointment_id ?? session.id ?? '';
+              const canStart =
+                !!session.row_id &&
+                !!session.treatment_sheet_id &&
+                session.status?.toUpperCase() === 'SCHEDULED' &&
+                !session.started_at;
+              const isStarting = startingRowId === session.row_id;
+
+              return (
+                <View key={cardId}>
+                  <AppointmentListItem
+                    appointment={sessionToAppointment(session, tenantId)}
+                    onPress={undefined}
+                    showActions={true}
+                    userRole="therapist"
+                    onComplete={handleAppointmentComplete}
+                  />
+                  {canStart && (
+                    <TouchableOpacity
+                      style={styles.startSessionBtn}
+                      onPress={() => handleStartSession(session)}
+                      disabled={isStarting || startSession.status === 'starting'}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Start session"
+                    >
+                      {isStarting || startSession.status === 'starting' ? (
+                        <ActivityIndicator size="small" color={colors.common.white} />
+                      ) : (
+                        <>
+                          <Ionicons name="play-circle-outline" size={16} color={colors.common.white} />
+                          <Text style={styles.startSessionBtnText}>Start Session</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
           )}
         </View>
 
@@ -607,6 +699,22 @@ const styles = StyleSheet.create({
   emptyStateText: {
     ...typography.body1,
     color: colors.text.secondary,
+  },
+  startSessionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  startSessionBtnText: {
+    ...typography.button,
+    color: colors.common.white,
+    fontSize: 13,
   },
   dateStripSection: {
     marginTop: spacing.md,

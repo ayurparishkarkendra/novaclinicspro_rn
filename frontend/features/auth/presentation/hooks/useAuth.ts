@@ -83,9 +83,24 @@ export const useAuth = (): UseAuthReturn => {
         // Store tokens
         await setTokens(data.session.access_token, data.session.refresh_token);
 
-        // Fetch user context from backend
+        // Fetch user context from backend — retry once on network drop
+        // (backend may return 200 but connection drops before body arrives)
+        const fetchUserWithRetry = async (): Promise<ReturnType<typeof authRepository.getCurrentUser>> => {
+          try {
+            return await authRepository.getCurrentUser();
+          } catch (firstErr: any) {
+            const isNetworkDrop = firstErr?.isAxiosError && !firstErr?.response;
+            if (isNetworkDrop) {
+              console.log('[useAuth] Network drop on /auth/me — retrying once...');
+              await new Promise(resolve => setTimeout(resolve, 800));
+              return await authRepository.getCurrentUser();
+            }
+            throw firstErr;
+          }
+        };
+
         try {
-          const userSession = await authRepository.getCurrentUser();
+          const userSession = await fetchUserWithRetry();
           setCurrentUser(userSession);
 
           // Navigate based on status
@@ -103,7 +118,7 @@ export const useAuth = (): UseAuthReturn => {
             throw new Error('Access denied. Your account may be suspended.');
           } else if (backendError?.response?.status === 404) {
             throw new Error('User profile not found. Please contact support to set up your account.');
-          } else if (backendError?.message?.includes('Network Error')) {
+          } else if (backendError?.isAxiosError && !backendError?.response) {
             throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
           } else {
             throw new Error('Unable to load your profile. Please try again later.');

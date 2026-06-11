@@ -243,11 +243,18 @@ export interface TherapistSessionItemV2 {
   row_id: string | null;
   /** Appointment id — always present, used for single-day completion */
   appointment_id: string | null;
+  /**
+   * Parent treatment sheet id — present for multi-day treatments.
+   * Used for query invalidation after start/complete.
+   */
+  treatment_sheet_id: string | null;
   /** Session record id (may be absent) */
   id?: string | null;
   client_name: string | null;
   treatment_name: string | null;
   day_number: number | null;
+  /** Total number of sessions in the series (e.g. 21 for a 21-day plan) */
+  total_sessions: number | null;
   /** ISO date string for the session date (YYYY-MM-DD) */
   session_date: string | null;
   /** ISO datetime string — appointment start (e.g. "2026-03-21T10:00:00+05:30") */
@@ -258,7 +265,16 @@ export interface TherapistSessionItemV2 {
   therapist_name: string | null;
   /** All therapist names assigned to this appointment (comma-separated or array) */
   all_therapist_names: string[] | null;
+  /**
+   * Row-level execution status from TreatmentRowOrderResponse.
+   * Values: "PENDING" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+   * For single-day appointments this mirrors the appointment status.
+   */
   status: string;
+  /** ISO datetime UTC — set when therapist calls start-session. Null until started. */
+  started_at: string | null;
+  /** Staff id of the therapist who started the session. */
+  started_by_staff_id: string | null;
 }
 
 // ============================================

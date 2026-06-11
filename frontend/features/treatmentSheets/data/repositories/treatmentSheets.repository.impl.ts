@@ -46,18 +46,17 @@ export const treatmentSheetsKeys = {
 
 /**
  * Hook to get a treatment sheet by ID
- * BUG FIX #9: Now accepts tenantId to pass as query parameter
  */
 export const useTreatmentSheetDetailQuery = (
   treatmentSheetId: string,
-  tenantId?: string,
+  tenantId: string,
   options?: Omit<UseQueryOptions<TreatmentSheetResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
   return useQuery<TreatmentSheetResponse, Error>({
     queryKey: treatmentSheetsKeys.detail(treatmentSheetId),
     queryFn: () => getTreatmentSheetApi(treatmentSheetId, tenantId),
-    enabled: !!treatmentSheetId,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: !!treatmentSheetId && !!tenantId,
+    staleTime: 30 * 1000,
     ...options,
   });
 };
@@ -124,13 +123,14 @@ export const useCreateSimpleTreatmentSheetMutation = (
  * Hook to transition treatment sheet status
  */
 export const useTransitionTreatmentSheetStatusMutation = (
+  tenantId: string,
   treatmentSheetId: string,
   options?: UseMutationOptions<TreatmentSheetResponse, Error, TreatmentSheetStatusTransitionRequest>
 ) => {
   const queryClient = useQueryClient();
 
   return useMutation<TreatmentSheetResponse, Error, TreatmentSheetStatusTransitionRequest>({
-    mutationFn: (payload) => transitionTreatmentSheetStatusApi(treatmentSheetId, payload),
+    mutationFn: (payload) => transitionTreatmentSheetStatusApi(tenantId, treatmentSheetId, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentSheetsKeys.detail(treatmentSheetId), data);
     },
@@ -162,11 +162,12 @@ export const useSyncTreatmentSheetMutation = (
  * Hook to print a treatment sheet
  */
 export const usePrintTreatmentSheetMutation = (
+  tenantId: string,
   treatmentSheetId: string,
   options?: UseMutationOptions<TreatmentSheetPrintResponse, Error, void>
 ) => {
   return useMutation<TreatmentSheetPrintResponse, Error, void>({
-    mutationFn: () => printTreatmentSheetApi(treatmentSheetId),
+    mutationFn: () => printTreatmentSheetApi(tenantId, treatmentSheetId),
     ...options,
   });
 };
@@ -175,13 +176,14 @@ export const usePrintTreatmentSheetMutation = (
  * Hook to archive a treatment sheet
  */
 export const useArchiveTreatmentSheetMutation = (
+  tenantId: string,
   treatmentSheetId: string,
   options?: UseMutationOptions<void, Error, void>
 ) => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, void>({
-    mutationFn: () => archiveTreatmentSheetApi(treatmentSheetId),
+    mutationFn: () => archiveTreatmentSheetApi(tenantId, treatmentSheetId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentSheetsKeys.detail(treatmentSheetId) });
       queryClient.invalidateQueries({ queryKey: treatmentSheetsKeys.all });
@@ -194,6 +196,7 @@ export const useArchiveTreatmentSheetMutation = (
  * Hook to update a treatment sheet row
  */
 export const useUpdateTreatmentSheetRowMutation = (
+  tenantId: string,
   rowId: string,
   treatmentSheetId: string,
   options?: UseMutationOptions<TreatmentSheetResponse, Error, TreatmentSheetRowUpdateRequest>
@@ -201,7 +204,7 @@ export const useUpdateTreatmentSheetRowMutation = (
   const queryClient = useQueryClient();
 
   return useMutation<TreatmentSheetResponse, Error, TreatmentSheetRowUpdateRequest>({
-    mutationFn: (payload) => updateTreatmentSheetRowApi(rowId, payload),
+    mutationFn: (payload) => updateTreatmentSheetRowApi(tenantId, rowId, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentSheetsKeys.detail(treatmentSheetId), data);
     },

@@ -54,6 +54,9 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
   const router = useRouter();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const isAdmin = ['clinic_admin', 'clinic admin', 'receptionist'].includes(
+    (currentUser?.roles?.[0] || '').toLowerCase()
+  );
 
   // Only fetch if we have a treatment sheet ID
   const {
@@ -92,18 +95,21 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
 
   // Find the current row by session_id
   const currentRow = treatmentSheet.rows?.find((row: TreatmentSheetRowResponse) => row.session_id === sessionId);
-  
-  // If no matching row found, don't render
-  if (!currentRow) {
-    return null;
-  }
 
   // Calculate progress
-  const completedDays = treatmentSheet.rows?.filter((row: TreatmentSheetRowResponse) => 
+  const completedDays = treatmentSheet.rows?.filter((row: TreatmentSheetRowResponse) =>
     row.treatment_description && row.treatment_description.trim() !== ''
   ).length || 0;
   const totalDays = treatmentSheet.duration_days || treatmentSheet.rows?.length || 0;
   const progressPercentage = totalDays > 0 ? (completedDays / totalDays) * 100 : 0;
+
+  // For DRAFT/ORDERED sheets there are no sessions yet — still show the card
+  // so admin can schedule. Only hide if we have rows AND none match (stale session_id).
+  const hasRows = (treatmentSheet.rows?.length ?? 0) > 0;
+  const isDraftOrOrdered = treatmentSheet.status === 'DRAFT' || (treatmentSheet as any).state === 'ORDERED';
+  if (!currentRow && hasRows && !isDraftOrOrdered) {
+    return null;
+  }
 
   // Get treatment plan from previous row (if available)
   const previousRow = treatmentSheet.rows?.find((row: TreatmentSheetRowResponse) => 
@@ -113,6 +119,9 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
 
   // Get treatment series name
   const treatmentName = (treatmentSheet as any).proposal?.name || 'Multi-Day Treatment';
+  const sheetStatus: string = treatmentSheet.status ?? (treatmentSheet as any).state ?? 'DRAFT';
+  const isOrderedOrDraft = sheetStatus === 'DRAFT' || sheetStatus === 'ORDERED';
+  const isScheduled = sheetStatus === 'SCHEDULED' || sheetStatus === 'IN_PROGRESS';
 
   // Handlers
   const handleViewSheet = () => {
@@ -122,13 +131,19 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
     });
   };
 
+  const handleSchedulePlan = () => {
+    // Reuse CreateAppointmentScreen (MULTI tab) pre-filled from the treatment sheet.
+    router.push(
+      `/clinic-admin/appointments/create?tab=MULTI&treatmentSheetId=${treatmentSheet.id}` as any
+    );
+  };
+
   const handleDocumentTreatment = () => {
-    // Navigate to treatment sheet and scroll to current row
     router.push({
       pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]',
-      params: { 
+      params: {
         treatmentSheetId: treatmentSheet.id,
-        highlightRowId: currentRow.id,
+        highlightRowId: currentRow?.id ?? '',
       },
     });
   };
@@ -151,10 +166,20 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
           {treatmentName}
         </Text>
 
-        {/* Day Number */}
-        <Text style={[styles.dayNumber, { color: theme.colors.text.secondary }]}>
-          This is Day {currentRow.day_number} of {totalDays}
-        </Text>
+        {/* Day Number — only when we have a matched row */}
+        {currentRow && (
+          <Text style={[styles.dayNumber, { color: theme.colors.text.secondary }]}>
+            This is Day {currentRow.day_number} of {totalDays}
+          </Text>
+        )}
+
+        {/* Sessions summary when no current row */}
+        {!currentRow && (
+          <Text style={[styles.dayNumber, { color: theme.colors.text.secondary }]}>
+            {totalDays} session{totalDays !== 1 ? 's' : ''} planned
+            {isOrderedOrDraft ? ' · Pending scheduling' : ''}
+          </Text>
+        )}
 
         {/* Progress Bar */}
         <View style={styles.progressSection}>
@@ -169,8 +194,8 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
           <ProgressBar progress={progressPercentage} height={8} />
         </View>
 
-        {/* Treatment Plan */}
-        {treatmentPlan && (
+        {/* Treatment Plan — only when we have a matched row */}
+        {treatmentPlan && currentRow && (
           <View style={styles.treatmentPlanSection}>
             <Text style={[styles.treatmentPlanLabel, { color: theme.colors.text.secondary }]}>
               Treatment Plan:
@@ -200,20 +225,50 @@ export const MultiDayTreatmentSection: React.FC<MultiDayTreatmentSectionProps> =
           >
             <Ionicons name="document-text-outline" size={16} color={theme.colors.primary.default} />
             <Text style={[styles.secondaryButtonText, { color: theme.colors.primary.default }]}>
-              View Full Treatment Sheet
+              View Treatment Sheet
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.colors.primary.default }]}
-            onPress={handleDocumentTreatment}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={16} color={theme.colors.surface.elevated} />
-            <Text style={[styles.primaryButtonText, { color: theme.colors.surface.elevated }]}>
-              Document Today's Treatment
-            </Text>
-          </TouchableOpacity>
+          {/* Admin: Schedule Plan (DRAFT/ORDERED) or View Schedule (SCHEDULED/IN_PROGRESS) */}
+          {isAdmin && isOrderedOrDraft && (
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: '#3B82F6' }]}
+              onPress={handleSchedulePlan}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-number-outline" size={16} color="#fff" />
+              <Text style={[styles.primaryButtonText, { color: '#fff' }]}>
+                Schedule Plan
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {isAdmin && isScheduled && (
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: '#8B5CF6' }]}
+              onPress={handleSchedulePlan}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#fff" />
+              <Text style={[styles.primaryButtonText, { color: '#fff' }]}>
+                View / Edit Schedule
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Doctor/Therapist: Document treatment */}
+          {!isAdmin && currentRow && (
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: theme.colors.primary.default }]}
+              onPress={handleDocumentTreatment}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={16} color={theme.colors.surface.elevated} />
+              <Text style={[styles.primaryButtonText, { color: theme.colors.surface.elevated }]}>
+                Document Today's Treatment
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>

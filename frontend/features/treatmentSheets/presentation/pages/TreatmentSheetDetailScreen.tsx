@@ -50,6 +50,13 @@ import {
 } from '../../data/api/lifecycleApi';
 import { PauseSeriesDTO } from '../../data/models/lifecycle.dtos';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useTreatmentOrderQuery,
+  useSendToSchedulingMutation,
+} from '../../data/repositories/treatmentOrders.repository.impl';
+import { isDocumentationComplete, getOrderStateLabel, getOrderStateColor } from '../../data/models/treatmentOrders.dtos';
+import { PatientScheduleModal } from '../components/PatientScheduleModal';
+import { ScheduleRowModal } from '../components/ScheduleRowModal';
 
 interface RowFormData {
   id: string;
@@ -89,6 +96,27 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const queryClient = useQueryClient();
 
+  // Treatment order (execution lifecycle) — distinct from TreatmentSheetResponse
+  const {
+    data: treatmentOrder,
+    isLoading: isOrderLoading,
+    refetch: refetchOrder,
+  } = useTreatmentOrderQuery(treatmentSheetId, tenantId, {
+    enabled: !!treatmentSheetId && !!tenantId,
+  });
+
+  const sendToScheduling = useSendToSchedulingMutation(tenantId);
+
+  // Resolve version for send-to-scheduling: use order version if available, else 1
+  const orderVersion = treatmentOrder?.version ?? 1;
+
+  // Patient schedule modal state
+  const [showPatientSchedule, setShowPatientSchedule] = useState(false);
+  const [scheduleSent, setScheduleSent] = useState(false);
+
+  // Row scheduling modal state (admin only)
+  const [schedulingRow, setSchedulingRow] = useState<import('../../data/models/treatmentOrders.dtos').TreatmentRowOrderResponse | null>(null);
+
   const {
     data: treatmentSheet,
     isLoading,
@@ -98,10 +126,10 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     isRefetching,
   } = useTreatmentSheetDetailQuery(treatmentSheetId, tenantId);
 
-  const transitionMutation = useTransitionTreatmentSheetStatusMutation(treatmentSheetId);
+  const transitionMutation = useTransitionTreatmentSheetStatusMutation(tenantId, treatmentSheetId);
   const syncMutation = useSyncTreatmentSheetMutation(tenantId, treatmentSheetId);
-  const printMutation = usePrintTreatmentSheetMutation(treatmentSheetId);
-  const archiveMutation = useArchiveTreatmentSheetMutation(treatmentSheetId);
+  const printMutation = usePrintTreatmentSheetMutation(tenantId, treatmentSheetId);
+  const archiveMutation = useArchiveTreatmentSheetMutation(tenantId, treatmentSheetId);
 
   // Lifecycle permission queries
   const { data: canPauseResult } = useQuery({
@@ -776,7 +804,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
       
       // Use bulk update API - single call for all rows
       await axiosClient.patch(
-        `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/rows`,
+        `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/rows`,
         { rows: rowsPayload }
       );
       
@@ -1066,7 +1094,16 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
               )}
             </View>
 
-            {paginatedRows.map((row, index) => (
+            {paginatedRows.map((row, index) => {
+              // Find matching order row for scheduling status
+              const orderRow = treatmentOrder?.rows?.find(r => r.id === row.id);
+              const isSchedulable =
+                treatmentOrder &&
+                ['ORDERED', 'SCHEDULED'].includes(treatmentOrder.state) &&
+                orderRow &&
+                orderRow.status === 'PENDING';
+
+              return (
               <View key={row.id} style={[styles.rowCard, { backgroundColor: theme.colors.background.default, borderColor: theme.colors.border.subtle }]}>
                 {/* Row Header with Day/Date and Action Icons */}
                 <View style={styles.rowHeader}>
@@ -1077,50 +1114,72 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                     {row.session_date && (
                       <Text style={[styles.dateText, { color: theme.colors.text.secondary }]}>{formatDate(row.session_date)}</Text>
                     )}
+                    {orderRow?.scheduled_date && !row.session_date && (
+                      <Text style={[styles.dateText, { color: theme.colors.text.secondary }]}>{formatDate(orderRow.scheduled_date)}</Text>
+                    )}
                     {row.scheduled_time && (
                       <Text style={[styles.timeText, { color: theme.colors.text.secondary }]}>{row.scheduled_time}</Text>
                     )}
+                    {orderRow?.scheduled_time && !row.scheduled_time && (
+                      <Text style={[styles.timeText, { color: theme.colors.text.secondary }]}>{orderRow.scheduled_time}</Text>
+                    )}
                   </View>
                   
-                  {canEdit && (
-                    <View style={styles.rowActions}>
-                      {/* Show Edit button when not editing and has been saved once */}
-                      {!row.isEditing && hasBeenSavedOnce && (
-                        <TouchableOpacity
-                          style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                          onPress={() => toggleEditMode(index)}
-                        >
-                          <Ionicons name="create-outline" size={20} color={theme.colors.primary.default} />
-                        </TouchableOpacity>
-                      )}
+                  <View style={styles.rowActions}>
+                    {/* Schedule button — shown for admin when row is pending scheduling */}
+                    {isSchedulable && (
+                      <TouchableOpacity
+                        style={[styles.scheduleRowBtn, { backgroundColor: '#3B82F6' }]}
+                        onPress={() => setSchedulingRow(orderRow!)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="calendar-number-outline" size={14} color="#fff" />
+                        <Text style={styles.scheduleRowBtnText}>
+                          {orderRow?.assigned_staff_id ? 'Reschedule' : 'Schedule'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
-                      {/* Show Update button when editing */}
-                      {row.isEditing && (
-                        <TouchableOpacity
-                          style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                          onPress={() => updateSingleRow(index)}
-                          disabled={row.isSaving}
-                        >
-                          {row.isSaving ? (
-                            <ActivityIndicator size="small" color={theme.colors.feedback.success} />
-                          ) : (
-                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.feedback.success} />
-                          )}
-                        </TouchableOpacity>
-                      )}
+                    {canEdit && (
+                      <>
+                        {/* Show Edit button when not editing and has been saved once */}
+                        {!row.isEditing && hasBeenSavedOnce && (
+                          <TouchableOpacity
+                            style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
+                            onPress={() => toggleEditMode(index)}
+                          >
+                            <Ionicons name="create-outline" size={20} color={theme.colors.primary.default} />
+                          </TouchableOpacity>
+                        )}
 
-                      {/* Copy from Above Icon - only show when editing */}
-                      {row.isEditing && index > 0 && (
-                        <TouchableOpacity
-                          style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
-                          onPress={() => copyFromAbove(index)}
-                          disabled={row.isSaving}
-                        >
-                          <Ionicons name="copy-outline" size={20} color={theme.colors.feedback.info} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
+                        {/* Show Update button when editing */}
+                        {row.isEditing && (
+                          <TouchableOpacity
+                            style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
+                            onPress={() => updateSingleRow(index)}
+                            disabled={row.isSaving}
+                          >
+                            {row.isSaving ? (
+                              <ActivityIndicator size="small" color={theme.colors.feedback.success} />
+                            ) : (
+                              <Ionicons name="checkmark-circle" size={20} color={theme.colors.feedback.success} />
+                            )}
+                          </TouchableOpacity>
+                        )}
+
+                        {/* Copy from Above Icon - only show when editing */}
+                        {row.isEditing && index > 0 && (
+                          <TouchableOpacity
+                            style={[styles.iconButton, { backgroundColor: theme.colors.background.elevated, borderColor: theme.colors.border.subtle }]}
+                            onPress={() => copyFromAbove(index)}
+                            disabled={row.isSaving}
+                          >
+                            <Ionicons name="copy-outline" size={20} color={theme.colors.feedback.info} />
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
 
                 {/* Row Content - Conditionally Editable */}
@@ -1189,7 +1248,8 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                   />
                 </View>
               </View>
-            ))}
+              );
+            })}
             
             {/* Load More Button */}
             {hasMore && (
@@ -1208,8 +1268,164 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
           {/* Actions */}
           <View style={[styles.actionsContainer, { borderTopColor: theme.colors.border.subtle }]}>
             <Text style={[styles.actionsTitle, { color: theme.colors.text.secondary }]}>Actions</Text>
-            
-            {/* Lifecycle Management Buttons - Cancel and Finalize in one row */}
+
+            {/* Documentation incomplete banner — shown when order is SCHEDULED/IN_PROGRESS but docs not done */}
+            {treatmentOrder &&
+              ['SCHEDULED', 'IN_PROGRESS'].includes(treatmentOrder.state) &&
+              !isDocumentationComplete(treatmentOrder.documentation_status) && (
+                <View style={[styles.docBanner, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+                  <Ionicons name="warning-outline" size={18} color="#B45309" />
+                  <Text style={[styles.docBannerText, { color: '#92400E' }]}>
+                    Documentation incomplete — please finalize the treatment sheet before sessions are completed.
+                  </Text>
+                </View>
+              )}
+
+            {/* Send to Scheduling — only when order is in DRAFT state (or no order yet) */}
+            {isOrderLoading ? (
+              <View style={[styles.lifecycleButton, { backgroundColor: theme.colors.background.elevated, justifyContent: 'center' }]}>
+                <ActivityIndicator size="small" color={theme.colors.primary.default} />
+              </View>
+            ) : (!treatmentOrder || treatmentOrder.state === 'DRAFT') && (
+              <TouchableOpacity
+                style={[
+                  styles.lifecycleButton,
+                  { backgroundColor: theme.colors.primary.default },
+                  sendToScheduling.status === 'sending' && { opacity: 0.7 },
+                ]}
+                onPress={() => {
+                  Alert.alert(
+                    'Send to Scheduling',
+                    'Send this treatment plan to the scheduling team?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Send',
+                        onPress: () =>
+                          sendToScheduling.mutate({
+                            sheetId: treatmentSheetId,
+                            version: orderVersion,
+                          }),
+                      },
+                    ]
+                  );
+                }}
+                disabled={sendToScheduling.status === 'sending'}
+              >
+                {sendToScheduling.status === 'sending' ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary.onPrimary} />
+                ) : (
+                  <Ionicons name="send-outline" size={20} color={theme.colors.primary.onPrimary} />
+                )}
+                <Text style={[styles.lifecycleButtonText, { color: theme.colors.primary.onPrimary }]}>
+                  Send to Scheduling
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* State-driven primary CTA for states past DRAFT */}
+            {treatmentOrder && treatmentOrder.state !== 'DRAFT' && (() => {
+              const s = treatmentOrder.state;
+              if (s === 'ORDERED') {
+                return (
+                  <TouchableOpacity
+                    style={[styles.lifecycleButton, { backgroundColor: '#F59E0B', opacity: 0.8 }]}
+                    disabled
+                  >
+                    <Ionicons name="hourglass-outline" size={20} color="#fff" />
+                    <Text style={[styles.lifecycleButtonText, { color: '#fff' }]}>Waiting for Scheduling</Text>
+                  </TouchableOpacity>
+                );
+              }
+              if (s === 'SCHEDULED') {
+                return (
+                  <TouchableOpacity
+                    style={[styles.lifecycleButton, { backgroundColor: '#3B82F6' }]}
+                    onPress={() => {
+                      // Scroll to / focus the documentation rows — sheet is already visible
+                      Alert.alert('Fill Treatment Details', 'Please fill in the treatment description for each day below.');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="create-outline" size={20} color="#fff" />
+                    <Text style={[styles.lifecycleButtonText, { color: '#fff' }]}>Fill Treatment Details</Text>
+                  </TouchableOpacity>
+                );
+              }
+              if (s === 'IN_PROGRESS') {
+                return (
+                  <TouchableOpacity
+                    style={[styles.lifecycleButton, { backgroundColor: '#8B5CF6' }]}
+                    onPress={() => {
+                      Alert.alert('Continue Documentation', 'Please continue filling in the treatment details for remaining days.');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="pencil-outline" size={20} color="#fff" />
+                    <Text style={[styles.lifecycleButtonText, { color: '#fff' }]}>Continue Documentation</Text>
+                  </TouchableOpacity>
+                );
+              }
+              if (s === 'COMPLETED') {
+                return (
+                  <View style={[styles.orderStatePill, { backgroundColor: '#10B98118', borderColor: '#10B98150' }]}>
+                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                    <Text style={[styles.orderStateText, { color: '#10B981' }]}>View Completed Plan</Text>
+                  </View>
+                );
+              }
+              if (s === 'CANCELLED') {
+                return (
+                  <View style={[styles.orderStatePill, { backgroundColor: '#EF444418', borderColor: '#EF444450' }]}>
+                    <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                    <Text style={[styles.orderStateText, { color: '#EF4444' }]}>Cancelled</Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Send Schedule to Patient — SCHEDULED + FULLY_SCHEDULED */}
+            {treatmentOrder &&
+              treatmentOrder.state === 'SCHEDULED' &&
+              treatmentOrder.scheduling_status === 'FULLY_SCHEDULED' && (
+                <TouchableOpacity
+                  style={[
+                    styles.lifecycleButton,
+                    { backgroundColor: '#10B981' },
+                    scheduleSent && { opacity: 0.5 },
+                  ]}
+                  onPress={() => {
+                    setScheduleSent(true);
+                    setShowPatientSchedule(true);
+                  }}
+                  disabled={scheduleSent}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="share-outline" size={20} color="#fff" />
+                  <Text style={[styles.lifecycleButtonText, { color: '#fff' }]}>
+                    {scheduleSent ? 'Schedule Sent' : 'Send Schedule to Patient'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+            {/* Send-to-scheduling error/conflict feedback */}
+            {sendToScheduling.status === 'error' && sendToScheduling.errorMessage && (
+              <View style={[styles.docBanner, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
+                <Ionicons name="alert-circle-outline" size={16} color="#B91C1C" />
+                <Text style={[styles.docBannerText, { color: '#991B1B' }]}>{sendToScheduling.errorMessage}</Text>
+              </View>
+            )}
+            {sendToScheduling.status === 'conflict' && (
+              <View style={[styles.docBanner, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+                <Ionicons name="refresh-outline" size={16} color="#B45309" />
+                <Text style={[styles.docBannerText, { color: '#92400E' }]}>
+                  {sendToScheduling.errorMessage ?? 'Plan updated elsewhere. Please review and try again.'}
+                </Text>
+              </View>
+            )}
+
+            {/* Lifecycle Management Buttons */}
             <View style={styles.lifecycleButtons}>
               {/* Pause Button */}
               {canPauseResult?.allowed && (
@@ -1252,31 +1468,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
                 </TouchableOpacity>
               )}
               
-              {/* Finalize Button */}
-              {treatmentSheet.status !== 'FINAL' && treatmentSheet.status !== 'SIGNED' && (
-                <TouchableOpacity
-                  style={[styles.lifecycleButton, { backgroundColor: theme.colors.feedback.success }]}
-                  onPress={() => {
-                    Alert.alert(
-                      'Finalize Treatment Sheet',
-                      'Are you sure you want to finalize this treatment sheet?',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Finalize',
-                          onPress: () => handleTransition('FINAL' as TreatmentSheetStatus),
-                        },
-                      ]
-                    );
-                  }}
-                  disabled={transitionMutation.isPending}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.primary.onPrimary} />
-                  <Text style={[styles.lifecycleButtonText, { color: theme.colors.primary.onPrimary }]}>
-                    Finalize
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* Finalize Button — hidden for now */}
             </View>
           </View>
         </ScrollView>
@@ -1341,6 +1533,35 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
         onCancel={() => setShowCancelDialog(false)}
         loading={cancelMutation.isPending}
       />
+
+      {/* Patient Schedule Modal */}
+      {showPatientSchedule && treatmentOrder && (
+        <PatientScheduleModal
+          visible={showPatientSchedule}
+          order={treatmentOrder}
+          onClose={() => setShowPatientSchedule(false)}
+        />
+      )}
+
+      {/* Schedule Row Modal — single-row reschedule (admin only) */}
+      {schedulingRow && (
+        <ScheduleRowModal
+          visible={!!schedulingRow}
+          tenantId={tenantId}
+          sheetId={treatmentSheetId}
+          row={schedulingRow}
+          orderVersion={orderVersion}
+          onClose={() => setSchedulingRow(null)}
+          onScheduled={() => {
+            setSchedulingRow(null);
+            refetchOrder();
+          }}
+          onVersionConflict={() => {
+            setSchedulingRow(null);
+            refetchOrder();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -1569,6 +1790,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  scheduleRowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+  },
+  scheduleRowBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
   iconButton: {
     padding: spacing.xs,
     borderRadius: 6,
@@ -1649,6 +1883,42 @@ const styles = StyleSheet.create({
   },
   lifecycleButtonText: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Documentation banner + order state pill
+  docBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+  },
+  docBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  orderStatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+  },
+  orderStateDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  orderStateText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   

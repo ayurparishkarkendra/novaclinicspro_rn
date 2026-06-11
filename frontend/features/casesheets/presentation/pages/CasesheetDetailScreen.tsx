@@ -953,56 +953,6 @@ export const CasesheetDetailScreen: React.FC = () => {
         {/* Extensions */}
         {renderExtensions()}
 
-        {/* Treatment Sheets Section */}
-        <View style={styles.treatmentSheetsSection}>
-          <View style={styles.treatmentSheetsHeader}>
-            <View style={styles.treatmentSheetsIcon}>
-              <Ionicons name="fitness" size={24} color={colors.success.main} />
-            </View>
-            <View style={styles.treatmentSheetsInfo}>
-              <Text style={styles.treatmentSheetsTitle}>Treatment Sheets</Text>
-              <Text style={styles.treatmentSheetsSubtitle}>
-                Therapy plans and progress tracking
-              </Text>
-            </View>
-          </View>
-          {treatmentSheetId ? (
-            <TouchableOpacity
-              style={styles.viewTreatmentSheetButton}
-              onPress={() => {
-                router.push({
-                  pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]' as any,
-                  params: { treatmentSheetId: treatmentSheetId, casesheetId },
-                });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="View treatment sheet"
-              testID="view-treatment-sheet-btn"
-            >
-              <Ionicons name="document-text" size={20} color={colors.success.main} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.viewTreatmentSheetText}>View Treatment Sheet</Text>
-                {episode?.title && (
-                  <Text style={styles.treatmentSheetDisease}>{episode.title}</Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.createTreatmentSheetButton}
-              onPress={() => setShowCreateTSModal(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Create treatment sheet"
-              testID="create-treatment-sheet-btn"
-            >
-              <Ionicons name="add-circle-outline" size={20} color={colors.success.main} />
-              <Text style={styles.createTreatmentSheetText}>Create Treatment Sheet</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
         {/* Footer Branding */}
         {renderBrandingFooter()}
 

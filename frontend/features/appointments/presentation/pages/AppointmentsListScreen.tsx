@@ -367,7 +367,16 @@ export const AppointmentsListScreen: React.FC = () => {
 
   const handleAppointmentPress = useCallback(
     (appointment: AppointmentWithDetails) => {
-      router.push(`/clinic-admin/appointments/${appointment.id}` as any);
+      // If appointment has an episode, go directly to the Episode Workspace (admin mode)
+      // This is the flattened navigation: Appointments → EpisodeWorkspace (no intermediate screens)
+      if (appointment.episode_id) {
+        router.push(
+          `/clinic-admin/episodes/${appointment.episode_id}/workspace?mode=admin&clientId=${appointment.client_id}` as any
+        );
+      } else {
+        // No episode yet — go to appointment detail to create/link one
+        router.push(`/clinic-admin/appointments/${appointment.id}` as any);
+      }
     },
     [router]
   );
@@ -486,6 +495,18 @@ export const AppointmentsListScreen: React.FC = () => {
               onStatusUpdate={handleStatusUpdate}
               onCancel={handleCancel}
               onReschedule={handleReschedule}
+              onViewEpisode={(episodeId) => {
+                router.push(`/clinic-admin/episodes/${episodeId}/workspace?mode=admin&clientId=${item.client_id}` as any);
+              }}
+              onViewAllEpisodes={(clientId) => {
+                router.push(`/clinic-admin/clients/${clientId}/episodes` as any);
+              }}
+              onLinkEpisode={(appointmentId, clientId) => {
+                router.push(`/clinic-admin/appointments/${appointmentId}/link-episode?clientId=${clientId}` as any);
+              }}
+              onCreateEpisode={(appointmentId, clientId) => {
+                router.push(`/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any);
+              }}
             />
           )}
           keyExtractor={(item) => item.id}

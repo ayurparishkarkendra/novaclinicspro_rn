@@ -28,6 +28,7 @@ import { typography } from '../../core/theme/typography';
 import { useAuth } from '../../features/auth/presentation/hooks/useAuth';
 import { useInventoryItemsListQuery, useInventoryAlertsListQuery } from '../../features/inventory/data/repositories/inventory.repository.impl';
 import { useSubscriptionSummaryQuery } from '../../features/billing/data/repositories/billing.repository.impl';
+import { useTreatmentOrdersQuery } from '../../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import { useNotificationBadgeCount } from '../../features/notifications/presentation/hooks/useNotificationBadgeCount';
 import { formatInrCurrency } from '../../core/utils/currency';
 import { t, ErrorTokens } from '../../core/localization';
@@ -102,6 +103,13 @@ export default function ClinicAdminDashboard() {
   // Fetch billing summary for dashboard
   const { data: billingSummary, isLoading: billingLoading } = useSubscriptionSummaryQuery(
     tenantId,
+    { enabled: !!tenantId }
+  );
+
+  // Fetch pending treatment orders count for the scheduling widget
+  const { data: pendingOrdersData } = useTreatmentOrdersQuery(
+    tenantId,
+    { state: 'ORDERED', limit: 1 },
     { enabled: !!tenantId }
   );
 
@@ -253,6 +261,28 @@ export default function ClinicAdminDashboard() {
           </View>
         </View>
 
+        {/* Treatment Plans Pending Scheduling Banner */}
+        {(pendingOrdersData?.total ?? 0) > 0 && (
+          <TouchableOpacity
+            style={[styles.pendingOrdersBanner, { backgroundColor: colors.info.main + '12', borderColor: colors.info.main + '40' }]}
+            onPress={() => router.push('/clinic-admin/treatment-sheets/orders' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.pendingOrdersIcon, { backgroundColor: colors.info.main + '20' }]}>
+              <Ionicons name="calendar-number" size={22} color={colors.info.main} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.pendingOrdersTitle, { color: colors.info.main }]}>
+                {pendingOrdersData!.total} Treatment Plan{pendingOrdersData!.total !== 1 ? 's' : ''} to Schedule
+              </Text>
+              <Text style={[styles.pendingOrdersSubtitle, { color: colors.text.secondary }]}>
+                Tap to open the scheduling worklist
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.info.main} />
+          </TouchableOpacity>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -280,6 +310,12 @@ export default function ClinicAdminDashboard() {
               label="Leave Mgmt"
               href="/clinic-admin/staff/leave"
               color={colors.warning.main}
+            />
+            <QuickActionButton
+              icon="calendar-number"
+              label="Tx Orders"
+              href="/clinic-admin/treatment-sheets/orders"
+              color={colors.info.main}
             />
             <QuickActionButton
               icon="cube"
@@ -708,6 +744,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  pendingOrdersBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  pendingOrdersIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingOrdersTitle: {
+    ...typography.body1,
+    fontWeight: '700',
+  },
+  pendingOrdersSubtitle: {
+    ...typography.caption,
   },
   staffCard: {
     backgroundColor: colors.background.default,

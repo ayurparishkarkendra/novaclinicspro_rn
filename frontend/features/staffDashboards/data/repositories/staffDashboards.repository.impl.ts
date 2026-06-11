@@ -302,8 +302,8 @@ export type CompleteSheetRowSubmitStatus =
 
 /** Return type of useCompleteSheetRowMutation */
 export interface UseCompleteSheetRowMutationResult {
-  /** Call this to start the completion flow */
-  mutate: (args: { rowId: string; payload: CompleteSheetRowRequest }) => void;
+  /** Call this to start the completion flow. Pass sheetId to also invalidate the treatment order. */
+  mutate: (args: { rowId: string; payload: CompleteSheetRowRequest; sheetId?: string }) => void;
   submitStatus: CompleteSheetRowSubmitStatus;
   errorMessage: string | null;
   /** Reset status back to idle (e.g. when modal closes) */
@@ -339,7 +339,7 @@ export const useCompleteSheetRowMutation = (
   }, []);
 
   const mutate = useCallback(
-    ({ rowId, payload }: { rowId: string; payload: CompleteSheetRowRequest }) => {
+    ({ rowId, payload, sheetId }: { rowId: string; payload: CompleteSheetRowRequest; sheetId?: string }) => {
       // Freeze the payload at submission time — never mutate on retry
       const frozenPayload: CompleteSheetRowRequest = JSON.parse(JSON.stringify(payload));
 
@@ -350,7 +350,7 @@ export const useCompleteSheetRowMutation = (
         try {
           await completeSheetRowApi(tenantId, rowId, frozenPayload);
 
-          // SUCCESS — close modal, invalidate sessions + KPIs
+          // SUCCESS — close modal, invalidate sessions + KPIs + order detail (if sheetId provided)
           await queryClient.invalidateQueries({
             queryKey: ['staffDashboards', 'therapist', 'sessions', tenantId],
             exact: false,
@@ -359,6 +359,11 @@ export const useCompleteSheetRowMutation = (
             queryKey: ['staffDashboards', 'therapist', 'kpis', tenantId],
             exact: false,
           });
+          if (sheetId) {
+            await queryClient.invalidateQueries({
+              queryKey: ['treatmentOrders', 'detail', sheetId],
+            });
+          }
           setSubmitStatus('idle');
           setErrorMessage(null);
         } catch (err: unknown) {
@@ -398,7 +403,7 @@ export const useCompleteSheetRowMutation = (
               }
 
               case 'CONFLICT': {
-                // Close modal, invalidate sessions + KPIs
+                // Close modal, invalidate sessions + KPIs + order detail
                 await queryClient.invalidateQueries({
                   queryKey: ['staffDashboards', 'therapist', 'sessions', tenantId],
                   exact: false,
@@ -407,6 +412,11 @@ export const useCompleteSheetRowMutation = (
                   queryKey: ['staffDashboards', 'therapist', 'kpis', tenantId],
                   exact: false,
                 });
+                if (sheetId) {
+                  await queryClient.invalidateQueries({
+                    queryKey: ['treatmentOrders', 'detail', sheetId],
+                  });
+                }
                 setSubmitStatus('conflict');
                 setErrorMessage(null);
                 return;

@@ -32,6 +32,8 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { treatmentOrderKeys } from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -532,6 +534,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const queryClient = useQueryClient();
 
   // ============================================
   // STATE - SINGLE SOURCE OF TRUTH
@@ -1217,6 +1220,15 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         } else {
           console.log('[PreviewScreen] Skipping treatment sheet sync - no treatmentSheetId or seriesId');
         }
+
+        // Invalidate treatment orders so admin worklist and doctor pending-docs widget refresh
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) }),
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.pendingDocumentation(tenantId, 'doctor') }),
+          ...(treatmentSheetId
+            ? [queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.detail(treatmentSheetId) })]
+            : []),
+        ]);
 
         let whatsappUrl: string | null = null;
         if (clientPhone) {

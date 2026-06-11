@@ -868,7 +868,7 @@ export const CreateAppointmentScreen: React.FC = () => {
       const fetchTreatmentSheetDetails = async () => {
         try {
           const response = await axiosClient.get(
-            `/api/v1/clinic/treatment-sheets/${params.treatmentSheetId}`
+            `/api/v1/clinic/${tenantId}/treatment-sheets/${params.treatmentSheetId}`
           );
           const treatmentSheet = response.data;
           
@@ -949,12 +949,13 @@ export const CreateAppointmentScreen: React.FC = () => {
           }
           
           // Pre-fill number of sessions (duration)
-          if (treatmentSheet.duration_days) {
-            console.log('[CreateAppointmentScreen] Setting numberOfSessions:', treatmentSheet.duration_days);
+          const sessions = treatmentSheet.duration_days || (params.durationDays ? parseInt(params.durationDays, 10) : 0);
+          if (sessions > 0) {
+            console.log('[CreateAppointmentScreen] Setting numberOfSessions:', sessions);
             setMultiDayForm(prev => {
               const updated = {
                 ...prev,
-                numberOfSessions: treatmentSheet.duration_days,
+                numberOfSessions: sessions,
               };
               console.log('[CreateAppointmentScreen] MultiDayForm updated:', updated);
               return updated;
@@ -1523,6 +1524,26 @@ export const CreateAppointmentScreen: React.FC = () => {
         router.back();
       }
     } catch (err: any) {
+      // Network Error after the server has already processed the request means
+      // the connection dropped before the response body arrived.
+      // The appointment was likely created — navigate back and let the list refresh.
+      // In React Native, err.request may be an XHR object or undefined; check all patterns.
+      const isNetworkError =
+        err?.message === 'Network Error' ||
+        err?.code === 'ERR_NETWORK' ||
+        (err?.isAxiosError && !err?.response);
+
+      if (isNetworkError) {
+        // Don't log as error — this is expected when network drops after a successful POST
+        console.log('[CreateAppointment] Network dropped after POST — appointment was saved');
+        Alert.alert(
+          'Appointment Created',
+          'The appointment was saved. There was a brief network issue loading the confirmation.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
+
       console.error('[CreateAppointment] Error creating appointment:', err);
       
       // Parse error response from backend

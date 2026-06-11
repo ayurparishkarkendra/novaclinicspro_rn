@@ -27,18 +27,19 @@ export default function EpisodeDetailPage() {
 
   // Casesheet navigation
   const handleNavigateToCasesheet = (casesheetId: string) => {
-    router.push(`/clinic-admin/clients/${clientId}/casesheets/${casesheetId}` as any);
+    const resolvedClientId = episodeDetails?.episode?.client_id || clientId;
+    if (!resolvedClientId) return;
+    router.push(`/clinic-admin/clients/${resolvedClientId}/casesheets/${casesheetId}` as any);
   };
 
   const handleCreateCasesheet = () => {
-    // Navigate to create casesheet with episodeId
-    // Pass episodeId so the casesheet can be linked to this episode
+    const resolvedClientId = episodeDetails?.episode?.client_id || clientId;
+    if (!resolvedClientId) return;
     const firstVisit = episodeDetails?.visits?.[0];
     if (firstVisit) {
-      router.push(`/clinic-admin/clients/${clientId}/casesheets/new?appointmentId=${firstVisit.appointment_id}&episodeId=${episodeId}` as any);
+      router.push(`/clinic-admin/clients/${resolvedClientId}/casesheets/new?appointmentId=${firstVisit.appointment_id}&episodeId=${episodeId}` as any);
     } else {
-      // No visits yet, pass episodeId directly
-      router.push(`/clinic-admin/clients/${clientId}/casesheets/new?episodeId=${episodeId}` as any);
+      router.push(`/clinic-admin/clients/${resolvedClientId}/casesheets/new?episodeId=${episodeId}` as any);
     }
   };
 

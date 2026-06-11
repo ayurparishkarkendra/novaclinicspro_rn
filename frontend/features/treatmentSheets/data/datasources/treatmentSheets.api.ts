@@ -59,21 +59,14 @@ export const createSimpleTreatmentSheetApi = async (
 
 /**
  * Get a treatment sheet by ID
- * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}?tenant_id={tenant_id}
- * 
- * BUG FIX #9: Backend requires tenant_id as a query parameter
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}
  */
 export const getTreatmentSheetApi = async (
   treatmentSheetId: string,
-  tenantId?: string
+  tenantId: string
 ): Promise<TreatmentSheetResponse> => {
-  const params: Record<string, string> = {};
-  if (tenantId) {
-    params.tenant_id = tenantId;
-  }
   const response = await axiosClient.get(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`,
-    { params }
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}`
   );
   return response.data;
 };
@@ -95,14 +88,15 @@ export const getTreatmentSheetsByEpisodeApi = async (
 
 /**
  * Transition treatment sheet status (DRAFT → FINAL → SIGNED)
- * PATCH /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/status
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/status
  */
 export const transitionTreatmentSheetStatusApi = async (
+  tenantId: string,
   treatmentSheetId: string,
   payload: TreatmentSheetStatusTransitionRequest
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/status`,
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/status`,
     payload
   );
   return response.data;
@@ -127,39 +121,42 @@ export const syncTreatmentSheetApi = async (
 
 /**
  * Print treatment sheet
- * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/print
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/print
  */
 export const printTreatmentSheetApi = async (
+  tenantId: string,
   treatmentSheetId: string
 ): Promise<TreatmentSheetPrintResponse> => {
   const response = await axiosClient.get(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/print`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/print`
   );
   return response.data;
 };
 
 /**
  * Archive (soft delete) a treatment sheet
- * DELETE /api/v1/clinic/treatment-sheets/{treatment_sheet_id}
+ * DELETE /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}
  */
 export const archiveTreatmentSheetApi = async (
+  tenantId: string,
   treatmentSheetId: string
 ): Promise<void> => {
   await axiosClient.delete(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}`
   );
 };
 
 /**
  * Update all treatment sheet rows (bulk update)
- * PATCH /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/rows
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/rows
  */
 export const updateAllTreatmentSheetRowsApi = async (
+  tenantId: string,
   treatmentSheetId: string,
   rows: Array<{ id: string } & TreatmentSheetRowUpdateRequest>
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/rows`,
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/rows`,
     { rows }
   );
   return response.data;
@@ -167,14 +164,15 @@ export const updateAllTreatmentSheetRowsApi = async (
 
 /**
  * Update a single treatment sheet row
- * PATCH /api/v1/clinic/treatment-sheets/rows/{row_id}
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/rows/{row_id}
  */
 export const updateTreatmentSheetRowApi = async (
+  tenantId: string,
   rowId: string,
   payload: TreatmentSheetRowUpdateRequest
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/treatment-sheets/rows/${rowId}`,
+    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}`,
     payload
   );
   return response.data;

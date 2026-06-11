@@ -53,6 +53,8 @@ import {
   mapBusiestDaysToBars,
   formatDuration,
 } from '../features/doctorDashboard';
+import { usePendingDocumentationQuery } from '../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
+import { getOrderStateLabel, getOrderStateColor } from '../features/treatmentSheets/data/models/treatmentOrders.dtos';
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -165,6 +167,12 @@ export default function DoctorDashboard() {
     }
     return 'Doctor';
   }, [dashboardData?.appointments, kpiData?.staff_name]);
+
+  // Pending documentation widget — sheets in SCHEDULED/IN_PROGRESS with DRAFT docs
+  const { data: pendingDocData } = usePendingDocumentationQuery(tenantId, {
+    enabled: !!tenantId,
+  });
+  const pendingDocItems = pendingDocData?.items ?? [];
 
   // Log KPI data when it changes
   React.useEffect(() => {
@@ -563,8 +571,7 @@ export default function DoctorDashboard() {
                     router.push(`/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any);
                   }}
                   onViewEpisode={(episodeId) => {
-                    console.log('[DoctorDashboard] View episode:', episodeId);
-                    router.push(`/clinic-admin/episodes/${episodeId}` as any);
+                    router.push(`/clinic-admin/episodes/${episodeId}/workspace?mode=doctor&clientId=${appointment.client_id}` as any);
                   }}
                   onViewAllEpisodes={(clientId, clientName) => {
                     console.log('[DoctorDashboard] View all episodes for client:', clientId, clientName);
@@ -576,6 +583,49 @@ export default function DoctorDashboard() {
             })
           )}
         </View>
+
+        {/* Pending Documentation Widget */}
+        {pendingDocItems.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Documentation</Text>
+            </View>
+            {pendingDocItems.slice(0, 5).map((order) => (
+              <TouchableOpacity
+                key={order.id}
+                style={pendingDocStyles.card}
+                onPress={() =>
+                  router.push(
+                    `/clinic-admin/treatment-sheets/${order.id}` as any
+                  )
+                }
+                activeOpacity={0.7}
+              >
+                <View style={pendingDocStyles.cardLeft}>
+                  <Ionicons name="document-text-outline" size={20} color="#F59E0B" />
+                  <View style={pendingDocStyles.cardInfo}>
+                    <Text style={pendingDocStyles.cardTitle} numberOfLines={1}>
+                      {order.planned_sessions
+                        ? `${order.planned_sessions}-day plan`
+                        : 'Treatment Plan'}
+                    </Text>
+                    <View style={[pendingDocStyles.statePill, { backgroundColor: getOrderStateColor(order.state) + '18' }]}>
+                      <Text style={[pendingDocStyles.stateText, { color: getOrderStateColor(order.state) }]}>
+                        {getOrderStateLabel(order.state)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+              </TouchableOpacity>
+            ))}
+            {pendingDocItems.length > 5 && (
+              <Text style={pendingDocStyles.moreText}>
+                +{pendingDocItems.length - 5} more pending
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* KPI Period Selector */}
         <View style={styles.section}>
@@ -832,5 +882,50 @@ const styles = StyleSheet.create({
   dateScrollContent: {
     paddingHorizontal: spacing.sm,
     gap: spacing.sm,
+  },
+});
+
+const pendingDocStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background.default,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#F59E0B40',
+  },
+  cardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  cardInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  cardTitle: {
+    ...typography.body2,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  statePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  stateText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  moreText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    paddingVertical: spacing.xs,
   },
 });

@@ -236,9 +236,9 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // Fetch treatment sheet data if this is a multi-day appointment
   const { data: treatmentSheet, isLoading: isLoadingSheet } = useTreatmentSheetDetailQuery(
     treatmentSheetId || '',
-    currentUser?.tenantId || undefined,
+    currentUser?.tenantId || '',
     {
-      enabled: !!isMultiDayAppointment && !!treatmentSheetId,
+      enabled: !!isMultiDayAppointment && !!treatmentSheetId && !!currentUser?.tenantId,
     }
   );
   
@@ -563,6 +563,21 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
                   testId="action-cancel"
                 />
               )}
+
+              {/* Schedule Treatment — shown when appointment has a treatment sheet */}
+              {isMultiDayAppointment && appointment.treatment_sheet_id && (
+                <QuickActionIconButton
+                  icon="calendar-number-outline"
+                  label="Schedule"
+                  color={colors.feedback.info}
+                  onPress={() => {
+                    router.push(
+                      `/clinic-admin/treatment-sheets/${appointment.treatment_sheet_id}` as any
+                    );
+                  }}
+                  testId="action-schedule-treatment"
+                />
+              )}
             </>
           )}
           
@@ -597,6 +612,21 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           {/* Doctor actions - Episode actions in quick actions area */}
           {isDoctor && (
             <>
+              {/* Treatment sheet navigation — shown for any role when sheet is present */}
+              {isMultiDayAppointment && appointment.treatment_sheet_id && (
+                <QuickActionIconButton
+                  icon="document-text-outline"
+                  label="Treatment Sheet"
+                  color={colors.primary.default}
+                  onPress={() => {
+                    router.push(
+                      `/clinic-admin/treatment-sheets/${appointment.treatment_sheet_id}` as any
+                    );
+                  }}
+                  testId="action-view-treatment-sheet"
+                />
+              )}
+
               {/* If episode IS linked, show ONLY "View Episode" button */}
               {/* BUG FIX #3: Remove confirmation dialogs for episode actions */}
               {appointment.episode_id ? (
