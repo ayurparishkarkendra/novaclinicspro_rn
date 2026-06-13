@@ -105,7 +105,17 @@ export function SetupWizardFlow() {
           console.log('[SetupWizardFlow] User has manually navigated, keeping current position');
         }
       } else {
-        console.log('[SetupWizardFlow] No visible_steps in response');
+        // visible_steps is empty/null — this should not happen post-FR-097 fix.
+        // Log at error severity so monitoring/alerting catches any regression.
+        // Neither case is a transient timing race — the backend returns synchronously —
+        // so an empty response is always a real problem, not a "still generating" state.
+        console.error(
+          '[SetupWizardFlow] visible_steps is empty/null for tenant',
+          tenantId,
+          '— this indicates either an FR-097 template-generation regression or a ' +
+          'tenant whose template was never seeded. The status response was:',
+          statusData
+        );
       }
     } else {
       console.log('[SetupWizardFlow] No status data available');
