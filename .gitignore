@@ -3,7 +3,6 @@
 # IDE and editors
 .idea/
 .vscode/
-
 # Dependencies
 node_modules/
 /node_modules
@@ -242,3 +241,4 @@ frontend/ios/
 frontend/.metro-cache/
 *.md
 frontend/docs/
+.emergent/

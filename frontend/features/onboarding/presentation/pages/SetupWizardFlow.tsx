@@ -16,6 +16,7 @@ import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
+import { SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
 
 interface Step {
   code: string;
@@ -29,10 +30,10 @@ export function SetupWizardFlow() {
   const router = useRouter();
   const { tenantId: tenantIdParam } = useLocalSearchParams<{ tenantId: string }>();
   const { currentUser } = useAuth();
-  
+
   // Use tenantId from URL params, or fall back to currentUser's tenantId
   const tenantId = tenantIdParam || currentUser?.tenantId || '';
-  
+
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [steps, setSteps] = useState<Step[]>([]);
   const [hasManuallyNavigated, setHasManuallyNavigated] = useState(false);
@@ -65,9 +66,9 @@ export function SetupWizardFlow() {
         const stepsArray = statusData.visible_steps.map((stepCode, index) => {
           // Get actual status from per_step_validation if available
           const stepValidation = statusData.per_step_validation?.[stepCode];
-          const actualStatus = stepValidation?.status || 
+          const actualStatus = stepValidation?.status ||
             (index < (statusData.completed_steps || 0) ? 'completed' : 'not_started');
-          
+
           console.log(`[SetupWizardFlow] Step ${stepCode}:`, {
             index,
             completedSteps: statusData.completed_steps,
@@ -75,7 +76,7 @@ export function SetupWizardFlow() {
             validationStatus: stepValidation?.status,
             finalStatus: actualStatus,
           });
-          
+
           return {
             code: stepCode,
             name: stepCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
@@ -83,7 +84,7 @@ export function SetupWizardFlow() {
             order: index + 1,
           };
         });
-        
+
         console.log('[SetupWizardFlow] Steps array:', stepsArray);
         console.log('[SetupWizardFlow] per_step_validation:', statusData.per_step_validation);
         setSteps(stepsArray);
@@ -92,7 +93,7 @@ export function SetupWizardFlow() {
         if (!hasManuallyNavigated) {
           // Find the FIRST not_started step (this is the actual next step)
           const firstIncompleteIndex = stepsArray.findIndex(s => s.status === 'not_started');
-          
+
           if (firstIncompleteIndex >= 0) {
             console.log('[SetupWizardFlow] Setting current step index to first incomplete:', firstIncompleteIndex);
             setCurrentStepIndex(firstIncompleteIndex);
@@ -125,7 +126,7 @@ export function SetupWizardFlow() {
   const handleNext = async () => {
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
-    
+
     // If current step has a save handler, call it first
     if (currentStepSaveHandlerRef.current) {
       try {
@@ -141,13 +142,13 @@ export function SetupWizardFlow() {
         return;
       }
     }
-    
+
     // No save handler - this is an external step (operating_hours, staff, treatments, etc.)
     // Submit empty data to mark step as complete
     const currentStep = steps[currentStepIndex];
     console.log('[SetupWizardFlow] No save handler, checking if external step needs submission');
     console.log('[SetupWizardFlow] Current step:', currentStep);
-    
+
     if (currentStep) {
       console.log('[SetupWizardFlow] External step detected, submitting to backend:', currentStep.code);
       try {
@@ -162,11 +163,11 @@ export function SetupWizardFlow() {
         return;
       }
     }
-    
+
     // Refresh status to get latest data
     console.log('[SetupWizardFlow] Refetching status after step submission');
     await refetch();
-    
+
     if (currentStepIndex < steps.length - 1) {
       console.log('[SetupWizardFlow] Advancing to next step');
       setCurrentStepIndex(currentStepIndex + 1);
@@ -186,13 +187,13 @@ export function SetupWizardFlow() {
   const handleStepComplete = async () => {
     // Mark that user has manually navigated FIRST (to prevent auto-jump during refetch)
     setHasManuallyNavigated(true);
-    
+
     // Auto-advance to next step BEFORE refetch
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
       setCurrentStepIndex(nextIndex);
     }
-    
+
     // Refetch status after navigation
     console.log('[SetupWizardFlow] Step completed, refetching status...');
     await refetch();
@@ -201,7 +202,7 @@ export function SetupWizardFlow() {
   const handlePrevious = () => {
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
-    
+
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
@@ -224,16 +225,42 @@ export function SetupWizardFlow() {
     const currentStep = steps[currentStepIndex];
     if (!currentStep) return null;
 
+    // Service-catalogue aliases all redirect to the Treatments management screen.
+    // See SERVICE_CATALOGUE_ALIASES for the full list (Design Property 5, Req 2 AC-2).
+    if (SERVICE_CATALOGUE_ALIASES.includes(currentStep.code as ServiceCatalogueAlias)) {
+      return (
+        <View style={{ padding: theme.spacing.lg }}>
+          <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
+            Treatments & Therapies
+          </Text>
+          <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
+            Configure your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue setup.
+          </Text>
+          <TouchableOpacity
+            style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+            onPress={() => router.push('/clinic-admin/settings/treatments')}
+          >
+            <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
+              Go to Treatments Management
+            </Text>
+          </TouchableOpacity>
+          <Text style={[theme.typography.caption, { color: theme.colors.text.secondary, textAlign: 'center' }]}>
+            Click Next after adding at least one treatment
+          </Text>
+        </View>
+      );
+    }
+
     // Render appropriate screen based on step code
     switch (currentStep.code) {
       case 'clinic_profile':
-        return <ClinicProfileScreen 
-          tenantId={tenantId || ''} 
-          isWizardMode={true} 
+        return <ClinicProfileScreen
+          tenantId={tenantId || ''}
+          isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
         />;
-      
+
       case 'operating_hours':
         return (
           <View style={{ padding: theme.spacing.lg }}>
@@ -256,45 +283,31 @@ export function SetupWizardFlow() {
             </Text>
           </View>
         );
-      
+
       case 'rooms_and_therapy_beds':
       case 'treatment_rooms':
-      case 'treatments_and_therapies':
-      case 'services_and_specialities':
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-              {currentStep.code === 'treatments_and_therapies' || currentStep.code === 'services_and_specialities' 
-                ? 'Treatments & Therapies' 
-                : 'Rooms & Therapy Beds'}
+              Rooms & Therapy Beds
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Configure your {currentStep.code === 'treatments_and_therapies' || currentStep.code === 'services_and_specialities'
-                ? 'Ayurvedic treatments and therapy services' 
-                : 'treatment rooms and therapy beds'} in the full management screen. After adding items, return here to continue setup.
+              Configure your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue setup.
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
-              onPress={() => router.push(
-                currentStep.code === 'treatments_and_therapies' || currentStep.code === 'services_and_specialities'
-                  ? '/clinic-admin/settings/treatments' 
-                  : '/clinic-admin/settings/rooms'
-              )}
+              onPress={() => router.push('/clinic-admin/settings/rooms')}
             >
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-                Go to {currentStep.code === 'treatments_and_therapies' || currentStep.code === 'services_and_specialities'
-                  ? 'Treatments' 
-                  : 'Rooms'} Management
+                Go to Rooms Management
               </Text>
             </TouchableOpacity>
             <Text style={[theme.typography.caption, { color: theme.colors.text.secondary, textAlign: 'center' }]}>
-              Click Next after adding at least one {currentStep.code === 'treatments_and_therapies' || currentStep.code === 'services_and_specialities'
-                ? 'treatment' 
-                : 'room'}
+              Click Next after adding at least one room
             </Text>
           </View>
         );
-      
+
       case 'staff_and_roles':
       case 'staff_setup':
       case 'staff_members':
@@ -319,7 +332,7 @@ export function SetupWizardFlow() {
             </Text>
           </View>
         );
-      
+
       case 'inventory_setup':
         return (
           <View style={{ padding: theme.spacing.lg }}>
@@ -342,26 +355,26 @@ export function SetupWizardFlow() {
             </Text>
           </View>
         );
-      
+
       case 'financials_and_tax':
       case 'billing_setup':
       case 'billing_settings':
-        return <BillingSetupScreen 
-          tenantId={tenantId || ''} 
-          isWizardMode={true} 
+        return <BillingSetupScreen
+          tenantId={tenantId || ''}
+          isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
         />;
-      
+
       case 'payment_setup':
       case 'payment_methods':
-        return <PaymentSetupScreen 
-          tenantId={tenantId || ''} 
-          isWizardMode={true} 
+        return <PaymentSetupScreen
+          tenantId={tenantId || ''}
+          isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
         />;
-      
+
       case 'subscription_payment':
         return (
           <View style={{ padding: theme.spacing.lg }}>
@@ -386,7 +399,7 @@ export function SetupWizardFlow() {
             </TouchableOpacity>
           </View>
         );
-      
+
       case 'go_live_checklist':
         return (
           <GoLiveScreen
@@ -398,7 +411,7 @@ export function SetupWizardFlow() {
             isWizardMode={true}
           />
         );
-      
+
       default:
         return (
           <View style={{ padding: theme.spacing.lg }}>

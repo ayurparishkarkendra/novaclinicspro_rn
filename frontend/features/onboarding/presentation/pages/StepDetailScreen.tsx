@@ -3,11 +3,9 @@
  * Generic step detail screen that routes to specific step implementations
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StaffSetupScreen } from './steps/StaffSetupScreen';
-import { TreatmentRoomsScreen } from './steps/TreatmentRoomsScreen';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
@@ -16,6 +14,7 @@ import { ErrorScreen } from '../components/ErrorScreen';
 import { StepProgressHeader } from '../components/StepProgressHeader';
 import { useOnboardingStatusQuery } from '../../data/repositories/onboarding.repository.impl';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { SERVICE_CATALOGUE_ALIASES } from '../../constants/stepAliases';
 
 export function StepDetailScreen() {
   const theme = useClinicTheme();
@@ -33,19 +32,25 @@ export function StepDetailScreen() {
     if (!stepCode || !tenantId) return;
 
     const redirectSteps: Record<string, string> = {
-      'rooms_and_therapy_beds': '/clinic-admin/settings/rooms',
-      'treatment_rooms': '/clinic-admin/settings/rooms',
-      'treatments_and_therapies': '/clinic-admin/settings/treatments',
-      'staff_and_roles': '/clinic-admin/staff',
-      'staff_setup': '/clinic-admin/staff',
-      'staff_members': '/clinic-admin/staff',
-      'inventory_setup': '/clinic-admin/inventory',
+      // service catalogue — all aliases point to the same screen
+      ...Object.fromEntries(
+        SERVICE_CATALOGUE_ALIASES.map(code => [code, '/clinic-admin/settings/treatments'])
+      ),
+      // rooms
+      rooms_and_therapy_beds: '/clinic-admin/settings/rooms',
+      treatment_rooms: '/clinic-admin/settings/rooms',
+      // staff
+      staff_and_roles: '/clinic-admin/staff',
+      staff_setup: '/clinic-admin/staff',
+      staff_members: '/clinic-admin/staff',
+      // inventory
+      inventory_setup: '/clinic-admin/inventory',
     };
 
     const redirectPath = redirectSteps[stepCode];
     if (redirectPath) {
       console.log(`[StepDetailScreen] Redirecting ${stepCode} to ${redirectPath}`);
-      router.replace(redirectPath);
+      router.replace(redirectPath as Href);
     }
   }, [stepCode, tenantId, router]);
 
@@ -69,14 +74,15 @@ export function StepDetailScreen() {
   }
 
   // Convert steps map to array for progress header
-  const steps = statusData?.steps 
-    ? Array.from(statusData.steps.values()).map((step, index) => ({
-        code: step.code,
-        name: step.name,
-        status: step.status,
-        order: index + 1,
-      }))
-    : [];
+ const steps = statusData?.per_step_validation
+  ? Object.entries(statusData.per_step_validation).map(([code, step], index) => ({
+      code: step.step_code,
+      name: code,           // StepValidationDTO has no 'name' — use the key as fallback
+      status: step.status,
+      order: index + 1,
+    }))
+  : [];
+
 
   // Route to specific step implementation
   const renderStepContent = () => {
@@ -93,6 +99,10 @@ export function StepDetailScreen() {
       case 'rooms_and_therapy_beds':
       case 'treatment_rooms':
       case 'treatments_and_therapies':
+      case 'services_and_specialities':
+      case 'services':
+      case 'services_offered':
+      case 'treatment_services':
       case 'staff_and_roles':
       case 'staff_setup':
       case 'staff_members':
