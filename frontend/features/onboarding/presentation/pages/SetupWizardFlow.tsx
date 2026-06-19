@@ -4,19 +4,21 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useOnboardingStatusQuery } from '../../data/repositories/onboarding.repository.impl';
-import { submitStepDataApi } from '../../data/datasources/onboarding.api';
+import { useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
 import { SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
+import { useWizardStore } from '../stores/wizard.store';
 
 interface Step {
   code: string;
@@ -24,6 +26,19 @@ interface Step {
   status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
   order: number;
 }
+
+const createSubmissionId = () => {
+  const cryptoRandomUUID = globalThis.crypto?.randomUUID;
+  if (cryptoRandomUUID) {
+    return cryptoRandomUUID.call(globalThis.crypto);
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+};
 
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
@@ -33,16 +48,32 @@ export function SetupWizardFlow() {
 
   // Use tenantId from URL params, or fall back to currentUser's tenantId
   const tenantId = tenantIdParam || currentUser?.tenantId || '';
+  const setWizardTenantId = useWizardStore(state => state.setTenantId);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [steps, setSteps] = useState<Step[]>([]);
   const [hasManuallyNavigated, setHasManuallyNavigated] = useState(false);
+  const [isHandlingNext, setIsHandlingNext] = useState(false);
+  const [isSettingUpSubscription, setIsSettingUpSubscription] = useState(false);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanInfo[]>([]);
+  const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState('BASIC');
   const currentStepSaveHandlerRef = useRef<(() => Promise<void>) | null>(null);
+  const submissionIdRef = useRef<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const currentStep = steps[currentStepIndex];
+  const submitMutation = useSubmitStepMutation(tenantId, currentStep?.code || '');
+  const isNextPending = isHandlingNext || submitMutation.isPending;
 
   // Fetch onboarding status - only if tenantId is available
   const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
+
+  useEffect(() => {
+    if (tenantId) {
+      setWizardTenantId(tenantId);
+    }
+  }, [tenantId, setWizardTenantId]);
 
   // Refetch status when screen comes into focus (after navigating back from external screens)
   useFocusEffect(
@@ -121,60 +152,183 @@ export function SetupWizardFlow() {
     } else {
       console.log('[SetupWizardFlow] No status data available');
     }
-  }, [statusData, hasManuallyNavigated]);
+  }, [statusData, hasManuallyNavigated, tenantId]);
 
   const handleNext = async () => {
+    if (isSubmittingRef.current || isNextPending) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    const submissionId = createSubmissionId();
+    submissionIdRef.current = submissionId;
+
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
+    setIsHandlingNext(true);
 
-    // If current step has a save handler, call it first
-    if (currentStepSaveHandlerRef.current) {
-      try {
+    try {
+      // If current step has a save handler, call it first
+      if (currentStepSaveHandlerRef.current) {
         console.log('[SetupWizardFlow] Calling save handler for current step');
         await currentStepSaveHandlerRef.current();
-        // Save handler will call handleStepComplete which advances to next step
-        // So we don't need to do anything else here
+        if (submissionIdRef.current !== submissionId) {
+          return;
+        }
+        // Save handler calls handleStepComplete, which refetches before advancing.
         console.log('[SetupWizardFlow] Save handler completed successfully');
         return;
-      } catch (error) {
-        console.error('[SetupWizardFlow] Error saving step:', error);
-        // Don't advance if save failed
+      }
+
+      // No save handler - this is an external step (operating_hours, staff, treatments, etc.)
+      // Submit empty data to mark step as complete
+      console.log('[SetupWizardFlow] No save handler, checking if external step needs submission');
+      console.log('[SetupWizardFlow] Current step:', currentStep);
+
+      if (currentStep) {
+        console.log('[SetupWizardFlow] External step detected, submitting to backend:', currentStep.code);
+        await submitMutation.mutateAsync(
+          {
+            idempotencyKey: submissionId,
+            data: {}, // Empty data for external steps
+            mark_complete: true,
+          },
+          {
+            onSuccess: () => {
+              if (submissionIdRef.current !== submissionId) {
+                return;
+              }
+            },
+            onError: () => {
+              if (submissionIdRef.current !== submissionId) {
+                return;
+              }
+            },
+          }
+        );
+        if (submissionIdRef.current !== submissionId) {
+          return;
+        }
+        console.log('[SetupWizardFlow] External step submitted successfully');
+      }
+
+      // Refresh status to get latest data before advancing.
+      console.log('[SetupWizardFlow] Refetching status after step submission');
+      await refetch();
+      if (submissionIdRef.current !== submissionId) {
         return;
       }
+
+      if (currentStepIndex < steps.length - 1) {
+        console.log('[SetupWizardFlow] Advancing to next step');
+        setCurrentStepIndex(currentStepIndex + 1);
+      } else {
+        // All steps complete - go to dashboard
+        console.log('[SetupWizardFlow] All steps complete, redirecting to dashboard');
+        router.replace(`/clinic-admin?tenantId=${tenantId}`);
+      }
+    } catch (error) {
+      if (submissionIdRef.current !== submissionId) {
+        return;
+      }
+      console.error('[SetupWizardFlow] Error submitting step:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save step progress. Please try again.');
+    } finally {
+      if (submissionIdRef.current === submissionId) {
+        setIsHandlingNext(false);
+        isSubmittingRef.current = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep?.code !== 'subscription_payment' || subscriptionPlans.length > 0) {
+      return;
     }
 
-    // No save handler - this is an external step (operating_hours, staff, treatments, etc.)
-    // Submit empty data to mark step as complete
-    const currentStep = steps[currentStepIndex];
-    console.log('[SetupWizardFlow] No save handler, checking if external step needs submission');
-    console.log('[SetupWizardFlow] Current step:', currentStep);
+    let isMounted = true;
+    getSubscriptionPlansApi()
+      .then(result => {
+        if (!isMounted) {
+          return;
+        }
+        const paidPlans = result.plans.filter(plan => plan.plan_code !== 'FREE');
+        setSubscriptionPlans(paidPlans.length > 0 ? paidPlans : result.plans);
+        const defaultPlan = paidPlans.find(plan => plan.plan_code === 'BASIC') || paidPlans[0] || result.plans[0];
+        if (defaultPlan) {
+          setSelectedSubscriptionPlan(defaultPlan.plan_code);
+        }
+      })
+      .catch(error => {
+        console.error('[SetupWizardFlow] Failed to load subscription plans:', error);
+      });
 
-    if (currentStep) {
-      console.log('[SetupWizardFlow] External step detected, submitting to backend:', currentStep.code);
-      try {
-        await submitStepDataApi(tenantId, currentStep.code, {
-          data: {}, // Empty data for external steps
+    return () => {
+      isMounted = false;
+    };
+  }, [currentStep?.code, subscriptionPlans.length]);
+
+  const handleSetupSubscriptionPayment = async () => {
+    if (!tenantId || isSettingUpSubscription) {
+      return;
+    }
+
+    setIsSettingUpSubscription(true);
+    try {
+      const result = await createTenantSubscriptionApi(tenantId, {
+        plan_code: selectedSubscriptionPlan,
+        billing_cycle: 'monthly',
+      });
+
+      const planCode = result.plan_code || selectedSubscriptionPlan;
+      const billingCycle = result.billing_cycle || 'monthly';
+      const provider = result.provider || 'manual';
+
+      if (result.checkout_url) {
+        await WebBrowser.openBrowserAsync(result.checkout_url);
+        await submitMutation.mutateAsync({
+          idempotencyKey: createSubmissionId(),
+          data: {
+            subscription_id: result.subscription_id,
+            plan_code: planCode,
+            billing_cycle: billingCycle,
+            provider,
+            provider_subscription_id: result.provider_subscription_id,
+            checkout_started: true,
+          },
           mark_complete: true,
         });
-        console.log('[SetupWizardFlow] External step submitted successfully');
-      } catch (error) {
-        console.error('[SetupWizardFlow] Error submitting external step:', error);
-        Alert.alert('Error', 'Failed to save step progress. Please try again.');
+        await handleStepComplete();
         return;
       }
-    }
 
-    // Refresh status to get latest data
-    console.log('[SetupWizardFlow] Refetching status after step submission');
-    await refetch();
+      if (result.requires_internal_payment_setup || provider === 'manual') {
+        Alert.alert(
+          'Payment Provider Not Configured',
+          'Subscription payment must be completed in a real payment provider checkout. Please configure a supported provider such as Razorpay, Stripe, or PayPal, then try again.'
+        );
+        return;
+      }
 
-    if (currentStepIndex < steps.length - 1) {
-      console.log('[SetupWizardFlow] Advancing to next step');
-      setCurrentStepIndex(currentStepIndex + 1);
-    } else {
-      // All steps complete - go to dashboard
-      console.log('[SetupWizardFlow] All steps complete, redirecting to dashboard');
-      router.replace(`/clinic-admin?tenantId=${tenantId}`);
+      await submitMutation.mutateAsync({
+        idempotencyKey: createSubmissionId(),
+        data: {
+          subscription_id: result.subscription_id,
+          plan_code: planCode,
+          billing_cycle: billingCycle,
+          provider,
+          provider_subscription_id: result.provider_subscription_id,
+          checkout_started: false,
+        },
+        mark_complete: true,
+      });
+
+      await handleStepComplete();
+    } catch (error: any) {
+      console.error('[SetupWizardFlow] Subscription payment setup failed:', error);
+      Alert.alert('Payment Setup Failed', error?.message || 'Unable to set up subscription payment. Please try again.');
+    } finally {
+      setIsSettingUpSubscription(false);
     }
   };
 
@@ -188,25 +342,49 @@ export function SetupWizardFlow() {
     // Mark that user has manually navigated FIRST (to prevent auto-jump during refetch)
     setHasManuallyNavigated(true);
 
-    // Auto-advance to next step BEFORE refetch
-    const nextIndex = currentStepIndex + 1;
-    if (nextIndex < steps.length) {
-      setCurrentStepIndex(nextIndex);
-    }
+    try {
+      // Refetch status before navigation so the next step renders from fresh status.
+      console.log('[SetupWizardFlow] Step completed, refetching status before advance...');
+      await refetch();
 
-    // Refetch status after navigation
-    console.log('[SetupWizardFlow] Step completed, refetching status...');
-    await refetch();
+      // Auto-advance to next step only after refetch resolves.
+      const nextIndex = currentStepIndex + 1;
+      if (nextIndex < steps.length) {
+        setCurrentStepIndex(nextIndex);
+      }
+    } catch (error) {
+      console.error('[SetupWizardFlow] Error refetching after step complete:', error);
+      Alert.alert('Error', 'Failed to refresh setup progress. Please try again.');
+    }
   };
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
 
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
-  };
+  }, [currentStepIndex]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentStepIndex > 0) {
+        handlePrevious();
+      }
+
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [currentStepIndex, handlePrevious]);
+
+  useEffect(() => {
+    return () => {
+      submissionIdRef.current = null;
+      isSubmittingRef.current = false;
+    };
+  }, []);
 
   const handleExit = () => {
     Alert.alert(
@@ -237,7 +415,7 @@ export function SetupWizardFlow() {
             Configure your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue setup.
           </Text>
           <TouchableOpacity
-            style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+            style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
             onPress={() => router.push('/clinic-admin/settings/treatments')}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -268,10 +446,10 @@ export function SetupWizardFlow() {
               Operating Hours
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Configure your clinic's operating hours in the full management screen. After setting your hours, return here to continue setup.
+              Configure your clinic operating hours in the full management screen. After setting your hours, return here to continue setup.
             </Text>
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
               onPress={() => router.push('/clinic-admin/settings/operating-hours')}
             >
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -295,7 +473,7 @@ export function SetupWizardFlow() {
               Configure your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue setup.
             </Text>
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
               onPress={() => router.push('/clinic-admin/settings/rooms')}
             >
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -320,7 +498,7 @@ export function SetupWizardFlow() {
               Add staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue setup.
             </Text>
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
               onPress={() => router.push('/clinic-admin/staff')}
             >
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -343,7 +521,7 @@ export function SetupWizardFlow() {
               Set up your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue setup.
             </Text>
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginBottom: theme.spacing.md }]}
+              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
               onPress={() => router.push('/clinic-admin/inventory')}
             >
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -382,20 +560,54 @@ export function SetupWizardFlow() {
               Subscription Payment
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Enter your payment details to activate your subscription.
+              Choose a subscription plan and start the payment setup.
             </Text>
-            <View style={{ backgroundColor: theme.colors.feedback.warningLight, padding: theme.spacing.md, borderRadius: 8, marginBottom: theme.spacing.lg }}>
-              <Text style={[theme.typography.body2, { color: theme.colors.text.primary }]}>
-                ⚠️ Payment integration is required before going live. Please contact support to set up your subscription.
-              </Text>
+            <View style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
+              {subscriptionPlans.map(plan => {
+                const isSelected = selectedSubscriptionPlan === plan.plan_code;
+                return (
+                  <TouchableOpacity
+                    key={plan.plan_code}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: isSelected ? theme.colors.primary.default : theme.colors.border.default,
+                      backgroundColor: isSelected ? theme.colors.primary.light : theme.colors.background.elevated,
+                      padding: theme.spacing.md,
+                      borderRadius: theme.spacing.sm,
+                    }}
+                    onPress={() => setSelectedSubscriptionPlan(plan.plan_code)}
+                  >
+                    <Text style={[theme.typography.subtitle1, { color: theme.colors.text.primary }]}>
+                      {plan.name}
+                    </Text>
+                    <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
+                      ₹{plan.base_price.toLocaleString('en-IN')} / month
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <TouchableOpacity
-              style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center' }]}
-              onPress={() => Alert.alert('Coming Soon', 'Payment integration will be available soon. For now, you can proceed with the setup.')}
+              style={[
+                styles.linkButton,
+                {
+                  backgroundColor: theme.colors.primary.default,
+                  padding: theme.spacing.md,
+                  borderRadius: theme.spacing.sm,
+                  alignItems: 'center',
+                  opacity: isSettingUpSubscription ? 0.7 : 1,
+                },
+              ]}
+              disabled={isSettingUpSubscription}
+              onPress={handleSetupSubscriptionPayment}
             >
-              <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-                Set Up Payment
-              </Text>
+              {isSettingUpSubscription ? (
+                <ActivityIndicator color={theme.colors.text.onPrimary} />
+              ) : (
+                <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
+                  Set Up Payment
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         );
@@ -409,6 +621,7 @@ export function SetupWizardFlow() {
             totalSteps={statusData?.total_steps || 0}
             allSteps={steps}
             isWizardMode={true}
+            onRegisterSaveHandler={registerSaveHandler}
           />
         );
 
@@ -416,7 +629,7 @@ export function SetupWizardFlow() {
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary }]}>
-              Step "{currentStep.code}" is not yet implemented.
+              Step {currentStep.code} is not yet implemented.
             </Text>
           </View>
         );
@@ -463,7 +676,7 @@ export function SetupWizardFlow() {
           </Text>
         )}
         <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, marginTop: theme.spacing.lg, borderRadius: 8 }]}
+          style={[styles.retryButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, marginTop: theme.spacing.lg, borderRadius: theme.spacing.sm }]}
           onPress={() => refetch()}
         >
           <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
@@ -506,18 +719,19 @@ export function SetupWizardFlow() {
               borderWidth: 1,
               borderColor: theme.colors.border.default,
               padding: theme.spacing.md,
-              borderRadius: 8,
+              borderRadius: theme.spacing.sm,
               flexDirection: 'row',
               alignItems: 'center',
-              opacity: currentStepIndex === 0 ? 0.5 : 1,
-              cursor: currentStepIndex === 0 ? ('not-allowed' as any) : ('pointer' as any),
+              opacity: currentStepIndex === 0 || isNextPending ? 0.5 : 1,
+              cursor: currentStepIndex === 0 || isNextPending ? ('not-allowed' as any) : ('pointer' as any),
             },
           ]}
           onPress={handlePrevious}
-          disabled={currentStepIndex === 0}
+          disabled={currentStepIndex === 0 || isNextPending}
+          accessibilityState={{ disabled: currentStepIndex === 0 || isNextPending }}
         >
           <Ionicons name="chevron-back" size={20} color={theme.colors.text.primary} />
-          <Text style={[theme.typography.button, { color: theme.colors.text.primary, marginLeft: 4 }]}>
+          <Text style={[theme.typography.button, { color: theme.colors.text.primary, marginLeft: theme.spacing.xs }]}>
             Previous
           </Text>
         </TouchableOpacity>
@@ -528,18 +742,27 @@ export function SetupWizardFlow() {
             {
               backgroundColor: theme.colors.primary.default,
               padding: theme.spacing.md,
-              borderRadius: 8,
+              borderRadius: theme.spacing.sm,
               flexDirection: 'row',
               alignItems: 'center',
-              cursor: 'pointer' as any,
+              opacity: isNextPending ? 0.7 : 1,
+              cursor: isNextPending ? ('not-allowed' as any) : ('pointer' as any),
             },
           ]}
           onPress={handleNext}
+          disabled={isNextPending}
+          accessibilityState={{ disabled: isNextPending }}
         >
-          <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary, marginRight: 4 }]}>
-            {currentStepIndex === steps.length - 1 ? 'Complete' : 'Next'}
-          </Text>
-          <Ionicons name="chevron-forward" size={20} color={theme.colors.text.onPrimary} />
+          {isNextPending ? (
+            <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
+          ) : (
+            <>
+              <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary, marginRight: theme.spacing.xs }]}>
+                {currentStepIndex === steps.length - 1 ? 'Complete' : 'Next'}
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.text.onPrimary} />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>

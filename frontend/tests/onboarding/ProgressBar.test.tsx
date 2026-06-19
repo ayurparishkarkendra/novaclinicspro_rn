@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { ProgressBar } from '../../features/onboarding/presentation/components/ProgressBar';
 
@@ -56,8 +57,8 @@ describe('ProgressBar Component', () => {
   });
 
   it('renders progress bar fill with correct width', () => {
-    const { UNSAFE_getByType } = render(<ProgressBar percentage={60} />);
-    const views = UNSAFE_getByType('View');
+    const { UNSAFE_getAllByType } = render(<ProgressBar percentage={60} />);
+    const views = UNSAFE_getAllByType(View);
 
     // Find the fill view (should have width: '60%')
     const fillView = views.find((view: any) => 

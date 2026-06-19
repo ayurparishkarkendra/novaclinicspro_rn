@@ -21,6 +21,7 @@ interface UseAuthReturn {
   logout: () => Promise<void>;
   bootstrapSession: () => Promise<{ authenticated: boolean; session: AuthUserSession | null }>;
   refreshSession: () => Promise<void>;
+  navigateToLanding: () => void;
 }
 
 export const useAuth = (): UseAuthReturn => {
@@ -249,8 +250,18 @@ export const useAuth = (): UseAuthReturn => {
     // Route based on application status
     switch (user.applicationStatus) {
       case 'onboarding':
-        console.log('[useAuth] Status is onboarding, navigating to wizard');
-        router.replace('/onboarding/wizard-flow');
+        if (user.tenantId) {
+          console.log('[useAuth] Status is onboarding, navigating to wizard');
+          router.replace(`/onboarding/wizard-flow?tenantId=${user.tenantId}`);
+        } else {
+          console.log('[useAuth] Status is onboarding but tenantId is missing, routing through index');
+          router.replace('/');
+        }
+        break;
+        
+      case 'approved':
+        console.log('[useAuth] Status is approved, routing through index to resolve applicationId');
+        router.replace('/');
         break;
         
       case 'active':
@@ -265,7 +276,7 @@ export const useAuth = (): UseAuthReturn => {
         } else if (userRole === 'therapist') {
           console.log('[useAuth] Routing to therapist dashboard');
           router.replace('/therapist');
-        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+        } else if (['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'].includes(userRole)) {
           console.log('[useAuth] Routing to clinic-admin dashboard');
           router.replace('/clinic-admin');
         } else {
@@ -276,13 +287,18 @@ export const useAuth = (): UseAuthReturn => {
         break;
         
       case 'pending_review':
-        console.log('[useAuth] Status is pending_review');
-        router.replace('/onboarding/pending-review');
+        console.log('[useAuth] Status is pending_review, routing through index to resolve applicationId');
+        router.replace('/');
         break;
         
       case 'rejected':
-        console.log('[useAuth] Status is rejected');
-        router.replace('/onboarding/rejected');
+        console.log('[useAuth] Status is rejected, routing through index to resolve applicationId');
+        router.replace('/');
+        break;
+        
+      case 'draft':
+        console.log('[useAuth] Status is draft, routing through index to resolve applicationId');
+        router.replace('/');
         break;
         
       default:

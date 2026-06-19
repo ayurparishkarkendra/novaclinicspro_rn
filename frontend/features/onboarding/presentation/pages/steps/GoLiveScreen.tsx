@@ -3,10 +3,9 @@
  * Final step - Review setup and mark clinic as ready to go live
  */
 
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../../auth/presentation/hooks/useAuth';
@@ -19,11 +18,11 @@ interface GoLiveScreenProps {
   totalSteps: number;
   allSteps?: Array<{ code: string; name: string; status: string }>; // Add all steps for dynamic checklist
   isWizardMode?: boolean; // Hide internal button when in wizard mode
+  onRegisterSaveHandler?: (handler: (() => Promise<void>) | null) => void;
 }
 
-export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps, allSteps = [], isWizardMode = false }: GoLiveScreenProps) {
+export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps, allSteps = [], isWizardMode = false, onRegisterSaveHandler }: GoLiveScreenProps) {
   const theme = useClinicTheme();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { refreshSession } = useAuth();
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -40,8 +39,9 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
     }));
 
   const allComplete = checklistItems.every(item => item.completed);
+  const isGoLivePending = submitStepMutation.isPending || completeSetupMutation.isPending;
 
-  const handleGoLive = async () => {
+  const handleGoLive = useCallback(async () => {
     if (!agreedToTerms) {
       Alert.alert('Agreement Required', 'Please agree to the terms and conditions to proceed.');
       return;
@@ -84,7 +84,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           {
             text: 'Go to Dashboard',
             onPress: () => {
-              router.replace('/clinic-admin');
+              onComplete();
             },
           },
         ]
@@ -93,7 +93,19 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       console.error('[GoLiveScreen] Error during go-live:', error);
       Alert.alert('Error', error.message || 'Failed to mark clinic as live. Please try again.');
     }
-  };
+  }, [agreedToTerms, allComplete, completeSetupMutation, onComplete, queryClient, refreshSession, submitStepMutation, tenantId]);
+
+  useEffect(() => {
+    if (!isWizardMode || !onRegisterSaveHandler) {
+      return;
+    }
+
+    onRegisterSaveHandler(handleGoLive);
+
+    return () => {
+      onRegisterSaveHandler(null);
+    };
+  }, [handleGoLive, isWizardMode, onRegisterSaveHandler]);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: theme.spacing.lg }}>
@@ -116,7 +128,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           Ready to Go Live!
         </Text>
         <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, textAlign: 'center', marginTop: theme.spacing.sm }]}>
-          You've completed {completedSteps} of {totalSteps} setup steps
+          You have completed {completedSteps} of {totalSteps} setup steps
         </Text>
       </View>
 
@@ -183,7 +195,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           color={agreedToTerms ? theme.colors.primary.default : theme.colors.text.secondary}
         />
         <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          I confirm that all information is accurate and I'm ready to start accepting patients
+          I confirm that all information is accurate and I am ready to start accepting patients
         </Text>
       </TouchableOpacity>
 
@@ -209,16 +221,21 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           style={{
             backgroundColor: allComplete && agreedToTerms ? theme.colors.feedback.success : theme.colors.surface.elevated,
             padding: theme.spacing.md,
-            borderRadius: 8,
+            borderRadius: theme.spacing.sm,
             alignItems: 'center',
-            opacity: allComplete && agreedToTerms ? 1 : 0.5,
+            opacity: allComplete && agreedToTerms && !isGoLivePending ? 1 : 0.5,
           }}
           onPress={handleGoLive}
-          disabled={!allComplete || !agreedToTerms || submitStepMutation.isPending || completeSetupMutation.isPending}
+          disabled={!allComplete || !agreedToTerms || isGoLivePending}
+          accessibilityState={{ disabled: !allComplete || !agreedToTerms || isGoLivePending }}
         >
-          <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-            {submitStepMutation.isPending || completeSetupMutation.isPending ? 'Processing...' : 'Go Live Now! 🚀'}
-          </Text>
+          {isGoLivePending ? (
+            <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
+          ) : (
+            <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
+              Go Live Now! 🚀
+            </Text>
+          )}
         </TouchableOpacity>
       )}
     </ScrollView>

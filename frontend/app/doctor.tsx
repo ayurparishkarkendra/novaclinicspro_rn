@@ -80,7 +80,7 @@ export default function DoctorDashboard() {
         // Redirect to appropriate dashboard based on role
         if (userRole === 'therapist') {
           router.replace('/therapist');
-        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+        } else if (['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'].includes(userRole)) {
           router.replace('/clinic-admin');
         } else {
           // Unknown role, redirect to index for proper routing

@@ -2,7 +2,7 @@
  * Test Setup for Onboarding Module
  */
 
-import '@testing-library/jest-native/extend-expect';
+import '@testing-library/react-native/build/matchers/extend-expect';
 
 // Mock React Native modules
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');

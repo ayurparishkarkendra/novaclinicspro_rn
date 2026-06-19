@@ -86,14 +86,20 @@ export default function Index() {
       return;
     }
 
-    // Priority 2: Route based on application_status from /auth/me
+    // Priority 2: Route based on application_status from /auth/me.
+    // Status pages and the approval choice screen need application_id, which
+    // /auth/me does not provide. For no-tenant users, use registration status.
     if (currentUser.applicationStatus) {
       console.log('[Index] Has applicationStatus:', currentUser.applicationStatus);
       switch (currentUser.applicationStatus) {
         case 'onboarding':
-          console.log('[Index] Application status is onboarding, redirecting to wizard');
-          router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
-          return;
+          if (currentUser.tenantId) {
+            console.log('[Index] Application status is onboarding, redirecting to wizard');
+            router.replace(`/onboarding/setup-wizard?tenantId=${currentUser.tenantId}`);
+            return;
+          }
+          console.log('[Index] Onboarding status without tenantId, deferring to registration status');
+          break;
         case 'active':
           console.log('[Index] Application status is active, routing to appropriate dashboard');
           // Route to appropriate dashboard based on role
@@ -106,7 +112,7 @@ export default function Index() {
           } else if (userRole === 'therapist') {
             console.log('[Index] Routing to therapist dashboard');
             router.replace('/therapist');
-          } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+          } else if (['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'].includes(userRole)) {
             console.log('[Index] Routing to clinic-admin dashboard');
             router.replace('/clinic-admin');
           } else {
@@ -115,14 +121,18 @@ export default function Index() {
             router.replace('/clinic-admin');
           }
           return;
+        case 'approved':
+          console.log('[Index] Application status is approved, deferring to registration status for applicationId');
+          break;
         case 'pending_review':
-          console.log('[Index] Application status is pending_review');
-          router.replace('/onboarding/pending-review');
-          return;
+          console.log('[Index] Application status is pending_review, deferring to registration status for applicationId');
+          break;
         case 'rejected':
-          console.log('[Index] Application status is rejected');
-          router.replace('/onboarding/rejected');
-          return;
+          console.log('[Index] Application status is rejected, deferring to registration status for applicationId');
+          break;
+        case 'draft':
+          console.log('[Index] Application status is draft, deferring to registration status for applicationId');
+          break;
       }
     }
 
@@ -148,13 +158,13 @@ export default function Index() {
         const userRole = currentUser.roles?.[0]?.toLowerCase() || '';
         console.log('[Index] User role:', userRole);
         
-        if (userRole === 'doctor' || userRole === 'tenant admin' || userRole === 'tenant_admin') {
+        if (userRole === 'doctor') {
           console.log('[Index] Routing to doctor dashboard');
           router.replace('/doctor');
         } else if (userRole === 'therapist') {
           console.log('[Index] Routing to therapist dashboard');
           router.replace('/therapist');
-        } else if (userRole === 'clinic admin' || userRole === 'clinic_admin' || userRole === 'receptionist') {
+        } else if (['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'].includes(userRole)) {
           console.log('[Index] Routing to clinic-admin dashboard');
           router.replace('/clinic-admin');
         } else {

@@ -35,6 +35,10 @@ import {
   CompleteSetupResponse,
 } from '../models/onboarding.dtos';
 
+type StepSubmitVariables = StepSubmitRequest & {
+  idempotencyKey?: string;
+};
+
 // ============================================
 // QUERY KEYS
 // ============================================
@@ -243,10 +247,9 @@ export const useOnboardingStatusQuery = (
 export const useSubmitStepMutation = (tenantId: string, stepCode: string) => {
   const queryClient = useQueryClient();
 
-  return useMutation<StepSubmitResponse, Error, StepSubmitRequest>({
-    mutationFn: (data) => submitStepDataApi(tenantId, stepCode, data),
+  return useMutation<StepSubmitResponse, Error, StepSubmitVariables>({
+    mutationFn: ({ idempotencyKey, ...data }) => submitStepDataApi(tenantId, stepCode, data, idempotencyKey),
     onSuccess: () => {
-      // Invalidate onboarding status to refetch
       queryClient.invalidateQueries({ queryKey: onboardingKeys.status(tenantId) });
     },
     onError: (error) => {

@@ -237,21 +237,26 @@ export const getOnboardingStatusApi = async (
 export const submitStepDataApi = async (
   tenantId: string,
   stepCode: string,
-  data: StepSubmitRequest
+  data: StepSubmitRequest,
+  idempotencyKey?: string
 ): Promise<StepSubmitResponse> => {
   try {
     const url = `/api/v1/onboarding/${tenantId}/steps/${stepCode}`;
     console.log('[submitStepDataApi] POST', url);
     console.log('[submitStepDataApi] Request data:', JSON.stringify(data, null, 2));
+
+    const headers: Record<string, string> = {
+      'X-Tenant-ID': tenantId, // TODO: Req 11 - remove after staging confirms tenant_id is present in JWT for provisional and live tenants.
+    };
+
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
     
     const response = await axiosClient.post<StepSubmitResponse>(
       url,
       data,
-      {
-        headers: {
-          'X-Tenant-ID': tenantId, // Workaround for missing tenant_id in JWT
-        },
-      }
+      { headers }
     );
     
     console.log('[submitStepDataApi] Response:', JSON.stringify(response.data, null, 2));
@@ -278,5 +283,56 @@ export const completeSetupApi = async (
   } catch (error: any) {
     logError('completeSetupApi', error);
     throw new Error(getErrorMessage(error, 'Unable to complete setup. Please try again.'));
+  }
+};
+
+export interface SubscriptionPlanInfo {
+  plan_code: string;
+  name: string;
+  base_price: number;
+  billing_cycle: string;
+  limits: Record<string, unknown>;
+  features: string[];
+}
+
+export interface SubscriptionCreateResponse {
+  success: boolean;
+  message: string;
+  subscription_id?: string | null;
+  plan_code?: string | null;
+  plan_name?: string | null;
+  base_price?: number | null;
+  billing_cycle?: string | null;
+  next_billing_date?: string | null;
+  provider?: string | null;
+  provider_subscription_id?: string | null;
+  checkout_url?: string | null;
+  requires_internal_payment_setup?: boolean;
+}
+
+export const getSubscriptionPlansApi = async (): Promise<{ plans: SubscriptionPlanInfo[]; total_plans: number }> => {
+  try {
+    const response = await axiosClient.get('/api/v1/billing/subscription-plans');
+    return response.data;
+  } catch (error: any) {
+    logError('getSubscriptionPlansApi', error);
+    throw new Error(getErrorMessage(error, 'Unable to load subscription plans. Please try again.'));
+  }
+};
+
+export const createTenantSubscriptionApi = async (
+  tenantId: string,
+  data: { plan_code: string; billing_cycle: string; promotional_code?: string | null }
+): Promise<SubscriptionCreateResponse> => {
+  try {
+    const response = await axiosClient.post<SubscriptionCreateResponse>(
+      `/api/v1/billing/tenants/${tenantId}/subscription`,
+      data,
+      { headers: { 'X-Tenant-ID': tenantId } }
+    );
+    return response.data;
+  } catch (error: any) {
+    logError('createTenantSubscriptionApi', error);
+    throw new Error(getErrorMessage(error, 'Unable to set up subscription payment. Please try again.'));
   }
 };

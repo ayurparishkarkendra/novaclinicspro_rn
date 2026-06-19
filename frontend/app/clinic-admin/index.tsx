@@ -35,6 +35,7 @@ import { t, ErrorTokens } from '../../core/localization';
 import { useStaffListQuery } from '../../features/staff/data/repositories/staff.repository.impl';
 import { ClinicFeedbackSummarySection } from '../../features/feedback';
 import { useOnboardingStatusQuery } from '../../features/onboarding/data/repositories/onboarding.repository.impl';
+import { useFeatures, hasTreatmentSheets, isTherapyClinic } from '../../core/hooks/useFeatures';
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
@@ -48,15 +49,18 @@ export default function ClinicAdminDashboard() {
   
   // Determine if we're on mobile (< 768px) or web
   const isMobile = width < 768;
+  const features = useFeatures();
+  const therapyClinic = isTherapyClinic(features);
+  const treatmentSheetsEnabled = hasTreatmentSheets(features);
 
-  // Route guard - only allow clinic_admin, receptionist, and tenant_admin roles
+  // Route guard - only allow clinic owner/admin, receptionist, and tenant_admin roles
   React.useEffect(() => {
     if (currentUser && currentUser.roles && currentUser.roles.length > 0) {
       const userRole = currentUser.roles[0]?.toLowerCase() || '';
       console.log('[ClinicAdmin] Route guard checking role:', userRole);
       
-      // Allow: clinic_admin, clinic admin, receptionist, tenant_admin, tenant admin
-      const allowedRoles = ['clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'];
+      // Allow all owner/admin variants that should land in clinic-admin.
+      const allowedRoles = ['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'];
       
       if (!allowedRoles.includes(userRole) && !currentUser.isOrgAdmin) {
         console.log('[ClinicAdmin] Access denied, redirecting to appropriate dashboard');
@@ -110,7 +114,7 @@ export default function ClinicAdminDashboard() {
   const { data: pendingOrdersData } = useTreatmentOrdersQuery(
     tenantId,
     { state: 'ORDERED', limit: 1 },
-    { enabled: !!tenantId }
+    { enabled: !!tenantId && treatmentSheetsEnabled }
   );
 
   // Fetch staff data for Staff Status section
@@ -262,7 +266,7 @@ export default function ClinicAdminDashboard() {
         </View>
 
         {/* Treatment Plans Pending Scheduling Banner */}
-        {(pendingOrdersData?.total ?? 0) > 0 && (
+        {treatmentSheetsEnabled && (pendingOrdersData?.total ?? 0) > 0 && (
           <TouchableOpacity
             style={[styles.pendingOrdersBanner, { backgroundColor: colors.info.main + '12', borderColor: colors.info.main + '40' }]}
             onPress={() => router.push('/clinic-admin/treatment-sheets/orders' as any)}
@@ -311,12 +315,14 @@ export default function ClinicAdminDashboard() {
               href="/clinic-admin/staff/leave"
               color={colors.warning.main}
             />
-            <QuickActionButton
-              icon="calendar-number"
-              label="Tx Orders"
-              href="/clinic-admin/treatment-sheets/orders"
-              color={colors.info.main}
-            />
+            {treatmentSheetsEnabled && (
+              <QuickActionButton
+                icon="calendar-number"
+                label="Tx Orders"
+                href="/clinic-admin/treatment-sheets/orders"
+                color={colors.info.main}
+              />
+            )}
             <QuickActionButton
               icon="cube"
               label="Inventory"
@@ -382,7 +388,7 @@ export default function ClinicAdminDashboard() {
               </View>
               <View style={styles.settingsInfo}>
                 <Text style={styles.settingsTitle}>Rooms & Resources</Text>
-                <Text style={styles.settingsDescription}>Manage therapy rooms</Text>
+                <Text style={styles.settingsDescription}>{therapyClinic ? 'Manage therapy rooms' : 'Manage consulting rooms'}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
             </Pressable>
@@ -391,11 +397,11 @@ export default function ClinicAdminDashboard() {
           <Link href="/clinic-admin/settings/treatments" asChild>
             <Pressable style={styles.settingsCard}>
               <View style={[styles.settingsIcon, { backgroundColor: colors.warning.main + '15' }]}>
-                <Ionicons name="leaf-outline" size={24} color={colors.warning.main} />
+                <Ionicons name={therapyClinic ? 'leaf-outline' : 'medical-outline'} size={24} color={colors.warning.main} />
               </View>
               <View style={styles.settingsInfo}>
-                <Text style={styles.settingsTitle}>Treatments & Services</Text>
-                <Text style={styles.settingsDescription}>Configure Ayurvedic treatments</Text>
+                <Text style={styles.settingsTitle}>{therapyClinic ? 'Treatments & Services' : 'Services'}</Text>
+                <Text style={styles.settingsDescription}>{therapyClinic ? 'Configure Ayurvedic treatments' : 'Configure consultation services'}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
             </Pressable>

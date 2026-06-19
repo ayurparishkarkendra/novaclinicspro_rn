@@ -47,20 +47,33 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
         console.log('[AuthProvider] Routing based on status:', user.applicationStatus);
         switch (user.applicationStatus) {
           case 'onboarding':
-            console.log('[AuthProvider] Routing to wizard-flow');
-            router.replace('/onboarding/wizard-flow');
+            if (user.tenantId) {
+              console.log('[AuthProvider] Routing to wizard-flow');
+              router.replace(`/onboarding/wizard-flow?tenantId=${user.tenantId}`);
+            } else {
+              console.log('[AuthProvider] Onboarding status without tenantId, routing through index');
+              router.replace('/');
+            }
             break;
           case 'active':
             console.log('[AuthProvider] Routing to clinic-admin');
             router.replace('/clinic-admin');
             break;
+          case 'approved':
+            console.log('[AuthProvider] Approved status needs applicationId, routing through index');
+            router.replace('/');
+            break;
           case 'pending_review':
-            console.log('[AuthProvider] Routing to pending-review');
-            router.replace('/onboarding/pending-review');
+            console.log('[AuthProvider] Pending review status needs applicationId, routing through index');
+            router.replace('/');
             break;
           case 'rejected':
-            console.log('[AuthProvider] Routing to rejected');
-            router.replace('/onboarding/rejected');
+            console.log('[AuthProvider] Rejected status needs applicationId, routing through index');
+            router.replace('/');
+            break;
+          case 'draft':
+            console.log('[AuthProvider] Draft status needs applicationId, routing through index');
+            router.replace('/');
             break;
           default:
             // Unknown status or no tenant

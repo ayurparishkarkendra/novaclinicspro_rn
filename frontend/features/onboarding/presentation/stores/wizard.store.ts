@@ -3,8 +3,7 @@
  * Manages wizard state and step data before API submission
  */
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { create, type StateCreator } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ClinicProfileData {
@@ -107,12 +106,75 @@ const initialState = {
   isDirty: false,
 };
 
+interface PersistWizardOptions<TState> {
+  name: string;
+  partialize: (state: TState) => Partial<TState>;
+}
+
+const persistWizardState = <TState,>(
+  createState: StateCreator<TState, [], []>,
+  options: PersistWizardOptions<TState>
+): StateCreator<TState, [], []> => (set, get, api) => {
+  const canUseStorage = typeof window !== 'undefined';
+
+  const persistState = async () => {
+    if (!canUseStorage) return;
+
+    try {
+      const partialState = options.partialize(get());
+      await AsyncStorage.setItem(
+        options.name,
+        JSON.stringify({ state: partialState, version: 0 })
+      );
+    } catch (error) {
+      console.warn('[WizardStore] Failed to persist wizard state:', error);
+    }
+  };
+
+  const setAndPersist: typeof set = (partial, replace) => {
+    (set as any)(partial, replace);
+    void persistState();
+  };
+
+  const state = createState(setAndPersist, get, api);
+
+  if (canUseStorage) {
+    AsyncStorage.getItem(options.name)
+      .then((storedValue) => {
+        if (!storedValue) return;
+
+        const parsed = JSON.parse(storedValue);
+        if (parsed?.state) {
+          set({
+            ...get(),
+            ...parsed.state,
+          });
+        }
+      })
+      .catch((error) => {
+        console.warn('[WizardStore] Failed to hydrate wizard state:', error);
+      });
+  }
+
+  return state;
+};
+
 export const useWizardStore = create<WizardState>()(
-  persist(
+  persistWizardState(
     (set, get) => ({
       ...initialState,
 
-      setTenantId: (tenantId) => set({ tenantId }),
+      setTenantId: (tenantId) =>
+        set((state) => {
+          if (state.tenantId === tenantId) {
+            return { tenantId };
+          }
+
+          return {
+            ...initialState,
+            tenantId,
+          };
+        }),
       
       setCurrentStepIndex: (index) => set({ currentStepIndex: index }),
 
@@ -191,7 +253,6 @@ export const useWizardStore = create<WizardState>()(
     }),
     {
       name: 'wizard-storage',
-      storage: createJSONStorage(() => AsyncStorage),
       // Only persist wizard data, not UI state
       partialize: (state) => ({
         tenantId: state.tenantId,

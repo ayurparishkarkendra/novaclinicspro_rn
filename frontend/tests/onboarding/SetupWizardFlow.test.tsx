@@ -14,8 +14,9 @@
  */
 
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BackHandler } from 'react-native';
 import { SetupWizardFlow } from '../../features/onboarding/presentation/pages/SetupWizardFlow';
 
 // ---------------------------------------------------------------------------
@@ -94,9 +95,14 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
 
 // Mutable query mock — tests override return value per case.
 const mockRefetch = jest.fn();
+const mockMutateAsync = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: any[]) => mockUseOnboardingStatusQuery(...args),
+  useSubmitStepMutation: () => ({
+    mutateAsync: (...args: any[]) => mockMutateAsync(...args),
+    isPending: false,
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -122,6 +128,42 @@ const buildStatus = (visible_steps: string[] | null) => ({
   actionable_steps: visible_steps ?? [],
 });
 
+const buildValidation = (
+  visibleSteps: string[],
+  completedStepCodes: string[] = []
+) => Object.fromEntries(
+  visibleSteps.map(stepCode => [
+    stepCode,
+    {
+      step_code: stepCode,
+      status: completedStepCodes.includes(stepCode) ? 'completed' : 'not_started',
+      is_complete: completedStepCodes.includes(stepCode),
+      is_valid: completedStepCodes.includes(stepCode),
+      issues: [],
+      blocked_reason: null,
+      action_url_template: null,
+      entity_type: null,
+      icon: null,
+      category: null,
+      visible: true,
+      actionable: true,
+    },
+  ])
+);
+
+const buildStatusWithSteps = (
+  visibleSteps: string[],
+  completedStepCodes: string[] = []
+) => ({
+  ...buildStatus(visibleSteps),
+  total_steps: visibleSteps.length,
+  completed_steps: completedStepCodes.length,
+  pending_steps: visibleSteps.length - completedStepCodes.length,
+  per_step_validation: buildValidation(visibleSteps, completedStepCodes),
+  visible_steps: visibleSteps,
+  actionable_steps: visibleSteps,
+});
+
 const renderFlow = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -140,6 +182,8 @@ const renderFlow = () => {
 describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefetch.mockResolvedValue({});
+    mockMutateAsync.mockResolvedValue({});
   });
 
   // ── 1. console.error fires on visible_steps: null ─────────────────────────
@@ -289,5 +333,206 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       expect.anything(),
       expect.anything()
     );
+  });
+
+  it('renders the Treatments redirect card for all service catalogue aliases', async () => {
+    for (const stepCode of ['services', 'services_and_specialities', 'treatment_services']) {
+      jest.clearAllMocks();
+      mockUseOnboardingStatusQuery.mockReturnValue({
+        data: buildStatusWithSteps([stepCode]),
+        isLoading: false,
+        error: null,
+        refetch: mockRefetch,
+      });
+
+      const { getByText, unmount } = renderFlow();
+
+      await waitFor(() => {
+        expect(getByText('Treatments & Therapies')).toBeTruthy();
+        expect(getByText('Go to Treatments Management')).toBeTruthy();
+      });
+
+      unmount();
+    }
+  });
+
+  it('submits an external step only once during rapid Next taps and sends the idempotency key', async () => {
+    let resolveSubmit: (() => void) | undefined;
+    mockMutateAsync.mockImplementation(() => new Promise<void>(resolve => {
+      resolveSubmit = resolve;
+    }));
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services', 'inventory_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Next')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Next'));
+    fireEvent.press(getByText('Next'));
+
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockMutateAsync.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        data: {},
+        mark_complete: true,
+        idempotencyKey: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+        ),
+      })
+    );
+
+    await act(async () => {
+      resolveSubmit?.();
+    });
+  });
+
+  it('does not advance until refetch resolves after submit', async () => {
+    let resolveRefetch: (() => void) | undefined;
+    mockMutateAsync.mockResolvedValue({});
+    mockRefetch.mockImplementation(() => new Promise<void>(resolve => {
+      resolveRefetch = resolve;
+    }));
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services', 'inventory_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Next'));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+    expect(queryByText('Inventory Setup')).toBeNull();
+
+    await act(async () => {
+      resolveRefetch?.();
+    });
+
+    await waitFor(() => {
+      expect(getByText('Inventory Setup')).toBeTruthy();
+    });
+  });
+
+  it('drops stale submission completions after unmount without refetching or navigating', async () => {
+    let firstResolveSubmit: (() => void) | undefined;
+    mockMutateAsync
+      .mockImplementationOnce(() => new Promise<void>(resolve => {
+        firstResolveSubmit = resolve;
+      }));
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services', 'inventory_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, unmount } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    mockRefetch.mockClear();
+    fireEvent.press(getByText('Next'));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    unmount();
+
+    await act(async () => {
+      firstResolveSubmit?.();
+    });
+
+    expect(mockRefetch).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/clinic-admin?tenantId=test-tenant-456');
+  });
+
+  it('uses Android hardware back to move to the previous step without exiting', async () => {
+    let hardwareBackHandler: (() => boolean) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        hardwareBackHandler = handler as () => boolean;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services', 'inventory_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Next'));
+    await waitFor(() => {
+      expect(getByText('Inventory Setup')).toBeTruthy();
+    });
+
+    const consumed = hardwareBackHandler?.();
+
+    expect(consumed).toBe(true);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  it('consumes Android hardware back on the first step without navigation', async () => {
+    let hardwareBackHandler: (() => boolean) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        hardwareBackHandler = handler as () => boolean;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(hardwareBackHandler).toBeDefined();
+    });
+
+    const consumed = hardwareBackHandler?.();
+
+    expect(consumed).toBe(true);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
   });
 });

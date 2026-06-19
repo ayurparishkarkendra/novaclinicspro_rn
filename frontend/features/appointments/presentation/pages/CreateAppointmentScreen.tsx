@@ -178,9 +178,10 @@ const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange, allowMulti
 interface SessionTypeSelectorProps {
   value: SessionType;
   onChange: (type: SessionType) => void;
+  allowTherapySession: boolean;
 }
 
-const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange }) => (
+const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange, allowTherapySession }) => (
   <View style={styles.sessionTypeSelector} accessibilityRole="radiogroup" accessibilityLabel="Session Type">
     <TouchableOpacity
       style={[styles.sessionTypeOption, value === 'DOCTOR' && styles.sessionTypeOptionSelected]}
@@ -198,22 +199,24 @@ const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChan
         Doctor Consultation
       </Text>
     </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.sessionTypeOption, value === 'THERAPY' && styles.sessionTypeOptionSelected]}
-      onPress={() => onChange('THERAPY')}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: value === 'THERAPY' }}
-      accessibilityLabel="Therapy Session"
-    >
-      <Ionicons
-        name="fitness"
-        size={18}
-        color={value === 'THERAPY' ? colors.background.default : colors.text.secondary}
-      />
-      <Text style={[styles.sessionTypeText, value === 'THERAPY' && styles.sessionTypeTextSelected]}>
-        Therapy Session
-      </Text>
-    </TouchableOpacity>
+    {allowTherapySession && (
+      <TouchableOpacity
+        style={[styles.sessionTypeOption, value === 'THERAPY' && styles.sessionTypeOptionSelected]}
+        onPress={() => onChange('THERAPY')}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === 'THERAPY' }}
+        accessibilityLabel="Therapy Session"
+      >
+        <Ionicons
+          name="fitness"
+          size={18}
+          color={value === 'THERAPY' ? colors.background.default : colors.text.secondary}
+        />
+        <Text style={[styles.sessionTypeText, value === 'THERAPY' && styles.sessionTypeTextSelected]}>
+          Therapy Session
+        </Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -705,21 +708,36 @@ export const CreateAppointmentScreen: React.FC = () => {
     enabled: !!tenantId,
   });
   
-  // Determine if multi-day appointments are allowed
-  // Priority: JWT features > Tenant clinic_type fallback
-  const allowMultiDay = features.appointments.allow_multiday || 
-    (tenant?.clinic_type?.toLowerCase() === 'ayurveda') ||
-    (tenant?.clinic_type?.toLowerCase() === 'physio');
+  const tenantClinicType = tenant?.clinic_type?.toLowerCase();
+  const effectiveClinicType = tenantClinicType || features.clinic_type || 'general';
+  const isTherapyClinic = effectiveClinicType === 'ayurveda' || effectiveClinicType === 'physio';
+
+  // General clinics must not inherit stale Ayurveda/Physio JWT feature flags.
+  const allowMultiDay = isTherapyClinic && features.appointments.allow_multiday;
+  const allowTherapySession = isTherapyClinic && (
+    features.appointments.allow_multiday || features.treatment_sheets.enable_treatment_sheets
+  );
   
   console.log('[CreateAppointmentScreen] Feature check:', {
     jwtFeatures: features,
     tenantClinicType: tenant?.clinic_type,
+    effectiveClinicType,
     allowMultiDay,
+    allowTherapySession,
   });
 
   // ===== TOP-LEVEL STATE =====
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('SINGLE');
   const [sessionType, setSessionType] = useState<SessionType>('DOCTOR');
+
+  useEffect(() => {
+    if (!allowMultiDay && appointmentType === 'MULTI') {
+      setAppointmentType('SINGLE');
+    }
+    if (!allowTherapySession && sessionType === 'THERAPY') {
+      setSessionType('DOCTOR');
+    }
+  }, [allowMultiDay, allowTherapySession, appointmentType, sessionType]);
   
   // Client (shared across all forms)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -1037,7 +1055,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   );
   
   // Fetch therapists for therapy and multi-day modes
-  const shouldFetchTherapists = (appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI';
+  const shouldFetchTherapists = allowTherapySession && ((appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI');
   const { data: therapistsData, isLoading: isLoadingTherapists, isFetched: isTherapistsFetched } = useStaffListQuery(
     tenantId, 
     { staff_type: 'therapist', is_active: true, limit: 100 },
@@ -1743,10 +1761,10 @@ export const CreateAppointmentScreen: React.FC = () => {
             )}
 
             {/* Session Type Toggle (Single day only) */}
-            {appointmentType === 'SINGLE' && (
+            {appointmentType === 'SINGLE' && allowTherapySession && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Session Type</Text>
-                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} />
+                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} allowTherapySession={allowTherapySession} />
               </View>
             )}
 
@@ -1797,7 +1815,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             )}
 
             {/* ===== THERAPY SESSION FORM ===== */}
-            {appointmentType === 'SINGLE' && sessionType === 'THERAPY' && (
+            {appointmentType === 'SINGLE' && allowTherapySession && sessionType === 'THERAPY' && (
               <>
                 {/* Treatment */}
                 <View style={styles.section}>
@@ -1854,7 +1872,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             )}
 
             {/* ===== MULTI-DAY FORM ===== */}
-            {appointmentType === 'MULTI' && (
+            {allowMultiDay && appointmentType === 'MULTI' && (
               <>
                 {/* Treatment (ABOVE duration) */}
                 <View style={styles.section}>
@@ -2056,7 +2074,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             </View>
 
             {/* Number of Sessions (Multi-day only) */}
-            {appointmentType === 'MULTI' && (
+            {allowMultiDay && appointmentType === 'MULTI' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Number of Sessions</Text>
                 <View style={styles.sessionsRow}>

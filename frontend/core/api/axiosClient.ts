@@ -32,7 +32,19 @@ export const axiosClient = axios.create({
 /**
  * Recursively transform Date objects to UTC ISO strings for backend
  */
+function isNativeBodyPayload(obj: any): boolean {
+  return (
+    (obj && typeof obj.append === 'function' && Array.isArray(obj._parts)) ||
+    (typeof FormData !== 'undefined' && obj instanceof FormData) ||
+    (typeof Blob !== 'undefined' && obj instanceof Blob) ||
+    (typeof File !== 'undefined' && obj instanceof File)
+  );
+}
+
 function transformDatesToUTC(obj: any): any {
+  if (isNativeBodyPayload(obj)) {
+    return obj;
+  }
   if (obj instanceof Date) {
     return obj.toISOString(); // Local Date -> UTC ISO with Z
   }
@@ -110,7 +122,7 @@ axiosClient.interceptors.request.use(
 
       // Add Content-Type only for requests with body
       if (config.method && ['post', 'put', 'patch'].includes(config.method.toLowerCase())) {
-        if (config.data && !config.headers['Content-Type']) {
+        if (config.data && !config.headers['Content-Type'] && !isNativeBodyPayload(config.data)) {
           config.headers['Content-Type'] = 'application/json';
         }
       }

@@ -220,7 +220,7 @@ export function TreatmentRoomsScreen({ tenantId, stepCode = 'treatment_rooms' }:
             { color: theme.colors.text.secondary, marginTop: theme.spacing.sm },
           ]}
         >
-          Configure your clinic's treatment rooms
+          Configure your clinic treatment rooms
         </Text>
       </View>
 

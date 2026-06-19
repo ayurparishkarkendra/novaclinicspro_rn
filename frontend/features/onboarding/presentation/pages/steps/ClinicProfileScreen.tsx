@@ -27,7 +27,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
   const theme = useClinicTheme();
   const router = useRouter();
   const submitStepMutation = useSubmitStepMutation(tenantId, 'clinic_profile');
-  const { setClinicProfile, getStepData } = useWizardStore();
+  const { setClinicProfile } = useWizardStore();
   
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
@@ -104,9 +104,18 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
     try {
       setLoading(true);
       console.log('[ClinicProfileScreen] Fetching tenant data for:', tenantId);
+
+      const wizardStore = useWizardStore.getState();
+      if (wizardStore.tenantId !== tenantId) {
+        console.log('[ClinicProfileScreen] Wizard tenant changed, clearing cached wizard data:', {
+          previousTenantId: wizardStore.tenantId,
+          currentTenantId: tenantId,
+        });
+        wizardStore.setTenantId(tenantId);
+      }
       
       // First, check if we have data in Zustand store
-      const zustandData = getStepData('clinic_profile');
+      const zustandData = useWizardStore.getState().getStepData('clinic_profile');
       if (zustandData) {
         console.log('[ClinicProfileScreen] Loading data from Zustand store');
         setClinicName(zustandData.name || '');
@@ -285,6 +294,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -304,31 +314,36 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
 
     try {
       setUploadingLogo(true);
-      console.log('[ClinicProfileScreen] Uploading logo...');
+      console.log('[ClinicProfileScreen] Uploading logo via JSON data URL v2...');
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: logoFile.uri,
-        type: 'image/jpeg',
-        name: 'clinic-logo.jpg',
-      } as any);
+      const logoMimeType = logoFile.mimeType || 'image/jpeg';
+      const logoDataUrl = logoFile.base64
+        ? `data:${logoMimeType};base64,${logoFile.base64}`
+        : logoUrl?.startsWith('data:image/')
+          ? logoUrl
+          : null;
 
-      // Upload to backend
+      if (!logoDataUrl) {
+        throw new Error('Selected logo data is not available. Please choose the logo again.');
+      }
+
       const response = await axiosClient.post(
         `/api/v1/tenants/${tenantId}/upload-logo`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        { clinic_logo: logoDataUrl }
       );
 
       const uploadedUrl = response.data.logo_url || response.data.url;
-      console.log('[ClinicProfileScreen] Logo uploaded:', uploadedUrl);
-      return uploadedUrl;
+      console.log(
+        '[ClinicProfileScreen] Logo uploaded:',
+        uploadedUrl ? `${uploadedUrl.substring(0, 48)}...` : null
+      );
+      return uploadedUrl || null;
     } catch (error: any) {
-      console.error('[ClinicProfileScreen] Error uploading logo:', error);
+      console.error('[ClinicProfileScreen] Error uploading logo:', {
+        message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data,
+      });
       // If upload fails, continue without logo
       console.warn('[ClinicProfileScreen] Continuing without logo upload');
       return null;
@@ -807,7 +822,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
               Branding (Optional)
             </Text>
             <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Customize your clinic's appearance
+              Customize your clinic appearance
             </Text>
 
             {/* Logo Upload */}

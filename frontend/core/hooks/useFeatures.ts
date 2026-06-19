@@ -1,9 +1,6 @@
 /**
  * useFeatures Hook
- * Access feature configuration from JWT token with API fallback
- * 
- * Primary: Features from JWT token's app_metadata.features field
- * Fallback: API call to /api/v1/tenants/{tenant_id}/features if JWT doesn't have features
+ * Access feature configuration from tenant metadata with API refresh.
  */
 
 import { useEffect, useState } from 'react';
@@ -24,135 +21,112 @@ export interface FeatureConfig {
   };
 }
 
-/**
- * Hook to access feature configuration from JWT token
- * 
- * @returns Feature configuration object with safe defaults
- * 
- * @example
- * ```tsx
- * function AppointmentForm() {
- *   const features = useFeatures();
- *   
- *   return (
- *     <form>
- *       {features.appointments.allow_multiday && (
- *         <MultiDayAppointmentPicker />
- *       )}
- *       {features.appointments.enable_gender_matching && (
- *         <GenderMatchingSelector />
- *       )}
- *     </form>
- *   );
- * }
- * ```
- */
-export function useFeatures(): FeatureConfig {
-  const [features, setFeatures] = useState<FeatureConfig>({
-    clinic_type: 'general',
+const DEFAULT_FEATURES: FeatureConfig = {
+  clinic_type: 'general',
+  appointments: {
+    allow_multiday: false,
+    enable_gender_matching: false,
+  },
+  treatment_sheets: {
+    enable_treatment_sheets: false,
+    enable_sheet_sync: false,
+  },
+};
+
+function normalizeClinicType(value?: string): FeatureConfig['clinic_type'] {
+  const normalized = (value || 'general').toLowerCase();
+  if (['general', 'ayurveda', 'allopathy', 'dental', 'physio', 'multispeciality'].includes(normalized)) {
+    return normalized as FeatureConfig['clinic_type'];
+  }
+  return 'general';
+}
+
+function isTherapyClinicType(clinicType: FeatureConfig['clinic_type']): boolean {
+  return clinicType === 'ayurveda' || clinicType === 'physio';
+}
+
+function normalizeFeatures(raw?: any): FeatureConfig {
+  const clinicType = normalizeClinicType(raw?.clinic_type);
+  const therapyClinic = isTherapyClinicType(clinicType);
+
+  return {
+    clinic_type: clinicType,
     appointments: {
-      allow_multiday: false,
-      enable_gender_matching: false,
+      allow_multiday: therapyClinic && !!raw?.appointments?.allow_multiday,
+      enable_gender_matching: therapyClinic && !!raw?.appointments?.enable_gender_matching,
+      multiday_appointment_types: therapyClinic ? raw?.appointments?.multiday_appointment_types : [],
+      gender_matching_treatments: therapyClinic ? raw?.appointments?.gender_matching_treatments : [],
     },
     treatment_sheets: {
-      enable_treatment_sheets: false,
-      enable_sheet_sync: false,
+      enable_treatment_sheets: therapyClinic && !!raw?.treatment_sheets?.enable_treatment_sheets,
+      enable_sheet_sync: therapyClinic && !!raw?.treatment_sheets?.enable_sheet_sync,
     },
-  });
+  };
+}
+
+/**
+ * Hook to access feature configuration with safe defaults.
+ *
+ * The API response is authoritative because existing sessions can carry stale app_metadata
+ * after clinic-type/template changes. JWT metadata is only a fallback if the API is unavailable.
+ */
+export function useFeatures(): FeatureConfig {
+  const [features, setFeatures] = useState<FeatureConfig>(DEFAULT_FEATURES);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadFeatures = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
-        console.log('[useFeatures] JWT user data:', {
+        const metadataFeatures = user?.app_metadata?.features;
+        const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
+
+        console.log('[useFeatures] Loading feature config:', {
           hasUser: !!user,
-          hasAppMetadata: !!user?.app_metadata,
-          hasFeatures: !!user?.app_metadata?.features,
-          features: user?.app_metadata?.features,
+          tenantId,
+          hasJwtFeatures: !!metadataFeatures,
+          jwtClinicType: metadataFeatures?.clinic_type,
         });
-        
-        // Try to load from JWT first
-        if (user?.app_metadata?.features) {
-          setFeatures({
-            clinic_type: user.app_metadata.features.clinic_type || 'general',
-            appointments: {
-              allow_multiday: user.app_metadata.features.appointments?.allow_multiday || false,
-              enable_gender_matching: user.app_metadata.features.appointments?.enable_gender_matching || false,
-              multiday_appointment_types: user.app_metadata.features.appointments?.multiday_appointment_types,
-              gender_matching_treatments: user.app_metadata.features.appointments?.gender_matching_treatments,
-            },
-            treatment_sheets: {
-              enable_treatment_sheets: user.app_metadata.features.treatment_sheets?.enable_treatment_sheets || false,
-              enable_sheet_sync: user.app_metadata.features.treatment_sheets?.enable_sheet_sync || false,
-            },
-          });
-          
-          console.log('[useFeatures] Features loaded from JWT:', {
-            clinic_type: user.app_metadata.features.clinic_type,
-            allow_multiday: user.app_metadata.features.appointments?.allow_multiday,
-          });
-        } else {
-          // Fallback: Try to load from API if JWT doesn't have features
-          console.log('[useFeatures] No features in JWT, attempting API fallback...');
-          
-          const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
-          
-          if (tenantId) {
-            try {
-              const response = await axiosClient.get(`/api/v1/tenants/${tenantId}/features`);
-              const apiFeatures = response.data;
-              
-              console.log('[useFeatures] Features loaded from API:', apiFeatures);
-              
-              setFeatures({
-                clinic_type: apiFeatures.clinic_type || 'general',
-                appointments: {
-                  allow_multiday: apiFeatures.appointments?.allow_multiday || false,
-                  enable_gender_matching: apiFeatures.appointments?.enable_gender_matching || false,
-                  multiday_appointment_types: apiFeatures.appointments?.multiday_appointment_types,
-                  gender_matching_treatments: apiFeatures.appointments?.gender_matching_treatments,
-                },
-                treatment_sheets: {
-                  enable_treatment_sheets: apiFeatures.treatment_sheets?.enable_treatment_sheets || false,
-                  enable_sheet_sync: apiFeatures.treatment_sheets?.enable_sheet_sync || false,
-                },
-              });
-            } catch (apiError: any) {
-              // Log error details for debugging
-              const errorStatus = apiError?.response?.status;
-              const errorDetail = apiError?.response?.data?.detail;
-              
-              if (errorStatus === 403) {
-                console.log('[useFeatures] API fallback: Permission denied (403)');
-                console.log('[useFeatures] This is expected if JWT features are not yet implemented');
-              } else if (errorStatus === 404) {
-                console.log('[useFeatures] API fallback: Endpoint not found (404)');
-              } else {
-                console.log('[useFeatures] API fallback failed:', errorStatus, errorDetail);
-              }
-              
-              console.log('[useFeatures] Using default features (safe fallback)');
-              // Keep default values on API error
-            }
-          } else {
-            console.log('[useFeatures] No tenant_id found, using defaults');
+
+        if (!tenantId) {
+          if (isMounted) {
+            setFeatures(metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES);
+          }
+          return;
+        }
+
+        try {
+          const response = await axiosClient.get('/api/v1/tenants/' + tenantId + '/features');
+          if (isMounted) {
+            setFeatures(normalizeFeatures(response.data));
+          }
+          console.log('[useFeatures] Features loaded from API:', response.data);
+        } catch (apiError: any) {
+          const errorStatus = apiError?.response?.status;
+          const errorDetail = apiError?.response?.data?.detail;
+          console.log('[useFeatures] API feature load failed:', errorStatus, errorDetail);
+
+          if (isMounted) {
+            setFeatures(metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES);
           }
         }
       } catch (error) {
         console.error('[useFeatures] Error loading features:', error);
-        // Keep default values on error
+        if (isMounted) {
+          setFeatures(DEFAULT_FEATURES);
+        }
       }
     };
 
     loadFeatures();
 
-    // Listen for auth state changes to update features when JWT refreshes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       loadFeatures();
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -160,43 +134,26 @@ export function useFeatures(): FeatureConfig {
   return features;
 }
 
-/**
- * Helper function to check if clinic is Ayurveda type
- * 
- * @example
- * ```tsx
- * const features = useFeatures();
- * const isAyurveda = isAyurvedaClinic(features);
- * ```
- */
 export function isAyurvedaClinic(features: FeatureConfig): boolean {
   return features.clinic_type === 'ayurveda';
 }
 
-/**
- * Helper function to check if clinic is Physiotherapy type
- */
 export function isPhysioClinic(features: FeatureConfig): boolean {
   return features.clinic_type === 'physio';
 }
 
-/**
- * Helper function to check if multi-day appointments are enabled
- */
+export function isTherapyClinic(features: FeatureConfig): boolean {
+  return isTherapyClinicType(features.clinic_type);
+}
+
 export function hasMultiDayAppointments(features: FeatureConfig): boolean {
-  return features.appointments.allow_multiday;
+  return isTherapyClinic(features) && features.appointments.allow_multiday;
 }
 
-/**
- * Helper function to check if gender matching is enabled
- */
 export function hasGenderMatching(features: FeatureConfig): boolean {
-  return features.appointments.enable_gender_matching;
+  return isTherapyClinic(features) && features.appointments.enable_gender_matching;
 }
 
-/**
- * Helper function to check if treatment sheets are enabled
- */
 export function hasTreatmentSheets(features: FeatureConfig): boolean {
-  return features.treatment_sheets.enable_treatment_sheets;
+  return isTherapyClinic(features) && features.treatment_sheets.enable_treatment_sheets;
 }

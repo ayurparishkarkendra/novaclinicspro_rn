@@ -125,7 +125,7 @@ export function OperatingHoursScreen({ tenantId, isWizardMode = false, onSuccess
           Operating Hours
         </Text>
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
-          Review your clinic's operating schedule
+          Review your clinic operating schedule
         </Text>
       </View>
 
