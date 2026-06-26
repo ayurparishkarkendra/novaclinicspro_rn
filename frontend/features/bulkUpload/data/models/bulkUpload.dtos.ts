@@ -45,6 +45,25 @@ export interface BulkUploadResponse {
   template_used: boolean | null;
 }
 
+/** Field metadata returned with a downloadable template */
+export interface BulkTemplateField {
+  name: string;
+  label: string;
+  required: boolean;
+  field_type: string;
+  description: string | null;
+  enum_values: string[] | null;
+}
+
+/** CSV template response */
+export interface BulkTemplateResponse {
+  entity_type: BulkEntityType;
+  filename: string;
+  content_type: string;
+  csv_content: string;
+  fields: BulkTemplateField[];
+}
+
 /** Job summary */
 export interface JobSummary {
   id: string;

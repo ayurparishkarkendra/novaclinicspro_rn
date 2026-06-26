@@ -106,6 +106,19 @@ export const ClientDetailScreen: React.FC = () => {
     );
   }, [deleteMutation, client, clientId, router]);
 
+  const handleCreateAppointment = useCallback(() => {
+    if (!clientId || !client) return;
+
+    router.push({
+      pathname: '/clinic-admin/appointments/create',
+      params: {
+        clientId,
+        clientName: client.full_name,
+        clientPhone: client.phone || '',
+      },
+    });
+  }, [clientId, client, router]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -443,6 +456,17 @@ export const ClientDetailScreen: React.FC = () => {
         </View>
       </ScrollView>
 
+      <TouchableOpacity
+        style={styles.createAppointmentFab}
+        onPress={handleCreateAppointment}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`Create appointment for ${client.full_name}`}
+      >
+        <Ionicons name="calendar" size={22} color={colors.common.white} />
+        <Text style={styles.createAppointmentFabText}>Appointment</Text>
+      </TouchableOpacity>
+
       {/* Edit Modal */}
       <Modal
         visible={showEditModal}
@@ -512,7 +536,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl * 3,
   },
   profileCard: {
     alignItems: 'center',
@@ -708,6 +732,27 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     marginRight: spacing.sm,
+  },
+  createAppointmentFab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  createAppointmentFabText: {
+    ...typography.button,
+    color: colors.common.white,
   },
 });
 

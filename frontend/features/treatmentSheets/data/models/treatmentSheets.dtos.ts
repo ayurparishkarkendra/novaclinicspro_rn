@@ -92,6 +92,7 @@ export interface TreatmentSheetResponse {
   status: TreatmentSheetStatus;
   agreed_package_cost?: number | null;
   document_version: number;
+  version?: number;
   recorded_at: string;
   recorded_by_staff_id: string | null;
   signed_by_staff_id: string | null;

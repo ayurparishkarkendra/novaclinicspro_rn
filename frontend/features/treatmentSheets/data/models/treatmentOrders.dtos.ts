@@ -96,6 +96,7 @@ export interface TreatmentOrderResponse {
   id: string;
   tenant_id: string;
   client_id: string;
+  case_sheet_id?: string | null;
   episode_id: string | null;
   /** Execution lifecycle state — read directly, never derive. */
   state: TreatmentOrderState;

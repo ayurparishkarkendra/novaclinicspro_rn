@@ -92,6 +92,7 @@ export const EpisodeWorkspaceScreen: React.FC<EpisodeWorkspaceScreenProps> = ({
     hasCasesheet,
     isCasesheetLoading,
     treatmentSheet,
+    treatmentSheets,
     hasTreatmentSheet,
     isTreatmentSheetLoading,
     isTreatmentSheetError,
@@ -290,6 +291,7 @@ export const EpisodeWorkspaceScreen: React.FC<EpisodeWorkspaceScreenProps> = ({
           {activeTab === 'treatmentPlans' && (
             <TreatmentPlansTab
               sheet={treatmentSheet}
+              sheets={treatmentSheets}
               hasTreatmentSheet={hasTreatmentSheet}
               isLoading={isTreatmentSheetLoading}
               isError={isTreatmentSheetError}

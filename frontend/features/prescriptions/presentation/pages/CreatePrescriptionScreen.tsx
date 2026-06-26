@@ -60,16 +60,31 @@ export const CreatePrescriptionScreen: React.FC = () => {
         notes: data.notes,
         next_visit_days: data.next_visit_days,
         appointment_id: appointmentId,
-        // Do NOT send episode_id - backend auto-inherits from appointment
+        episode_id: episodeId || undefined,
       });
       
-      // Navigate immediately after successful creation
-      // Go to the prescriptions list for this client
       router.replace({
-        pathname: '/clinic-admin/clients/[clientId]/prescriptions',
-        params: { clientId },
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]' as any,
+        params: { clientId, prescriptionId: result.id },
       });
     } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (detail?.error === 'PRESCRIPTION_ALREADY_EXISTS' && detail?.prescription_id) {
+        Alert.alert(
+          'Prescription Already Exists',
+          detail.message || 'This visit already has a prescription.',
+          [
+            {
+              text: 'View Prescription',
+              onPress: () => router.replace({
+                pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]' as any,
+                params: { clientId, prescriptionId: detail.prescription_id },
+              }),
+            },
+          ]
+        );
+        return;
+      }
       // Handle EPISODE_MISMATCH error
       if (err.error_code === 'EPISODE_MISMATCH' || err.message?.includes('episode_id must match')) {
         Alert.alert(
@@ -81,7 +96,7 @@ export const CreatePrescriptionScreen: React.FC = () => {
         Alert.alert('Error', err.message || 'Failed to create prescription.');
       }
     }
-  }, [createMutation, clientId, appointmentId, router]);
+  }, [createMutation, clientId, appointmentId, episodeId, router]);
 
   const handleCancel = useCallback(() => {
     // Navigate back immediately without confirmation for better UX

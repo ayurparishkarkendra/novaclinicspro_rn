@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from 'react';
+import { InteractionManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../../core/api/supabaseClient';
 import { useAuthStore } from '../providers/auth.store';
@@ -144,8 +145,10 @@ export const useAuth = (): UseAuthReturn => {
       // Clear local session (includes selectedClinicId reset)
       await clearSession();
 
-      // Navigate to login
-      router.replace('/login');
+      // Navigate after state updates settle so the root Stack stays mounted.
+      InteractionManager.runAfterInteractions(() => {
+        router.replace('/login');
+      });
     } catch (error) {
       console.error('Logout error:', error);
       throw error;

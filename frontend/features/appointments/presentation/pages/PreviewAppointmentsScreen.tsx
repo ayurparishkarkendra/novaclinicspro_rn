@@ -45,7 +45,6 @@ import {
   useGenerateTherapyPlanMutation,
   useBulkCreateAppointmentsMutation,
 } from '../../data/repositories/appointments.repository.impl';
-import { syncTreatmentSheetApi } from '../../../treatmentSheets/data/datasources/treatmentSheets.api';
 import {
   AppointmentCreate,
   BulkAppointmentItem,
@@ -1179,35 +1178,16 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         expected: sessions.length,
       });
 
-      // Check if all appointments were created
       if (bulkResponse.total_created === sessions.length) {
-        console.log('[PreviewScreen] All appointments created successfully. Checking for treatment sheet sync:', {
+        console.log('[PreviewScreen] All appointments created successfully. Backend links treatment sheet rows inline:', {
           treatmentSheetId,
           seriesId,
-          shouldSync: !!treatmentSheetId && !!seriesId,
+          expectedSessions: sessions.length,
         });
-        
-        // If coming from treatment sheet, sync the appointments
-        if (treatmentSheetId && seriesId) {
-          try {
-            console.log('[PreviewScreen] Syncing treatment sheet:', {
-              tenantId,
-              treatmentSheetId,
-              seriesId,
-            });
-            await syncTreatmentSheetApi(tenantId, treatmentSheetId, seriesId);
-            console.log('[PreviewScreen] Treatment sheet synced successfully');
-          } catch (syncError) {
-            console.error('[PreviewScreen] Failed to sync treatment sheet:', syncError);
-            // Don't block the success flow if sync fails
-          }
-        } else {
-          console.log('[PreviewScreen] Skipping treatment sheet sync - no treatmentSheetId or seriesId');
-        }
 
         // Invalidate treatment orders so admin worklist and doctor pending-docs widget refresh
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) }),
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklists(tenantId), exact: false }),
           queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.pendingDocumentation(tenantId, 'doctor') }),
           ...(treatmentSheetId
             ? [queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.detail(treatmentSheetId) })]

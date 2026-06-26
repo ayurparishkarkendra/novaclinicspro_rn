@@ -54,7 +54,25 @@ import {
   formatDuration,
 } from '../features/doctorDashboard';
 import { usePendingDocumentationQuery } from '../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
-import { getOrderStateLabel, getOrderStateColor } from '../features/treatmentSheets/data/models/treatmentOrders.dtos';
+import {
+  getOrderStateColor,
+  getOrderStateLabel,
+  type TreatmentOrderResponse,
+} from '../features/treatmentSheets/data/models/treatmentOrders.dtos';
+
+const getPendingDocumentationStatusLabel = (order: TreatmentOrderResponse): string => {
+  if (
+    order.documentation_status === 'DRAFT' &&
+    order.state === 'SCHEDULED' &&
+    order.scheduling_status === 'FULLY_SCHEDULED'
+  ) {
+    return 'Waiting for Treatment Plan Completion';
+  }
+  if (order.state === 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
+    return 'Partially Scheduled';
+  }
+  return getOrderStateLabel(order.state);
+};
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -611,7 +629,7 @@ export default function DoctorDashboard() {
                     </Text>
                     <View style={[pendingDocStyles.statePill, { backgroundColor: getOrderStateColor(order.state) + '18' }]}>
                       <Text style={[pendingDocStyles.stateText, { color: getOrderStateColor(order.state) }]}>
-                        {getOrderStateLabel(order.state)}
+                        {getPendingDocumentationStatusLabel(order)}
                       </Text>
                     </View>
                   </View>
@@ -914,6 +932,7 @@ const pendingDocStyles = StyleSheet.create({
   },
   statePill: {
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -921,6 +940,7 @@ const pendingDocStyles = StyleSheet.create({
   stateText: {
     fontSize: 11,
     fontWeight: '600',
+    flexShrink: 1,
   },
   moreText: {
     ...typography.caption,

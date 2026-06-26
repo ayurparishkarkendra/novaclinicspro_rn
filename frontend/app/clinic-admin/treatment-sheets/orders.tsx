@@ -259,9 +259,16 @@ export default function TreatmentOrdersScreen() {
 
   const handleSchedule = useCallback(
     (order: TreatmentOrderResponse) => {
-      router.push(
-        `/clinic-admin/appointments/create?tab=MULTI&treatmentSheetId=${order.id}` as any
-      );
+      router.push({
+        pathname: '/clinic-admin/appointments/create',
+        params: {
+          tab: 'MULTI',
+          treatmentSheetId: order.id,
+          ...(order.episode_id ? { episodeId: order.episode_id } : {}),
+          ...(order.case_sheet_id ? { caseSheetId: order.case_sheet_id } : {}),
+          ...(order.planned_sessions ? { durationDays: String(order.planned_sessions) } : {}),
+        },
+      } as any);
     },
     [router]
   );

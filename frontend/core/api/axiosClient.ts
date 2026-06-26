@@ -59,6 +59,14 @@ function transformDatesToUTC(obj: any): any {
   return obj;
 }
 
+function hasAuthorizationHeader(config?: AxiosRequestConfig): boolean {
+  const headers = config?.headers as any;
+  if (!headers) return false;
+
+  const authorization = headers.Authorization ?? headers.authorization;
+  return typeof authorization === 'string' && authorization.trim().length > 0;
+}
+
 /**
  * Recursively convert UTC ISO strings from backend to local ISO strings for display
  * Backend sends: "2026-03-01T11:06:00Z" (UTC)
@@ -165,8 +173,11 @@ axiosClient.interceptors.response.use(
       }
     }
 
-    // Handle 401 errors - attempt token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 errors - attempt token refresh only for requests that were
+    // actually sent with a JWT. A 401 without Authorization means there is no
+    // Supabase session to refresh yet, so refreshSession() would throw
+    // AuthSessionMissingError and create a noisy retry loop during bootstrap.
+    if (error.response?.status === 401 && !originalRequest._retry && hasAuthorizationHeader(originalRequest)) {
       originalRequest._retry = true;
       console.log('🔄 Attempting token refresh...');
 

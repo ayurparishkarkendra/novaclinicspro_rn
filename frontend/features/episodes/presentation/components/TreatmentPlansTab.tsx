@@ -2,8 +2,9 @@
  * TreatmentPlansTab
  *
  * Single responsibility: render the Treatment Plans tab panel.
- * CTA logic is based on sheet.status (TreatmentSheetResponse) — NOT treatment order state.
- * Doctor role does NOT have treatment_order.list permission — never call list treatment orders here.
+ * CTA logic uses treatment order execution state, not only sheet.status.
+ * The documentation lifecycle can remain DRAFT after a plan has already been
+ * sent to scheduling, so scheduling actions must read the backend order state.
  */
 
 import React, { useState } from 'react';
@@ -16,7 +17,14 @@ import {
   getStatusLabel,
   getStatusColor,
 } from '../../../treatmentSheets/data/models/treatmentSheets.dtos';
-import { useSendToSchedulingMutation } from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
+import {
+  useSendToSchedulingMutation,
+  useTreatmentOrderQuery,
+} from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
+import {
+  getOrderStateColor,
+  getOrderStateLabel,
+} from '../../../treatmentSheets/data/models/treatmentOrders.dtos';
 import { useCreateTreatmentSheetMutation } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import {
   SectionSkeleton,
@@ -184,13 +192,25 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
   const cta = useCtaStyles();
 
   const sendToScheduling = useSendToSchedulingMutation(tenantId);
+  const {
+    data: treatmentOrder,
+    isFetched: isTreatmentOrderFetched,
+    isError: isTreatmentOrderError,
+    refetch: refetchTreatmentOrder,
+  } = useTreatmentOrderQuery(sheet.id, tenantId, {
+    enabled: !!tenantId && !!sheet.id,
+    retry: false,
+  });
   const [sentSuccessfully, setSentSuccessfully] = useState(false);
 
-  const statusColor = getStatusColor(sheet.status);
-  const statusLabel = getStatusLabel(sheet.status);
+  const orderState = treatmentOrder?.state;
+  const hasOrderState = isTreatmentOrderFetched && !isTreatmentOrderError && !!treatmentOrder;
+  const isSentToScheduling = !!treatmentOrder?.is_order && orderState !== 'DRAFT';
+  const displayStatusColor = orderState ? getOrderStateColor(orderState) : getStatusColor(sheet.status);
+  const displayStatusLabel = orderState ? getOrderStateLabel(orderState) : getStatusLabel(sheet.status);
 
   const handleSendToScheduling = () => {
-    sendToScheduling.mutate({ sheetId: sheet.id, version: sheet.document_version });
+    sendToScheduling.mutate({ sheetId: sheet.id, version: sheet.version ?? 1 });
   };
 
   React.useEffect(() => {
@@ -206,18 +226,15 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
     } else if (sendToScheduling.status === 'success') {
       setSentSuccessfully(true);
       sendToScheduling.reset();
+      refetchTreatmentOrder();
       onRefresh();
     }
   }, [sendToScheduling.status]);
 
   const isSending = sendToScheduling.status === 'sending';
-  const showSendButton = sheet.status === 'DRAFT' && !sentSuccessfully && !canSchedule;
-  const showScheduleButton = canSchedule && (
-    sheet.status === 'DRAFT' ||
-    sheet.status === 'SCHEDULED' ||
-    sheet.status === 'IN_PROGRESS'
-  );
-  const isTerminal = ['COMPLETED', 'SIGNED', 'FINAL', 'CANCELLED'].includes(sheet.status);
+  const showSendButton = hasOrderState && sheet.status === 'DRAFT' && !isSentToScheduling && !sentSuccessfully && !canSchedule;
+  const showScheduleButton = hasOrderState && canSchedule && isSentToScheduling && ['ORDERED', 'SCHEDULED', 'IN_PROGRESS'].includes(orderState ?? '');
+  const isTerminal = ['COMPLETED', 'SIGNED', 'FINAL', 'CANCELLED'].includes(sheet.status) || orderState === 'COMPLETED' || orderState === 'CANCELLED';
 
   const renderCta = () => (
     <View style={{ gap: 8 }}>
@@ -244,7 +261,7 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
         >
           <Ionicons name="calendar-number-outline" size={16} color={colors.text.inverse} />
           <Text style={[cta.primaryCtaText, { color: colors.text.inverse }]}>
-            {sheet.status === 'DRAFT'
+            {orderState === 'ORDERED'
               ? t('episodeWorkspace.treatmentPlans.schedulePlan')
               : t('episodeWorkspace.treatmentPlans.viewSchedule')}
           </Text>
@@ -288,13 +305,13 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
       ]}
     >
       <View style={cardStyles.cardHeader}>
-        <Ionicons name="calendar" size={18} color={statusColor} />
+        <Ionicons name="calendar" size={18} color={displayStatusColor} />
         <Text style={[typography.subtitle1, { color: colors.text.primary, flex: 1 }]}>
           {sheet.duration_days
             ? t('episodeWorkspace.treatmentPlans.sessions', { count: sheet.duration_days })
             : t('episodeWorkspace.treatmentPlans.title')}
         </Text>
-        <StatusChip label={statusLabel} color={statusColor} />
+        <StatusChip label={displayStatusLabel} color={displayStatusColor} />
       </View>
 
       <Text style={[typography.caption, { color: colors.text.tertiary }]}>
@@ -310,6 +327,7 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
 
 interface TreatmentPlansTabProps {
   sheet: TreatmentSheetResponse | undefined;
+  sheets?: TreatmentSheetResponse[];
   hasTreatmentSheet: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -326,6 +344,7 @@ interface TreatmentPlansTabProps {
 
 export const TreatmentPlansTab: React.FC<TreatmentPlansTabProps> = ({
   sheet,
+  sheets = [],
   hasTreatmentSheet,
   isLoading,
   isError,
@@ -343,6 +362,7 @@ export const TreatmentPlansTab: React.FC<TreatmentPlansTabProps> = ({
   const { t } = useTranslation();
   const cta = useCtaStyles();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const visibleSheets = sheets.length > 0 ? sheets : sheet ? [sheet] : [];
 
   if (isLoading) return <SectionSkeleton />;
   if (isError)
@@ -364,7 +384,7 @@ export const TreatmentPlansTab: React.FC<TreatmentPlansTabProps> = ({
         />
       )}
 
-      {!hasTreatmentSheet ? (
+      {visibleSheets.length === 0 ? (
         <View
           style={[
             cardStyles.emptySection,
@@ -392,16 +412,17 @@ export const TreatmentPlansTab: React.FC<TreatmentPlansTabProps> = ({
         </View>
       ) : (
         <View style={{ gap: spacing.md, padding: spacing.md }}>
-          {sheet && (
+          {visibleSheets.map((item) => (
             <TreatmentSheetCard
-              sheet={sheet}
+              key={item.id}
+              sheet={item}
               tenantId={tenantId}
               canSchedule={canSchedule}
               onOpen={onOpenSheet}
               onSchedule={onScheduleSheet}
               onRefresh={onRefreshSheet}
             />
-          )}
+          ))}
           {canCreate && casesheetId && (
             <TouchableOpacity
               style={[cta.secondaryCta, { borderColor: colors.primary.default, marginTop: spacing.xs }]}

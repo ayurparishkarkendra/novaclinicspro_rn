@@ -111,7 +111,7 @@ export default function ClinicAdminDashboard() {
   );
 
   // Fetch pending treatment orders count for the scheduling widget
-  const { data: pendingOrdersData } = useTreatmentOrdersQuery(
+  const { data: pendingOrdersData, refetch: refetchPendingOrders } = useTreatmentOrdersQuery(
     tenantId,
     { state: 'ORDERED', limit: 1 },
     { enabled: !!tenantId && treatmentSheetsEnabled }
@@ -139,8 +139,11 @@ export default function ClinicAdminDashboard() {
     React.useCallback(() => {
       if (tenantId) {
         refetchOnboardingStatus();
+        if (treatmentSheetsEnabled) {
+          refetchPendingOrders();
+        }
       }
-    }, [tenantId, refetchOnboardingStatus])
+    }, [tenantId, treatmentSheetsEnabled, refetchOnboardingStatus, refetchPendingOrders])
   );
 
   // Only show setup banner if onboarding is not complete AND user is still in onboarding status

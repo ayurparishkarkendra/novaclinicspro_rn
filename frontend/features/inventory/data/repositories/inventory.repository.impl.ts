@@ -68,6 +68,25 @@ export const inventoryKeys = {
     [...inventoryKeys.alerts(), tenantId, params] as const,
 };
 
+const removeInventoryItemFromCachedLists = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  itemId: string
+) => {
+  queryClient.setQueriesData<InventoryListResponse>(
+    { queryKey: inventoryKeys.lists(), exact: false },
+    (current) => {
+      if (!current) return current;
+      const nextItems = current.items.filter((item) => item.id !== itemId);
+      if (nextItems.length === current.items.length) return current;
+      return {
+        ...current,
+        items: nextItems,
+        total: Math.max(0, current.total - (current.items.length - nextItems.length)),
+      };
+    }
+  );
+};
+
 // ============================================
 // INVENTORY ITEMS HOOKS
 // ============================================
@@ -157,8 +176,11 @@ export const useDeleteInventoryItemMutation = (
   return useMutation<void, Error, void>({
     mutationFn: () => deleteInventoryItemApi(tenantId, itemId),
     onSuccess: () => {
+      removeInventoryItemFromCachedLists(queryClient, itemId);
+      queryClient.removeQueries({ queryKey: inventoryKeys.detail(tenantId, itemId) });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.detail(tenantId, itemId) });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
     ...options,
   });

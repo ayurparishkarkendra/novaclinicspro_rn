@@ -11,6 +11,7 @@ import {
   updatePrescriptionApi,
   deletePrescriptionApi,
   sharePrescriptionApi,
+  getPrescriptionPrintApi,
 } from '../datasources/prescriptions.api';
 import {
   PrescriptionCreateRequest,
@@ -19,6 +20,7 @@ import {
   PrescriptionResponse,
   PrescriptionListResponse,
   PrescriptionShareResponse,
+  PrescriptionPrintResponse,
   ListPrescriptionsParams,
 } from '../models/prescriptions.dtos';
 
@@ -151,6 +153,17 @@ export const useSharePrescriptionMutation = (
 ) => {
   return useMutation<PrescriptionShareResponse, Error, PrescriptionShareRequest>({
     mutationFn: (payload) => sharePrescriptionApi(tenantId, prescriptionId, payload),
+    ...options,
+  });
+};
+
+export const usePrescriptionPrintMutation = (
+  tenantId: string,
+  prescriptionId: string,
+  options?: UseMutationOptions<PrescriptionPrintResponse, Error, void>
+) => {
+  return useMutation<PrescriptionPrintResponse, Error, void>({
+    mutationFn: () => getPrescriptionPrintApi(tenantId, prescriptionId),
     ...options,
   });
 };

@@ -163,6 +163,8 @@ interface MaterialNameFieldProps {
 const MaterialNameField: React.FC<MaterialNameFieldProps> = ({
   value, onChange, tenantId, error, index,
 }) => {
+  const inputRef = useRef<TextInput>(null);
+  const isSelectingRef = useRef(false);
   const [inputText, setInputText] = useState(value);
   const [showDropdown, setShowDropdown] = useState(false);
   const { results, isSearching } = useInventorySearch(tenantId, inputText);
@@ -172,26 +174,47 @@ const MaterialNameField: React.FC<MaterialNameFieldProps> = ({
 
   const handleTextChange = (text: string) => {
     setInputText(text);
-    setShowDropdown(true);
+    setShowDropdown(text.length >= 2);
     onChange(text, null, null);
   };
 
   const handleSelect = (item: InventoryItemResponse) => {
+    if (isSelectingRef.current) return;
+    isSelectingRef.current = true;
     setInputText(item.name);
     setShowDropdown(false);
     onChange(item.name, item.id, item.unit ?? null);
+    setTimeout(() => {
+      isSelectingRef.current = false;
+    }, 0);
+  };
+
+  const handleBlur = () => {
+    if (isSelectingRef.current) return;
+
+    if (showSuggestions) {
+      setTimeout(() => {
+        if (!isSelectingRef.current) {
+          inputRef.current?.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    setShowDropdown(false);
   };
 
   const showSuggestions = showDropdown && inputText.length >= 2 && (results.length > 0 || isSearching);
 
   return (
-    <View style={styles.fieldGroup}>
+    <View style={[styles.fieldGroup, showSuggestions && styles.autocompleteFieldGroup]}>
       <Text style={styles.label}>Material Name *</Text>
       <TextInput
+        ref={inputRef}
         style={[styles.input, error && styles.inputError]}
         value={inputText}
         onChangeText={handleTextChange}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+        onBlur={handleBlur}
         onFocus={() => inputText.length >= 2 && setShowDropdown(true)}
         placeholder="Search inventory or type name"
         accessibilityLabel={`Material ${index + 1} name`}
@@ -208,7 +231,8 @@ const MaterialNameField: React.FC<MaterialNameFieldProps> = ({
               <TouchableOpacity
                 key={item.id}
                 style={styles.dropdownItem}
-                onPress={() => handleSelect(item)}
+                delayPressIn={0}
+                onPressIn={() => handleSelect(item)}
                 accessibilityRole="button"
                 accessibilityLabel={`Select ${item.name}`}
               >
@@ -267,9 +291,12 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
             error={rowErrors?.material_name?.message}
             index={index}
             onChange={(name, itemId, unit) => {
-              setValue(`materials.${index}.material_name`, name);
-              setValue(`materials.${index}.inventory_item_id`, itemId);
-              if (unit) setValue(`materials.${index}.unit`, unit);
+              setValue(`materials.${index}.material_name`, name, { shouldDirty: true, shouldValidate: true });
+              setValue(`materials.${index}.inventory_item_id`, itemId, { shouldDirty: true, shouldValidate: true });
+              if (itemId) {
+                setValue(`materials.${index}.material_code`, null, { shouldDirty: true, shouldValidate: true });
+              }
+              if (unit) setValue(`materials.${index}.unit`, unit, { shouldDirty: true, shouldValidate: true });
             }}
           />
         )}
@@ -430,7 +457,8 @@ export const TreatmentSessionCompleteModal: React.FC<TreatmentSessionCompleteMod
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
+            nestedScrollEnabled
           >
             {fields.map((field, index) => (
               <MaterialRow
@@ -550,6 +578,10 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     marginBottom: spacing.sm,
+  },
+  autocompleteFieldGroup: {
+    zIndex: 1000,
+    elevation: 1000,
   },
   label: {
     fontSize: 12,

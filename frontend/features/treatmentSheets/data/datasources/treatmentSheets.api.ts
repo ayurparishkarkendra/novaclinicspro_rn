@@ -83,7 +83,11 @@ export const getTreatmentSheetsByEpisodeApi = async (
     `/api/v1/clinic/${tenantId}/treatment-sheets`,
     { params: { episode_id: episodeId } }
   );
-  return response.data;
+  const items = response.data?.treatment_sheets ?? response.data?.items ?? [];
+  return {
+    treatment_sheets: items,
+    total: response.data?.total ?? items.length,
+  };
 };
 
 /**

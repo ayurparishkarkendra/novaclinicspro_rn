@@ -12,7 +12,10 @@
 import { useMemo } from 'react';
 import { useEpisodeDetailsQuery } from '../../data/repositories/episodes.repository.impl';
 import { useCasesheetDetailQuery } from '../../../casesheets/data/repositories/casesheets.repository.impl';
-import { useTreatmentSheetDetailQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
+import {
+  useTreatmentSheetDetailQuery,
+  useTreatmentSheetsByEpisodeQuery,
+} from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import { EpisodeDetailsResponse, VisitInfo } from '../../data/models/episodes.dtos';
 import { CasesheetResponse } from '../../../casesheets/data/models/casesheets.dtos';
 import { TreatmentSheetResponse } from '../../../treatmentSheets/data/models/treatmentSheets.dtos';
@@ -32,6 +35,7 @@ export interface EpisodeWorkspaceData {
 
   // Treatment sheet (fetched by ID from episode details)
   treatmentSheet: TreatmentSheetResponse | undefined;
+  treatmentSheets: TreatmentSheetResponse[];
   treatmentSheetId: string | null;
   hasTreatmentSheet: boolean;
   isTreatmentSheetLoading: boolean;
@@ -70,6 +74,16 @@ export const useEpisodeWorkspaceData = (
   const treatmentSheetId = episodeDetails?.documents?.treatment_sheet?.id ?? null;
   const hasTreatmentSheet = Boolean(episodeDetails?.documents?.treatment_sheet?.exists);
 
+  const {
+    data: treatmentSheetsData,
+    isLoading: isTreatmentSheetsLoading,
+    isError: isTreatmentSheetsError,
+    refetch: refetchTreatmentSheets,
+  } = useTreatmentSheetsByEpisodeQuery(tenantId, episodeId, {
+    enabled: !!tenantId && !!episodeId,
+    staleTime: 0,
+  });
+
   // ── Casesheet detail (by ID) ──────────────────────────────────────────────
   const {
     data: casesheet,
@@ -92,6 +106,17 @@ export const useEpisodeWorkspaceData = (
     { enabled: !!tenantId && !!treatmentSheetId, staleTime: 0 }
   );
 
+  const treatmentSheets = useMemo<TreatmentSheetResponse[]>(() => {
+    const sheets = treatmentSheetsData?.treatment_sheets ?? [];
+    return [...sheets].sort(
+      (a, b) =>
+        new Date(b.created_at || b.recorded_at).getTime() -
+        new Date(a.created_at || a.recorded_at).getTime()
+    );
+  }, [treatmentSheetsData?.treatment_sheets]);
+
+  const latestTreatmentSheet = treatmentSheets[0] ?? treatmentSheet;
+
   // ── Visits (sorted newest first) ─────────────────────────────────────────
   const visits = useMemo<VisitInfo[]>(() => {
     const raw = episodeDetails?.visits ?? [];
@@ -110,12 +135,16 @@ export const useEpisodeWorkspaceData = (
     casesheetId,
     hasCasesheet,
     isCasesheetLoading,
-    treatmentSheet,
-    treatmentSheetId,
-    hasTreatmentSheet,
-    isTreatmentSheetLoading,
-    isTreatmentSheetError,
-    refetchTreatmentSheet,
+    treatmentSheet: latestTreatmentSheet,
+    treatmentSheets,
+    treatmentSheetId: latestTreatmentSheet?.id ?? treatmentSheetId,
+    hasTreatmentSheet: treatmentSheets.length > 0 || hasTreatmentSheet,
+    isTreatmentSheetLoading: isTreatmentSheetsLoading || isTreatmentSheetLoading,
+    isTreatmentSheetError: isTreatmentSheetsError || isTreatmentSheetError,
+    refetchTreatmentSheet: () => {
+      refetchTreatmentSheet();
+      refetchTreatmentSheets();
+    },
     visits,
     clientId: resolvedClientId,
     clientName: episodeDetails?.episode?.client_name ?? '',

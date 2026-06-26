@@ -4,7 +4,6 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeProvider } from '../theme/useClinicTheme';
 import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
@@ -15,7 +14,6 @@ interface AuthProviderProps {
 }
 
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isLoading } = useAuthStore();
   const { bootstrapSession } = useAuth();
   const router = useRouter();
 
@@ -88,14 +86,6 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
     initialize();
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2F6F4E" />
-      </View>
-    );
-  }
-
   return <>{children}</>;
 };
 
@@ -106,12 +96,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     </ThemeProvider>
   );
 };
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F4EC',
-  },
-});

@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ import {
   useUpdatePrescriptionMutation,
   useDeletePrescriptionMutation,
   useSharePrescriptionMutation,
+  usePrescriptionPrintMutation,
   PrescriptionShareRequest,
   formatDateTime,
   formatMedication,
@@ -59,6 +61,7 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const updateMutation = useUpdatePrescriptionMutation(tenantId, prescriptionId);
   const deleteMutation = useDeletePrescriptionMutation(tenantId, prescriptionId);
   const shareMutation = useSharePrescriptionMutation(tenantId, prescriptionId);
+  const printMutation = usePrescriptionPrintMutation(tenantId, prescriptionId);
 
   const handleStatusTransition = useCallback(async (newStatus: string) => {
     try {
@@ -105,6 +108,47 @@ export const PrescriptionDetailScreen: React.FC = () => {
       Alert.alert('Error', err.message || 'Failed to share prescription.');
     }
   }, [shareMutation]);
+
+  const handlePrint = useCallback(async () => {
+    try {
+      const printData = await printMutation.mutateAsync();
+      const medications = printData.prescription_data?.medications || [];
+      const medicationLines = medications.length
+        ? medications.map((med, index) => `${index + 1}. ${formatMedication(med)}`).join('\n')
+        : 'No medications recorded.';
+      const branding = printData.branding;
+      const message = [
+        branding.clinic_name,
+        branding.clinic_address,
+        branding.clinic_phone ? `Phone: ${branding.clinic_phone}` : null,
+        branding.clinic_email ? `Email: ${branding.clinic_email}` : null,
+        '',
+        `Doctor: ${branding.doctor_name}`,
+        branding.doctor_qualification,
+        branding.doctor_registration_number ? `Reg: ${branding.doctor_registration_number}` : null,
+        '',
+        `Patient: ${printData.patient_name}`,
+        printData.patient_age ? `Age: ${printData.patient_age}` : null,
+        printData.patient_gender ? `Gender: ${printData.patient_gender}` : null,
+        printData.patient_phone ? `Phone: ${printData.patient_phone}` : null,
+        `Date: ${formatDateTime(printData.issued_date)}`,
+        '',
+        'Prescription',
+        medicationLines,
+        printData.prescription_data?.dietary_advice ? `\nDietary Advice:\n${printData.prescription_data.dietary_advice}` : null,
+        printData.prescription_data?.lifestyle_advice ? `\nLifestyle Advice:\n${printData.prescription_data.lifestyle_advice}` : null,
+        printData.notes ? `\nNotes:\n${printData.notes}` : null,
+        printData.next_visit_days ? `\nFollow-up in ${printData.next_visit_days} days` : null,
+      ].filter(Boolean).join('\n');
+
+      await Share.share({
+        title: 'Prescription',
+        message,
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to prepare prescription for print.');
+    }
+  }, [printMutation]);
 
   const handleEdit = useCallback(() => {
     if (clientId) {
@@ -205,6 +249,15 @@ export const PrescriptionDetailScreen: React.FC = () => {
               <Text style={styles.actionButtonText}>Share</Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.printButton]}
+            onPress={handlePrint}
+            disabled={printMutation.isPending}
+          >
+            <Ionicons name="print-outline" size={18} color={colors.text.primary} />
+            <Text style={[styles.actionButtonText, styles.printButtonText]}>Print</Text>
+          </TouchableOpacity>
 
           {/* Delete Button */}
           <TouchableOpacity
@@ -536,6 +589,14 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     backgroundColor: colors.primary.main,
+  },
+  printButton: {
+    backgroundColor: colors.grey[100],
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  printButtonText: {
+    color: colors.text.primary,
   },
   deleteButton: {
     backgroundColor: colors.error.main + '15',

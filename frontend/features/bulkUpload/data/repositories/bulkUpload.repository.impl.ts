@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 import {
   bulkUploadFileApi,
+  getBulkTemplateApi,
   getJobApi,
   applyMappingApi,
   validateJobApi,
@@ -15,6 +16,7 @@ import {
 import {
   BulkEntityType,
   BulkUploadResponse,
+  BulkTemplateResponse,
   JobSummary,
   ValidationSummary,
   CommitResult,
@@ -33,6 +35,15 @@ export const bulkUploadKeys = {
   jobs: () => [...bulkUploadKeys.all, 'job'] as const,
   job: (jobId: string, params?: { skip?: number; limit?: number; status?: string }) =>
     [...bulkUploadKeys.jobs(), jobId, params] as const,
+};
+
+export const useBulkTemplateMutation = (
+  options?: UseMutationOptions<BulkTemplateResponse, Error, BulkEntityType>
+) => {
+  return useMutation<BulkTemplateResponse, Error, BulkEntityType>({
+    mutationFn: (entityType) => getBulkTemplateApi(entityType),
+    ...options,
+  });
 };
 
 // ============================================

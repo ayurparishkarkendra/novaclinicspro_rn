@@ -217,8 +217,11 @@ export const getOnboardingStatusApi = async (
     console.log('[getOnboardingStatusApi] Status fetched successfully');
     return response.data;
   } catch (error: any) {
-    console.error('[getOnboardingStatusApi] Error:', error);
-    logError('getOnboardingStatusApi', error);
+    if (error?.response?.status === 401) {
+      console.log('[getOnboardingStatusApi] Skipping status fetch: no authenticated session');
+    } else {
+      logError('getOnboardingStatusApi', error);
+    }
     
     // If 403, provide helpful error message
     if (error?.response?.status === 403) {

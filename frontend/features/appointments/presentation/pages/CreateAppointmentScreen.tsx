@@ -671,6 +671,8 @@ export const CreateAppointmentScreen: React.FC = () => {
     episodeId?: string;
     caseSheetId?: string;
     clientId?: string;
+    clientName?: string;
+    clientPhone?: string;
     durationDays?: string;
     treatmentId?: string;
     treatmentName?: string;
@@ -688,6 +690,8 @@ export const CreateAppointmentScreen: React.FC = () => {
       episodeId: params.episodeId,
       caseSheetId: params.caseSheetId,
       clientId: params.clientId,
+      clientName: params.clientName,
+      clientPhone: params.clientPhone,
       durationDays: params.durationDays,
       treatmentId: params.treatmentId,
       treatmentName: params.treatmentName,
@@ -742,6 +746,18 @@ export const CreateAppointmentScreen: React.FC = () => {
   // Client (shared across all forms)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
+
+  useEffect(() => {
+    if (!params.clientId || params.treatmentSheetId) return;
+
+    setSelectedClientId(params.clientId);
+    if (params.clientName || params.clientPhone) {
+      setSelectedClientInfo({
+        name: params.clientName || 'Client',
+        phone: params.clientPhone || '',
+      });
+    }
+  }, [params.clientId, params.clientName, params.clientPhone, params.treatmentSheetId]);
   
   // BUG FIX #7: State for conflict modal (instead of raw Alert)
   const [conflictModal, setConflictModal] = useState<{
@@ -1085,15 +1101,33 @@ export const CreateAppointmentScreen: React.FC = () => {
     const clients = debouncedClientSearch.length >= 2 && searchedClients?.items
       ? searchedClients.items
       : clientsData?.items || [];
-    
-    return clients.map((c: any) => ({
+
+    const options = clients.map((c: any) => ({
       id: c.id,
       label: c.full_name || c.name || 'Unknown',
       subtitle: c.phone || c.email,
       phone: c.phone,
       gender: c.gender, // BUG FIX #7: Include gender for therapist matching
     }));
-  }, [clientsData, searchedClients, debouncedClientSearch]);
+
+    if (
+      selectedClientId &&
+      selectedClientInfo &&
+      !options.some((option) => option.id === selectedClientId)
+    ) {
+      return [
+        {
+          id: selectedClientId,
+          label: selectedClientInfo.name,
+          subtitle: selectedClientInfo.phone,
+          phone: selectedClientInfo.phone,
+        },
+        ...options,
+      ];
+    }
+
+    return options;
+  }, [clientsData, searchedClients, debouncedClientSearch, selectedClientId, selectedClientInfo]);
 
   // Doctors only - CRITICAL: Filter on frontend too for safety
   const doctorOptions: PickerOption[] = useMemo(() => {

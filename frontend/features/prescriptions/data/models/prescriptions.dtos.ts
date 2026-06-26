@@ -50,6 +50,7 @@ export interface PrescriptionCreateRequest {
   client_id: string;
   prescription_data: PrescriptionData;
   appointment_id?: string;
+  episode_id?: string;
   issued_by_staff_id?: string;
   notes?: string;
   next_visit_days?: number;
@@ -90,6 +91,29 @@ export interface ListPrescriptionsParams {
   to_date?: string;
 }
 
+export interface PrescriptionPrintResponse {
+  id: string;
+  prescription_number: string | null;
+  patient_name: string;
+  patient_age: number | null;
+  patient_gender: string | null;
+  patient_phone: string | null;
+  prescription_data: PrescriptionData;
+  notes: string | null;
+  issued_date: string;
+  next_visit_days: number | null;
+  branding: {
+    clinic_name: string;
+    clinic_address: string | null;
+    clinic_phone: string | null;
+    clinic_email: string | null;
+    clinic_logo_url: string | null;
+    doctor_name: string;
+    doctor_qualification: string | null;
+    doctor_registration_number: string | null;
+  };
+}
+
 // ============================================
 // RESPONSE DTOs
 // ============================================
@@ -100,6 +124,7 @@ export interface PrescriptionResponse {
   tenant_id: string;
   client_id: string;
   appointment_id: string | null;
+  episode_id: string | null;
   issued_by_staff_id: string | null;
   prescription_data: PrescriptionData;
   notes: string | null;

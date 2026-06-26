@@ -445,6 +445,16 @@ export const TherapistDashboardScreen: React.FC = () => {
     [cancelLeaveMutation]
   );
 
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const initialMaterials = useMemo(() => usablesData?.items ?? [], [usablesData?.items]);
+
+  const modalSubmitStatus: 'idle' | 'completing' | 'error' =
+    submitStatus === 'completing'
+      ? 'completing'
+      : submitStatus === 'error' || submitStatus === 'partial_error'
+      ? 'error'
+      : 'idle';
+
   // ── Loading guard ─────────────────────────────────────────────────────────
   if (!tenantId) {
     return (
@@ -460,16 +470,6 @@ export const TherapistDashboardScreen: React.FC = () => {
     // Non-fatal — summary stats are derived from sessions, so just log and continue
     console.warn('[TherapistDashboard] Dashboard endpoint error — using session-derived stats');
   }
-
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const initialMaterials = useMemo(() => usablesData?.items ?? [], [usablesData?.items]);
-
-  const modalSubmitStatus: 'idle' | 'completing' | 'error' =
-    submitStatus === 'completing'
-      ? 'completing'
-      : submitStatus === 'error' || submitStatus === 'partial_error'
-      ? 'error'
-      : 'idle';
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

@@ -36,6 +36,7 @@ import {
   BulkScheduleRequest,
   VersionConflictError,
 } from '../models/treatmentOrders.dtos';
+import { treatmentSheetsKeys } from './treatmentSheets.repository.impl';
 
 // ============================================
 // QUERY KEYS
@@ -45,10 +46,50 @@ export const treatmentOrderKeys = {
   all: ['treatmentOrders'] as const,
   detail: (sheetId: string) =>
     [...treatmentOrderKeys.all, 'detail', sheetId] as const,
+  worklists: (tenantId: string) =>
+    [...treatmentOrderKeys.all, 'worklist', tenantId] as const,
   worklist: (tenantId: string, params?: TreatmentOrdersListParams) =>
-    [...treatmentOrderKeys.all, 'worklist', tenantId, params] as const,
+    [...treatmentOrderKeys.worklists(tenantId), params] as const,
   pendingDocumentation: (tenantId: string, staffId: string) =>
     [...treatmentOrderKeys.all, 'pendingDocumentation', tenantId, staffId] as const,
+};
+
+const removeOrderFromCachedWorklists = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  tenantId: string,
+  sheetId: string
+) => {
+  queryClient.setQueriesData<TreatmentOrdersListResponse>(
+    { queryKey: treatmentOrderKeys.worklists(tenantId), exact: false },
+    (current) => {
+      if (!current) return current;
+      const nextItems = current.items.filter((item) => item.id !== sheetId);
+      if (nextItems.length === current.items.length) return current;
+      return {
+        ...current,
+        items: nextItems,
+        total: Math.max(0, current.total - (current.items.length - nextItems.length)),
+      };
+    }
+  );
+};
+
+const invalidateTreatmentOrderSurfaces = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  tenantId: string,
+  sheetId?: string
+) => {
+  await Promise.all([
+    ...(sheetId
+      ? [
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.detail(sheetId) }),
+          queryClient.invalidateQueries({ queryKey: treatmentSheetsKeys.detail(sheetId) }),
+        ]
+      : []),
+    queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklists(tenantId), exact: false }),
+    queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.pendingDocumentation(tenantId, 'doctor') }),
+    queryClient.invalidateQueries({ queryKey: treatmentSheetsKeys.all, exact: false }),
+  ]);
 };
 
 // ============================================
@@ -107,9 +148,19 @@ export const usePendingDocumentationQuery = (
         listTreatmentOrdersApi(tenantId, { state: 'SCHEDULED', limit: 50 }),
         listTreatmentOrdersApi(tenantId, { state: 'IN_PROGRESS', limit: 50 }),
       ]);
-      const items = [...ordered.items, ...scheduled.items, ...inProgress.items].filter(
-        (o) => o.documentation_status === 'DRAFT'
-      );
+      const hasPendingClinicalRows = (order: TreatmentOrderResponse): boolean => {
+        const rows = order.rows?.filter((row) => row.status !== 'CANCELLED') ?? [];
+        if (rows.length === 0) return true;
+        return rows.some((row) => {
+          const fields = [row.treatment_name, row.medicines_text, row.instructions_text];
+          return fields.every((value) => !value || !String(value).trim());
+        });
+      };
+      const items = [...ordered.items, ...scheduled.items, ...inProgress.items].filter((order) => {
+        if (order.documentation_status !== 'DRAFT') return false;
+        if (order.state === 'ORDERED') return true;
+        return hasPendingClinicalRows(order);
+      });
       return { items, total: items.length, skip: 0, limit: items.length };
     },
     enabled: !!tenantId,
@@ -189,10 +240,7 @@ export const useSendToSchedulingMutation = (tenantId: string): UseSendToScheduli
       setCurrentVersion(null);
       try {
         await sendToSchedulingApi(sheetId, version, payload);
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.detail(sheetId) }),
-          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) }),
-        ]);
+        await invalidateTreatmentOrderSurfaces(queryClient, tenantId, sheetId);
         setStatus('success');
       } catch (err) {
         const conflict = extractVersionConflict(err);
@@ -304,7 +352,7 @@ export const useScheduleRowMutation = (tenantId: string) => {
       scheduleRowApi(sheetId, rowId, version, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) });
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
     },
   });
 };
@@ -324,7 +372,7 @@ export const useBulkScheduleRowsMutation = (tenantId: string) => {
       bulkScheduleRowsApi(sheetId, version, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) });
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
     },
   });
 };
@@ -344,7 +392,8 @@ export const useCancelTreatmentOrderMutation = (tenantId: string) => {
     mutationFn: ({ sheetId, version }) => cancelTreatmentOrderApi(sheetId, version),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
-      queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklist(tenantId) });
+      removeOrderFromCachedWorklists(queryClient, tenantId, data.id);
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
     },
   });
 };
