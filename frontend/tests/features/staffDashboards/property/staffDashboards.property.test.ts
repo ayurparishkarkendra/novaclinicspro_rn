@@ -283,7 +283,7 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
   );
 
   it(
-    'getSheetRowUsablesApi URL contains tenantId under /api/v1/clinic/{tenantId}/',
+    'getSheetRowUsablesApi URL is JWT-scoped and contains rowId',
     async () => {
       await fc.assert(
         fc.asyncProperty(fc.uuid(), async (tenantId) => {
@@ -293,7 +293,8 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
           await getSheetRowUsablesApi(tenantId, 'row-id');
 
           const [url] = mockGet.mock.calls[0];
-          expect(url).toContain(`/api/v1/clinic/${tenantId}/`);
+          expect(url).toBe('/api/v1/clinic/treatment-sheets/rows/row-id/usables');
+          expect(url).not.toContain(`/api/v1/clinic/${tenantId}/`);
         }),
         { numRuns: 100 }
       );
@@ -301,7 +302,7 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
   );
 
   it(
-    'completeSheetRowApi URL contains tenantId under /api/v1/clinic/{tenantId}/',
+    'completeSheetRowApi URL is JWT-scoped and contains rowId',
     async () => {
       await fc.assert(
         fc.asyncProperty(fc.uuid(), async (tenantId) => {
@@ -311,7 +312,8 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
           await completeSheetRowApi(tenantId, 'row-id', { materials: [] });
 
           const [url] = mockPost.mock.calls[0];
-          expect(url).toContain(`/api/v1/clinic/${tenantId}/`);
+          expect(url).toBe('/api/v1/clinic/treatment-sheets/rows/row-id/complete');
+          expect(url).not.toContain(`/api/v1/clinic/${tenantId}/`);
         }),
         { numRuns: 100 }
       );
@@ -319,7 +321,7 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
   );
 
   it(
-    'all 4 API functions include tenantId in path for any generated tenantId',
+    'dashboard APIs are tenant-scoped and row APIs are JWT-scoped',
     async () => {
       await fc.assert(
         fc.asyncProperty(fc.uuid(), async (tenantId) => {
@@ -336,14 +338,10 @@ describe('Property 2: Tenant ID is present in all API call paths', () => {
           const getCalls = mockGet.mock.calls;
           const postCalls = mockPost.mock.calls;
 
-          // All GET calls must contain tenantId
-          for (const [url] of getCalls) {
-            expect(url).toContain(`/api/v1/clinic/${tenantId}/`);
-          }
-          // POST call must contain tenantId
-          for (const [url] of postCalls) {
-            expect(url).toContain(`/api/v1/clinic/${tenantId}/`);
-          }
+          expect(getCalls[0][0]).toContain(`/api/v1/clinic/${tenantId}/`);
+          expect(getCalls[1][0]).toContain(`/api/v1/clinic/${tenantId}/`);
+          expect(getCalls[2][0]).toBe('/api/v1/clinic/treatment-sheets/rows/row-id/usables');
+          expect(postCalls[0][0]).toBe('/api/v1/clinic/treatment-sheets/rows/row-id/complete');
         }),
         { numRuns: 100 }
       );
@@ -382,7 +380,7 @@ describe('Property 3: Sessions API is called for any valid tenantId', () => {
     'therapistKeys.sessions query key contains tenantId for any generated tenantId',
     async () => {
       await fc.assert(
-        fc.asyncProperty(fc.uuid(), (tenantId) => {
+        fc.property(fc.uuid(), (tenantId) => {
           const key = therapistKeys.sessions(tenantId);
 
           // The query key must contain the tenantId
@@ -409,7 +407,7 @@ describe('Property 3: Sessions API is called for any valid tenantId', () => {
             cursor: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
             limit: fc.option(fc.integer({ min: 1, max: 100 }), { nil: undefined }),
           }),
-          (tenantId, params) => {
+          async (tenantId, params) => {
             const key = therapistKeys.sessions(tenantId, params);
 
             expect(key).toContain(tenantId);

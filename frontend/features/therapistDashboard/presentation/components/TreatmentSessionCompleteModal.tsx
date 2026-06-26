@@ -8,7 +8,7 @@
  * - Works for both multi-day (rowId present) and single-day (rowId null)
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Modal,
   View,
@@ -50,7 +50,13 @@ export const completeMaterialSchema = z.object({
   unit: z.string().min(1, 'Unit is required'),
   ml_per_unit: z.number().optional(),
   category: z.enum(['oil', 'medicine', 'disposable', 'other']),
-});
+}).refine(
+  (material) => Boolean(material.inventory_item_id || material.material_code),
+  {
+    message: 'Select a material from inventory or use a configured material',
+    path: ['material_name'],
+  }
+);
 
 export const completeSheetRowSchema = z.object({
   materials: z
@@ -384,7 +390,7 @@ export const TreatmentSessionCompleteModal: React.FC<TreatmentSessionCompleteMod
         materials: initialMaterials.length > 0 ? initialMaterials.map(usableToFormRow) : [],
       });
     }
-  }, [visible, rowId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, rowId, initialMaterials, reset]);
 
   const isCompleting = submitStatus === 'completing';
   const showError = submitStatus === 'error' || submitStatus === ('partial_error' as string);

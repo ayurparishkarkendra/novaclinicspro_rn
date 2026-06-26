@@ -31,32 +31,24 @@ import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../core/theme/spacing';
 import { useTreatmentOrderQuery, useBulkScheduleRowsMutation } from '../../data/repositories/treatmentOrders.repository.impl';
-import { TreatmentRowOrderResponse, BulkScheduleAssignment } from '../../data/models/treatmentOrders.dtos';
+import { TreatmentRowOrderResponse } from '../../data/models/treatmentOrders.dtos';
 import { useStaffListQuery } from '../../../staff/data/repositories/staff.repository.impl';
 import { StaffResponse } from '../../../staff/data/models/staff.dtos';
+import { useRoomsListQuery } from '../../../rooms/data/repositories/rooms.repository.impl';
+import { RoomResponse } from '../../../rooms/data/models/rooms.dtos';
+import { buildBulkScheduleAssignments } from '../utils/bulkScheduleAssignments';
 
 // ============================================
 // HELPERS
 // ============================================
-
-const toDateStr = (d: Date): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const toTimeStr = (d: Date): string => {
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  return `${h}:${m}`;
-};
 
 const formatDisplayDate = (d: Date): string =>
   d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const formatDisplayTime = (d: Date): string =>
   d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+const MAX_THERAPISTS_PER_SESSION = 2;
 
 // ============================================
 // ROW ASSIGNMENT STATE
@@ -67,6 +59,8 @@ interface RowAssignment {
   dayNumber: number;
   currentStatus: TreatmentRowOrderResponse['status'];
   staffId: string;
+  therapistIds: string[];
+  roomId: string;
   date: Date;
   time: Date;
   /** Pre-filled from existing scheduled_date/time if row was already scheduled */
@@ -79,13 +73,13 @@ interface RowAssignment {
 
 interface TherapistPickerProps {
   staff: StaffResponse[];
-  selectedId: string;
-  onSelect: (id: string) => void;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
 }
 
-const TherapistPicker: React.FC<TherapistPickerProps> = ({ staff, selectedId, onSelect }) => {
+const TherapistPicker: React.FC<TherapistPickerProps> = ({ staff, selectedIds, onToggle }) => {
   const theme = useClinicTheme();
-  const therapists = staff.filter(s => s.staff_type === 'therapist' && s.is_active);
+  const therapists = staff.filter(s => (s.staff_type ?? '').toLowerCase() === 'therapist' && s.is_active);
 
   if (therapists.length === 0) {
     return (
@@ -98,7 +92,7 @@ const TherapistPicker: React.FC<TherapistPickerProps> = ({ staff, selectedId, on
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.therapistScroll}>
       {therapists.map(t => {
-        const selected = t.id === selectedId;
+        const selected = selectedIds.includes(t.id);
         return (
           <TouchableOpacity
             key={t.id}
@@ -109,7 +103,66 @@ const TherapistPicker: React.FC<TherapistPickerProps> = ({ staff, selectedId, on
                 borderColor: selected ? theme.colors.primary.default : theme.colors.border.subtle,
               },
             ]}
-            onPress={() => onSelect(t.id)}
+            onPress={() => onToggle(t.id)}
+            activeOpacity={0.7}
+          >
+            {selected && (
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={theme.colors.primary.onPrimary}
+                style={styles.therapistChipIcon}
+              />
+            )}
+            <Text
+              style={[
+                styles.therapistChipText,
+                { color: selected ? theme.colors.primary.onPrimary : theme.colors.text.primary },
+              ]}
+              numberOfLines={1}
+            >
+              {t.full_name}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+};
+
+interface RoomPickerProps {
+  rooms: RoomResponse[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}
+
+const RoomPicker: React.FC<RoomPickerProps> = ({ rooms, selectedId, onSelect }) => {
+  const theme = useClinicTheme();
+  const activeRooms = rooms.filter(r => r.is_active);
+
+  if (activeRooms.length === 0) {
+    return (
+      <Text style={[styles.noTherapistText, { color: theme.colors.text.secondary }]}>
+        No active rooms found
+      </Text>
+    );
+  }
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.therapistScroll}>
+      {activeRooms.map(room => {
+        const selected = room.id === selectedId;
+        return (
+          <TouchableOpacity
+            key={room.id}
+            style={[
+              styles.therapistChip,
+              {
+                backgroundColor: selected ? theme.colors.primary.default : theme.colors.background.elevated,
+                borderColor: selected ? theme.colors.primary.default : theme.colors.border.subtle,
+              },
+            ]}
+            onPress={() => onSelect(room.id)}
             activeOpacity={0.7}
           >
             <Text
@@ -119,7 +172,7 @@ const TherapistPicker: React.FC<TherapistPickerProps> = ({ staff, selectedId, on
               ]}
               numberOfLines={1}
             >
-              {t.full_name}
+              {room.name}
             </Text>
           </TouchableOpacity>
         );
@@ -151,7 +204,13 @@ export const BulkSchedulePlanScreen: React.FC = () => {
     limit: 100,
   });
 
+  const { data: roomsData, isLoading: isRoomsLoading } = useRoomsListQuery(tenantId, {
+    is_active: true,
+    limit: 100,
+  });
+
   const staff = staffData?.items ?? [];
+  const rooms = roomsData?.items ?? [];
 
   const bulkMutation = useBulkScheduleRowsMutation(tenantId);
 
@@ -187,6 +246,8 @@ export const BulkSchedulePlanScreen: React.FC = () => {
           dayNumber: row.day_number,
           currentStatus: row.status,
           staffId: row.assigned_staff_id ?? '',
+          therapistIds: row.assigned_staff_id ? [row.assigned_staff_id] : [],
+          roomId: '',
           date: existingDate,
           time: existingTime,
           isPreFilled: !!row.scheduled_date,
@@ -228,10 +289,45 @@ export const BulkSchedulePlanScreen: React.FC = () => {
     [pickerRowId, pickerMode]
   );
 
-  const updateStaff = useCallback((rowId: string, staffId: string) => {
+  const toggleTherapist = useCallback((rowId: string, staffId: string) => {
+    const currentRow = assignments[rowId];
+    if (
+      currentRow &&
+      !currentRow.therapistIds.includes(staffId) &&
+      currentRow.therapistIds.length >= MAX_THERAPISTS_PER_SESSION
+    ) {
+      Alert.alert('Limit Reached', `Only ${MAX_THERAPISTS_PER_SESSION} therapists can be assigned to one session.`);
+      return;
+    }
+
+    setAssignments(prev => {
+      const row = prev[rowId];
+      if (!row) return prev;
+
+      const isSelected = row.therapistIds.includes(staffId);
+      if (!isSelected && row.therapistIds.length >= MAX_THERAPISTS_PER_SESSION) {
+        return prev;
+      }
+
+      const therapistIds = isSelected
+        ? row.therapistIds.filter(id => id !== staffId)
+        : [...row.therapistIds, staffId];
+
+      return {
+        ...prev,
+        [rowId]: {
+          ...row,
+          staffId: therapistIds[0] ?? '',
+          therapistIds,
+        },
+      };
+    });
+  }, [assignments]);
+
+  const updateRoom = useCallback((rowId: string, roomId: string) => {
     setAssignments(prev => ({
       ...prev,
-      [rowId]: { ...prev[rowId], staffId },
+      [rowId]: { ...prev[rowId], roomId },
     }));
   }, []);
 
@@ -244,7 +340,7 @@ export const BulkSchedulePlanScreen: React.FC = () => {
   const allRows = useMemo(() => Object.values(assignments), [assignments]);
 
   const isValid = useMemo(
-    () => allRows.every(a => a.staffId !== ''),
+    () => allRows.every(a => a.therapistIds.length > 0 && a.roomId !== ''),
     [allRows]
   );
 
@@ -256,12 +352,7 @@ export const BulkSchedulePlanScreen: React.FC = () => {
       return;
     }
 
-    const payload: BulkScheduleAssignment[] = allRows.map(a => ({
-      row_id: a.rowId,
-      assigned_staff_id: a.staffId,
-      scheduled_date: toDateStr(a.date),
-      scheduled_time: toTimeStr(a.time),
-    }));
+    const payload = buildBulkScheduleAssignments(allRows);
 
     bulkMutation.mutate(
       { sheetId, version: order.version, payload: { assignments: payload } },
@@ -291,7 +382,7 @@ export const BulkSchedulePlanScreen: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (isLoading || isStaffLoading) {
+  if (isLoading || isStaffLoading || isRoomsLoading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.default }]} edges={['top']}>
         <View style={styles.center}>
@@ -431,13 +522,24 @@ export const BulkSchedulePlanScreen: React.FC = () => {
                 {/* Therapist picker */}
                 {!isCompleted && !isCancelled && (
                   <>
-                    <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Therapist</Text>
+                    <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>
+                      Therapists ({assignment.therapistIds.length}/{MAX_THERAPISTS_PER_SESSION})
+                    </Text>
                     <TherapistPicker
                       staff={staff}
-                      selectedId={assignment.staffId}
-                      onSelect={id => updateStaff(assignment.rowId, id)}
+                      selectedIds={assignment.therapistIds}
+                      onToggle={id => toggleTherapist(assignment.rowId, id)}
                     />
-                    {assignment.staffId === '' && (
+                    {assignment.therapistIds.length === 0 && (
+                      <Text style={styles.validationText}>Required</Text>
+                    )}
+                    <Text style={[styles.fieldLabel, { color: theme.colors.text.secondary }]}>Room</Text>
+                    <RoomPicker
+                      rooms={rooms}
+                      selectedId={assignment.roomId}
+                      onSelect={id => updateRoom(assignment.rowId, id)}
+                    />
+                    {assignment.roomId === '' && (
                       <Text style={styles.validationText}>Required</Text>
                     )}
                   </>
@@ -570,12 +672,16 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600' },
   therapistScroll: { flexGrow: 0 },
   therapistChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 16,
     borderWidth: 1,
     marginRight: spacing.xs,
   },
+  therapistChipIcon: { marginLeft: -2 },
   therapistChipText: { fontSize: 13, fontWeight: '500' },
   noTherapistText: { fontSize: 13, fontStyle: 'italic' },
   validationText: { fontSize: 11, color: '#EF4444' },

@@ -234,22 +234,25 @@ export const getTherapistKpisApi = async (
 
 /**
  * Get pre-configured usables (materials) for a treatment sheet row.
- * GET /api/v1/clinic/{tenantId}/treatment-sheets/rows/{rowId}/usables
+ * GET /api/v1/clinic/treatment-sheets/rows/{rowId}/usables
  * Requirements: 5.1, 1.7
  */
 export const getSheetRowUsablesApi = async (
   tenantId: string,
   rowId: string
 ): Promise<SheetRowUsablesResponse> => {
+  void tenantId;
   const response = await axiosClient.get(
-    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}/usables`
+    `/api/v1/clinic/treatment-sheets/rows/${rowId}/usables`
   );
-  return response.data;
+  return Array.isArray(response.data)
+    ? { items: response.data }
+    : response.data;
 };
 
 /**
  * Complete a treatment sheet row using its row_id.
- * POST /api/v1/clinic/{tenantId}/treatment-sheets/rows/{rowId}/complete
+ * POST /api/v1/clinic/treatment-sheets/rows/{rowId}/complete
  *
  * IMPORTANT: rowId comes from row_id on the session item.
  * NEVER use session_id or completeTreatmentSessionApi here.
@@ -260,8 +263,9 @@ export const completeSheetRowApi = async (
   rowId: string,
   payload: CompleteSheetRowRequest
 ): Promise<CompleteSheetRowResponse> => {
+  void tenantId;
   const response = await axiosClient.post(
-    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}/complete`,
+    `/api/v1/clinic/treatment-sheets/rows/${rowId}/complete`,
     payload
   );
   return response.data;

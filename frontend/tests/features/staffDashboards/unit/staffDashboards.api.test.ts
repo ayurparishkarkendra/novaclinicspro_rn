@@ -128,21 +128,21 @@ describe('getTherapistKpisApi', () => {
 // ---------------------------------------------------------------------------
 
 describe('getSheetRowUsablesApi', () => {
-  it('calls the correct URL with tenantId and rowId in path', async () => {
+  it('calls the correct row-scoped URL', async () => {
     await getSheetRowUsablesApi(TENANT_ID, ROW_ID);
 
     expect(mockGet).toHaveBeenCalledTimes(1);
     const [url] = mockGet.mock.calls[0];
     expect(url).toBe(
-      `/api/v1/clinic/${TENANT_ID}/treatment-sheets/rows/${ROW_ID}/usables`
+      `/api/v1/clinic/treatment-sheets/rows/${ROW_ID}/usables`
     );
   });
 
-  it('URL contains tenantId segment under /api/v1/clinic/', async () => {
+  it('URL does not include tenantId for JWT-scoped row routes', async () => {
     await getSheetRowUsablesApi(TENANT_ID, ROW_ID);
 
     const [url] = mockGet.mock.calls[0];
-    expect(url).toContain(`/api/v1/clinic/${TENANT_ID}/`);
+    expect(url).not.toContain(`/api/v1/clinic/${TENANT_ID}/`);
   });
 
   it('URL contains rowId in path', async () => {
@@ -150,6 +150,23 @@ describe('getSheetRowUsablesApi', () => {
 
     const [url] = mockGet.mock.calls[0];
     expect(url).toContain(`/rows/${ROW_ID}/usables`);
+  });
+
+  it('normalizes backend array response into items wrapper', async () => {
+    const usable = {
+      inventory_item_id: 'inventory-id',
+      material_name: 'Maha Narayan Tailam',
+      material_code: 'maha-narayan-tailam',
+      quantity_used: 50,
+      unit: 'ml',
+      ml_per_unit: 1,
+      category: 'oil',
+    };
+    mockGet.mockResolvedValueOnce({ data: [usable] });
+
+    const result = await getSheetRowUsablesApi(TENANT_ID, ROW_ID);
+
+    expect(result).toEqual({ items: [usable] });
   });
 });
 

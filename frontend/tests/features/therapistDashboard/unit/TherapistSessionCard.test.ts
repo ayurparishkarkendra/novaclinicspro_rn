@@ -26,12 +26,21 @@ import type { TherapistSessionItemV2 } from '../../../../features/staffDashboard
 function makeSession(overrides: Partial<TherapistSessionItemV2> = {}): TherapistSessionItemV2 {
   return {
     row_id: 'row-abc-123',
+    appointment_id: 'appointment-abc-123',
+    treatment_sheet_id: 'sheet-abc-123',
     id: 'session-xyz-999',
     client_name: 'Alice Smith',
     treatment_name: 'Abhyanga',
     day_number: 3,
+    total_sessions: 7,
+    session_date: '2024-01-15',
     scheduled_time: '2024-01-15T09:00:00Z',
+    scheduled_end_time: '2024-01-15T10:00:00Z',
+    therapist_name: 'Therapist One',
+    all_therapist_names: ['Therapist One'],
     status: 'scheduled',
+    started_at: null,
+    started_by_staff_id: null,
     ...overrides,
   };
 }

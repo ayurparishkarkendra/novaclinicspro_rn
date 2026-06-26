@@ -34,7 +34,7 @@ export const TherapistSessionCard: React.FC<TherapistSessionCardProps> = ({
   const scheduledTime = formatTime(session.scheduled_time);
   const statusColor = getStatusColor(session.status);
   const statusLabel = getStatusLabel(session.status);
-  const showComplete = canCompleteSession(session.status);
+  const showComplete = !!session.row_id && canCompleteSession(session.status);
   const isLoading = isCompletingRowId === session.row_id;
 
   const cardLabel = accessibilityLabel ?? `Session for ${clientName}`;
@@ -71,7 +71,7 @@ export const TherapistSessionCard: React.FC<TherapistSessionCardProps> = ({
       {showComplete && (
         <TouchableOpacity
           style={[styles.completeButton, isLoading && styles.completeButtonLoading]}
-          onPress={() => onComplete(session.row_id)}
+          onPress={() => session.row_id && onComplete(session.row_id)}
           disabled={isLoading}
           accessibilityRole="button"
           accessibilityLabel="Complete session"

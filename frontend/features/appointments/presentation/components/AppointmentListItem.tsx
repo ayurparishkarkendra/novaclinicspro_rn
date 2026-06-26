@@ -294,7 +294,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   // For therapists, also allow completing scheduled sessions
   const canComplete = canModify && (
     ['confirmed', 'in_progress'].includes(status) ||
-    (isTherapist && status === 'scheduled')
+    (isTherapist && ['pending', 'scheduled'].includes(status))
   );
   
   // Time-based enabling for No-Show and Record Visit buttons
@@ -582,7 +582,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
           )}
           
           {/* Therapist actions - Complete only (opens materials modal) */}
-          {isTherapist && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
+          {isTherapist && ['pending', 'scheduled', 'confirmed', 'in_progress'].includes(status) && (
             <>
               {canComplete && (onComplete || onStatusUpdate) && (
                 <QuickActionIconButton

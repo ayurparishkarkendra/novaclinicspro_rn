@@ -9,7 +9,7 @@
  *               5.1–5.5, 6.1, 6.2, 6.6, 9.1, 10.1, 11.1, 12.6
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -113,18 +113,19 @@ function sessionToAppointment(
     client_id: '',
     doctor_id: null,
     therapist_ids: [],
-    room_id: null,
+    room_id: session.room_id ?? null,
     treatment_id: null,
     appointment_start: appointmentStart,
     appointment_end: appointmentEnd,
     status: session.status ?? 'scheduled',
-    notes: null,
+    notes: session.instructions ?? null,
     is_active: true,
     created_at: '',
     appointment_type: null,
     series_id: null,
     client_name: session.client_name ?? undefined,
     treatment_name: session.treatment_name ?? undefined,
+    room_name: session.room_name ?? undefined,
     staff_name: staffDisplayName,
   } as AppointmentResponse & { staff_name?: string };
 }
@@ -171,6 +172,7 @@ export const TherapistDashboardScreen: React.FC = () => {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [usablesError, setUsablesError] = useState<string | null>(null);
+  const [expandedInstructionIds, setExpandedInstructionIds] = useState<Record<string, boolean>>({});
 
   // ── Date selection ────────────────────────────────────────────────────────
   const {
@@ -300,6 +302,13 @@ export const TherapistDashboardScreen: React.FC = () => {
       ]
     );
   }, [logout]);
+
+  const toggleInstructions = useCallback((cardId: string) => {
+    setExpandedInstructionIds((prev) => ({
+      ...prev,
+      [cardId]: !prev[cardId],
+    }));
+  }, []);
 
   /** Shared helper — invalidates sessions + KPIs after any completion */
   const invalidateAfterCompletion = useCallback(() => {
@@ -453,7 +462,7 @@ export const TherapistDashboardScreen: React.FC = () => {
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const initialMaterials = usablesData?.items ?? [];
+  const initialMaterials = useMemo(() => usablesData?.items ?? [], [usablesData?.items]);
 
   const modalSubmitStatus: 'idle' | 'completing' | 'error' =
     submitStatus === 'completing'
@@ -533,6 +542,13 @@ export const TherapistDashboardScreen: React.FC = () => {
           ) : (
             (sessionsData?.items ?? []).map((session) => {
               const cardId = session.row_id ?? session.appointment_id ?? session.id ?? '';
+              const hasInstructions = Boolean(
+                session.room_name ||
+                session.treatment_description ||
+                session.medicines_given ||
+                session.instructions
+              );
+              const isInstructionsExpanded = Boolean(expandedInstructionIds[cardId]);
               const canStart =
                 !!session.row_id &&
                 !!session.treatment_sheet_id &&
@@ -541,7 +557,7 @@ export const TherapistDashboardScreen: React.FC = () => {
               const isStarting = startingRowId === session.row_id;
 
               return (
-                <View key={cardId}>
+                <View key={cardId} style={styles.sessionCardBlock}>
                   <AppointmentListItem
                     appointment={sessionToAppointment(session, tenantId)}
                     onPress={undefined}
@@ -549,6 +565,57 @@ export const TherapistDashboardScreen: React.FC = () => {
                     userRole="therapist"
                     onComplete={handleAppointmentComplete}
                   />
+                  {hasInstructions && (
+                    <TouchableOpacity
+                      style={[
+                        styles.instructionsToggle,
+                        isInstructionsExpanded && styles.instructionsToggleExpanded,
+                      ]}
+                      onPress={() => toggleInstructions(cardId)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={isInstructionsExpanded ? 'Hide treatment instructions' : 'Show treatment instructions'}
+                      accessibilityState={{ expanded: isInstructionsExpanded }}
+                    >
+                      <View style={styles.instructionsToggleLabel}>
+                        <Ionicons name="clipboard-outline" size={15} color={colors.text.secondary} />
+                        <Text style={styles.instructionsToggleText}>Treatment Instructions</Text>
+                      </View>
+                      <Ionicons
+                        name={isInstructionsExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.text.secondary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {hasInstructions && isInstructionsExpanded && (
+                    <View style={styles.instructionsPanel}>
+                      {session.room_name && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="business-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText} numberOfLines={1}>{session.room_name}</Text>
+                        </View>
+                      )}
+                      {session.treatment_description && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.treatment_description}</Text>
+                        </View>
+                      )}
+                      {session.medicines_given && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="flask-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.medicines_given}</Text>
+                        </View>
+                      )}
+                      {session.instructions && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="clipboard-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.instructions}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                   {canStart && (
                     <TouchableOpacity
                       style={styles.startSessionBtn}
@@ -700,6 +767,9 @@ const styles = StyleSheet.create({
     ...typography.body1,
     color: colors.text.secondary,
   },
+  sessionCardBlock: {
+    marginBottom: spacing.md,
+  },
   startSessionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -708,13 +778,65 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B5CF6',
     borderRadius: 8,
     paddingVertical: spacing.sm,
-    marginTop: -spacing.xs,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+    marginHorizontal: spacing.md,
   },
   startSessionBtnText: {
     ...typography.button,
     color: colors.common.white,
     fontSize: 13,
+  },
+  instructionsToggle: {
+    marginHorizontal: spacing.md,
+    marginTop: -spacing.sm,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border.light,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.background.paper,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  instructionsToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  instructionsToggleText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  instructionsToggleExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  instructionsPanel: {
+    marginHorizontal: spacing.md,
+    marginTop: 0,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border.light,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.background.paper,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  instructionsLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  instructionsText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    flex: 1,
   },
   dateStripSection: {
     marginTop: spacing.md,

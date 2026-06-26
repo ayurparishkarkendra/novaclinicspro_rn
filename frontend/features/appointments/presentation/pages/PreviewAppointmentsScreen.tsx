@@ -56,6 +56,7 @@ import {
   generateWhatsAppSeriesMessage,
 } from '../../domain/helpers';
 import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
+import { buildInitialEffectiveTimes } from '../../utils/previewEffectiveTimes';
 import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 // Import centralized date/time utils
 import {
@@ -685,34 +686,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // ============================================
   
   const initializeEffectiveTimes = useCallback((newSessions: SessionData[]) => {
-    const newEffectiveTimes = new Map<number, EffectiveTime>();
-    
-    newSessions.forEach(session => {
-      // Get staff info - use therapist_ids from new API structure
-      let staffId = session.therapist_ids?.[0] || null;
-      let staffIds: string[] = session.therapist_ids || [];
-      let staffName = session.staff_name;
-      
-      if (session.staff_assignments && session.staff_assignments.length > 0) {
-        staffId = session.staff_assignments[0].id;
-        staffIds = session.staff_assignments.map(s => s.id);
-        staffName = session.staff_assignments.map(s => s.name).join(', ');
-      }
-      
-      newEffectiveTimes.set(session.session_number, {
-        start: session.appointment_start,
-        end: session.appointment_end,
-        staff_id: staffId,
-        staff_ids: staffIds,
-        staff_name: staffName,
-        room_id: session.room_id,
-        room_name: session.room_name,
-        is_resolved: !session.is_conflicted,
-      });
-    });
-    
-    setEffectiveTimes(newEffectiveTimes);
-  }, []);
+    setEffectiveTimes(
+      buildInitialEffectiveTimes(newSessions, therapistIds, staffNames) as Map<number, EffectiveTime>
+    );
+  }, [therapistIds, staffNames]);
 
   // ============================================
   // BACKEND-DRIVEN SESSION GENERATION
@@ -782,6 +759,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
+            therapist_ids: session.therapist_ids && session.therapist_ids.length > 0
+              ? session.therapist_ids
+              : therapistIds,
             staff_name: session.staff_name || null,
             staff_assignments: session.staff_assignments || null,
             room_id: session.room_id,
@@ -1182,6 +1162,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       console.log('[PreviewScreen] Bulk create payload:', {
         series_id: seriesId,
         appointment_count: appointmentItems.length,
+        therapist_ids_by_session: appointmentItems.map(item => ({
+          session_number: item.session_number,
+          therapist_ids: item.therapist_ids,
+        })),
         has_episode_id: !!episodeId,
         has_case_sheet_id: !!caseSheetId,
         has_treatment_sheet_id: !!treatmentSheetId,

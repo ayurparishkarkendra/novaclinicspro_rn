@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import { spacing } from '../../../core/theme/spacing';
 import { typography } from '../../../core/theme/typography';
 import {
   useTreatmentOrdersQuery,
+  useCancelTreatmentOrderMutation,
 } from '../../../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import {
   TreatmentOrderResponse,
@@ -70,9 +72,19 @@ interface OrderCardProps {
   onSchedule: (order: TreatmentOrderResponse) => void;
   onViewSheet: (order: TreatmentOrderResponse) => void;
   onSendSchedule: (order: TreatmentOrderResponse) => void;
+  onPatientDeclined: (order: TreatmentOrderResponse) => void;
+  isCancelling: boolean;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, tenantId, onSchedule, onViewSheet, onSendSchedule }) => {
+const OrderCard: React.FC<OrderCardProps> = ({
+  order,
+  tenantId,
+  onSchedule,
+  onViewSheet,
+  onSendSchedule,
+  onPatientDeclined,
+  isCancelling,
+}) => {
   const stateColor = getOrderStateColor(order.state);
 
   // Show scheduling_status chip only when it adds info beyond the state chip
@@ -102,6 +114,10 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, tenantId, onSchedule, onVi
   const doctorName = order.ordered_by_name ?? doctorStaff?.full_name ?? null;
 
   const sessions = order.planned_sessions ?? order.duration_days;
+  const canCancelPending =
+    order.state === 'ORDERED' ||
+    order.scheduling_status === 'PENDING_SCHEDULING' ||
+    order.scheduling_status === 'PARTIALLY_SCHEDULED';
 
   return (
     <TouchableOpacity
@@ -165,9 +181,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, tenantId, onSchedule, onVi
 
       {/* Actions */}
       <View style={styles.cardActions}>
-        {(order.state === 'ORDERED' ||
-          order.scheduling_status === 'PENDING_SCHEDULING' ||
-          order.scheduling_status === 'PARTIALLY_SCHEDULED') && (
+        {canCancelPending && (
           <TouchableOpacity
             style={styles.scheduleBtn}
             onPress={() => onSchedule(order)}
@@ -175,6 +189,21 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, tenantId, onSchedule, onVi
           >
             <Ionicons name="calendar" size={14} color={colors.common.white} />
             <Text style={styles.scheduleBtnText}>Schedule Plan</Text>
+          </TouchableOpacity>
+        )}
+        {canCancelPending && (
+          <TouchableOpacity
+            style={[styles.declineBtn, isCancelling && styles.disabledBtn]}
+            onPress={() => onPatientDeclined(order)}
+            disabled={isCancelling}
+            activeOpacity={0.7}
+          >
+            {isCancelling ? (
+              <ActivityIndicator size="small" color={colors.error.main} />
+            ) : (
+              <Ionicons name="close-circle-outline" size={14} color={colors.error.main} />
+            )}
+            <Text style={styles.declineBtnText}>Patient Declined</Text>
           </TouchableOpacity>
         )}
         {order.state === 'SCHEDULED' && order.scheduling_status === 'FULLY_SCHEDULED' && (
@@ -211,6 +240,8 @@ export default function TreatmentOrdersScreen() {
 
   const [stateFilter, setStateFilter] = useState<TreatmentOrderState | undefined>(undefined);
   const [scheduleModalOrder, setScheduleModalOrder] = useState<TreatmentOrderResponse | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const cancelOrderMutation = useCancelTreatmentOrderMutation(tenantId);
 
   const {
     data,
@@ -249,6 +280,37 @@ export default function TreatmentOrdersScreen() {
       setScheduleModalOrder(order);
     },
     []
+  );
+
+  const handlePatientDeclined = useCallback(
+    (order: TreatmentOrderResponse) => {
+      Alert.alert(
+        'Cancel Treatment Plan',
+        'Use this when the patient does not want to proceed with the treatment. This removes the plan from the scheduling worklist.',
+        [
+          { text: 'Keep Plan', style: 'cancel' },
+          {
+            text: 'Cancel Plan',
+            style: 'destructive',
+            onPress: async () => {
+              setCancellingOrderId(order.id);
+              try {
+                await cancelOrderMutation.mutateAsync({
+                  sheetId: order.id,
+                  version: order.version,
+                });
+                Alert.alert('Cancelled', 'Treatment plan removed from scheduling.');
+              } catch (error: any) {
+                Alert.alert('Error', error?.message ?? 'Failed to cancel treatment plan.');
+              } finally {
+                setCancellingOrderId(null);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [cancelOrderMutation]
   );
 
   const renderEmpty = () => {
@@ -323,6 +385,8 @@ export default function TreatmentOrdersScreen() {
               onSchedule={handleSchedule}
               onViewSheet={handleViewSheet}
               onSendSchedule={handleSendSchedule}
+              onPatientDeclined={handlePatientDeclined}
+              isCancelling={cancellingOrderId === item.id}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -424,7 +488,13 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: '100%', borderRadius: 2 },
   progressLabel: { ...typography.caption, color: colors.text.secondary, minWidth: 80 },
-  cardActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
   scheduleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,6 +505,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   scheduleBtnText: { ...typography.caption, color: colors.common.white, fontWeight: '600' },
+  declineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.error.main + '12',
+    borderColor: colors.error.main + '35',
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+  },
+  declineBtnText: { ...typography.caption, color: colors.error.main, fontWeight: '600' },
+  disabledBtn: { opacity: 0.55 },
   sendScheduleBtn: {
     flexDirection: 'row',
     alignItems: 'center',

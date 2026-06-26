@@ -251,7 +251,12 @@ export interface TherapistSessionItemV2 {
   /** Session record id (may be absent) */
   id?: string | null;
   client_name: string | null;
+  room_id?: string | null;
+  room_name?: string | null;
   treatment_name: string | null;
+  treatment_description?: string | null;
+  medicines_given?: string | null;
+  instructions?: string | null;
   day_number: number | null;
   /** Total number of sessions in the series (e.g. 21 for a 21-day plan) */
   total_sessions: number | null;

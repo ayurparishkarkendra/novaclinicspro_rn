@@ -148,6 +148,8 @@ export interface SendToSchedulingRequest {
 /** Body for PATCH /treatment-sheets/{sheet_id}/rows/{row_id}/schedule */
 export interface ScheduleRowRequest {
   assigned_staff_id: string;
+  therapist_ids?: string[];
+  room_id?: string | null;
   scheduled_date: string;
   scheduled_time?: string;
 }
@@ -156,6 +158,8 @@ export interface ScheduleRowRequest {
 export interface BulkScheduleAssignment {
   row_id: string;
   assigned_staff_id: string;
+  therapist_ids?: string[];
+  room_id?: string | null;
   scheduled_date: string;
   scheduled_time?: string;
 }
