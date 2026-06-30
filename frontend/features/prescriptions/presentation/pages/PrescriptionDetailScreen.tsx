@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +20,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { ClinicalPrintPreviewModal } from '../../../../core/clinicalPrint/ClinicalPrintPreviewModal';
+import { buildPrescriptionPrintHtml } from '../../../../core/clinicalPrint/adapters';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   usePrescriptionDetailQuery,
@@ -48,6 +49,8 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const prescriptionId = params.prescriptionId || '';
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printHtmlContent, setPrintHtmlContent] = useState('');
 
   const {
     data: prescription,
@@ -112,39 +115,8 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const handlePrint = useCallback(async () => {
     try {
       const printData = await printMutation.mutateAsync();
-      const medications = printData.prescription_data?.medications || [];
-      const medicationLines = medications.length
-        ? medications.map((med, index) => `${index + 1}. ${formatMedication(med)}`).join('\n')
-        : 'No medications recorded.';
-      const branding = printData.branding;
-      const message = [
-        branding.clinic_name,
-        branding.clinic_address,
-        branding.clinic_phone ? `Phone: ${branding.clinic_phone}` : null,
-        branding.clinic_email ? `Email: ${branding.clinic_email}` : null,
-        '',
-        `Doctor: ${branding.doctor_name}`,
-        branding.doctor_qualification,
-        branding.doctor_registration_number ? `Reg: ${branding.doctor_registration_number}` : null,
-        '',
-        `Patient: ${printData.patient_name}`,
-        printData.patient_age ? `Age: ${printData.patient_age}` : null,
-        printData.patient_gender ? `Gender: ${printData.patient_gender}` : null,
-        printData.patient_phone ? `Phone: ${printData.patient_phone}` : null,
-        `Date: ${formatDateTime(printData.issued_date)}`,
-        '',
-        'Prescription',
-        medicationLines,
-        printData.prescription_data?.dietary_advice ? `\nDietary Advice:\n${printData.prescription_data.dietary_advice}` : null,
-        printData.prescription_data?.lifestyle_advice ? `\nLifestyle Advice:\n${printData.prescription_data.lifestyle_advice}` : null,
-        printData.notes ? `\nNotes:\n${printData.notes}` : null,
-        printData.next_visit_days ? `\nFollow-up in ${printData.next_visit_days} days` : null,
-      ].filter(Boolean).join('\n');
-
-      await Share.share({
-        title: 'Prescription',
-        message,
-      });
+      setPrintHtmlContent(buildPrescriptionPrintHtml(printData));
+      setShowPrintPreview(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to prepare prescription for print.');
     }
@@ -421,6 +393,12 @@ export const PrescriptionDetailScreen: React.FC = () => {
         onClose={() => setShowShareModal(false)}
         onShare={handleShare}
         isLoading={shareMutation.isPending}
+      />
+      <ClinicalPrintPreviewModal
+        visible={showPrintPreview}
+        html={printHtmlContent}
+        title="Prescription Preview"
+        onClose={() => setShowPrintPreview(false)}
       />
     </SafeAreaView>
   );

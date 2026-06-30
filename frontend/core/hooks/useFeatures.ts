@@ -3,7 +3,7 @@
  * Access feature configuration from tenant metadata with API refresh.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../api/supabaseClient';
 import { axiosClient } from '../api/axiosClient';
 
@@ -72,34 +72,47 @@ function normalizeFeatures(raw?: any): FeatureConfig {
  */
 export function useFeatures(): FeatureConfig {
   const [features, setFeatures] = useState<FeatureConfig>(DEFAULT_FEATURES);
+  // Refs to deduplicate API calls and state updates
+  const lastTenantIdRef = useRef<string | null>(null);
+  const lastFeaturesJsonRef = useRef<string>('');
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadFeatures = async () => {
+    const loadFeatures = async (forceRefetch = false) => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         const metadataFeatures = user?.app_metadata?.features;
         const tenantId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
 
-        console.log('[useFeatures] Loading feature config:', {
-          hasUser: !!user,
-          tenantId,
-          hasJwtFeatures: !!metadataFeatures,
-          jwtClinicType: metadataFeatures?.clinic_type,
-        });
-
         if (!tenantId) {
           if (isMounted) {
-            setFeatures(metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES);
+            const next = metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES;
+            const nextJson = JSON.stringify(next);
+            if (nextJson !== lastFeaturesJsonRef.current) {
+              lastFeaturesJsonRef.current = nextJson;
+              setFeatures(next);
+            }
           }
+          return;
+        }
+
+        // Skip API call if we already loaded for this tenant and aren't forcing
+        if (!forceRefetch && tenantId === lastTenantIdRef.current) {
           return;
         }
 
         try {
           const response = await axiosClient.get('/api/v1/tenants/' + tenantId + '/features');
           if (isMounted) {
-            setFeatures(normalizeFeatures(response.data));
+            const next = normalizeFeatures(response.data);
+            const nextJson = JSON.stringify(next);
+            // Only update state if features actually changed — prevents re-render loops
+            if (nextJson !== lastFeaturesJsonRef.current) {
+              lastFeaturesJsonRef.current = nextJson;
+              setFeatures(next);
+            }
+            lastTenantIdRef.current = tenantId;
           }
           console.log('[useFeatures] Features loaded from API:', response.data);
         } catch (apiError: any) {
@@ -108,7 +121,12 @@ export function useFeatures(): FeatureConfig {
           console.log('[useFeatures] API feature load failed:', errorStatus, errorDetail);
 
           if (isMounted) {
-            setFeatures(metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES);
+            const next = metadataFeatures ? normalizeFeatures(metadataFeatures) : DEFAULT_FEATURES;
+            const nextJson = JSON.stringify(next);
+            if (nextJson !== lastFeaturesJsonRef.current) {
+              lastFeaturesJsonRef.current = nextJson;
+              setFeatures(next);
+            }
           }
         }
       } catch (error) {
@@ -119,10 +137,17 @@ export function useFeatures(): FeatureConfig {
       }
     };
 
-    loadFeatures();
+    loadFeatures(true);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadFeatures();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // TOKEN_REFRESHED fires on every Axios 401 retry and on Supabase automatic
+      // background refresh. Re-fetching features on each token refresh creates an
+      // infinite loop. Only reload on events that indicate the user/tenant changed.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'SIGNED_OUT') {
+        lastTenantIdRef.current = null; // force refetch for new session
+        loadFeatures(true);
+      }
+      // TOKEN_REFRESHED, INITIAL_SESSION — intentionally ignored
     });
 
     return () => {

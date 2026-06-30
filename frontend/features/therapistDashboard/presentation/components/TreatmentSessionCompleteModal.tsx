@@ -259,11 +259,12 @@ interface MaterialRowProps {
   errors: ReturnType<typeof useForm<CompleteSheetRowFormData>>['formState']['errors'];
   onRemove: () => void;
   tenantId: string;
-  setValue: (name: any, value: any) => void;
+  setValue: (name: any, value: any, options?: object) => void;
+  trigger: (name?: any) => Promise<boolean>;
 }
 
 const MaterialRow: React.FC<MaterialRowProps> = ({
-  index, control, errors, onRemove, tenantId, setValue,
+  index, control, errors, onRemove, tenantId, setValue, trigger,
 }) => {
   const rowErrors = errors.materials?.[index];
 
@@ -291,12 +292,16 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
             error={rowErrors?.material_name?.message}
             index={index}
             onChange={(name, itemId, unit) => {
-              setValue(`materials.${index}.material_name`, name, { shouldDirty: true, shouldValidate: true });
-              setValue(`materials.${index}.inventory_item_id`, itemId, { shouldDirty: true, shouldValidate: true });
+              // Set all values without triggering validation on each call,
+              // so Zod's refine() sees the final complete state in one pass.
+              setValue(`materials.${index}.material_name`, name, { shouldDirty: true });
+              setValue(`materials.${index}.inventory_item_id`, itemId, { shouldDirty: true });
               if (itemId) {
-                setValue(`materials.${index}.material_code`, null, { shouldDirty: true, shouldValidate: true });
+                setValue(`materials.${index}.material_code`, null, { shouldDirty: true });
               }
-              if (unit) setValue(`materials.${index}.unit`, unit, { shouldDirty: true, shouldValidate: true });
+              if (unit) setValue(`materials.${index}.unit`, unit, { shouldDirty: true });
+              // Validate the whole row at once after all values are set
+              trigger(`materials.${index}`);
             }}
           />
         )}
@@ -306,26 +311,37 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
       <Controller
         control={control}
         name={`materials.${index}.quantity_used`}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Quantity *</Text>
-            <TextInput
-              style={[styles.input, rowErrors?.quantity_used && styles.inputError]}
-              value={value === 0 ? '' : String(value)}
-              onChangeText={(text) => {
-                const num = parseFloat(text);
-                onChange(isNaN(num) ? 0 : num);
-              }}
-              onBlur={onBlur}
-              placeholder="e.g. 50"
-              keyboardType="numeric"
-              accessibilityLabel={`Material ${index + 1} quantity`}
-            />
-            {rowErrors?.quantity_used && (
-              <Text style={styles.fieldError}>{rowErrors.quantity_used.message}</Text>
-            )}
-          </View>
-        )}
+        render={({ field: { onChange, onBlur, value } }) => {
+          // Keep a local string so intermediate input (e.g. "5." or "") doesn't
+          // corrupt the numeric RHF value while the user is still typing.
+          const [rawText, setRawText] = React.useState(value === 0 ? '' : String(value));
+          return (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Quantity *</Text>
+              <TextInput
+                style={[styles.input, rowErrors?.quantity_used && styles.inputError]}
+                value={rawText}
+                onChangeText={(text) => {
+                  setRawText(text);
+                  const num = parseFloat(text);
+                  onChange(isNaN(num) ? 0 : num);
+                }}
+                onBlur={() => {
+                  // Commit final parsed value on blur
+                  const num = parseFloat(rawText);
+                  onChange(isNaN(num) ? 0 : num);
+                  onBlur();
+                }}
+                placeholder="e.g. 50"
+                keyboardType="numeric"
+                accessibilityLabel={`Material ${index + 1} quantity`}
+              />
+              {rowErrors?.quantity_used && (
+                <Text style={styles.fieldError}>{rowErrors.quantity_used.message}</Text>
+              )}
+            </View>
+          );
+        }}
       />
 
       {/* Unit */}
@@ -401,9 +417,12 @@ export const TreatmentSessionCompleteModal: React.FC<TreatmentSessionCompleteMod
     handleSubmit,
     reset,
     setValue,
+    trigger,
     formState: { errors },
   } = useForm<CompleteSheetRowFormData>({
     resolver: zodResolver(completeSheetRowSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     defaultValues: {
       materials: initialMaterials.length > 0 ? initialMaterials.map(usableToFormRow) : [],
     },
@@ -469,6 +488,7 @@ export const TreatmentSessionCompleteModal: React.FC<TreatmentSessionCompleteMod
                 onRemove={() => remove(index)}
                 tenantId={tenantId}
                 setValue={setValue}
+                trigger={trigger}
               />
             ))}
 

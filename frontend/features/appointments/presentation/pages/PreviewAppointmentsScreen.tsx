@@ -28,7 +28,9 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -1535,7 +1537,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
       {/* #7: Custom Time Picker - Native only, no modal wrapper */}
       {showCustomTimePicker && (
-        <DateTimePicker
+        <CrossPlatformDateTimePicker
           value={new Date()}
           mode="time"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}

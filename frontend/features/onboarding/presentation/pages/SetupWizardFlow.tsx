@@ -44,7 +44,7 @@ export function SetupWizardFlow() {
   const theme = useClinicTheme();
   const router = useRouter();
   const { tenantId: tenantIdParam } = useLocalSearchParams<{ tenantId: string }>();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
 
   // Use tenantId from URL params, or fall back to currentUser's tenantId
   const tenantId = tenantIdParam || currentUser?.tenantId || '';
@@ -75,11 +75,16 @@ export function SetupWizardFlow() {
     }
   }, [tenantId, setWizardTenantId]);
 
-  // Refetch status when screen comes into focus (after navigating back from external screens)
+  // Refetch status when screen comes into focus (after navigating back from
+  // external screens). refetch() bypasses the query's `enabled` guard and
+  // always dispatches — guard explicitly so a focus event during/after
+  // logout can't fire an authenticated request with no JWT.
   useFocusEffect(
     React.useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (tenantId && isAuthenticated) {
+        refetch();
+      }
+    }, [tenantId, isAuthenticated, refetch])
   );
 
   useEffect(() => {

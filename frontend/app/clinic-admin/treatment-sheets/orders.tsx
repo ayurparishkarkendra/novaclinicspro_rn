@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +55,16 @@ const formatShortDate = (iso: string | null): string => {
 // ============================================
 // FILTER CHIPS
 // ============================================
+
+// Canonical patient-decline reasons (mirror backend TreatmentDenialReason enum).
+// Captured for later analysis of why patients decline recommendations.
+const DECLINE_REASONS: { code: string; label: string }[] = [
+  { code: 'financial', label: 'Financial / cost' },
+  { code: 'time_constraints', label: 'Time / scheduling constraints' },
+  { code: 'second_opinion', label: 'Wants second opinion / undecided' },
+  { code: 'distance', label: 'Distance / travel' },
+  { code: 'other', label: 'Other' },
+];
 
 const STATE_FILTERS: { label: string; value: TreatmentOrderState | undefined }[] = [
   { label: 'All', value: undefined },
@@ -114,6 +126,9 @@ const OrderCard: React.FC<OrderCardProps> = ({
   const doctorName = order.ordered_by_name ?? doctorStaff?.full_name ?? null;
 
   const sessions = order.planned_sessions ?? order.duration_days;
+  // Therapy as submitted by the doctor — prefer the recommendation field, then
+  // fall back to the first row's description for legacy row-based sheets.
+  const therapy = order.recommended_therapy ?? order.rows?.[0]?.treatment_name ?? null;
   const canCancelPending =
     order.state === 'ORDERED' ||
     order.scheduling_status === 'PENDING_SCHEDULING' ||
@@ -135,6 +150,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
         <View style={styles.metaRow}>
           <Ionicons name="person-circle-outline" size={13} color={colors.text.secondary} />
           <Text style={styles.cardMeta}>Dr. {doctorName}</Text>
+        </View>
+      )}
+
+      {/* Recommended therapy — as submitted by the doctor */}
+      {therapy && (
+        <View style={styles.metaRow}>
+          <Ionicons name="medical-outline" size={13} color={colors.text.secondary} />
+          <Text style={styles.cardMeta} numberOfLines={2}>{therapy}</Text>
         </View>
       )}
 
@@ -241,6 +264,10 @@ export default function TreatmentOrdersScreen() {
   const [stateFilter, setStateFilter] = useState<TreatmentOrderState | undefined>(undefined);
   const [scheduleModalOrder, setScheduleModalOrder] = useState<TreatmentOrderResponse | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  // Patient-decline flow: select a reason BEFORE cancelling.
+  const [declineOrder, setDeclineOrder] = useState<TreatmentOrderResponse | null>(null);
+  const [declineReasonCode, setDeclineReasonCode] = useState<string | null>(null);
+  const [declineReasonText, setDeclineReasonText] = useState('');
   const cancelOrderMutation = useCancelTreatmentOrderMutation(tenantId);
 
   const {
@@ -289,36 +316,47 @@ export default function TreatmentOrdersScreen() {
     []
   );
 
+  // Step 1: open the reason picker. Cancellation does NOT happen yet — the plan
+  // (recommendation history) stays intact until the admin picks a reason + confirms.
   const handlePatientDeclined = useCallback(
     (order: TreatmentOrderResponse) => {
-      Alert.alert(
-        'Cancel Treatment Plan',
-        'Use this when the patient does not want to proceed with the treatment. This removes the plan from the scheduling worklist.',
-        [
-          { text: 'Keep Plan', style: 'cancel' },
-          {
-            text: 'Cancel Plan',
-            style: 'destructive',
-            onPress: async () => {
-              setCancellingOrderId(order.id);
-              try {
-                await cancelOrderMutation.mutateAsync({
-                  sheetId: order.id,
-                  version: order.version,
-                });
-                Alert.alert('Cancelled', 'Treatment plan removed from scheduling.');
-              } catch (error: any) {
-                Alert.alert('Error', error?.message ?? 'Failed to cancel treatment plan.');
-              } finally {
-                setCancellingOrderId(null);
-              }
-            },
-          },
-        ]
-      );
+      setDeclineReasonCode(null);
+      setDeclineReasonText('');
+      setDeclineOrder(order);
     },
-    [cancelOrderMutation]
+    []
   );
+
+  const closeDeclineModal = useCallback(() => {
+    setDeclineOrder(null);
+    setDeclineReasonCode(null);
+    setDeclineReasonText('');
+  }, []);
+
+  // Step 2: confirm — only now do we cancel, recording the chosen reason.
+  const confirmDecline = useCallback(async () => {
+    if (!declineOrder || !declineReasonCode) return;
+    if (declineReasonCode === 'other' && !declineReasonText.trim()) return;
+
+    const order = declineOrder;
+    setCancellingOrderId(order.id);
+    setDeclineOrder(null);
+    try {
+      await cancelOrderMutation.mutateAsync({
+        sheetId: order.id,
+        version: order.version,
+        reason_code: declineReasonCode,
+        reason_text: declineReasonText.trim() || undefined,
+      });
+      Alert.alert('Recorded', 'Patient decline recorded and removed from the scheduling worklist.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'Failed to record the decline.');
+    } finally {
+      setCancellingOrderId(null);
+      setDeclineReasonCode(null);
+      setDeclineReasonText('');
+    }
+  }, [declineOrder, declineReasonCode, declineReasonText, cancelOrderMutation]);
 
   const renderEmpty = () => {
     if (isLoading) return null;
@@ -417,6 +455,73 @@ export default function TreatmentOrdersScreen() {
         onClose={() => setScheduleModalOrder(null)}
       />
     )}
+
+    <Modal
+      visible={!!declineOrder}
+      transparent
+      animationType="fade"
+      onRequestClose={closeDeclineModal}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Patient Declined</Text>
+          <Text style={styles.modalSubtitle}>
+            Select why the patient declined this treatment. This is recorded for analysis;
+            the recommendation history is kept.
+          </Text>
+
+          {DECLINE_REASONS.map((r) => {
+            const selected = declineReasonCode === r.code;
+            return (
+              <TouchableOpacity
+                key={r.code}
+                style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                onPress={() => setDeclineReasonCode(r.code)}
+                activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <Ionicons
+                  name={selected ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={selected ? colors.primary.main : colors.text.secondary}
+                />
+                <Text style={styles.reasonLabel}>{r.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {declineReasonCode === 'other' && (
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Add a brief reason"
+              placeholderTextColor={colors.text.disabled}
+              value={declineReasonText}
+              onChangeText={setDeclineReasonText}
+              multiline
+            />
+          )}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={closeDeclineModal} activeOpacity={0.7}>
+              <Text style={styles.modalCancelText}>Keep Plan</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.modalConfirmBtn,
+                (!declineReasonCode || (declineReasonCode === 'other' && !declineReasonText.trim())) &&
+                  styles.disabledBtn,
+              ]}
+              onPress={confirmDecline}
+              disabled={!declineReasonCode || (declineReasonCode === 'other' && !declineReasonText.trim())}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalConfirmText}>Confirm Decline</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   </>
   );
 }
@@ -554,4 +659,60 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.body2, color: colors.error.main, flex: 1 },
   retryText: { ...typography.body2, color: colors.primary.main, fontWeight: '600' },
+  // ── Decline reason modal ──────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.background.paper,
+    borderRadius: 12,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  modalTitle: { ...typography.h6, color: colors.text.primary },
+  modalSubtitle: { ...typography.body2, color: colors.text.secondary, marginBottom: spacing.xs },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  reasonRowSelected: { borderColor: colors.primary.main, backgroundColor: colors.primary.main + '10' },
+  reasonLabel: { ...typography.body2, color: colors.text.primary, flex: 1 },
+  reasonInput: {
+    ...typography.body2,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: 8,
+    padding: spacing.sm,
+    minHeight: 64,
+    textAlignVertical: 'top',
+    marginTop: spacing.xs,
+  },
+  modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    alignItems: 'center',
+  },
+  modalCancelText: { ...typography.button, color: colors.text.secondary },
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.error.main,
+    alignItems: 'center',
+  },
+  modalConfirmText: { ...typography.button, color: colors.common.white },
 });

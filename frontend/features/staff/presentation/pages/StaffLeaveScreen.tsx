@@ -28,6 +28,7 @@ import { useDebounce } from '../../../../core/hooks/useDebounce';
 import {
   useStaffListQuery,
   useStaffLeaveListQuery,
+  useAllStaffLeaveListQuery,
   useApproveLeaveMutation,
   useRejectLeaveMutation,
 } from '../../data/repositories/staff.repository.impl';
@@ -39,7 +40,18 @@ import {
 } from '../../data/models/staff.dtos';
 import { LeaveListItem } from '../components/LeaveListItem';
 
-const STATUS_FILTERS: (LeaveStatus | 'all')[] = ['all', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+// 'needs_action' shows PENDING + REQUESTED; 'all' shows everything
+type FilterKey = 'needs_action' | 'all' | LeaveStatus;
+const STATUS_FILTERS: FilterKey[] = ['needs_action', 'all', 'APPROVED', 'REJECTED', 'CANCELLED'];
+const FILTER_LABELS: Record<FilterKey, string> = {
+  needs_action: 'Needs Action',
+  all: 'All',
+  PENDING: 'Pending',
+  REQUESTED: 'Requested',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+};
 const MIN_SEARCH_LENGTH = 3;
 const DEBOUNCE_DELAY = 300;
 const MAX_QUICK_CHIPS = 5;
@@ -49,7 +61,7 @@ export const StaffLeaveScreen: React.FC = () => {
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
 
-  const [selectedStatus, setSelectedStatus] = useState<LeaveStatus | 'all'>('PENDING');
+  const [selectedStatus, setSelectedStatus] = useState<FilterKey>('needs_action');
   const [selectedStaff, setSelectedStaff] = useState<StaffResponse | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -80,17 +92,41 @@ export const StaffLeaveScreen: React.FC = () => {
       .slice(0, 8);
   }, [staffData?.items, debouncedSearch]);
 
-  const effectiveStaffId = selectedStaff?.id || staffData?.items?.[0]?.id || '';
+  // 'needs_action' = show PENDING + REQUESTED; the API doesn't support multi-status,
+  // so we omit the filter and filter client-side below.
+  // 'all' = no filter. Otherwise pass the exact status to the API.
+  const apiStatusParam: LeaveStatus | undefined =
+    selectedStatus === 'needs_action' || selectedStatus === 'all'
+      ? undefined
+      : (selectedStatus as LeaveStatus);
 
-  const { data: leavesData, isLoading, refetch, isRefetching } = useStaffLeaveListQuery(
+  const perStaffQuery = useStaffLeaveListQuery(
     tenantId,
-    effectiveStaffId,
-    { status: selectedStatus === 'all' ? undefined : selectedStatus, limit: 50 },
-    { enabled: !!effectiveStaffId }
+    selectedStaff?.id ?? '',
+    { status: apiStatusParam, limit: 50 },
+    { enabled: !!selectedStaff }
   );
+
+  const allStaffQuery = useAllStaffLeaveListQuery(
+    tenantId,
+    { status: apiStatusParam, limit: 100 },
+    { enabled: !selectedStaff }
+  );
+
+  const activeQuery = selectedStaff ? perStaffQuery : allStaffQuery;
+  const { data: leavesData, isLoading, refetch, isRefetching } = activeQuery;
 
   const approveMutation = useApproveLeaveMutation(tenantId);
   const rejectMutation = useRejectLeaveMutation(tenantId);
+
+  // staffId → name lookup for all-staff view
+  const staffById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of staffData?.items || []) {
+      map[s.id] = s.full_name;
+    }
+    return map;
+  }, [staffData?.items]);
 
   const selectStaff = useCallback((staff: StaffResponse) => {
     setSelectedStaff(staff);
@@ -149,28 +185,38 @@ export const StaffLeaveScreen: React.FC = () => {
     }
   }, [selectedLeave, rejectReason, rejectMutation, refetch]);
 
+  // Client-side filter for 'needs_action' — show PENDING + REQUESTED
+  const displayedLeaves = useMemo(() => {
+    const items = leavesData?.items || [];
+    if (selectedStatus === 'needs_action') {
+      return items.filter(l => l.status === 'PENDING' || l.status === 'REQUESTED');
+    }
+    return items;
+  }, [leavesData?.items, selectedStatus]);
+
   const renderLeaveItem = useCallback(({ item }: { item: StaffLeaveResponse }) => (
     <LeaveListItem
       leave={item}
       showActions
       onApprove={handleApprove}
       onReject={handleRejectPress}
+      staffName={!selectedStaff ? staffById[item.staff_id] : undefined}
     />
-  ), [handleApprove, handleRejectPress]);
+  ), [handleApprove, handleRejectPress, selectedStaff, staffById]);
 
   const renderEmptyList = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color={colors.text.tertiary} />
       <Text style={styles.emptyTitle}>No Leave Requests</Text>
       <Text style={styles.emptySubtitle}>
-        {selectedStatus === 'PENDING'
-          ? 'No pending leave requests to review'
-          : 'No leave requests found for the selected filters'}
+        {selectedStatus === 'needs_action'
+          ? selectedStaff
+            ? 'No pending requests for this staff member'
+            : 'No pending requests across any staff member'
+          : 'No leave requests found for the selected filter'}
       </Text>
     </View>
-  ), [selectedStatus]);
-
-  const selectedName = selectedStaff?.full_name || staffData?.items?.[0]?.full_name || '';
+  ), [selectedStatus, selectedStaff]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -194,7 +240,7 @@ export const StaffLeaveScreen: React.FC = () => {
           <Ionicons name="search" size={18} color={colors.text.tertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder={selectedName || 'Search staff... (min 3 chars)'}
+            placeholder={selectedStaff?.full_name || 'All Staff — Search to filter by person'}
             placeholderTextColor={selectedStaff ? colors.text.primary : colors.text.tertiary}
             value={searchInput}
             onChangeText={text => {
@@ -269,24 +315,36 @@ export const StaffLeaveScreen: React.FC = () => {
       {/* ── Status filter — also outside FlatList ── */}
       <View style={styles.statusSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusList}>
-          {STATUS_FILTERS.map(status => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.filterChip,
-                selectedStatus === status && styles.filterChipSelected,
-                status !== 'all' && { borderColor: getLeaveStatusColor(status) },
-              ]}
-              onPress={() => setSelectedStatus(status)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                selectedStatus === status && styles.filterChipTextSelected,
-              ]}>
-                {status === 'all' ? 'All' : status}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {STATUS_FILTERS.map(filter => {
+              const isSelected = selectedStatus === filter;
+              const accentColor =
+                filter === 'needs_action' ? '#f59e0b'
+                : filter === 'all' ? undefined
+                : getLeaveStatusColor(filter as LeaveStatus);
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterChip,
+                    accentColor && !isSelected && { borderColor: accentColor },
+                    isSelected && { backgroundColor: accentColor ?? '#2F6F4E', borderColor: accentColor ?? '#2F6F4E' },
+                    filter === 'needs_action' && !isSelected && styles.filterChipNeedsAction,
+                  ]}
+                  onPress={() => setSelectedStatus(filter)}
+                >
+                  {filter === 'needs_action' && !isSelected && (
+                    <Ionicons name="alert-circle" size={13} color="#f59e0b" style={{ marginRight: 4 }} />
+                  )}
+                  <Text style={[
+                    styles.filterChipText,
+                    isSelected && styles.filterChipTextSelected,
+                    !isSelected && accentColor ? { color: accentColor } : {},
+                  ]}>
+                    {FILTER_LABELS[filter]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
         </ScrollView>
       </View>
 
@@ -298,7 +356,7 @@ export const StaffLeaveScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
-          data={leavesData?.items || []}
+          data={displayedLeaves}
           ListEmptyComponent={renderEmptyList}
           renderItem={renderLeaveItem}
           keyExtractor={(item) => item.id}
@@ -502,6 +560,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 20,
@@ -512,6 +572,12 @@ const styles = StyleSheet.create({
   filterChipSelected: {
     backgroundColor: colors.primary.main,
     borderColor: colors.primary.main,
+  },
+  filterChipNeedsAction: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   filterChipText: {
     ...typography.body2,

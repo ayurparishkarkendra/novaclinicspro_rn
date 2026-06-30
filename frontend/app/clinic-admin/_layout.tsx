@@ -55,6 +55,18 @@ export default function ClinicAdminLayout() {
         <Stack.Screen name="feedback" />
         <Stack.Screen name="episodes/[episodeId]/index" />
         <Stack.Screen name="episodes/[episodeId]/workspace" />
+        <Stack.Screen
+          name="appointments/[appointmentId]/start-consultation"
+          options={{ title: 'New Consultation', headerShown: false }}
+        />
+        <Stack.Screen
+          name="episodes/[episodeId]/consultation"
+          options={{ title: 'Consultation', headerShown: false }}
+        />
+        <Stack.Screen
+          name="episodes/[episodeId]/complete-consultation"
+          options={{ title: 'Review & Complete', headerShown: false }}
+        />
       </Stack>
     </ProtectedRoute>
   );

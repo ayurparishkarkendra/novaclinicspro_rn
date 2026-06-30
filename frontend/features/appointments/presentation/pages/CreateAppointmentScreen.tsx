@@ -29,7 +29,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -1992,7 +1994,7 @@ export const CreateAppointmentScreen: React.FC = () => {
               </View>
 
               {showDatePicker && (
-                <DateTimePicker
+                <CrossPlatformDateTimePicker
                   value={getCurrentDate()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -2032,7 +2034,7 @@ export const CreateAppointmentScreen: React.FC = () => {
               )}
 
               {showTimePicker && (
-                <DateTimePicker
+                <CrossPlatformDateTimePicker
                   value={getCurrentTime()}
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}

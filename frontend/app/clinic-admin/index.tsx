@@ -39,7 +39,7 @@ import { useFeatures, hasTreatmentSheets, isTherapyClinic } from '../../core/hoo
 
 export default function ClinicAdminDashboard() {
   const router = useRouter();
-  const { logout, currentUser } = useAuth();
+  const { logout, currentUser, isAuthenticated } = useAuth();
   const tenantId = currentUser?.tenantId || '';
   const notificationCount = useNotificationBadgeCount();
 
@@ -134,16 +134,22 @@ export default function ClinicAdminDashboard() {
     { enabled: !!tenantId }
   );
 
-  // Refetch onboarding status when screen comes into focus
+  // Refetch onboarding status when screen comes into focus.
+  // IMPORTANT: refetch() bypasses each query's `enabled` guard — it always
+  // dispatches the request regardless of auth state. Without the
+  // isAuthenticated check, a focus event firing during/after logout (the
+  // screen can still be mounted briefly while the navigation transition
+  // settles) fires an authenticated request with no JWT, producing a
+  // 401 "Authorization header required" right after logout.
   useFocusEffect(
     React.useCallback(() => {
-      if (tenantId) {
+      if (tenantId && isAuthenticated) {
         refetchOnboardingStatus();
         if (treatmentSheetsEnabled) {
           refetchPendingOrders();
         }
       }
-    }, [tenantId, treatmentSheetsEnabled, refetchOnboardingStatus, refetchPendingOrders])
+    }, [tenantId, isAuthenticated, treatmentSheetsEnabled, refetchOnboardingStatus, refetchPendingOrders])
   );
 
   // Only show setup banner if onboarding is not complete AND user is still in onboarding status

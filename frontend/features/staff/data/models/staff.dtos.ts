@@ -22,7 +22,7 @@ export type StaffType =
 export type LeaveType = 'SICK' | 'CASUAL' | 'VACATION' | 'PERSONAL' | 'OTHER';
 
 /** Leave status enum */
-export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type LeaveStatus = 'PENDING' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 /** Gender options */
 export type Gender = 'Male' | 'Female' | 'Other';
@@ -267,10 +267,11 @@ export const getLeaveTypeLabel = (type: string): string => {
 /** Get color for leave status */
 export const getLeaveStatusColor = (status: LeaveStatus): string => {
   const colors: Record<LeaveStatus, string> = {
-    PENDING: '#f59e0b', // Amber
-    APPROVED: '#10b981', // Green
-    REJECTED: '#ef4444', // Red
-    CANCELLED: '#6b7280', // Gray
+    PENDING: '#f59e0b',    // Amber
+    REQUESTED: '#f59e0b',  // Amber — same as PENDING (backend alias)
+    APPROVED: '#10b981',   // Green
+    REJECTED: '#ef4444',   // Red
+    CANCELLED: '#6b7280',  // Gray
   };
   return colors[status] || '#6b7280';
 };

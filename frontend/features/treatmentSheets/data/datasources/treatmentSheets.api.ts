@@ -93,6 +93,10 @@ export const getTreatmentSheetsByEpisodeApi = async (
 /**
  * Transition treatment sheet status (DRAFT → FINAL → SIGNED)
  * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/status
+ *
+ * Use this ONLY for the doctor explicitly finalising/locking the clinical document.
+ * Do NOT call this as a side-effect of scheduling. Document status (DRAFT/FINAL/SIGNED)
+ * and execution state (DRAFT/ORDERED/SCHEDULED/…) are independent axes.
  */
 export const transitionTreatmentSheetStatusApi = async (
   tenantId: string,

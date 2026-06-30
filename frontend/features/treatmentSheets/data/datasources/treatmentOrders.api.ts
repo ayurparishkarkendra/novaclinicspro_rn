@@ -67,6 +67,37 @@ export const listTreatmentOrdersApi = async (
 // STATE-MUTATING ENDPOINTS
 // ============================================
 
+/** Body for POST /treatment-sheets/clinic/{tenant_id}/treatment-recommendations */
+export interface CreateTreatmentRecommendationRequest {
+  client_id: string;
+  episode_id: string;
+  appointment_id?: string | null;
+  recommended_therapy: string;
+  planned_sessions: number;
+  frequency?: string | null;
+  preferred_time_window?: string | null;
+  order_notes?: string | null;
+}
+
+/**
+ * Create a doctor's treatment recommendation as an ORDER — no rows created.
+ * POST /api/v1/treatment-sheets/clinic/{tenant_id}/treatment-recommendations
+ * Permission: treatment_sheet.order (DOCTOR role)
+ *
+ * The recommendation captures the therapy, recommended number of sessions,
+ * frequency and notes. Admin scheduling creates the per-day rows later.
+ */
+export const createTreatmentRecommendationApi = async (
+  tenantId: string,
+  payload: CreateTreatmentRecommendationRequest
+): Promise<TreatmentOrderResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/clinic/${tenantId}/treatment-recommendations`,
+    payload
+  );
+  return response.data;
+};
+
 /**
  * Send treatment sheet to scheduling (DRAFT → ORDERED).
  * POST /api/v1/treatment-sheets/{sheet_id}/send-to-scheduling
@@ -143,18 +174,25 @@ export const bulkScheduleRowsApi = async (
   return response.data;
 };
 
+/** Denial reason recorded when a patient declines a recommendation. */
+export interface CancelTreatmentOrderReason {
+  reason_code?: string;
+  reason_text?: string;
+}
+
 /**
- * Cancel a treatment order.
+ * Cancel a treatment order, recording the patient-decline reason for analytics.
  * POST /api/v1/treatment-sheets/{sheet_id}/cancel
  * Requires: If-Match: <version>
  */
 export const cancelTreatmentOrderApi = async (
   sheetId: string,
-  version: number
+  version: number,
+  reason?: CancelTreatmentOrderReason
 ): Promise<TreatmentOrderResponse> => {
   const response = await axiosClient.post(
     `/api/v1/treatment-sheets/${sheetId}/cancel`,
-    {},
+    reason ?? {},
     { headers: ifMatch(version) }
   );
   return response.data;

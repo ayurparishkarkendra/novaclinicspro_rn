@@ -194,6 +194,8 @@ export const useEpisodeDetailsQuery = (
     queryKey: [...episodesKeys.detail(tenantId, episodeId), 'details'],
     queryFn: () => getEpisodeDetailsApi(tenantId, episodeId),
     enabled: !!tenantId && !!episodeId,
+    staleTime: 0,
+    refetchOnMount: 'always',
     ...options,
   });
 };

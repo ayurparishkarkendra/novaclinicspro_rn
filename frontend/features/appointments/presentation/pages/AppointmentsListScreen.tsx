@@ -24,7 +24,6 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -59,6 +58,9 @@ import {
   formatDate,
 } from '../../../../core/utils/dateTimeUtils';
 import { AppointmentListItem } from '../components/AppointmentListItem';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 
 // ============================================
 // DATE SLIDER COMPONENT - FIXED LAYOUT
@@ -591,7 +593,7 @@ export const AppointmentsListScreen: React.FC = () => {
             {(showDatePicker || Platform.OS === 'ios') && (
               <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
                 {showDatePicker && (
-                  <DateTimePicker
+                  <CrossPlatformDateTimePicker
                     value={rescheduleDate}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -605,7 +607,7 @@ export const AppointmentsListScreen: React.FC = () => {
             {(showTimePicker || Platform.OS === 'ios') && (
               <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
                 {showTimePicker && (
-                  <DateTimePicker
+                  <CrossPlatformDateTimePicker
                     value={rescheduleTime}
                     mode="time"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}

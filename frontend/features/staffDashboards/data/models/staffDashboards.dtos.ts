@@ -266,6 +266,8 @@ export interface TherapistSessionItemV2 {
   scheduled_time: string | null;
   /** ISO datetime string — appointment end (e.g. "2026-03-21T11:00:00+05:30") */
   scheduled_end_time: string | null;
+  /** Alias used by some dashboard payloads for appointment start. */
+  session_time?: string | null;
   /** Logged-in therapist's display name */
   therapist_name: string | null;
   /** All therapist names assigned to this appointment (comma-separated or array) */

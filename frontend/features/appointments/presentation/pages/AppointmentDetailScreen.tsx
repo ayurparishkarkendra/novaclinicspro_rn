@@ -34,7 +34,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -958,7 +960,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContainer}>
             <Text style={styles.pickerTitle}>{t('appointments.selectNewDate')}</Text>
-            <DateTimePicker
+            <CrossPlatformDateTimePicker
               value={rescheduleDate || new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -1007,7 +1009,7 @@ export const AppointmentDetailScreen: React.FC = () => {
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContainer}>
             <Text style={styles.pickerTitle}>{t('appointments.selectNewTime')}</Text>
-            <DateTimePicker
+            <CrossPlatformDateTimePicker
               value={rescheduleTime || new Date()}
               mode="time"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}

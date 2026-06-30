@@ -78,13 +78,13 @@ export interface CompleteMaterial {
 
 /**
  * Determines if a session status allows completion.
- * Returns true for 'in_progress' and 'scheduled'.
+ * Returns true only after the therapist has started the session.
  * Returns false for all other statuses (including terminal ones).
  *
  * Requirements: 4.6, 4.7
  */
 export const canCompleteSession = (status: string): boolean => {
-  return status === 'in_progress' || status === 'scheduled';
+  return status?.toLowerCase() === 'in_progress';
 };
 
 /**

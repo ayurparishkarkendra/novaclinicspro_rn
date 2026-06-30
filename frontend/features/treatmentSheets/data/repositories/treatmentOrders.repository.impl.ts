@@ -388,8 +388,13 @@ export const useBulkScheduleRowsMutation = (tenantId: string) => {
 export const useCancelTreatmentOrderMutation = (tenantId: string) => {
   const queryClient = useQueryClient();
 
-  return useMutation<TreatmentOrderResponse, Error, { sheetId: string; version: number }>({
-    mutationFn: ({ sheetId, version }) => cancelTreatmentOrderApi(sheetId, version),
+  return useMutation<
+    TreatmentOrderResponse,
+    Error,
+    { sheetId: string; version: number; reason_code?: string; reason_text?: string }
+  >({
+    mutationFn: ({ sheetId, version, reason_code, reason_text }) =>
+      cancelTreatmentOrderApi(sheetId, version, { reason_code, reason_text }),
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
       removeOrderFromCachedWorklists(queryClient, tenantId, data.id);

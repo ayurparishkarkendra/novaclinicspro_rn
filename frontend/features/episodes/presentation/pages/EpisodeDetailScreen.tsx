@@ -3,7 +3,7 @@
  * Displays comprehensive episode information with visits and documents
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import {
@@ -265,6 +266,22 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
     error: detailsError,
     refetch: refetchDetails,
   } = useEpisodeDetailsQuery(tenantId, episodeId);
+
+  // Refetch episode details whenever this screen regains focus. Expo Router
+  // does NOT unmount this screen when navigating forward (e.g. to "Add Case
+  // Sheet" and back) — it stays mounted underneath, so `refetchOnMount`
+  // never fires on return. Without this, the casesheet/treatment-sheet
+  // existence flags stay stale after creating a document elsewhere and
+  // returning, leaving the "Add Case Sheet" button showing even though one
+  // now exists (and a second tap re-POSTs, which the backend correctly
+  // rejects as a duplicate).
+  useFocusEffect(
+    useCallback(() => {
+      if (tenantId && episodeId) {
+        refetchDetails();
+      }
+    }, [tenantId, episodeId, refetchDetails])
+  );
 
   // Debug log the full API response
   React.useEffect(() => {

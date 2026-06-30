@@ -7,7 +7,7 @@
  * - GET /api/v1/clinic/{tenant_id}/staff/me/dashboard/doctor - Today's appointments
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Router } from 'expo-router';
 import { DashboardHeader } from '../core/components/DashboardHeader';
 import { DateStrip, toISODateLocal } from '../core/components/DateStrip';
 import { colors } from '../core/theme/colors';
@@ -59,6 +59,10 @@ import {
   getOrderStateLabel,
   type TreatmentOrderResponse,
 } from '../features/treatmentSheets/data/models/treatmentOrders.dtos';
+import {
+  CaseResolverState,
+  startConsultationWithGuard,
+} from '../features/doctorDashboard/application/caseResolver';
 
 const getPendingDocumentationStatusLabel = (order: TreatmentOrderResponse): string => {
   if (
@@ -79,6 +83,32 @@ export default function DoctorDashboard() {
   const { logout, currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
   const staffId = currentUser?.userId || ''; // Use user_id directly as staff_id
+
+  // ============================================================
+  // CASE RESOLVER STATE
+  // ============================================================
+  const [resolverState, setResolverState] = React.useState<CaseResolverState>({
+    loadingAppointmentId: null,
+    error: null,
+  });
+
+  /**
+   * Handles "Start Consultation" tap for a given appointment card.
+   * Guards against double-tap, queries for an active episode, and navigates accordingly.
+   */
+  const handleStartConsultation = React.useCallback(
+    async (appointmentId: string, clientId: string) => {
+      await startConsultationWithGuard({
+        tenantId,
+        appointmentId,
+        clientId,
+        router,
+        loadingAppointmentId: resolverState.loadingAppointmentId,
+        setState: setResolverState,
+      });
+    },
+    [resolverState.loadingAppointmentId, tenantId, router]
+  );
 
   // Shared date hook (reads/writes doctor-specific field in Zustand store)
   const { selectedDate, setSelectedDate, selectedDateStr } = useDoctorDashboardDate();
@@ -561,42 +591,62 @@ export default function DoctorDashboard() {
                 staff_name: appointment.staff_name || doctorName,
               } as import('../features/appointments/data/models/appointments.dtos').AppointmentResponse;
               
+              const hasCardError =
+                resolverState.error?.appointmentId === appointment.id;
+
               return (
-                <AppointmentListItem
-                  key={appointment.id}
-                  appointment={appointmentForList}
-                  onPress={undefined} // Remove navigation to detail page
-                  showActions={true} // Enable quick actions
-                  userRole="doctor"
-                  onStatusUpdate={(appointmentId, newStatus) => {
-                    console.log('[DoctorDashboard] Status update:', appointmentId, newStatus);
-                    // TODO: Implement status update mutation
-                  }}
-                  onCancel={(appointmentId) => {
-                    console.log('[DoctorDashboard] Cancel:', appointmentId);
-                    // TODO: Implement cancel mutation
-                  }}
-                  onReschedule={(appointmentId) => {
-                    console.log('[DoctorDashboard] Reschedule:', appointmentId);
-                    router.push(`/clinic-admin/appointments/${appointmentId}`);
-                  }}
-                  onLinkEpisode={(appointmentId, clientId) => {
-                    console.log('[DoctorDashboard] Link episode:', appointmentId, clientId);
-                    router.push(`/clinic-admin/appointments/${appointmentId}/link-episode?clientId=${clientId}` as any);
-                  }}
-                  onCreateEpisode={(appointmentId, clientId) => {
-                    console.log('[DoctorDashboard] Create episode:', appointmentId, clientId);
-                    router.push(`/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any);
-                  }}
-                  onViewEpisode={(episodeId) => {
-                    router.push(`/clinic-admin/episodes/${episodeId}/workspace?mode=doctor&clientId=${appointment.client_id}` as any);
-                  }}
-                  onViewAllEpisodes={(clientId, clientName) => {
-                    console.log('[DoctorDashboard] View all episodes for client:', clientId, clientName);
-                    router.push(`/clinic-admin/clients/${clientId}/episodes` as any);
-                  }}
-                  clientEpisodesCount={episodeCountMap[appointment.client_id] || 0}
-                />
+                <React.Fragment key={appointment.id}>
+                  <AppointmentListItem
+                    appointment={appointmentForList}
+                    onPress={undefined} // Remove navigation to detail page
+                    showActions={true} // Enable quick actions
+                    userRole="doctor"
+                    onStatusUpdate={(appointmentId, newStatus) => {
+                      console.log('[DoctorDashboard] Status update:', appointmentId, newStatus);
+                      // TODO: Implement status update mutation
+                    }}
+                    onCancel={(appointmentId) => {
+                      console.log('[DoctorDashboard] Cancel:', appointmentId);
+                      // TODO: Implement cancel mutation
+                    }}
+                    onReschedule={(appointmentId) => {
+                      console.log('[DoctorDashboard] Reschedule:', appointmentId);
+                      router.push(`/clinic-admin/appointments/${appointmentId}`);
+                    }}
+                    onViewAllEpisodes={(clientId, clientName) => {
+                      console.log('[DoctorDashboard] View all episodes for client:', clientId, clientName);
+                      router.push(`/clinic-admin/clients/${clientId}/episodes` as any);
+                    }}
+                    clientEpisodesCount={episodeCountMap[appointment.client_id] || 0}
+                    onStartConsultation={handleStartConsultation}
+                    isStartingConsultation={
+                      resolverState.loadingAppointmentId === appointment.id
+                    }
+                  />
+                  {/* Per-card inline error message with Retry button */}
+                  {hasCardError && (
+                    <View style={caseResolverStyles.errorRow}>
+                      <Ionicons
+                        name="alert-circle-outline"
+                        size={16}
+                        color={colors.error.main}
+                      />
+                      <Text style={caseResolverStyles.errorText} numberOfLines={2}>
+                        {resolverState.error!.message}
+                      </Text>
+                      <TouchableOpacity
+                        style={caseResolverStyles.retryBtn}
+                        onPress={() =>
+                          handleStartConsultation(appointment.id, appointment.client_id)
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Retry start consultation"
+                      >
+                        <Text style={caseResolverStyles.retryBtnText}>Retry</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </React.Fragment>
               );
             })
           )}
@@ -947,5 +997,36 @@ const pendingDocStyles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     paddingVertical: spacing.xs,
+  },
+});
+
+const caseResolverStyles = StyleSheet.create({
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error.main + '12',
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.error.main + '30',
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.error.main,
+    flex: 1,
+  },
+  retryBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.error.main,
+    borderRadius: 6,
+  },
+  retryBtnText: {
+    ...typography.caption,
+    color: colors.common.white,
+    fontWeight: '700',
   },
 });

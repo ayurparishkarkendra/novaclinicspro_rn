@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../../core/api/supabaseClient';
+import { queryClient } from '../../../../core/api/queryClient';
 import { useAuthStore } from '../providers/auth.store';
 import { authRepository } from '../../data/repositories/auth.repository.impl';
 import { BootstrapSessionUseCase } from '../../domain/usecases/bootstrap-session.usecase';
@@ -144,6 +145,18 @@ export const useAuth = (): UseAuthReturn => {
 
       // Clear local session (includes selectedClinicId reset)
       await clearSession();
+
+      // Cancel any in-flight queries and wipe the cache. Without this, a
+      // screen that's still mounted during the navigation transition (e.g.
+      // one using useFocusEffect to call refetch() directly) can still fire
+      // an authenticated request — refetch() bypasses each query's `enabled`
+      // guard, so it doesn't matter that `enabled` would now evaluate false.
+      // The request goes out with no JWT (Supabase session is already gone)
+      // and the backend correctly rejects it with 401 "Authorization header
+      // required". Clearing the cache here removes the cached queries so
+      // there is nothing left to (re)fetch once the session is gone.
+      await queryClient.cancelQueries();
+      queryClient.clear();
 
       // Navigate after state updates settle so the root Stack stays mounted.
       InteractionManager.runAfterInteractions(() => {

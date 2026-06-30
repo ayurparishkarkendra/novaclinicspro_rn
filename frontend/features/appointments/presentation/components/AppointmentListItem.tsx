@@ -72,6 +72,10 @@ interface AppointmentListItemProps {
   clientEpisodesCount?: number;
   /** Therapist-specific: open the materials completion modal directly */
   onComplete?: (appointmentId: string) => void;
+  /** Doctor-role: Start Consultation callback */
+  onStartConsultation?: (appointmentId: string, clientId: string) => void;
+  /** Doctor-role: loading state for this specific appointment */
+  isStartingConsultation?: boolean;
 }
 
 // ============================================
@@ -201,6 +205,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   onViewAllEpisodes,
   clientEpisodesCount = 0,
   onComplete,
+  onStartConsultation,
+  isStartingConsultation = false,
 }) => {
   // Debug logging for episode information
   React.useEffect(() => {
@@ -222,6 +228,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const features = useFeatures();
   const theme = useClinicTheme();
   const { colors, spacing, typography } = theme;
+  const onPrimaryColor = colors.text.onPrimary;
   const statusColor = getStatusColor(appointment.status);
 
   // ===== MULTI-DAY TREATMENT SUPPORT =====
@@ -290,11 +297,8 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
   const canReschedule = canModify && ['scheduled', 'confirmed'].includes(status);
   const canMarkNoShow = canModify && ['scheduled', 'confirmed'].includes(status);
   const canCancelAppt = canModify && ['scheduled', 'confirmed'].includes(status);
-  // A2/A3: Complete button for confirmed OR in_progress (User Requirement)
-  // For therapists, also allow completing scheduled sessions
   const canComplete = canModify && (
-    ['confirmed', 'in_progress'].includes(status) ||
-    (isTherapist && ['pending', 'scheduled'].includes(status))
+    isTherapist ? status === 'in_progress' : ['confirmed', 'in_progress'].includes(status)
   );
   
   // Time-based enabling for No-Show and Record Visit buttons
@@ -469,7 +473,7 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
       {/* BUG FIX #3: All quick actions have confirmation dialogs, icon-based with tooltips */}
       {/* Terminal statuses (completed, cancelled, no_show) don't show quick actions */}
       {/* Role-specific actions: Doctor (episode only), Therapist (complete/notes only), Admin/Receptionist (all) */}
-      {showActions && canModify && !isTerminalStatus && (
+      {showActions && canModify && !isTerminalStatus && !isDoctor && (
         <View style={styles.quickActionsRow} data-testid="appointment-quick-actions">
           {/* Admin/Receptionist actions - Reschedule, Record Visit, No-Show, Cancel */}
           {(isClinicAdmin || isReceptionist) && ['scheduled', 'confirmed', 'in_progress'].includes(status) && (
@@ -609,77 +613,58 @@ export const AppointmentListItem: React.FC<AppointmentListItemProps> = ({
             </>
           )}
           
-          {/* Doctor actions - Episode actions in quick actions area */}
-          {isDoctor && (
-            <>
-              {/* Treatment sheet navigation — shown for any role when sheet is present */}
-              {isMultiDayAppointment && appointment.treatment_sheet_id && (
-                <QuickActionIconButton
-                  icon="document-text-outline"
-                  label="Treatment Sheet"
-                  color={colors.primary.default}
-                  onPress={() => {
-                    router.push(
-                      `/clinic-admin/treatment-sheets/${appointment.treatment_sheet_id}` as any
-                    );
-                  }}
-                  testId="action-view-treatment-sheet"
-                />
-              )}
-
-              {/* If episode IS linked, show ONLY "View Episode" button */}
-              {/* BUG FIX #3: Remove confirmation dialogs for episode actions */}
-              {appointment.episode_id ? (
-                onViewEpisode && (
-                  <QuickActionIconButton
-                    icon="folder-open-outline"
-                    label="View Episode"
-                    color={colors.primary.default}
-                    onPress={() => onViewEpisode(appointment.episode_id!)}
-                    testId="action-view-episode"
-                  />
-                )
-              ) : (
-                // If episode is NOT linked, show "Link Episode" and "New Episode"
-                <>
-                  {onLinkEpisode && (
-                    <QuickActionIconButton
-                      icon="link-outline"
-                      label="Link Episode"
-                      color={colors.feedback.info}
-                      onPress={() => onLinkEpisode(appointment.id, appointment.client_id)}
-                      testId="action-link-episode"
-                    />
-                  )}
-                  
-                  {onCreateEpisode && (
-                    <QuickActionIconButton
-                      icon="add-circle-outline"
-                      label="New Episode"
-                      color={colors.feedback.success}
-                      onPress={() => onCreateEpisode(appointment.id, appointment.client_id)}
-                      testId="action-create-episode"
-                    />
-                  )}
-                </>
-              )}
-            </>
-          )}
+          {/* Doctor actions — rendered in the dedicated doctor section below */}
         </View>
       )}
 
-      {/* View All Episodes Link - Only for doctors with 2+ episodes */}
-      {isDoctor && onViewAllEpisodes && clientEpisodesCount > 1 && (
-        <TouchableOpacity
-          style={styles.viewAllEpisodesLink}
-          onPress={() => onViewAllEpisodes(appointment.client_id, appointment.client_name || 'Client')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="albums-outline" size={14} color={colors.primary.default} />
-          <Text style={styles.viewAllEpisodesText}>
-            {`View all ${clientEpisodesCount} episodes for ${appointment.client_name || 'this client'}`}
-          </Text>
-        </TouchableOpacity>
+      {/* Doctor-role: Start Consultation CTA + secondary links (non-terminal) */}
+      {isDoctor && !isTerminalStatus && (
+        <View style={styles.doctorActionsContainer}>
+          {/* Primary CTA: Start Consultation */}
+          <TouchableOpacity
+            style={[
+              styles.startConsultationBtn,
+              isStartingConsultation && styles.startConsultationBtnLoading,
+            ]}
+            onPress={() => onStartConsultation?.(appointment.id, appointment.client_id)}
+            disabled={isStartingConsultation}
+            accessibilityRole="button"
+            accessibilityLabel="Start Consultation"
+            testID="action-start-consultation"
+          >
+            {isStartingConsultation ? (
+              <ActivityIndicator size="small" color={onPrimaryColor} />
+            ) : (
+              <Text style={[styles.startConsultationText, { color: onPrimaryColor }]}>Start Consultation</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Secondary links: View Patient History · View Cases */}
+          <View style={styles.secondaryLinksRow}>
+            <TouchableOpacity
+              onPress={() => router.push(`/clinic-admin/clients/${appointment.client_id}` as any)}
+              accessibilityRole="button"
+              accessibilityLabel="View Patient History"
+            >
+              <Text style={styles.secondaryLink}>View Patient History</Text>
+            </TouchableOpacity>
+            <Text style={styles.secondaryLinkSep}>·</Text>
+            <TouchableOpacity
+              onPress={() => router.push(`/clinic-admin/clients/${appointment.client_id}/episodes` as any)}
+              accessibilityRole="button"
+              accessibilityLabel="View Cases"
+            >
+              <Text style={styles.secondaryLink}>View Cases</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Doctor-role: terminal status — status badge only, no CTA */}
+      {isDoctor && isTerminalStatus && (
+        <View style={styles.terminalStatusRow}>
+          <StatusBadge status={appointment.status} />
+        </View>
       )}
     </View>
   );
@@ -985,6 +970,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 35,
     textAlign: 'right',
+  },
+
+  // Doctor-role: Start Consultation actions
+  doctorActionsContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    gap: spacing.sm,
+  },
+  startConsultationBtn: {
+    backgroundColor: colors.primary.main,
+    borderRadius: 10,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  startConsultationBtnLoading: {
+    opacity: 0.75,
+  },
+  startConsultationText: {
+    ...typography.body2,
+    fontWeight: '700',
+  },
+  secondaryLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  secondaryLink: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
+  secondaryLinkSep: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  terminalStatusRow: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    alignItems: 'flex-start',
   },
 });
 

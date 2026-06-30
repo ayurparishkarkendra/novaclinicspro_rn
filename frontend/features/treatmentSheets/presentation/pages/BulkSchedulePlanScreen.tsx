@@ -26,7 +26,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../core/theme/spacing';
@@ -571,7 +573,7 @@ export const BulkSchedulePlanScreen: React.FC = () => {
 
       {/* Date/Time Picker */}
       {pickerVisible && pickerRowId && (
-        <DateTimePicker
+        <CrossPlatformDateTimePicker
           value={pickerValue}
           mode={pickerMode}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}

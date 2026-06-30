@@ -93,6 +93,10 @@ export const useEpisodeWorkspaceData = (
     casesheetId ?? '',
     { enabled: !!tenantId && !!casesheetId }
   );
+  const casesheetMatchesEpisode = !casesheet || !casesheet.episode_id || casesheet.episode_id === episodeId;
+  const validCasesheet = casesheetMatchesEpisode ? casesheet : undefined;
+  const validCasesheetId = casesheetMatchesEpisode ? casesheetId : null;
+  const validHasCasesheet = Boolean(validCasesheetId) && casesheetMatchesEpisode;
 
   // ── Treatment sheet detail (by ID) ────────────────────────────────────────
   const {
@@ -131,9 +135,9 @@ export const useEpisodeWorkspaceData = (
     isEpisodeLoading,
     isEpisodeError,
     refetchEpisode,
-    casesheet,
-    casesheetId,
-    hasCasesheet,
+    casesheet: validCasesheet,
+    casesheetId: validCasesheetId,
+    hasCasesheet: validHasCasesheet,
     isCasesheetLoading,
     treatmentSheet: latestTreatmentSheet,
     treatmentSheets,

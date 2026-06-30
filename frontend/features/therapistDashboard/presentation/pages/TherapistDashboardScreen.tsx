@@ -130,6 +130,21 @@ function sessionToAppointment(
   } as AppointmentResponse & { staff_name?: string };
 }
 
+const getSessionStartDate = (session: TherapistSessionItemV2): Date | null => {
+  const value = session.scheduled_time ?? session.session_time ?? session.session_date;
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isSessionStartDue = (session: TherapistSessionItemV2): boolean => {
+  const startDate = getSessionStartDate(session);
+  return !startDate || new Date() >= startDate;
+};
+
+const isSessionInProgress = (session?: TherapistSessionItemV2 | null): boolean =>
+  session?.status?.toLowerCase() === 'in_progress';
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -234,14 +249,21 @@ export const TherapistDashboardScreen: React.FC = () => {
   // Cache for order versions: sheetId → version
   const [orderVersionCache, setOrderVersionCache] = useState<Record<string, number>>({});
 
+  const prevSubmitStatusRef = React.useRef<string>('idle');
   useEffect(() => {
     if (submitStatus === 'conflict') {
       setCompletionModalOpen(false);
       setSelectedRowId(null);
       setSelectedAppointmentId(null);
       resetCompletion();
+    } else if (submitStatus === 'idle' && prevSubmitStatusRef.current === 'completing') {
+      // Success: mutation went completing → idle, close the modal
+      setCompletionModalOpen(false);
+      setSelectedRowId(null);
+      setSelectedAppointmentId(null);
     }
-  }, [submitStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+    prevSubmitStatusRef.current = submitStatus;
+  }, [submitStatus, resetCompletion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Leave ─────────────────────────────────────────────────────────────────
   const [openLeaveModal, setOpenLeaveModal] = useState(false);
@@ -337,6 +359,11 @@ export const TherapistDashboardScreen: React.FC = () => {
         (s) => (s.row_id ?? s.appointment_id) === cardId
       );
 
+      if (!isSessionInProgress(session)) {
+        Alert.alert('Start Required', 'Please start the therapy session before completing it.');
+        return;
+      }
+
       setUsablesError(null);
       setSelectedRowId(session?.row_id ?? null);
       setSelectedAppointmentId(session?.appointment_id ?? null);
@@ -358,7 +385,25 @@ export const TherapistDashboardScreen: React.FC = () => {
    */
   const handleStartSession = useCallback(
     async (session: TherapistSessionItemV2) => {
-      if (!session.row_id || !session.treatment_sheet_id) return;
+      if (!isSessionStartDue(session)) {
+        Alert.alert('Not Yet Available', 'This therapy can be started only at or after the scheduled start time.');
+        return;
+      }
+
+      if (!session.row_id || !session.treatment_sheet_id) {
+        if (session.appointment_id) {
+          updateStatusMutation.mutate(
+            { appointmentId: session.appointment_id, status: 'IN_PROGRESS' },
+            {
+              onSuccess: invalidateAfterCompletion,
+              onError: (err: any) => {
+                Alert.alert('Error', err?.message || 'Failed to start session.');
+              },
+            }
+          );
+        }
+        return;
+      }
       const sheetId = session.treatment_sheet_id;
       const rowId = session.row_id;
 
@@ -382,7 +427,7 @@ export const TherapistDashboardScreen: React.FC = () => {
         setStartingRowId(null);
       }
     },
-    [startSession, orderVersionCache, tenantId]
+    [startSession, orderVersionCache, tenantId, updateStatusMutation, invalidateAfterCompletion]
   );
 
   // React to start session status changes
@@ -550,9 +595,8 @@ export const TherapistDashboardScreen: React.FC = () => {
               );
               const isInstructionsExpanded = Boolean(expandedInstructionIds[cardId]);
               const canStart =
-                !!session.row_id &&
-                !!session.treatment_sheet_id &&
-                session.status?.toUpperCase() === 'SCHEDULED' &&
+                ['pending', 'scheduled', 'confirmed'].includes(session.status?.toLowerCase() ?? '') &&
+                isSessionStartDue(session) &&
                 !session.started_at;
               const isStarting = startingRowId === session.row_id;
 

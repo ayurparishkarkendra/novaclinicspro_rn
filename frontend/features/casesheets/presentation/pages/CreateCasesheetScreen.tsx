@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useCreateCasesheetMutation } from '../../index';
 import { CasesheetForm, CasesheetFormData } from '../components/CasesheetForm';
 import { useAppointmentDetailQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
-import { useEpisodeQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
+import { useEpisodeQuery, useEpisodeDetailsQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
 
 export const CreateCasesheetScreen: React.FC = () => {
   const router = useRouter();
@@ -48,6 +49,27 @@ export const CreateCasesheetScreen: React.FC = () => {
     episodeId || '',
     { enabled: !!episodeId }
   );
+
+  // Guard against creating a duplicate casesheet: an episode may only have
+  // one. If one already exists for this episode, redirect straight to
+  // viewing it instead of rendering the create form (which would otherwise
+  // let the doctor submit and hit the backend's "already has a casesheet"
+  // rejection). This is a hard guarantee independent of how stale the
+  // calling screen's own cache might be.
+  const { data: episodeDetailsForGuard, isLoading: isCheckingExistingCasesheet } = useEpisodeDetailsQuery(
+    tenantId,
+    episodeId || '',
+    { enabled: !!episodeId && !!tenantId }
+  );
+  const existingCasesheetId = episodeDetailsForGuard?.documents?.casesheet?.exists
+    ? episodeDetailsForGuard.documents.casesheet.id
+    : null;
+
+  React.useEffect(() => {
+    if (existingCasesheetId && clientId) {
+      router.replace(`/clinic-admin/clients/${clientId}/casesheets/${existingCasesheetId}` as any);
+    }
+  }, [existingCasesheetId, clientId, router]);
 
   const handleSubmit = useCallback(async (data: CasesheetFormData) => {
     try {
@@ -126,6 +148,22 @@ export const CreateCasesheetScreen: React.FC = () => {
     </View>
   );
 
+  // While checking for an existing casesheet (or once found, redirecting),
+  // don't flash the empty create form — it would let the doctor start typing
+  // into a form that's about to be replaced anyway.
+  const isBlockedByExistingCasesheet = !!episodeId && (isCheckingExistingCasesheet || !!existingCasesheetId);
+
+  if (isBlockedByExistingCasesheet) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {renderHeader()}
+        <View style={[styles.content, styles.centerContent]}>
+          <ActivityIndicator size="large" color={colors.primary.main} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {renderHeader()}
@@ -183,6 +221,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

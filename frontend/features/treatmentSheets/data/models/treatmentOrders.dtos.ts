@@ -110,6 +110,8 @@ export interface TreatmentOrderResponse {
   frequency: string | null;
   preferred_time_window: string | null;
   order_notes: string | null;
+  /** Therapy the doctor recommended (free text). Empty for legacy row-based sheets. */
+  recommended_therapy?: string | null;
   /** ISO datetime UTC — when send-to-scheduling was called. */
   ordered_at: string | null;
   /**
@@ -144,6 +146,7 @@ export interface SendToSchedulingRequest {
   planned_sessions?: number;
   frequency?: string;
   preferred_time_window?: string;
+  recommended_therapy?: string;
 }
 
 /** Body for PATCH /treatment-sheets/{sheet_id}/rows/{row_id}/schedule */

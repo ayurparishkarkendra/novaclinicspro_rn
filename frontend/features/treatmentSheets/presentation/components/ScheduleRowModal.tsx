@@ -20,11 +20,13 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { useStaffListQuery } from '../../../staff/data/repositories/staff.repository.impl';
 import { useScheduleRowMutation } from '../../data/repositories/treatmentOrders.repository.impl';
 import { TreatmentRowOrderResponse } from '../../data/models/treatmentOrders.dtos';
@@ -201,7 +203,7 @@ export const ScheduleRowModal: React.FC<ScheduleRowModalProps> = ({
               <Text style={styles.pickerButtonText}>{formatDisplayDate(date)}</Text>
             </TouchableOpacity>
             {showDatePicker && (
-              <DateTimePicker
+              <CrossPlatformDateTimePicker
                 value={date}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -227,7 +229,7 @@ export const ScheduleRowModal: React.FC<ScheduleRowModalProps> = ({
               <Text style={styles.pickerButtonText}>{formatDisplayTime(time)}</Text>
             </TouchableOpacity>
             {showTimePicker && (
-              <DateTimePicker
+              <CrossPlatformDateTimePicker
                 value={time}
                 mode="time"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}

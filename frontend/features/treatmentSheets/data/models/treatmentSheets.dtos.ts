@@ -35,8 +35,18 @@ export interface TreatmentSheetRowCreateRequest {
 /** Create treatment sheet simplified request */
 export interface TreatmentSheetSimpleCreateRequest {
   client_id: string;
+  /**
+   * Required by the backend router validation on
+   * POST /tenants/{tenant_id}/treatment-sheets. The simplified service derives
+   * the sheet from the client's latest casesheet and does not persist this id,
+   * but the request is rejected with 400 ("Missing required fields") if it is absent.
+   */
+  treatment_id: string;
+  /** ISO date (YYYY-MM-DD). Also required by router validation. */
+  start_date: string;
   duration_days: number;
   appointment_id?: string;
+  episode_id?: string;
   encounter_id?: string;
 }
 
@@ -93,6 +103,14 @@ export interface TreatmentSheetResponse {
   agreed_package_cost?: number | null;
   document_version: number;
   version?: number;
+  // Order / recommendation fields (present once sent to scheduling)
+  state?: string | null;
+  scheduling_status?: string | null;
+  is_order?: boolean;
+  planned_sessions?: number | null;
+  frequency?: string | null;
+  order_notes?: string | null;
+  recommended_therapy?: string | null;
   recorded_at: string;
   recorded_by_staff_id: string | null;
   signed_by_staff_id: string | null;

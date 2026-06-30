@@ -27,6 +27,8 @@ interface LeaveListItemProps {
   onApprove?: (leave: StaffLeaveResponse) => void;
   onReject?: (leave: StaffLeaveResponse) => void;
   showActions?: boolean;
+  /** Staff member name — shown in all-staff admin view */
+  staffName?: string;
 }
 
 export const LeaveListItem: React.FC<LeaveListItemProps> = ({
@@ -34,6 +36,7 @@ export const LeaveListItem: React.FC<LeaveListItemProps> = ({
   onApprove,
   onReject,
   showActions = false,
+  staffName,
 }) => {
   const statusColor = getLeaveStatusColor(leave.status);
   const duration = calculateLeaveDays(leave.start_date, leave.end_date);
@@ -53,6 +56,12 @@ export const LeaveListItem: React.FC<LeaveListItemProps> = ({
         </View>
       </View>
 
+      {staffName ? (
+        <View style={styles.staffNameRow}>
+          <Ionicons name="person-outline" size={14} color={colors.text.secondary} />
+          <Text style={styles.staffNameText}>{staffName}</Text>
+        </View>
+      ) : null}
       <View style={styles.dateRow}>
         <View style={styles.dateItem}>
           <Text style={styles.dateLabel}>From</Text>
@@ -84,7 +93,7 @@ export const LeaveListItem: React.FC<LeaveListItemProps> = ({
         </View>
       )}
 
-      {showActions && leave.status === 'PENDING' && (
+      {showActions && (leave.status === 'PENDING' || leave.status === 'REQUESTED') && (
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.rejectButton}
@@ -207,6 +216,17 @@ const styles = StyleSheet.create({
   notesText: {
     ...typography.body2,
     color: colors.text.primary,
+  },
+  staffNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.sm,
+  },
+  staffNameText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+    fontWeight: '500',
   },
   actions: {
     flexDirection: 'row',

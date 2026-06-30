@@ -204,14 +204,23 @@ axiosClient.interceptors.response.use(
       }
     }
 
-    // Log error details (using console.log to avoid error banners in UI)
+    // Log error details (using console.log to avoid error banners in UI).
+    // A 401 with no Authorization header attached means the request was made
+    // with no active session (e.g. fired right after logout, or during
+    // pre-login bootstrap) — that's expected, not a real error, so log it
+    // quietly instead of under the "❌ API error" banner.
     if (__DEV__) {
-      console.log('❌ API error:', {
-        url: originalRequest.url,
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
+      const isUnauthenticated401 = error.response?.status === 401 && !hasAuthorizationHeader(originalRequest);
+      if (isUnauthenticated401) {
+        console.log('ℹ️ Unauthenticated request rejected (no active session):', originalRequest.url);
+      } else {
+        console.log('❌ API error:', {
+          url: originalRequest.url,
+          status: error.response?.status,
+          message: error.message,
+          data: error.response?.data,
+        });
+      }
     }
 
     return Promise.reject(error);
