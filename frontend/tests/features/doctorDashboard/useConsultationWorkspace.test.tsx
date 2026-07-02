@@ -1,4 +1,6 @@
+import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   buildSectionConfig,
   useConsultationWorkspace,
@@ -16,11 +18,15 @@ import {
 } from '../../../features/treatmentSheets/data/datasources/treatmentOrders.api';
 import { axiosClient } from '../../../core/api/axiosClient';
 
-let mockFeatures = { clinic_type: 'ayurveda' };
+let mockFeatures: any = { clinic_type: 'ayurveda', freshness_v1_enabled: false };
 
 jest.mock('../../../core/hooks/useFeatures', () => ({
   useFeatures: () => mockFeatures,
   isAyurvedaClinic: (value: any) => value.clinic_type === 'ayurveda',
+  // T-A.6: this file doesn't assert on invalidation (see
+  // consultationSaveInvalidation.test.tsx for that); value just needs to
+  // exist so the real hook doesn't throw.
+  isFreshnessV1Enabled: (value: any) => !!value.freshness_v1_enabled,
 }));
 jest.mock('../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData', () => ({
   useEpisodeWorkspaceData: jest.fn(),
@@ -66,20 +72,32 @@ const mockWorkspaceData = {
   clientName: 'Patient',
 };
 
+// Phase 1 · T-A.2 (ADR-P1-01): the hook now calls useQueryClient() to
+// invalidate the owning keys on save success, so it must be rendered inside
+// a QueryClientProvider. A fresh QueryClient per test avoids cache bleed
+// between tests (mirrors tests/onboarding/onboarding.repository.test.tsx).
+let queryClient: QueryClient;
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
+
 const renderWorkspace = () =>
-  renderHook(() =>
-    useConsultationWorkspace({
-      tenantId: 'tenant-1',
-      episodeId: 'episode-1',
-      appointmentId: 'appointment-1',
-      clientId: 'client-1',
-    }),
+  renderHook(
+    () =>
+      useConsultationWorkspace({
+        tenantId: 'tenant-1',
+        episodeId: 'episode-1',
+        appointmentId: 'appointment-1',
+        clientId: 'client-1',
+      }),
+    { wrapper },
   );
 
 describe('useConsultationWorkspace', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     mockFeatures = { clinic_type: 'ayurveda' };
     (useEpisodeWorkspaceData as jest.Mock).mockReturnValue(mockWorkspaceData);
     (createCasesheetApi as jest.Mock).mockResolvedValue({ id: 'casesheet-1' });

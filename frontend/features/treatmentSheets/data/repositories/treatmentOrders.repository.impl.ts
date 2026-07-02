@@ -74,7 +74,13 @@ const removeOrderFromCachedWorklists = (
   );
 };
 
-const invalidateTreatmentOrderSurfaces = async (
+/**
+ * Phase 1 · T-A.2 (ADR-P1-01): exported so `useConsultationWorkspace.ts`'s
+ * `sendTreatmentToAdmin` can reuse this exact invalidation set after a
+ * successful send, instead of duplicating it. Was previously module-private
+ * (used only by mutations within this file).
+ */
+export const invalidateTreatmentOrderSurfaces = async (
   queryClient: ReturnType<typeof useQueryClient>,
   tenantId: string,
   sheetId?: string

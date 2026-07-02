@@ -1,8 +1,15 @@
 /**
  * Staff Dashboards Presentation Components
+ *
+ * Phase 1 · T-C.2: the minimal appointment-row presentation formerly
+ * exported here (`AppointmentListItem`) had zero production consumers and
+ * was superseded by the unified `AppointmentRow` component
+ * (features/appointments/presentation/components/AppointmentRow.tsx), per
+ * ADR-P1-03. T-C.4: that minimal branch was itself then removed from
+ * `AppointmentRow` as verified-dead code (FR-B4/AC-6) — `AppointmentRow`
+ * now supports `variant="full"` only.
  */
 
-export { AppointmentListItem } from './AppointmentListItem';
 export { SessionListItem } from './SessionListItem';
 export { DashboardStatsRow, type StatItem } from './DashboardStatsRow';
 export { DashboardQuickActions, type QuickAction } from './DashboardQuickActions';

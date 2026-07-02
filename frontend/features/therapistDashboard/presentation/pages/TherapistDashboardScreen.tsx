@@ -54,7 +54,7 @@ import { TreatmentSessionCompleteModal } from '../components/TreatmentSessionCom
 import { TherapistKpiSection } from '../components/TherapistKpiSection';
 import { LeaveSection } from '../components/LeaveSection';
 import { HrSection } from '../components/HrSection';
-import { AppointmentListItem } from '../../../appointments/presentation/components/AppointmentListItem';
+import { AppointmentRow } from '../../../appointments/presentation/components/AppointmentRow';
 import { AppointmentResponse } from '../../../appointments/data/models/appointments.dtos';
 
 import { DateStrip } from '../../../../core/components/DateStrip';
@@ -77,7 +77,7 @@ import { StaffLeaveCreate } from '../../data/models/therapistDashboard.dtos';
 
 /**
  * Map a TherapistSessionItemV2 to the AppointmentResponse shape
- * expected by AppointmentListItem.
+ * expected by AppointmentRow.
  *
  * scheduled_time / scheduled_end_time: full ISO strings with timezone offset.
  *   Passed directly as appointment_start/end — formatTime() handles UTC conversion.
@@ -348,7 +348,7 @@ export const TherapistDashboardScreen: React.FC = () => {
   }, [queryClient, tenantId]);
 
   /**
-   * Called by AppointmentListItem's onComplete(cardId).
+   * Called by AppointmentRow's onComplete(cardId).
    * cardId = row_id (multi-day) or appointment_id (single-day).
    * - Multi-day: opens materials modal → completeSheetRowApi
    * - Single-day: shows confirmation → updateAppointmentStatusApi
@@ -602,7 +602,8 @@ export const TherapistDashboardScreen: React.FC = () => {
 
               return (
                 <View key={cardId} style={styles.sessionCardBlock}>
-                  <AppointmentListItem
+                  <AppointmentRow
+                    variant="full"
                     appointment={sessionToAppointment(session, tenantId)}
                     onPress={undefined}
                     showActions={true}

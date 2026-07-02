@@ -89,6 +89,10 @@ export interface ListPrescriptionsParams {
   status?: PrescriptionStatus;
   from_date?: string;
   to_date?: string;
+  /** Phase 1 · T-A.1 (ADR-P1-01): scope to one appointment (used with episode_id). */
+  appointment_id?: string;
+  /** Phase 1 · T-A.1 (ADR-P1-01): scope to one episode (used with appointment_id). */
+  episode_id?: string;
 }
 
 export interface PrescriptionPrintResponse {

@@ -34,6 +34,7 @@ import { AppointmentResponse } from '../../../appointments/data/models/appointme
 import { formatDate, formatTime } from '../../../../core/utils/dateTimeUtils';
 import { getStatusLabel, getStatusColor, getStaffName } from '../../../appointments/domain/helpers';
 import { useTranslation } from '../../../../core/localization/useTranslation';
+import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 
 // ============================================
 // TYPES
@@ -248,6 +249,7 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
 }) => {
   const theme = useClinicTheme();
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isCloseDialogVisible, setIsCloseDialogVisible] = useState(false);
 
@@ -275,12 +277,17 @@ export const EpisodeDetailScreen: React.FC<EpisodeDetailScreenProps> = ({
   // returning, leaving the "Add Case Sheet" button showing even though one
   // now exists (and a second tap re-POSTs, which the backend correctly
   // rejects as a duplicate).
+  //
+  // T-A.4 (FR-A5): guarded on isAuthenticated — refetch() bypasses the
+  // query's `enabled` guard, so without this check a focus event firing
+  // during/after logout could still issue a request. Matches the same
+  // pattern already used in app/clinic-admin/index.tsx and SetupWizardFlow.tsx.
   useFocusEffect(
     useCallback(() => {
-      if (tenantId && episodeId) {
+      if (tenantId && episodeId && isAuthenticated) {
         refetchDetails();
       }
-    }, [tenantId, episodeId, refetchDetails])
+    }, [tenantId, episodeId, isAuthenticated, refetchDetails])
   );
 
   // Debug log the full API response

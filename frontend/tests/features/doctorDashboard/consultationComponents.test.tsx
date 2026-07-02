@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AppointmentListItem } from '../../../features/appointments/presentation/components/AppointmentListItem';
+import { AppointmentRow } from '../../../features/appointments/presentation/components/AppointmentRow';
 import { CreateConsultationScreen } from '../../../features/episodes/presentation/pages/CreateConsultationScreen';
 import {
   CompleteConsultationScreen,
@@ -123,7 +123,7 @@ describe('consultation components', () => {
   it('renders doctor Start Consultation without episode actions', () => {
     const onStart = jest.fn();
     const screen = render(
-      <AppointmentListItem appointment={appointment as any} userRole="doctor" onStartConsultation={onStart} />,
+      <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" onStartConsultation={onStart} />,
     );
 
     expect(screen.getByText('Start Consultation')).toBeTruthy();
@@ -135,14 +135,14 @@ describe('consultation components', () => {
 
   it('shows loading and disables doctor CTA while starting', () => {
     const { getByTestId } = render(
-      <AppointmentListItem appointment={appointment as any} userRole="doctor" isStartingConsultation />,
+      <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" isStartingConsultation />,
     );
     expect(getByTestId('action-start-consultation').props.accessibilityState?.disabled ?? true).toBe(true);
   });
 
   it('hides doctor CTA for terminal appointments', () => {
     const { queryByText, getAllByLabelText } = render(
-      <AppointmentListItem appointment={{ ...appointment, status: 'completed' } as any} userRole="doctor" />,
+      <AppointmentRow variant="full" appointment={{ ...appointment, status: 'completed' } as any} userRole="doctor" />,
     );
     expect(queryByText('Start Consultation')).toBeNull();
     expect(getAllByLabelText('Status: Completed').length).toBeGreaterThan(0);
@@ -150,7 +150,7 @@ describe('consultation components', () => {
 
   it('keeps non-doctor quick actions visible', () => {
     const { getByText } = render(
-      <AppointmentListItem
+      <AppointmentRow variant="full"
         appointment={appointment as any}
         userRole="receptionist"
         onReschedule={jest.fn()}

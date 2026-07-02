@@ -8,6 +8,7 @@ import { InteractionManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../../core/api/supabaseClient';
 import { queryClient } from '../../../../core/api/queryClient';
+import { setLoggingOut } from '../../../../core/api/authGuard';
 import { useAuthStore } from '../providers/auth.store';
 import { authRepository } from '../../data/repositories/auth.repository.impl';
 import { BootstrapSessionUseCase } from '../../domain/usecases/bootstrap-session.usecase';
@@ -59,6 +60,10 @@ export const useAuth = (): UseAuthReturn => {
    */
   const login = useCallback(
     async (email: string, password: string) => {
+      // T-A.4: defensive reset — the authGuard flag is set/cleared around
+      // logout()'s own lifecycle, but a fresh login should never be
+      // suppressed by it regardless.
+      setLoggingOut(false);
       try {
         // Sign in with Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -137,34 +142,61 @@ export const useAuth = (): UseAuthReturn => {
 
   /**
    * Logout - clears ALL session state including selectedClinicId
+   *
+   * T-A.4 (FR-A5, ADR-P1-01, design.md §6.2): order is unauthenticated-flag
+   * -> cancel -> clear -> navigate, with the remote Supabase signOut call
+   * moved to best-effort AFTER local cleanup. Previously, signOut() was
+   * awaited FIRST, so a signOut failure (e.g. network drop) meant
+   * clearSession()/cancelQueries()/clear() were never reached at all —
+   * the user was left fully authenticated locally despite attempting to
+   * log out (see tests/features/auth/logoutBoundary.characterization.test.tsx's
+   * baseline for this gap, T-0.4). Local logout must not depend on a
+   * network call succeeding.
    */
   const logout = useCallback(async () => {
+    // Step 1 (synchronous, unconditional): flip the shared flag axiosClient's
+    // request interceptor checks, before anything else — closes the window
+    // where an in-flight or React-Query-untracked request could still be
+    // issued with a valid token during this transition.
+    setLoggingOut(true);
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-
-      // Clear local session (includes selectedClinicId reset)
+      // Step 2: clear local session (includes selectedClinicId reset).
+      // clearSession() itself marks isAuthenticated:false synchronously as
+      // its first action (see auth.store.ts), before its own awaited
+      // storage cleanup.
       await clearSession();
 
-      // Cancel any in-flight queries and wipe the cache. Without this, a
-      // screen that's still mounted during the navigation transition (e.g.
-      // one using useFocusEffect to call refetch() directly) can still fire
-      // an authenticated request — refetch() bypasses each query's `enabled`
-      // guard, so it doesn't matter that `enabled` would now evaluate false.
-      // The request goes out with no JWT (Supabase session is already gone)
-      // and the backend correctly rejects it with 401 "Authorization header
-      // required". Clearing the cache here removes the cached queries so
-      // there is nothing left to (re)fetch once the session is gone.
+      // Step 3: cancel any in-flight queries and wipe the cache. Without
+      // this, a screen that's still mounted during the navigation
+      // transition (e.g. one using useFocusEffect to call refetch()
+      // directly) can still fire a request — refetch() bypasses each
+      // query's `enabled` guard. Between this and the authGuard flag above,
+      // any such request goes out unauthenticated and is rejected by the
+      // backend with 401 "Authorization header required".
       await queryClient.cancelQueries();
       queryClient.clear();
 
-      // Navigate after state updates settle so the root Stack stays mounted.
+      // Step 4: navigate after state updates settle so the root Stack stays
+      // mounted.
       InteractionManager.runAfterInteractions(() => {
         router.replace('/login');
       });
+
+      // Best-effort remote signOut, AFTER local cleanup — its failure must
+      // not prevent local logout, which has already completed above.
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Supabase signOut error (local session already cleared):', signOutError);
+      }
     } catch (error) {
+      // A genuine failure in local cleanup itself (clearSession/cancelQueries/
+      // clear) — distinct from the signOut failure handled above, which is
+      // intentionally swallowed. Re-thrown so the UI can still surface it.
       console.error('Logout error:', error);
       throw error;
+    } finally {
+      setLoggingOut(false);
     }
   }, [clearSession, router]);
 

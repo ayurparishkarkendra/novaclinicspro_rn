@@ -14,20 +14,24 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEpisodeWorkspaceData } from './useEpisodeWorkspaceData';
-import { useFeatures, isAyurvedaClinic } from '../../../../core/hooks/useFeatures';
+import { useFeatures, isAyurvedaClinic, isFreshnessV1Enabled } from '../../../../core/hooks/useFeatures';
 import {
   createCasesheetApi,
   updateCasesheetApi,
 } from '../../../casesheets/data/datasources/casesheets.api';
+import { casesheetsKeys } from '../../../casesheets/data/repositories/casesheets.repository.impl';
 import {
   createPrescriptionApi,
   updatePrescriptionApi,
 } from '../../../prescriptions/data/datasources/prescriptions.api';
+import { prescriptionsKeys } from '../../../prescriptions/data/repositories/prescriptions.repository.impl';
 import {
   sendToSchedulingApi,
   createTreatmentRecommendationApi,
 } from '../../../treatmentSheets/data/datasources/treatmentOrders.api';
+import { invalidateTreatmentOrderSurfaces } from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import { axiosClient } from '../../../../core/api/axiosClient';
 import { CasesheetFormData } from '../../../casesheets/presentation/components/CasesheetForm';
 import {
@@ -201,6 +205,13 @@ function isCasesheetDraftEmpty(data: CasesheetFormData): boolean {
   return true;
 }
 
+// T-A.3 (FR-A4): gates the unmount-flush auto-save for prescription — only
+// worth auto-committing if at least one medication has a real name.
+function isPrescriptionDraftEmpty(data: PrescriptionData): boolean {
+  const meds = data.medications ?? [];
+  return meds.every(m => !m.name?.trim());
+}
+
 // ============================================================
 // SECTION PROGRESS COMPUTATION HELPERS
 // ============================================================
@@ -276,6 +287,15 @@ export function useConsultationWorkspace(
 ): UseConsultationWorkspaceOutput {
   const { tenantId, episodeId, appointmentId, clientId } = input;
 
+  // Phase 1 · T-A.2 (ADR-P1-01): invalidate the owning query key(s) after
+  // each affected clinical save succeeds, so any OTHER screen reading the
+  // same casesheet/prescription/treatment-order via React Query sees fresh
+  // data without needing its own remount/refetch hack. This does not change
+  // how THIS screen's own local draft state is displayed (unaffected) — see
+  // T-A.1's report for why the existing `refetchEpisode()`/
+  // `refetchTreatmentSheet()` calls are kept, additive, not replaced.
+  const queryClient = useQueryClient();
+
   // ── Feature config (computed once; stable unless tenant changes) ──────────
   const features = useFeatures();
   const sectionConfig = useMemo(() => buildSectionConfig(features), [features]);
@@ -337,7 +357,20 @@ export function useConsultationWorkspace(
 
   useEffect(() => {
     if (casesheet && !initialSyncDoneRef.current) {
-      const remoteDraft = isCasesheetDraftEmpty(casesheetData);
+      // T-A.5 (ED-003 fix): reads casesheetDataRef, NOT the casesheetData
+      // state, deliberately. When episodeId/appointmentId AND casesheet
+      // change together in the same commit (reachable now that T-A.5
+      // removes the forced remount — see consultation.tsx), the reset
+      // effect above already ran first in this same commit and updated
+      // casesheetDataRef.current synchronously, but its setCasesheetData()
+      // call hasn't been applied to this closure's `casesheetData` yet
+      // (state updates from a sibling effect in the same flush aren't
+      // visible until the next render). Reading the state here would see
+      // the stale, still-populated PREVIOUS episode's draft, wrongly
+      // conclude nothing needs loading, and permanently skip syncing the
+      // new episode's data (the exact bug ED-003 characterized). The ref
+      // is always fresh within the same commit.
+      const remoteDraft = isCasesheetDraftEmpty(casesheetDataRef.current);
       if (remoteDraft) {
         const loaded = normalizeCasesheetData(casesheet);
         setCasesheetData(loaded);
@@ -391,11 +424,28 @@ export function useConsultationWorkspace(
         });
         casesheetIdRef.current = response.id;
         refetchEpisode();
+        // T-A.2, flag-gated (T-A.6, RB-1): prime the detail cache and
+        // invalidate lists for this client, matching what
+        // useCreateCasesheetMutation already does elsewhere. Gated so
+        // turning the flag off reproduces exact pre-Phase-1 behavior (no
+        // data effect) alongside consultation.tsx's flag-gated remount.
+        if (isFreshnessV1Enabled(features)) {
+          queryClient.setQueryData(casesheetsKeys.detail(tenantId, response.id), response);
+          queryClient.invalidateQueries({ queryKey: casesheetsKeys.list(tenantId, resolvedClientId) });
+        }
       } else {
         // PATCH — update existing casesheet
-        await updateCasesheetApi(tenantId, casesheetIdRef.current, {
+        const response = await updateCasesheetApi(tenantId, casesheetIdRef.current, {
           data_json: draft,
         });
+        // T-A.2, flag-gated (T-A.6, RB-1): matching what
+        // useUpdateCasesheetMutation already does elsewhere — write the
+        // fresh response directly (no extra refetch) and invalidate list
+        // queries.
+        if (isFreshnessV1Enabled(features)) {
+          queryClient.setQueryData(casesheetsKeys.detail(tenantId, casesheetIdRef.current), response);
+          queryClient.invalidateQueries({ queryKey: casesheetsKeys.lists() });
+        }
       }
 
       setCasesheetSaveError(null);
@@ -408,7 +458,7 @@ export function useConsultationWorkspace(
     } finally {
       setIsCasesheetSaving(false);
     }
-  }, [tenantId, resolvedClientId, appointmentId, episodeId, features.clinic_type, sectionConfig.specialtySections, setSectionSaveStatus, refetchEpisode]);
+  }, [tenantId, resolvedClientId, appointmentId, episodeId, features.clinic_type, sectionConfig.specialtySections, setSectionSaveStatus, refetchEpisode, queryClient]);
 
   // ── scheduleAutosave ──────────────────────────────────────────────────────
   const scheduleAutosave = useCallback(() => {
@@ -433,6 +483,15 @@ export function useConsultationWorkspace(
   }, [performAutosave]);
 
   // ── On unmount: flush synchronously ──────────────────────────────────────
+  // T-A.3 (FR-A4, ADR-P1-01): every exit from this screen — back arrow,
+  // "Change Case", "Save & Submit" — unmounts this hook the same way, so
+  // this cleanup is the ONE place that reliably protects against silently
+  // dropping unsaved work regardless of which UI action triggered the exit.
+  // Casesheet's flush (below) already existed; prescription and treatment
+  // recommendation are explicit-save fields with no debounce, so they need
+  // their own dirty-flag-gated flush here. All three read from refs (not
+  // state), so they behave correctly even though this effect's closure is
+  // fixed at first render (see the *Ref comments above each field's state).
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
@@ -440,6 +499,12 @@ export function useConsultationWorkspace(
         debounceTimerRef.current = null;
         // Fire-and-forget on unmount; we can't await in cleanup
         performAutosave().catch(() => {});
+      }
+      if (prescriptionDirtyRef.current && !isPrescriptionDraftEmpty(prescriptionDataRef.current)) {
+        savePrescription().catch(() => {});
+      }
+      if (treatmentDirtyRef.current && treatmentRecommendationRef.current.recommendedTherapy?.trim()) {
+        sendTreatmentToAdmin().catch(() => {});
       }
       // Clear all saved → idle timers
       Object.values(savedTimerRefs.current).forEach(t => {
@@ -495,6 +560,15 @@ export function useConsultationWorkspace(
   const [isPrescriptionSaving, setIsPrescriptionSaving] = useState(false);
   const [prescriptionSaveError, setPrescriptionSaveError] = useState<string | null>(null);
   const [prescriptionNotRequired, setPrescriptionNotRequired] = useState(false);
+  // T-A.3 (FR-A4): refs mirror the state above so `savePrescription` can be
+  // called safely from the unmount-flush cleanup effect (which closes over
+  // its first-render values — reading refs instead of state keeps it
+  // reading FRESH data regardless of which render's closure fired it).
+  // `prescriptionDirtyRef` tracks whether there is unsaved, user-entered
+  // content since the last successful save.
+  const prescriptionIdRef = useRef<string | null>(null);
+  const prescriptionDataRef = useRef<PrescriptionData>(EMPTY_PRESCRIPTION_DATA);
+  const prescriptionDirtyRef = useRef(false);
 
   // Load existing prescription for this appointment on mount
   useEffect(() => {
@@ -506,9 +580,12 @@ export function useConsultationWorkspace(
     // previous episode's prescription can never leak into a new one while the
     // lookup is in flight (or if none exists for this episode/appointment).
     setPrescriptionId(null);
+    prescriptionIdRef.current = null;
     setPrescriptionData(EMPTY_PRESCRIPTION_DATA);
+    prescriptionDataRef.current = EMPTY_PRESCRIPTION_DATA;
     setPrescriptionNotRequired(false);
     setPrescriptionSaveError(null);
+    prescriptionDirtyRef.current = false;
 
     const load = async () => {
       try {
@@ -523,7 +600,10 @@ export function useConsultationWorkspace(
         if (Array.isArray(items) && items.length > 0) {
           const first = items[0];
           setPrescriptionId(first.id);
-          setPrescriptionData(first.prescription_data ?? EMPTY_PRESCRIPTION_DATA);
+          prescriptionIdRef.current = first.id;
+          const loaded = first.prescription_data ?? EMPTY_PRESCRIPTION_DATA;
+          setPrescriptionData(loaded);
+          prescriptionDataRef.current = loaded;
         }
       } catch {
         // No prescription found — start fresh
@@ -537,35 +617,62 @@ export function useConsultationWorkspace(
   const savePrescription = useCallback(async (): Promise<void> => {
     setIsPrescriptionSaving(true);
     setPrescriptionSaveError(null);
+    setSectionSaveStatus('prescription', 'saving');
     try {
-      if (!prescriptionId) {
+      if (!prescriptionIdRef.current) {
         const response = await createPrescriptionApi(tenantId, {
           client_id: resolvedClientId,
-          prescription_data: prescriptionData,
+          prescription_data: prescriptionDataRef.current,
           appointment_id: appointmentId,
           episode_id: episodeId,
         });
         setPrescriptionId(response.id);
+        prescriptionIdRef.current = response.id;
+        // T-A.2, flag-gated (T-A.6, RB-1): prime the detail cache and
+        // invalidate lists + the episode+appointment-scoped key
+        // established in T-A.1.
+        if (isFreshnessV1Enabled(features)) {
+          queryClient.setQueryData(prescriptionsKeys.detail(tenantId, response.id), response);
+          queryClient.invalidateQueries({ queryKey: prescriptionsKeys.lists() });
+          queryClient.invalidateQueries({
+            queryKey: prescriptionsKeys.byAppointment(tenantId, episodeId, appointmentId),
+          });
+        }
       } else {
-        await updatePrescriptionApi(tenantId, prescriptionId, {
-          prescription_data: prescriptionData,
+        const response = await updatePrescriptionApi(tenantId, prescriptionIdRef.current, {
+          prescription_data: prescriptionDataRef.current,
         });
+        if (isFreshnessV1Enabled(features)) {
+          queryClient.setQueryData(prescriptionsKeys.detail(tenantId, prescriptionIdRef.current), response);
+          queryClient.invalidateQueries({ queryKey: prescriptionsKeys.lists() });
+          queryClient.invalidateQueries({
+            queryKey: prescriptionsKeys.byAppointment(tenantId, episodeId, appointmentId),
+          });
+        }
       }
+      prescriptionDirtyRef.current = false;
+      setSectionSaveStatus('prescription', 'saved');
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? err?.message ?? 'Save failed';
       setPrescriptionSaveError(msg);
+      setSectionSaveStatus('prescription', 'error');
       throw err;
     } finally {
       setIsPrescriptionSaving(false);
     }
-  }, [tenantId, resolvedClientId, appointmentId, episodeId, prescriptionId, prescriptionData]);
+  }, [tenantId, resolvedClientId, appointmentId, episodeId, queryClient, setSectionSaveStatus, features]);
 
   const markPrescriptionNotRequired = useCallback(() => {
     setPrescriptionNotRequired(true);
+    // Marking "not required" is itself an intentional resolution — don't let
+    // the unmount-flush effect also try to auto-save an abandoned draft.
+    prescriptionDirtyRef.current = false;
   }, []);
 
   const onPrescriptionChange = useCallback((data: PrescriptionData) => {
     setPrescriptionData(data);
+    prescriptionDataRef.current = data;
+    prescriptionDirtyRef.current = true;
   }, []);
 
   // ── Treatment recommendation state ────────────────────────────────────────
@@ -575,6 +682,18 @@ export function useConsultationWorkspace(
   const [isTreatmentSaving, setIsTreatmentSaving] = useState(false);
   const [treatmentSaveError, setTreatmentSaveError] = useState<string | null>(null);
   const [isTreatmentSent, setIsTreatmentSent] = useState(false);
+  // T-A.5 (ED-003-class fix): mirrors `isTreatmentSent`. The pre-populate
+  // effect below reads this instead of the state, for the same reason
+  // ED-003 required casesheet's sync effect to read a ref: when
+  // episodeId/appointmentId AND treatmentSheet change together in the same
+  // commit (reachable now that T-A.5 removes the forced remount), the
+  // reset effect's `setIsTreatmentSent(false)` hasn't applied yet in that
+  // same effect-flush, so a stale `isTreatmentSent: true` from the
+  // PREVIOUS episode would incorrectly skip pre-populating the new
+  // episode's treatment recommendation draft. The ref is written
+  // synchronously everywhere `setIsTreatmentSent` is called, so it is
+  // always fresh within the same commit.
+  const isTreatmentSentRef = useRef(false);
   // Track treatment sheet ID and version created/found in this session
   const treatmentSheetIdRef = useRef<string | null>(null);
   const treatmentSheetVersionRef = useRef<number>(0);
@@ -582,14 +701,23 @@ export function useConsultationWorkspace(
   // this, every treatment-sheet refetch (staleTime: 0) re-ran the effect and
   // clobbered the doctor's in-progress edits (e.g. a just-selected therapy).
   const treatmentPrefillDoneRef = useRef(false);
+  // T-A.3 (FR-A4): mirrors `treatmentRecommendation` so `sendTreatmentToAdmin`
+  // can be called safely from the unmount-flush cleanup effect, which closes
+  // over its first-render values. `treatmentDirtyRef` tracks whether there
+  // are unsent edits since the last successful send.
+  const treatmentRecommendationRef = useRef<TreatmentRecommendationDraft>(DEFAULT_TREATMENT_DRAFT);
+  const treatmentDirtyRef = useRef(false);
 
   useEffect(() => {
     treatmentSheetIdRef.current = null;
     treatmentSheetVersionRef.current = 0;
     treatmentPrefillDoneRef.current = false;
     setTreatmentRecommendation(DEFAULT_TREATMENT_DRAFT);
+    treatmentRecommendationRef.current = DEFAULT_TREATMENT_DRAFT;
+    treatmentDirtyRef.current = false;
     setTreatmentSaveError(null);
     setIsTreatmentSent(false);
+    isTreatmentSentRef.current = false;
   }, [episodeId, appointmentId]);
 
   // Pre-populate from existing treatment sheet
@@ -603,7 +731,9 @@ export function useConsultationWorkspace(
 
     // Pre-fill the editable draft ONLY once per consultation context. Re-running
     // this on every refetch would overwrite the doctor's in-progress edits.
-    if (treatmentSheet && !isTreatmentSent && !treatmentPrefillDoneRef.current) {
+    // Reads isTreatmentSentRef (not the isTreatmentSent state) — see the ref's
+    // declaration comment for why (T-A.5, ED-003-class staleness fix).
+    if (treatmentSheet && !isTreatmentSentRef.current && !treatmentPrefillDoneRef.current) {
       treatmentPrefillDoneRef.current = true;
       const firstRow = treatmentSheet.rows?.[0];
       setTreatmentRecommendation(prev => {
@@ -635,7 +765,7 @@ export function useConsultationWorkspace(
           }
         }
 
-        return {
+        const next: TreatmentRecommendationDraft = {
           ...prev,
           recommendedTherapy:
             treatmentSheet.recommended_therapy ??
@@ -648,11 +778,14 @@ export function useConsultationWorkspace(
           ...(extra.frequency ? { frequency: extra.frequency } : {}),
           ...(extra.startPreference ? { startPreference: extra.startPreference } : {}),
         };
+        treatmentRecommendationRef.current = next;
+        return next;
       });
 
       // If execution state shows it's already been sent to scheduling, reflect that
       if (isSentToScheduling((treatmentSheet as any).state)) {
         setIsTreatmentSent(true);
+        isTreatmentSentRef.current = true;
       }
     }
   }, [treatmentSheet]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -670,14 +803,21 @@ export function useConsultationWorkspace(
     const state = (treatmentSheet as any)?.state ?? (treatmentDocument as any)?.state;
     if (isSentToScheduling(state)) {
       setIsTreatmentSent(true);
+      isTreatmentSentRef.current = true;
     }
   }, [episodeDetails, remoteTreatmentSheetId, treatmentSheet]);
 
   const updateTreatmentField = useCallback(
     <K extends keyof TreatmentRecommendationDraft>(key: K, value: TreatmentRecommendationDraft[K]) => {
-      setTreatmentRecommendation(prev => ({ ...prev, [key]: value }));
+      setTreatmentRecommendation(prev => {
+        const next = { ...prev, [key]: value };
+        treatmentRecommendationRef.current = next;
+        return next;
+      });
+      treatmentDirtyRef.current = true;
       if (isTreatmentSent) {
         setIsTreatmentSent(false);
+        isTreatmentSentRef.current = false;
       }
     },
     [isTreatmentSent],
@@ -691,7 +831,12 @@ export function useConsultationWorkspace(
   // surfaces on the admin scheduling worklist. Admin scheduling creates the rows
   // (one per scheduled day); the doctor fills per-day details afterwards.
   const sendTreatmentToAdmin = useCallback(async (): Promise<void> => {
-    const draft = treatmentRecommendation;
+    // T-A.3: read from the ref, not the `treatmentRecommendation` state
+    // closure — this callback must behave correctly even when called from
+    // the unmount-flush effect, which only ever sees this function's
+    // first-render closure (a `[]`-dep `useEffect` cleanup never picks up a
+    // newer version). The ref is always current; see updateTreatmentField.
+    const draft = treatmentRecommendationRef.current;
 
     if (!draft.recommendedTherapy || !draft.recommendedTherapy.trim()) {
       const msg = 'Please enter the recommended therapy.';
@@ -771,8 +916,31 @@ export function useConsultationWorkspace(
       }
 
       setIsTreatmentSent(true);
+      isTreatmentSentRef.current = true;
+      treatmentDirtyRef.current = false;
       refetchEpisode();
-      refetchTreatmentSheet();
+      // T-A.7 (NFR-4, over-invalidation risk): refetchTreatmentSheet() and
+      // invalidateTreatmentOrderSurfaces() below both target the same
+      // treatment-sheet queries. Calling both back-to-back does NOT dedupe
+      // to one network call — React Query's invalidateQueries cancels an
+      // in-flight fetch and starts a NEW one rather than reusing it, so the
+      // underlying API was empirically observed to fire multiple times for
+      // a single "send to admin" action (see
+      // tests/features/doctorDashboard/freshnessNoDuplicateFetch.test.tsx).
+      // invalidateTreatmentOrderSurfaces already covers everything
+      // refetchTreatmentSheet does (and more — worklists,
+      // pending-documentation), so the manual refetch is only needed when
+      // the flag is off and invalidation doesn't run at all.
+      if (isFreshnessV1Enabled(features)) {
+        // T-A.2, flag-gated (T-A.6, RB-1): reuse the exact invalidation set
+        // treatmentOrders.repository.impl.ts's own mutations already use
+        // (worklists, pending-documentation, treatment sheet caches), so
+        // other surfaces (e.g. admin scheduling worklist) see this order
+        // without their own remount/refetch.
+        await invalidateTreatmentOrderSurfaces(queryClient, tenantId, treatmentSheetIdRef.current ?? undefined);
+      } else {
+        refetchTreatmentSheet();
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? err?.message ?? 'Failed to send to scheduling';
       setTreatmentSaveError(msg);
@@ -785,10 +953,11 @@ export function useConsultationWorkspace(
     resolvedClientId,
     appointmentId,
     episodeId,
-    treatmentRecommendation,
     performAutosave,
     refetchEpisode,
     refetchTreatmentSheet,
+    queryClient,
+    features,
   ]);
 
   // ── Section progress ──────────────────────────────────────────────────────
@@ -811,7 +980,10 @@ export function useConsultationWorkspace(
           break;
         case 'prescription':
           status = computePrescriptionStatus(prescriptionId, prescriptionNotRequired);
-          saveStatus = 'idle'; // prescription uses explicit save, not autosave
+          // T-A.3 (FR-A3): saveStatus now comes from saveStatuses['prescription']
+          // (set by savePrescription via setSectionSaveStatus), giving the same
+          // "✓ Saved" confirmation casesheet sections already have. Previously
+          // hardcoded to 'idle', so a successful save showed no confirmation.
           break;
         case 'treatmentRecommendation':
           status = computeTreatmentStatus(treatmentRecommendation, isTreatmentSent);

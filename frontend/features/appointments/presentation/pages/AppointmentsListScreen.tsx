@@ -57,7 +57,7 @@ import {
   formatDayOfWeek,
   formatDate,
 } from '../../../../core/utils/dateTimeUtils';
-import { AppointmentListItem } from '../components/AppointmentListItem';
+import { AppointmentRow } from '../components/AppointmentRow';
 import CrossPlatformDateTimePicker, {
   DateTimePickerEvent,
 } from '../../../../core/components/CrossPlatformDateTimePicker';
@@ -199,7 +199,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
   );
 };
 
-// AppointmentCard removed - using AppointmentListItem component instead
+// AppointmentCard removed - using AppointmentRow component instead
 
 // ============================================
 // MAIN SCREEN
@@ -262,7 +262,7 @@ export const AppointmentsListScreen: React.FC = () => {
     }
   }, [updateStatusMutation, refetch]);
 
-  // Handler for cancellation - confirmation is now in AppointmentListItem
+  // Handler for cancellation - confirmation is now in AppointmentRow
   const handleCancel = useCallback(async (appointmentId: string) => {
     try {
       await cancelMutation.mutateAsync(appointmentId);
@@ -489,7 +489,8 @@ export const AppointmentsListScreen: React.FC = () => {
           data={sortedAppointments}
           ListEmptyComponent={renderEmptyList}
           renderItem={({ item }) => (
-            <AppointmentListItem
+            <AppointmentRow
+              variant="full"
               appointment={item}
               onPress={() => handleAppointmentPress(item)}
               userRole={currentUser?.roles?.[0] || 'clinic_admin'}

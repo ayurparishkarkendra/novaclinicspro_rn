@@ -165,6 +165,7 @@ export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenPr
               onMarkNotRequired={workspace.markPrescriptionNotRequired}
               onChange={workspace.onChange}
               progress={workspace.sectionProgress.prescription?.status ?? 'empty'}
+              saveStatus={workspace.sectionProgress.prescription?.saveStatus ?? 'idle'}
             />
           ))}
           {renderSection('treatmentRecommendation', expandedSections, toggleSection, workspace.sectionProgress.treatmentRecommendation, (

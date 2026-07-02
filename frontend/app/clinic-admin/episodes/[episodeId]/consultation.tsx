@@ -1,6 +1,7 @@
 // Route: /clinic-admin/episodes/{episodeId}/consultation?appointmentId={id}&clientId={id}
 import { useLocalSearchParams } from 'expo-router';
 import { ConsultationWorkspaceScreen } from '../../../../features/episodes/presentation/pages/ConsultationWorkspaceScreen';
+import { useFeatures, isFreshnessV1Enabled } from '../../../../core/hooks/useFeatures';
 
 export default function ConsultationRoute() {
   const { episodeId, appointmentId, clientId } = useLocalSearchParams<{
@@ -8,13 +9,26 @@ export default function ConsultationRoute() {
     appointmentId: string;
     clientId: string;
   }>();
-  // Key by episode+appointment so navigating to a NEWLY created episode forces a
-  // full remount of the workspace (and its hooks/refs/local state). Without this,
-  // Expo Router can reuse the screen instance and leak the previous episode's
-  // casesheet/prescription/draft state into the new consultation.
+  // T-A.5 (ADR-P1-01, FR-A2, AC-1, DoD "no temporary workarounds"): the
+  // `key={episodeId:appointmentId}` forced-remount was replaced by
+  // useConsultationWorkspace.ts's own internal reset-on-episode/appointment-
+  // change effects (casesheet, prescription, treatment recommendation all
+  // already reset their local draft/refs when episodeId/appointmentId
+  // changes) plus T-A.2's query invalidation — not from destroying and
+  // recreating the whole component. This was only safe after fixing ED-003
+  // — a stale-closure race in the reset-vs-sync effect pair the remount had
+  // been masking (see useConsultationWorkspace.ts's
+  // casesheetDataRef/isTreatmentSentRef comments) — and its treatment-
+  // recommendation analog, found and fixed in the same task (T-A.5).
+  //
+  // T-A.6 (RB-1): the remount is conditionally restored when the freshness
+  // flag is OFF, so toggling the flag off reproduces the exact pre-Phase-1
+  // behavior ("no data effect" on rollback) — the invalidation calls in
+  // useConsultationWorkspace.ts are gated behind the same flag.
+  const freshnessEnabled = isFreshnessV1Enabled(useFeatures());
   return (
     <ConsultationWorkspaceScreen
-      key={`${episodeId}:${appointmentId}`}
+      key={freshnessEnabled ? undefined : `${episodeId}:${appointmentId}`}
       episodeId={episodeId}
       appointmentId={appointmentId}
       clientId={clientId}

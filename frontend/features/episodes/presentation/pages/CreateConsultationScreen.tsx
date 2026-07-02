@@ -17,6 +17,7 @@ import { formatDateTime, toISODateString } from '../../../../core/utils/dateTime
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useAppointmentDetailQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
 import { createEpisodeApi } from '../../data/datasources/episodes.api';
+import { consultationRoute } from '../../../doctorDashboard/application/consultationRoutes';
 
 interface CreateConsultationScreenProps {
   appointmentId: string;
@@ -64,9 +65,7 @@ export const CreateConsultationScreen: React.FC<CreateConsultationScreenProps> =
         queryClient.invalidateQueries({ queryKey: ['client-episodes', tenantId, clientId] }),
         queryClient.invalidateQueries({ queryKey: ['staffDashboards'] }),
       ]);
-      router.replace(
-        `/clinic-admin/episodes/${episode.id}/consultation?appointmentId=${appointmentId}&clientId=${clientId}` as any,
-      );
+      router.replace(consultationRoute(episode.id, appointmentId, clientId) as any);
     } catch (error: any) {
       setApiError(error?.response?.data?.detail ?? error?.message ?? 'Failed to start consultation.');
     } finally {

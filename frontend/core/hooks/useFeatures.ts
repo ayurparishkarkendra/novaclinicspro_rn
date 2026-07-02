@@ -7,8 +7,17 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../api/supabaseClient';
 import { axiosClient } from '../api/axiosClient';
 
+/**
+ * Phase 1 · T-E.1 (ADR-P1-05, FR-D1): single authoritative allowed-list for
+ * `clinic_type`. This runtime array is the source; `ClinicType` derives from
+ * it. Do not add a second literal list elsewhere in this file or in FE code
+ * — reference `CLINIC_TYPES`/`ClinicType` instead.
+ */
+export const CLINIC_TYPES = ['general', 'ayurveda', 'allopathy', 'dental', 'physio', 'multispeciality'] as const;
+export type ClinicType = (typeof CLINIC_TYPES)[number];
+
 export interface FeatureConfig {
-  clinic_type: 'general' | 'ayurveda' | 'allopathy' | 'dental' | 'physio' | 'multispeciality';
+  clinic_type: ClinicType;
   appointments: {
     allow_multiday: boolean;
     enable_gender_matching: boolean;
@@ -19,6 +28,16 @@ export interface FeatureConfig {
     enable_treatment_sheets: boolean;
     enable_sheet_sync: boolean;
   };
+  /**
+   * Phase 1 · T-A.6 (ADR-P1-01, FR-A6, RB-1): global rollout flag for the
+   * consultation-workspace freshness behavior (query-invalidation instead
+   * of forced-remount). NOT clinic-type-derived like the fields above —
+   * served as-is from GET /tenants/{id}/features (backend
+   * OrgTenantsService.get_tenant_features, env-var-driven). Defaults to
+   * false (fail-closed to the pre-Phase-1 behavior) if the API is
+   * unreachable or the field is absent.
+   */
+  freshness_v1_enabled: boolean;
 }
 
 const DEFAULT_FEATURES: FeatureConfig = {
@@ -31,11 +50,12 @@ const DEFAULT_FEATURES: FeatureConfig = {
     enable_treatment_sheets: false,
     enable_sheet_sync: false,
   },
+  freshness_v1_enabled: false,
 };
 
 function normalizeClinicType(value?: string): FeatureConfig['clinic_type'] {
   const normalized = (value || 'general').toLowerCase();
-  if (['general', 'ayurveda', 'allopathy', 'dental', 'physio', 'multispeciality'].includes(normalized)) {
+  if (CLINIC_TYPES.includes(normalized as ClinicType)) {
     return normalized as FeatureConfig['clinic_type'];
   }
   return 'general';
@@ -61,6 +81,9 @@ function normalizeFeatures(raw?: any): FeatureConfig {
       enable_treatment_sheets: therapyClinic && !!raw?.treatment_sheets?.enable_treatment_sheets,
       enable_sheet_sync: therapyClinic && !!raw?.treatment_sheets?.enable_sheet_sync,
     },
+    // Not gated by therapyClinic — this is a platform-wide rollout flag, not
+    // a clinic-type feature.
+    freshness_v1_enabled: !!raw?.freshness_v1_enabled,
   };
 }
 
@@ -181,4 +204,9 @@ export function hasGenderMatching(features: FeatureConfig): boolean {
 
 export function hasTreatmentSheets(features: FeatureConfig): boolean {
   return isTherapyClinic(features) && features.treatment_sheets.enable_treatment_sheets;
+}
+
+/** Phase 1 · T-A.6 (ADR-P1-01, FR-A6, RB-1). */
+export function isFreshnessV1Enabled(features: FeatureConfig): boolean {
+  return features.freshness_v1_enabled;
 }

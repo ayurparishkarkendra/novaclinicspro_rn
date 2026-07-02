@@ -10,6 +10,7 @@
 
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { supabase } from './supabaseClient';
+import { isLoggingOut } from './authGuard';
 
 const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -68,6 +69,37 @@ function hasAuthorizationHeader(config?: AxiosRequestConfig): boolean {
 }
 
 /**
+ * Phase 1 · T-0.7 — Observability hooks.
+ *
+ * A single structured event shape for the two anomaly categories Document 09
+ * (V4) and design.md §4.F require to be observable without code inspection:
+ * server errors (5xx) and auth-boundary anomalies (e.g. an authenticated
+ * request firing after logout). This intentionally logs unconditionally
+ * (NOT gated behind `__DEV__`, unlike the existing dev-only console logging
+ * above/below) — a production build with no `__DEV__` gate is exactly what
+ * "observable without code inspection" requires.
+ *
+ * No error-tracking service (Sentry etc.) is integrated in this project yet.
+ * `reportObservabilityEvent` is the single choke point a future integration
+ * would hook into; today it emits a structured, parseable console entry.
+ * Exported so it is independently testable (NFR-5).
+ */
+export interface ObservabilityEvent {
+  event: 'api.server_error' | 'api.auth_boundary_anomaly';
+  url?: string;
+  method?: string;
+  status?: number;
+  message: string;
+  timestamp: string;
+}
+
+export function reportObservabilityEvent(event: Omit<ObservabilityEvent, 'timestamp'>): void {
+  const payload: ObservabilityEvent = { ...event, timestamp: new Date().toISOString() };
+  // eslint-disable-next-line no-console -- intentional structured observability output, not debug logging
+  console.error('[observability]', JSON.stringify(payload));
+}
+
+/**
  * Recursively convert UTC ISO strings from backend to local ISO strings for display
  * Backend sends: "2026-03-01T11:06:00Z" (UTC)
  * Frontend needs: "2026-03-01T16:36:00" (local time in ISO format, no Z)
@@ -115,17 +147,28 @@ axiosClient.interceptors.request.use(
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       config.params = { ...config.params, timezone };
       
-      // IMPORTANT: getSession() returns cached session
-      // After refreshSession() is called elsewhere, this will get the updated token
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.access_token) {
-        // Add JWT to Authorization header
-        config.headers.Authorization = `Bearer ${session.access_token}`;
-        console.log('🔐 JWT added to request:', config.url);
-        console.log('🔐 Token (first 50 chars):', session.access_token.substring(0, 50));
+      // T-A.4 (FR-A5): if logout() is in progress, never attach a token —
+      // checked synchronously, before the async getSession() call below, so
+      // a request that starts mid-logout (in-flight when logout was tapped,
+      // or issued via a raw axiosClient call React Query isn't tracking)
+      // still goes out unauthenticated rather than with a still-valid token
+      // from before supabase.auth.signOut() has finished. Lands on the
+      // existing unauthenticated-401 path (see response interceptor below).
+      if (isLoggingOut()) {
+        console.log('ℹ️ Logout in progress — request sent without Authorization:', config.url);
       } else {
-        console.log('ℹ️ No JWT available for request:', config.url);
+        // IMPORTANT: getSession() returns cached session
+        // After refreshSession() is called elsewhere, this will get the updated token
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.access_token) {
+          // Add JWT to Authorization header
+          config.headers.Authorization = `Bearer ${session.access_token}`;
+          console.log('🔐 JWT added to request:', config.url);
+          console.log('🔐 Token (first 50 chars):', session.access_token.substring(0, 50));
+        } else {
+          console.log('ℹ️ No JWT available for request:', config.url);
+        }
       }
 
       // Add Content-Type only for requests with body
@@ -209,8 +252,8 @@ axiosClient.interceptors.response.use(
     // with no active session (e.g. fired right after logout, or during
     // pre-login bootstrap) — that's expected, not a real error, so log it
     // quietly instead of under the "❌ API error" banner.
+    const isUnauthenticated401 = error.response?.status === 401 && !hasAuthorizationHeader(originalRequest);
     if (__DEV__) {
-      const isUnauthenticated401 = error.response?.status === 401 && !hasAuthorizationHeader(originalRequest);
       if (isUnauthenticated401) {
         console.log('ℹ️ Unauthenticated request rejected (no active session):', originalRequest.url);
       } else {
@@ -221,6 +264,26 @@ axiosClient.interceptors.response.use(
           data: error.response?.data,
         });
       }
+    }
+
+    // Structured observability (T-0.7) — unconditional, so these two anomaly
+    // categories are visible in production, not only in dev console output.
+    if (isUnauthenticated401) {
+      reportObservabilityEvent({
+        event: 'api.auth_boundary_anomaly',
+        url: originalRequest.url,
+        method: originalRequest.method,
+        status: error.response?.status,
+        message: 'Authenticated request rejected with no active session (e.g. post-logout).',
+      });
+    } else if (error.response?.status && error.response.status >= 500) {
+      reportObservabilityEvent({
+        event: 'api.server_error',
+        url: originalRequest.url,
+        method: originalRequest.method,
+        status: error.response.status,
+        message: error.message,
+      });
     }
 
     return Promise.reject(error);

@@ -38,7 +38,7 @@ import {
   OnLeaveBanner,
   QuickAction,
 } from '../features/staffDashboards';
-import { AppointmentListItem } from '../features/appointments/presentation/components/AppointmentListItem';
+import { AppointmentRow } from '../features/appointments/presentation/components/AppointmentRow';
 import { StaffFeedbackSection } from '../features/feedback';
 import {
   useDoctorKpisQuery,
@@ -374,21 +374,23 @@ export default function DoctorDashboard() {
       label: 'Start Session',
       icon: 'play-circle-outline',
       onPress: () => {
+        // T-D.2 (ADR-P1-04): delegates to the same canonical resolver as the
+        // per-appointment "Start Consultation" button (handleStartConsultation
+        // -> startConsultationWithGuard -> resolveCase), so every "Start" entry
+        // point yields one behavior. Previously this only showed an Alert with
+        // no confirm handler and never navigated (ED-004).
         const nextAppointment = dashboardData?.appointments?.find(
           (a) => ['scheduled', 'confirmed'].includes(a.status?.toLowerCase())
         );
         if (nextAppointment) {
-          Alert.alert(
-            'Start Session',
-            `Ready to start session with ${nextAppointment.client_name || 'patient'}?`
-          );
+          handleStartConsultation(nextAppointment.id, nextAppointment.client_id);
         } else {
           Alert.alert('No Upcoming', 'No upcoming appointments to start.');
         }
       },
       color: colors.info.main,
     },
-  ], [dashboardData, router]);
+  ], [dashboardData, router, handleStartConsultation]);
 
   // Clinical documents quick actions
   const clinicalActions: QuickAction[] = useMemo(() => [
@@ -577,7 +579,7 @@ export default function DoctorDashboard() {
             />
           ) : (
             filteredAppointments.map((appointment) => {
-              // Adapt DoctorAppointmentItem → AppointmentResponse shape for AppointmentListItem
+              // Adapt DoctorAppointmentItem → AppointmentResponse shape for AppointmentRow
               const appointmentForList = {
                 tenant_id: tenantId,
                 room_id: appointment.room_name ?? null,
@@ -596,7 +598,8 @@ export default function DoctorDashboard() {
 
               return (
                 <React.Fragment key={appointment.id}>
-                  <AppointmentListItem
+                  <AppointmentRow
+                    variant="full"
                     appointment={appointmentForList}
                     onPress={undefined} // Remove navigation to detail page
                     showActions={true} // Enable quick actions

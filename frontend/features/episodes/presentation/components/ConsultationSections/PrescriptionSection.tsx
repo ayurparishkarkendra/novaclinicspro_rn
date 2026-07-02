@@ -13,7 +13,7 @@ import {
   MedicationItem,
   PrescriptionData,
 } from '../../../../prescriptions/data/models/prescriptions.dtos';
-import { SectionProgressStatus } from '../../hooks/useConsultationWorkspace';
+import { SectionProgressStatus, SectionSaveStatus } from '../../hooks/useConsultationWorkspace';
 
 interface PrescriptionSectionProps {
   prescriptionData: PrescriptionData;
@@ -24,6 +24,8 @@ interface PrescriptionSectionProps {
   onMarkNotRequired: () => void;
   onChange: (data: PrescriptionData) => void;
   progress: SectionProgressStatus;
+  /** Phase 1 · T-A.3 (FR-A3): explicit save confirmation, previously missing. */
+  saveStatus: SectionSaveStatus;
 }
 
 const EMPTY_MED: MedicationItem = { name: '', dosage: '', frequency: '', duration: '' };
@@ -41,6 +43,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({
   onMarkNotRequired,
   onChange,
   progress,
+  saveStatus,
 }) => {
   const { colors, spacing, typography } = useClinicTheme();
   const medications = prescriptionData.medications ?? [];
@@ -48,7 +51,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({
     ? 'Saving...'
     : prescriptionSaveError
       ? '⚠ Save failed'
-      : prescriptionNotRequired
+      : saveStatus === 'saved' || prescriptionNotRequired
         ? '✓ Saved'
         : '';
   const headerStatusColor = prescriptionSaveError ? colors.feedback.error : colors.feedback.success;

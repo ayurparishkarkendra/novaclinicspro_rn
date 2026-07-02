@@ -91,6 +91,53 @@ describe('Case Resolver', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
+  describe('Navigation purity (FR-C3, T-D.3): "navigation SHALL NOT modify clinical/business data"', () => {
+    it('is pure (no writes) when the appointment already has a linked episode', async () => {
+      mockGet.mockResolvedValueOnce({ data: { episode_id: 'episode-1' } });
+
+      await resolveCase('tenant-1', 'appointment-1', 'client-1', router);
+
+      expect(mockPost).not.toHaveBeenCalled();
+      expect(router.push).toHaveBeenCalledWith(
+        '/clinic-admin/episodes/episode-1/consultation?appointmentId=appointment-1&clientId=client-1',
+      );
+    });
+
+    it('is pure (no writes) when no active episode exists (falls back to start-consultation)', async () => {
+      mockGet
+        .mockResolvedValueOnce({ data: { episode_id: null } })
+        .mockResolvedValueOnce({ data: { total: 0, items: [] } });
+
+      await resolveCase('tenant-1', 'appointment-1', 'client-1', router);
+
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
+    it('DOES perform a write (attach-episode POST) when an active episode is found but not yet linked to this appointment — a documented exception, not asserted as pure', async () => {
+      // Finding (T-D.3): this is the one path where `resolveCase` performs a
+      // clinical/business-data write (linking an existing active episode to
+      // this appointment) before navigating. It is pre-existing behavior
+      // (already characterized by the "attaches an active episode..." test
+      // above), not introduced by T-D.1/T-D.2. Whether this is in tension
+      // with FR-C3's stated purity principle, and how to classify/resolve
+      // it, is a judgment call flagged to the user rather than decided here
+      // — see T-D.3's report. This test exists so the exception is explicit
+      // and intentional rather than an unexamined side effect.
+      mockGet
+        .mockResolvedValueOnce({ data: { episode_id: null } })
+        .mockResolvedValueOnce({ data: { total: 1, items: [{ id: 'episode-1' }] } });
+      mockPost.mockResolvedValue({ data: {} });
+
+      await resolveCase('tenant-1', 'appointment-1', 'client-1', router);
+
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/v1/clinic/tenant-1/appointments/appointment-1/attach-episode',
+        { episode_id: 'episode-1' },
+      );
+    });
+  });
+
   it('returns early while another appointment is loading', async () => {
     const setState = jest.fn();
 

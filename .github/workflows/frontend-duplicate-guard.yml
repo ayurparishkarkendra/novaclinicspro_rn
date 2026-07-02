@@ -1,0 +1,41 @@
+name: Frontend Duplicate-Definition Guard
+
+# Phase 1 · T-0.6 — fails only when a duplicate class member (TS) or duplicate
+# object key is introduced, using a narrow dedicated ESLint config
+# (frontend/eslint.dupeguard.config.js — `no-dupe-keys` +
+# `@typescript-eslint/no-dupe-class-members` only).
+#
+# This is intentionally NOT the project's full `expo lint` / jest test suite:
+# - `expo lint` currently reports 38 pre-existing, unrelated problems (see
+#   engineering-debt.md ED-005) — not blocked on here.
+# - Blocking frontend CI on the full jest suite remains deferred to ED-001
+#   (tasks.md T-0.1b) until that stabilization work lands.
+# This guard is independent of both and has a clean (0-finding) baseline
+# today, so it can safely block merges on any NEW duplicate definition.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  duplicate-definition-guard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run duplicate-definition guard
+        run: npx eslint . --config eslint.dupeguard.config.js --quiet

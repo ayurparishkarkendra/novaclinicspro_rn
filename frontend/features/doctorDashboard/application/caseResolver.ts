@@ -1,5 +1,6 @@
 import type { Router } from 'expo-router';
 import { axiosClient } from '../../../core/api/axiosClient';
+import { consultationRoute, startConsultationRoute } from './consultationRoutes';
 
 export interface CaseResolverState {
   loadingAppointmentId: string | null;
@@ -19,9 +20,7 @@ export async function resolveCase(
   const linkedEpisodeId = appointmentResponse.data?.episode_id;
 
   if (linkedEpisodeId) {
-    router.push(
-      `/clinic-admin/episodes/${linkedEpisodeId}/consultation?appointmentId=${appointmentId}&clientId=${clientId}` as any,
-    );
+    router.push(consultationRoute(linkedEpisodeId, appointmentId, clientId) as any);
     return;
   }
 
@@ -35,15 +34,11 @@ export async function resolveCase(
       `/api/v1/clinic/${tenantId}/appointments/${appointmentId}/attach-episode`,
       { episode_id: episode.id },
     );
-    router.push(
-      `/clinic-admin/episodes/${episode.id}/consultation?appointmentId=${appointmentId}&clientId=${clientId}` as any,
-    );
+    router.push(consultationRoute(episode.id, appointmentId, clientId) as any);
     return;
   }
 
-  router.push(
-    `/clinic-admin/appointments/${appointmentId}/start-consultation?clientId=${clientId}` as any,
-  );
+  router.push(startConsultationRoute(appointmentId, clientId) as any);
 }
 
 export async function startConsultationWithGuard(params: {

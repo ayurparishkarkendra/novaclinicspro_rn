@@ -90,31 +90,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // Clear session - resets ALL state including selectedClinicId
+  //
+  // T-A.4 (FR-A5, design.md §6.2): `set()` runs FIRST and synchronously,
+  // before the awaited storage removals below — Zustand notifies
+  // subscribers immediately, so any component reading `isAuthenticated`
+  // (e.g. a guarded useFocusEffect) sees `false` right away, rather than
+  // only after 3 sequential awaited secureStorage calls resolve. The
+  // storage cleanup that follows is important (don't leave tokens on
+  // disk) but must not gate the in-memory flag flip.
   clearSession: async () => {
+    set({
+      accessToken: null,
+      refreshToken: null,
+      currentUser: null,
+      isAuthenticated: false,
+      isLoading: false,
+      selectedClinicId: null, // Reset on logout to avoid stale context
+    });
     try {
       await secureStorage.removeItem(ACCESS_TOKEN_KEY);
       await secureStorage.removeItem(REFRESH_TOKEN_KEY);
       await secureStorage.removeItem(SELECTED_CLINIC_KEY);
-      set({
-        accessToken: null,
-        refreshToken: null,
-        currentUser: null,
-        isAuthenticated: false,
-        isLoading: false,
-        selectedClinicId: null, // Reset on logout to avoid stale context
-      });
       console.log('✅ Session cleared');
     } catch (error) {
-      console.error('Error clearing session:', error);
-      // Clear memory state even if storage fails
-      set({
-        accessToken: null,
-        refreshToken: null,
-        currentUser: null,
-        isAuthenticated: false,
-        isLoading: false,
-        selectedClinicId: null,
-      });
+      console.error('Error clearing session storage:', error);
+      // In-memory state is already cleared above regardless of storage outcome.
     }
   },
 
