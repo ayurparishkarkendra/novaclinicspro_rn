@@ -280,6 +280,12 @@ describe('Consultation save → navigate → return freshness (baseline, T-0.4)'
       'utf8'
     );
     expect(routeSource).not.toContain('key={`${episodeId}:${appointmentId}`}');
-    expect(routeSource).toContain('<ConsultationWorkspaceScreen');
+    // R3A · T-A.2: the route now renders ClinicalWorkspace (which wraps the
+    // still-unmodified ConsultationWorkspaceScreen in WorkspaceProvider —
+    // see clinicalWorkspaceShell.test.tsx) instead of ConsultationWorkspaceScreen
+    // directly. Updated to match the approved design §9.A swap; the assertion's
+    // original intent — the route still renders something, not a blank screen —
+    // is preserved.
+    expect(routeSource).toContain('<ClinicalWorkspace');
   });
 });

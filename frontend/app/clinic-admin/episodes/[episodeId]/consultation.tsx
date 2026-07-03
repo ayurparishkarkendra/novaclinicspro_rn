@@ -1,6 +1,6 @@
 // Route: /clinic-admin/episodes/{episodeId}/consultation?appointmentId={id}&clientId={id}
 import { useLocalSearchParams } from 'expo-router';
-import { ConsultationWorkspaceScreen } from '../../../../features/episodes/presentation/pages/ConsultationWorkspaceScreen';
+import { ClinicalWorkspace } from '../../../../features/episodes/presentation/pages/ClinicalWorkspace';
 import { useFeatures, isFreshnessV1Enabled } from '../../../../core/hooks/useFeatures';
 
 export default function ConsultationRoute() {
@@ -25,9 +25,16 @@ export default function ConsultationRoute() {
   // flag is OFF, so toggling the flag off reproduces the exact pre-Phase-1
   // behavior ("no data effect" on rollback) — the invalidation calls in
   // useConsultationWorkspace.ts are gated behind the same flag.
+  //
+  // R3A · T-A.2: renders ClinicalWorkspace (which wraps the unchanged
+  // ConsultationWorkspaceScreen in WorkspaceProvider) instead of
+  // ConsultationWorkspaceScreen directly. The key expression itself is
+  // untouched — it now remounts ClinicalWorkspace (context + screen
+  // together) when the flag is OFF, which preserves the exact same
+  // observable behavior the pre-existing remount had.
   const freshnessEnabled = isFreshnessV1Enabled(useFeatures());
   return (
-    <ConsultationWorkspaceScreen
+    <ClinicalWorkspace
       key={freshnessEnabled ? undefined : `${episodeId}:${appointmentId}`}
       episodeId={episodeId}
       appointmentId={appointmentId}
