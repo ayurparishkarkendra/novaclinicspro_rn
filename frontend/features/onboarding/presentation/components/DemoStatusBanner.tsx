@@ -1,6 +1,6 @@
 /**
  * DemoStatusBanner Component
- * Shows demo/trial expiration countdown and actions
+ * Shows sample clinic and commercial trial countdown actions
  */
 
 import React, { useEffect, useState } from 'react';
@@ -107,11 +107,11 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
               { color: theme.colors.feedback.error, marginLeft: theme.spacing.sm },
             ]}
           >
-            Trial Expired
+            Commercial Trial Ended
           </Text>
         </View>
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-          Your trial period has ended. Please contact support to reactivate your account.
+          Your clinic data is safely stored. Choose a subscription plan to continue using Nova.
         </Text>
       </View>
     );
@@ -147,14 +147,14 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             },
           ]}
         >
-          {isDemoExpired ? 'Trial Period' : 'Demo Mode'}
+          {isDemoExpired ? 'Commercial Trial' : 'Sample Clinic'}
         </Text>
       </View>
 
       {!isDemoExpired && (
         <View style={[styles.countdown, { marginBottom: theme.spacing.sm }]}>
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-            Demo expires in:{' '}
+            Sample access ends in:{' '}
           </Text>
           <Text
             style={[
@@ -169,7 +169,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
 
       <View style={[styles.countdown, { marginBottom: theme.spacing.md }]}>
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-          Trial expires in:{' '}
+          Commercial trial ends in:{' '}
         </Text>
         <Text
           style={[
@@ -199,7 +199,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             onPress={onExtendDemo}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.primary }]}>
-              Extend Demo
+              Extend Sample Access
             </Text>
           </TouchableOpacity>
         )}
@@ -219,7 +219,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             onPress={onTransitionToLive}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-              {isDemoExpired ? 'Complete Setup' : 'Go Live Now'}
+              {isDemoExpired ? 'Choose Plan' : 'Ready to Start'}
             </Text>
           </TouchableOpacity>
         )}

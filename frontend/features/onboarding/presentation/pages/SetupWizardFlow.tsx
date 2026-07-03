@@ -1,6 +1,6 @@
 /**
  * SetupWizardFlow
- * Complete setup wizard with stepper, navigation, and embedded step screens
+ * Clinic preparation flow with stepper, navigation, and embedded step screens
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -17,7 +17,7 @@ import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
-import { SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
+import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
 import { useWizardStore } from '../stores/wizard.store';
 
 interface Step {
@@ -115,7 +115,7 @@ export function SetupWizardFlow() {
 
           return {
             code: stepCode,
-            name: stepCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            name: getPreparationStepDisplayName(stepCode),
             status: actualStatus,
             order: index + 1,
           };
@@ -237,7 +237,7 @@ export function SetupWizardFlow() {
         return;
       }
       console.error('[SetupWizardFlow] Error submitting step:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save step progress. Please try again.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save preparation progress. Please try again.');
     } finally {
       if (submissionIdRef.current === submissionId) {
         setIsHandlingNext(false);
@@ -359,7 +359,7 @@ export function SetupWizardFlow() {
       }
     } catch (error) {
       console.error('[SetupWizardFlow] Error refetching after step complete:', error);
-      Alert.alert('Error', 'Failed to refresh setup progress. Please try again.');
+      Alert.alert('Error', 'Failed to refresh preparation progress. Please try again.');
     }
   };
 
@@ -393,8 +393,8 @@ export function SetupWizardFlow() {
 
   const handleExit = () => {
     Alert.alert(
-      'Exit Setup?',
-      'You can continue setup later from the dashboard.',
+      'Exit Preparation?',
+      'You can continue reviewing and personalizing your clinic later from the dashboard.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Exit', onPress: () => router.replace(`/clinic-admin?tenantId=${tenantId}`) },
@@ -417,7 +417,7 @@ export function SetupWizardFlow() {
             Treatments & Therapies
           </Text>
           <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-            Configure your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue setup.
+            Review your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue preparing your clinic.
           </Text>
           <TouchableOpacity
             style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -451,7 +451,7 @@ export function SetupWizardFlow() {
               Operating Hours
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Configure your clinic operating hours in the full management screen. After setting your hours, return here to continue setup.
+              Review your clinic operating hours in the full management screen. After setting your hours, return here to continue preparing your clinic.
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -475,7 +475,7 @@ export function SetupWizardFlow() {
               Rooms & Therapy Beds
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Configure your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue setup.
+              Review your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue preparing your clinic.
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -500,7 +500,7 @@ export function SetupWizardFlow() {
               Staff & Roles
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Add staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue setup.
+              Review staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue preparing your clinic.
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -520,10 +520,10 @@ export function SetupWizardFlow() {
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-              Inventory Setup
+              Inventory Readiness
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Set up your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue setup.
+              Review your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue preparing your clinic.
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -562,10 +562,10 @@ export function SetupWizardFlow() {
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-              Subscription Payment
+              Subscription Options
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Choose a subscription plan and start the payment setup.
+              Review subscription options. Your commercial trial starts after your clinic is Ready to Start.
             </Text>
             <View style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
               {subscriptionPlans.map(plan => {
@@ -610,7 +610,7 @@ export function SetupWizardFlow() {
                 <ActivityIndicator color={theme.colors.text.onPrimary} />
               ) : (
                 <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-                  Set Up Payment
+                  Review Subscription
                 </Text>
               )}
             </TouchableOpacity>
@@ -656,7 +656,7 @@ export function SetupWizardFlow() {
       <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.colors.primary.default} />
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.md }]}>
-          Loading setup wizard...
+          Loading clinic preparation...
         </Text>
       </View>
     );
@@ -668,7 +668,7 @@ export function SetupWizardFlow() {
       <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg }]}>
         <Ionicons name="alert-circle" size={48} color={theme.colors.feedback.error} />
         <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginTop: theme.spacing.md, textAlign: 'center' }]}>
-          Unable to load setup wizard
+          Unable to load clinic preparation
         </Text>
         {error && (
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
@@ -677,7 +677,7 @@ export function SetupWizardFlow() {
         )}
         {!error && steps.length === 0 && (
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
-            No setup steps found. The backend may not have generated steps for your clinic type yet.
+            No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.
           </Text>
         )}
         <TouchableOpacity
@@ -698,7 +698,7 @@ export function SetupWizardFlow() {
       <View style={[styles.header, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.colors.border.default }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={[theme.typography.h5, { color: theme.colors.text.primary }]}>
-            Setup Your Clinic
+            Prepare Your Clinic
           </Text>
           <TouchableOpacity onPress={handleExit}>
             <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
@@ -763,7 +763,7 @@ export function SetupWizardFlow() {
           ) : (
             <>
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary, marginRight: theme.spacing.xs }]}>
-                {currentStepIndex === steps.length - 1 ? 'Complete' : 'Next'}
+                {currentStepIndex === steps.length - 1 ? 'Ready to Start' : 'Next'}
               </Text>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.text.onPrimary} />
             </>

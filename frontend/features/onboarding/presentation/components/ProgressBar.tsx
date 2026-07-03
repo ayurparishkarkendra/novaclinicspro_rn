@@ -30,7 +30,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               { color: theme.colors.text.secondary },
             ]}
           >
-            Setup Progress
+            Clinic Preparation
           </Text>
           <Text
             style={[

@@ -1,6 +1,6 @@
 /**
  * ChoiceScreen
- * Allows users to choose between Demo or Setup Wizard after approval
+ * Allows users to start clinic preparation or explore a sample clinic after approval
  */
 
 import React, { useEffect } from 'react';
@@ -36,7 +36,7 @@ export function ChoiceScreen() {
   }, [applicationId, setCurrentApplicationId]);
 
   // CRITICAL: If user has application_status === 'onboarding', redirect to wizard immediately
-  // Do not show the choice page (setup vs demo) when status is 'onboarding'
+  // Do not show the choice page when the clinic preparation flow is already active
   useEffect(() => {
     if (currentUser?.applicationStatus === 'onboarding') {
       console.log('[ChoiceScreen] User has onboarding status, redirecting to wizard');
@@ -88,11 +88,11 @@ export function ChoiceScreen() {
       
       // Show success message and navigate
       Alert.alert(
-        'Demo Created!',
-        `Your demo clinic is ready with sample data. You can explore the features or complete the setup wizard. Demo expires in ${durationDays} days.`,
+        'Sample Clinic Ready',
+        `Your sample clinic is ready with sample data. You can explore Nova without changing your real clinic workspace. Sample access ends in ${durationDays} days.`,
         [
           {
-            text: 'Start Setup',
+            text: 'Explore Sample Clinic',
             onPress: () => {
               console.log('[ChoiceScreen] Navigating to setup wizard with tenant:', tenantId);
               router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
@@ -155,7 +155,7 @@ export function ChoiceScreen() {
       router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
     } catch (error: any) {
       console.error('[ChoiceScreen] Error in handleSetupWizard:', error);
-      Alert.alert('Error', error.message || 'Unable to start setup. Please try again.');
+      Alert.alert('Error', error.message || 'Unable to start clinic preparation. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -214,10 +214,10 @@ export function ChoiceScreen() {
           textAlign: 'center' 
         }
       ]}>
-        How would you like to proceed?
+        How would you like to start?
       </Text>
 
-      {/* Option 1: Setup Wizard */}
+      {/* Option 1: Prepare Clinic */}
       <TouchableOpacity
         style={[
           styles.optionCard,
@@ -237,7 +237,7 @@ export function ChoiceScreen() {
           <Ionicons name="rocket" size={32} color={theme.colors.primary.default} />
           <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
             <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-              Setup My Clinic
+              Prepare My Clinic
             </Text>
             <Text style={[
               theme.typography.caption, 
@@ -257,7 +257,7 @@ export function ChoiceScreen() {
             marginBottom: theme.spacing.sm 
           }
         ]}>
-          Create your permanent clinic immediately
+          Let Nova prepare your real clinic workspace
         </Text>
         <View style={styles.featureList}>
           <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -269,7 +269,7 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              No time limit
+              Real clinic workspace
             </Text>
           </View>
           <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -281,7 +281,7 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              Full access to all features
+              Review and personalize before starting
             </Text>
           </View>
           <View style={styles.featureItem}>
@@ -293,13 +293,13 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              Production-ready
+              Ready for daily operations
             </Text>
           </View>
         </View>
       </TouchableOpacity>
 
-      {/* Option 2: Demo Mode - Hidden when application_status is 'onboarding' */}
+      {/* Option 2: Sample Clinic - Hidden when application_status is 'onboarding' */}
       {currentUser?.applicationStatus !== 'onboarding' && (
         <TouchableOpacity
           style={[
@@ -320,7 +320,7 @@ export function ChoiceScreen() {
             <Ionicons name="flask" size={32} color={theme.colors.secondary.default} />
             <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
               <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-                Try Demo First
+                Explore Sample Clinic
               </Text>
               <Text style={[
                 theme.typography.caption, 
@@ -340,7 +340,7 @@ export function ChoiceScreen() {
               marginBottom: theme.spacing.sm 
             }
           ]}>
-            Test the platform with sample data
+            Explore Nova with sample data
           </Text>
           <View style={styles.featureList}>
             <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -352,7 +352,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                7-day trial period
+                Sample clinic access
               </Text>
             </View>
             <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -364,7 +364,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                Explore all features
+                Guided product walkthrough
               </Text>
             </View>
             <View style={styles.featureItem}>
@@ -376,7 +376,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                Convert to live anytime
+                Your real clinic is prepared separately
               </Text>
             </View>
           </View>
@@ -386,7 +386,7 @@ export function ChoiceScreen() {
       {isSubmitting && (
         <View style={[styles.loadingOverlay, { marginTop: theme.spacing.md }]}>
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-            Creating your demo clinic...
+            Preparing your sample clinic...
           </Text>
         </View>
       )}

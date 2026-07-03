@@ -31,18 +31,18 @@ export default function OnboardingLayout() {
       />
       <Stack.Screen 
         name="setup-wizard" 
-        options={{ title: 'Setup Wizard' }} 
+        options={{ title: 'Prepare Your Clinic' }} 
       />
       <Stack.Screen 
         name="wizard-flow" 
         options={{ 
-          title: 'Clinic Setup',
+          title: 'Clinic Preparation',
           headerShown: false, // Hide header since wizard has its own
         }} 
       />
       <Stack.Screen 
         name="step-detail" 
-        options={{ title: 'Step Details' }} 
+        options={{ title: 'Review Step' }} 
       />
       <Stack.Screen 
         name="rejected" 

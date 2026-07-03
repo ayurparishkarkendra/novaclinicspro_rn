@@ -33,14 +33,14 @@ describe('ProgressBar Component', () => {
   it('shows label by default', () => {
     const { getByText } = render(<ProgressBar percentage={50} />);
 
-    expect(getByText('Setup Progress')).toBeTruthy();
+    expect(getByText('Clinic Preparation')).toBeTruthy();
     expect(getByText('50%')).toBeTruthy();
   });
 
   it('hides label when showLabel is false', () => {
     const { queryByText } = render(<ProgressBar percentage={50} showLabel={false} />);
 
-    expect(queryByText('Setup Progress')).toBeNull();
+    expect(queryByText('Clinic Preparation')).toBeNull();
     expect(queryByText('50%')).toBeNull();
   });
 
@@ -61,9 +61,10 @@ describe('ProgressBar Component', () => {
     const views = UNSAFE_getAllByType(View);
 
     // Find the fill view (should have width: '60%')
-    const fillView = views.find((view: any) => 
-      view.props.style?.some((style: any) => style.width === '60%')
-    );
+    const fillView = views.find((view: any) => {
+      const styles = Array.isArray(view.props.style) ? view.props.style : [view.props.style];
+      return styles.some((style: any) => style?.width === '60%');
+    });
 
     expect(fillView).toBeTruthy();
   });

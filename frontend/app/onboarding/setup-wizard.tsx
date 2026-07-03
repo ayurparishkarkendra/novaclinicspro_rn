@@ -1,5 +1,5 @@
 /**
- * Setup Wizard Route
+ * Clinic Preparation Route
  */
 
 import { SetupWizardScreen } from '../../features/onboarding/presentation/pages/SetupWizardScreen';

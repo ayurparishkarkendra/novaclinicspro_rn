@@ -207,14 +207,14 @@ export default function ClinicAdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Setup Wizard Banner - Show only if setup is not complete */}
+        {/* Clinic Preparation Banner - Show only if preparation is not complete */}
         {showSetupBanner && (
           <TouchableOpacity
             style={styles.setupBanner}
             onPress={() => {
               if (tenantId) {
-                // Navigate to the wizard flow instead of individual steps
-                console.log('[ClinicAdmin] Navigating to setup wizard');
+                // Navigate to the preparation flow instead of individual steps
+                console.log('[ClinicAdmin] Navigating to clinic preparation flow');
                 router.push(`/onboarding/wizard-flow?tenantId=${tenantId}`);
               } else {
                 Alert.alert('Error', 'Tenant ID not found. Please contact support.');
@@ -224,9 +224,9 @@ export default function ClinicAdminDashboard() {
             <View style={styles.setupBannerContent}>
               <Ionicons name="rocket" size={32} color={colors.primary.main} />
               <View style={styles.setupBannerText}>
-                <Text style={styles.setupBannerTitle}>Complete Your Clinic Setup</Text>
+                <Text style={styles.setupBannerTitle}>Finish Preparing Your Clinic</Text>
                 <Text style={styles.setupBannerSubtitle}>
-                  {onboardingStatus?.completed_steps || 0} of {onboardingStatus?.total_steps || 0} steps completed
+                  {onboardingStatus?.completed_steps || 0} of {onboardingStatus?.total_steps || 0} readiness steps complete
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color={colors.primary.main} />

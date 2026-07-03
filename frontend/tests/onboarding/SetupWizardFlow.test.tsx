@@ -35,7 +35,8 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ tenantId: 'test-tenant-456' }),
   useFocusEffect: (cb: () => void) => {
     // Fire the focus callback once, matching real mount behaviour.
-    React.useEffect(() => { cb(); }, []);
+    const react = require('react');
+    react.useEffect(() => { cb(); }, []);
   },
 }));
 
@@ -263,9 +264,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     const { getByText } = renderFlow();
 
     await waitFor(() => {
-      expect(getByText('Unable to load setup wizard')).toBeTruthy();
+      expect(getByText('Unable to load clinic preparation')).toBeTruthy();
       // The "no steps" descriptive message
-      expect(getByText(/No setup steps found/)).toBeTruthy();
+      expect(getByText(/No preparation steps found/)).toBeTruthy();
       expect(getByText('Retry')).toBeTruthy();
     });
   });
@@ -282,8 +283,8 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     const { getByText } = renderFlow();
 
     await waitFor(() => {
-      expect(getByText('Unable to load setup wizard')).toBeTruthy();
-      expect(getByText(/No setup steps found/)).toBeTruthy();
+      expect(getByText('Unable to load clinic preparation')).toBeTruthy();
+      expect(getByText(/No preparation steps found/)).toBeTruthy();
       expect(getByText('Retry')).toBeTruthy();
     });
   });
@@ -418,14 +419,14 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       expect(mockMutateAsync).toHaveBeenCalledTimes(1);
       expect(mockRefetch).toHaveBeenCalled();
     });
-    expect(queryByText('Inventory Setup')).toBeNull();
+    expect(queryByText('Inventory Readiness')).toBeNull();
 
     await act(async () => {
       resolveRefetch?.();
     });
 
     await waitFor(() => {
-      expect(getByText('Inventory Setup')).toBeTruthy();
+      expect(getByText('Inventory Readiness')).toBeTruthy();
     });
   });
 
@@ -489,7 +490,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
 
     fireEvent.press(getByText('Next'));
     await waitFor(() => {
-      expect(getByText('Inventory Setup')).toBeTruthy();
+      expect(getByText('Inventory Readiness')).toBeTruthy();
     });
 
     const consumed = hardwareBackHandler?.();

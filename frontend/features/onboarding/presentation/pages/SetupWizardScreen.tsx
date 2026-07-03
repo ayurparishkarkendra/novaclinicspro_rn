@@ -18,5 +18,5 @@ export function SetupWizardScreen() {
     }
   }, [tenantId, router]);
 
-  return <LoadingScreen message="Loading setup wizard..." />;
+  return <LoadingScreen message="Loading clinic preparation..." />;
 }

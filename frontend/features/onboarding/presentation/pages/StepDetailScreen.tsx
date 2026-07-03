@@ -14,7 +14,7 @@ import { ErrorScreen } from '../components/ErrorScreen';
 import { StepProgressHeader } from '../components/StepProgressHeader';
 import { useOnboardingStatusQuery } from '../../data/repositories/onboarding.repository.impl';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
-import { SERVICE_CATALOGUE_ALIASES } from '../../constants/stepAliases';
+import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES } from '../../constants/stepAliases';
 
 export function StepDetailScreen() {
   const theme = useClinicTheme();
@@ -77,7 +77,7 @@ export function StepDetailScreen() {
  const steps = statusData?.per_step_validation
   ? Object.entries(statusData.per_step_validation).map(([code, step], index) => ({
       code: step.step_code,
-      name: code,           // StepValidationDTO has no 'name' — use the key as fallback
+      name: getPreparationStepDisplayName(code),
       status: step.status,
       order: index + 1,
     }))
@@ -127,11 +127,11 @@ export function StepDetailScreen() {
       case 'payment_methods':
         return <PaymentSetupScreen tenantId={tenantId} />;
       
-      // Go Live Checklist - Final step
+      // Ready to Start Checklist - Final step
       case 'go_live_checklist':
         return (
           <ErrorScreen 
-            message="Go Live Checklist - This step marks your clinic as ready to go live. Complete all previous steps first."
+            message="Ready to Start Checklist - This step confirms your clinic is ready to start. Finish the previous preparation steps first."
           />
         );
       

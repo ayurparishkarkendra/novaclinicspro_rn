@@ -76,7 +76,7 @@ export function StepProgressHeader({ steps, currentStepCode, tenantId }: StepPro
         >
           <Ionicons name="chevron-back" size={20} color={theme.colors.primary.default} />
           <Text style={[theme.typography.body2, { color: theme.colors.primary.default, marginLeft: 4 }]}>
-            {currentIndex > 0 ? 'Previous' : 'Back to Wizard'}
+            {currentIndex > 0 ? 'Previous' : 'Back to Preparation'}
           </Text>
         </TouchableOpacity>
 

@@ -1,5 +1,5 @@
 /**
- * Setup Wizard Flow Route
+ * Clinic Preparation Flow Route
  * Route: /onboarding/wizard-flow
  */
 

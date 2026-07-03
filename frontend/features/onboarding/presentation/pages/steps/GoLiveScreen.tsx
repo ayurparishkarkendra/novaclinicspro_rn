@@ -1,6 +1,6 @@
 /**
  * GoLiveScreen
- * Final step - Review setup and mark clinic as ready to go live
+ * Final step - Review clinic preparation and mark clinic as ready to start
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -48,7 +48,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
     }
 
     if (!allComplete) {
-      Alert.alert('Setup Incomplete', 'Please complete all previous steps before going live.');
+      Alert.alert('Clinic Not Ready Yet', 'Please finish the previous preparation steps before starting.');
       return;
     }
 
@@ -79,7 +79,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       // Navigate to clinic admin (router.replace prevents going back to wizard)
       Alert.alert(
         'Congratulations! 🎉',
-        'Your clinic is now live and ready to accept patients!',
+        'Your clinic is ready to start using Nova.',
         [
           {
             text: 'Go to Dashboard',
@@ -91,7 +91,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       );
     } catch (error: any) {
       console.error('[GoLiveScreen] Error during go-live:', error);
-      Alert.alert('Error', error.message || 'Failed to mark clinic as live. Please try again.');
+      Alert.alert('Error', error.message || 'Failed to mark clinic as ready. Please try again.');
     }
   }, [agreedToTerms, allComplete, completeSetupMutation, onComplete, queryClient, refreshSession, submitStepMutation, tenantId]);
 
@@ -125,14 +125,14 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           <Ionicons name="rocket" size={40} color={theme.colors.feedback.success} />
         </View>
         <Text style={[theme.typography.h4, { color: theme.colors.text.primary, textAlign: 'center' }]}>
-          Ready to Go Live!
+          Ready to Start
         </Text>
         <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, textAlign: 'center', marginTop: theme.spacing.sm }]}>
-          You have completed {completedSteps} of {totalSteps} setup steps
+          Nova has prepared {completedSteps} of {totalSteps} clinic readiness steps
         </Text>
       </View>
 
-      {/* Setup Summary */}
+      {/* Readiness Summary */}
       <View
         style={{
           backgroundColor: theme.colors.surface.default,
@@ -142,7 +142,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
         }}
       >
         <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-          Setup Checklist
+          Clinic Readiness Checklist
         </Text>
 
         {checklistItems.map((item) => (
@@ -211,11 +211,11 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       >
         <Ionicons name="information-circle" size={20} color={theme.colors.feedback.info} />
         <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          Once you go live, your clinic will be visible to patients and you can start scheduling appointments.
+          Once you start, your clinic workspace is ready for appointments, patients, and daily operations.
         </Text>
       </View>
 
-      {/* Go Live Button - Only show in standalone mode, not in wizard */}
+      {/* Ready to Start Button - Only show in standalone mode, not in wizard */}
       {!isWizardMode && (
         <TouchableOpacity
           style={{
@@ -233,7 +233,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
             <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
           ) : (
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-              Go Live Now! 🚀
+              Ready to Start
             </Text>
           )}
         </TouchableOpacity>

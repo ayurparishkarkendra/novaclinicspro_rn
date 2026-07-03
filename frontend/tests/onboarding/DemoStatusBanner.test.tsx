@@ -54,7 +54,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Demo Mode')).toBeTruthy();
+    expect(getByText('Sample Clinic')).toBeTruthy();
   });
 
   it('renders trial period banner when demo is expired', () => {
@@ -68,7 +68,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Trial Period')).toBeTruthy();
+    expect(getByText('Commercial Trial')).toBeTruthy();
   });
 
   it('shows extend demo button when demo is active and can extend', () => {
@@ -84,7 +84,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Extend Demo')).toBeTruthy();
+    expect(getByText('Extend Sample Access')).toBeTruthy();
   });
 
   it('hides extend demo button when cannot extend', () => {
@@ -100,10 +100,10 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(queryByText('Extend Demo')).toBeNull();
+    expect(queryByText('Extend Sample Access')).toBeNull();
   });
 
-  it('shows "Go Live Now" button when demo is active', () => {
+  it('shows "Ready to Start" button when sample clinic is active', () => {
     const { getByText } = render(
       <DemoStatusBanner
         demoExpiresAt={futureDate}
@@ -114,10 +114,10 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Go Live Now')).toBeTruthy();
+    expect(getByText('Ready to Start')).toBeTruthy();
   });
 
-  it('shows "Complete Setup" button when demo is expired', () => {
+  it('shows "Choose Plan" button when sample clinic is expired', () => {
     const { getByText } = render(
       <DemoStatusBanner
         demoExpiresAt={new Date(Date.now() - 1000).toISOString()}
@@ -128,7 +128,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Complete Setup')).toBeTruthy();
+    expect(getByText('Choose Plan')).toBeTruthy();
   });
 
   it('calls onExtendDemo when extend button is pressed', () => {
@@ -143,11 +143,11 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    fireEvent.press(getByText('Extend Demo'));
+    fireEvent.press(getByText('Extend Sample Access'));
     expect(mockOnExtendDemo).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onTransitionToLive when go live button is pressed', () => {
+  it('calls onTransitionToLive when Ready to Start button is pressed', () => {
     const { getByText } = render(
       <DemoStatusBanner
         demoExpiresAt={futureDate}
@@ -158,7 +158,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    fireEvent.press(getByText('Go Live Now'));
+    fireEvent.press(getByText('Ready to Start'));
     expect(mockOnTransitionToLive).toHaveBeenCalledTimes(1);
   });
 
@@ -172,9 +172,9 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText('Trial Expired')).toBeTruthy();
+    expect(getByText('Commercial Trial Ended')).toBeTruthy();
     expect(
-      getByText('Your trial period has ended. Please contact support to reactivate your account.')
+      getByText('Your clinic data is safely stored. Choose a subscription plan to continue using Nova.')
     ).toBeTruthy();
   });
 
@@ -188,7 +188,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText(/Demo expires in:/)).toBeTruthy();
+    expect(getByText(/Sample access ends in:/)).toBeTruthy();
   });
 
   it('displays trial countdown', () => {
@@ -201,7 +201,7 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(getByText(/Trial expires in:/)).toBeTruthy();
+    expect(getByText(/Commercial trial ends in:/)).toBeTruthy();
   });
 
   it('does not show demo countdown when demo is expired', () => {
@@ -214,6 +214,6 @@ describe('DemoStatusBanner Component', () => {
       />
     );
 
-    expect(queryByText(/Demo expires in:/)).toBeNull();
+    expect(queryByText(/Sample access ends in:/)).toBeNull();
   });
 });
