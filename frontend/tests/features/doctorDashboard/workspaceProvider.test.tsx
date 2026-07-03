@@ -106,6 +106,7 @@ describe('WorkspaceProvider / Persistent Context (R3A · T-A.1)', () => {
 
   it('useEpisodeContext exposes episodeId + episodeDetails + loading/error/refetch, matching today\'s workspace data', () => {
     const { result } = renderHook(() => useEpisodeContext(), { wrapper });
+    expect(result.current.tenantId).toBe('tenant-1');
     expect(result.current.episodeId).toBe('episode-1');
     expect(result.current.episodeDetails).toBe(episodeDetails);
     expect(result.current.isEpisodeLoading).toBe(false);

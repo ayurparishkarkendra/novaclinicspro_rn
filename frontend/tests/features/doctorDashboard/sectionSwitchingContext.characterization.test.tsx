@@ -3,6 +3,8 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConsultationWorkspaceScreen } from '../../../features/episodes/presentation/pages/ConsultationWorkspaceScreen';
+import { WorkspaceProvider } from '../../../features/episodes/presentation/context/ClinicalWorkspaceContext';
+import { WorkspaceSaveStatusProvider } from '../../../features/episodes/presentation/context/WorkspaceSaveStatusContext';
 import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData';
 import { createCasesheetApi, updateCasesheetApi } from '../../../features/casesheets/data/datasources/casesheets.api';
 import { createPrescriptionApi, updatePrescriptionApi } from '../../../features/prescriptions/data/datasources/prescriptions.api';
@@ -99,8 +101,16 @@ const mockWorkspaceData = {
 };
 
 let queryClient: QueryClient;
+// R3A · T-B.1: ConsultationWorkspaceScreen now hosts CaseSheetModule, which
+// reads Persistent Context (T-A.1) — the screen itself is only ever rendered
+// inside ClinicalWorkspace's WorkspaceProvider in production (T-A.2), so this
+// characterization wrapper must provide one too, matching that reality.
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <WorkspaceProvider tenantId="tenant-1" episodeId="episode-1" appointmentId="appointment-1" clientId="client-1">
+      <WorkspaceSaveStatusProvider>{children}</WorkspaceSaveStatusProvider>
+    </WorkspaceProvider>
+  </QueryClientProvider>
 );
 
 const renderScreen = () =>

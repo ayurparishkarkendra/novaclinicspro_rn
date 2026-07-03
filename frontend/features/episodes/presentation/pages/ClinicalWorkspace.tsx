@@ -1,14 +1,18 @@
 /**
- * ClinicalWorkspace (R3A · T-A.2, ADR-R3A-01/02)
+ * ClinicalWorkspace (R3A · T-A.2/T-D.1, ADR-R3A-01/02/03)
  *
  * The shell the consultation route renders. Wraps the existing, unchanged
  * ConsultationWorkspaceScreen in WorkspaceProvider (T-A.1) so Persistent
  * Context is available for the life of the workspace session.
  *
- * Zero behavior change in this task: ConsultationWorkspaceScreen still
- * receives the same three props it always has and still resolves every
- * section exactly as it does today. No module reads from WorkspaceProvider
- * yet — Group B migrates modules to it one at a time (design.md §13).
+ * T-D.1 adds WorkspaceSaveStatusProvider + WorkspaceHeader as siblings of
+ * ConsultationWorkspaceScreen, matching design §4's target architecture
+ * diagram (WorkspaceHeader and ModuleHost are both children of
+ * WorkspaceProvider, not of each other). WorkspaceSaveStatusProvider is a
+ * SEPARATE context from WorkspaceProvider's own (see
+ * WorkspaceSaveStatusContext.tsx's docstring for why) — its addition here
+ * changes nothing about how ConsultationWorkspaceScreen or any module
+ * resolves episodeId/appointmentId/clientId.
  *
  * Entry resolution (caseResolver.ts / consultationRoutes.ts) is untouched
  * (FR-A3, NAV-2) — this component only changes what the destination screen
@@ -16,8 +20,11 @@
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { WorkspaceProvider } from '../context/ClinicalWorkspaceContext';
+import { WorkspaceSaveStatusProvider } from '../context/WorkspaceSaveStatusContext';
+import { WorkspaceHeader } from '../components/WorkspaceHeader';
 import { ConsultationWorkspaceScreen } from './ConsultationWorkspaceScreen';
 
 export interface ClinicalWorkspaceProps {
@@ -40,7 +47,12 @@ export const ClinicalWorkspace: React.FC<ClinicalWorkspaceProps> = ({
 
   return (
     <WorkspaceProvider tenantId={tenantId} episodeId={episodeId} appointmentId={appointmentId} clientId={clientId}>
-      <ConsultationWorkspaceScreen episodeId={episodeId} appointmentId={appointmentId} clientId={clientId} />
+      <WorkspaceSaveStatusProvider>
+        <View style={{ flex: 1 }}>
+          <WorkspaceHeader />
+          <ConsultationWorkspaceScreen episodeId={episodeId} appointmentId={appointmentId} clientId={clientId} />
+        </View>
+      </WorkspaceSaveStatusProvider>
     </WorkspaceProvider>
   );
 };

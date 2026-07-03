@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,34 +13,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
-import { formatDate, formatTime } from '../../../../core/utils/dateTimeUtils';
+import { formatTime } from '../../../../core/utils/dateTimeUtils';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import {
-  SectionKey,
-  SectionProgress,
-  useConsultationWorkspace,
-} from '../hooks/useConsultationWorkspace';
+import { SectionKey, useConsultationWorkspace } from '../hooks/useConsultationWorkspace';
 import { ActiveCaseBanner } from '../components/ActiveCaseBanner';
 import { PatientSummarySection } from '../components/ConsultationSections/PatientSummarySection';
-import { ChiefComplaintSection } from '../components/ConsultationSections/ChiefComplaintSection';
-import { ClinicalNotesSection } from '../components/ConsultationSections/ClinicalNotesSection';
-import { AyurvedicAssessmentSection } from '../components/ConsultationSections/AyurvedicAssessmentSection';
-import { PrescriptionSection } from '../components/ConsultationSections/PrescriptionSection';
-import { TreatmentRecommendationSection } from '../components/ConsultationSections/TreatmentRecommendationSection';
+import { CaseSheetModule, CaseSheetModuleHandle } from '../components/ConsultationSections/CaseSheetModule';
+import { PrescriptionModule } from '../components/ConsultationSections/PrescriptionModule';
+import { TreatmentRecommendationModule } from '../components/ConsultationSections/TreatmentRecommendationModule';
+import { ClinicalServicesModule } from '../components/ConsultationSections/ClinicalServicesModule';
 
 interface ConsultationWorkspaceScreenProps {
   episodeId: string;
   appointmentId: string;
   clientId: string;
 }
-
-const LABELS: Record<SectionKey, string> = {
-  chiefComplaint: 'Chief Complaint',
-  clinicalNotes: 'Clinical Notes',
-  ayurvedicAssessment: 'Ayurvedic Assessment',
-  prescription: 'Prescription',
-  treatmentRecommendation: 'Treatment Recommendation',
-};
 
 export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenProps> = ({
   episodeId,
@@ -53,9 +40,18 @@ export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenPr
   const { colors, spacing, typography } = useClinicTheme();
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(new Set(['chiefComplaint']));
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // R3A · T-B.1: Case Sheet's own state now lives in CaseSheetModule. This
+  // ref bridges two things back to the screen: (1) "Save & Submit" flushing
+  // its pending autosave before navigating away (2) sendTreatmentToAdmin's
+  // existing dependency on a casesheet existing first (transitional,
+  // user-confirmed — a real backend constraint, not something T-B.3 retires;
+  // it only relocates from "hook input" to a prop passed directly to
+  // TreatmentRecommendationModule, since sendTreatmentToAdmin now lives
+  // there instead of in the hook).
+  const caseSheetModuleRef = useRef<CaseSheetModuleHandle>(null);
+  const ensureCasesheetExists = () => caseSheetModuleRef.current?.ensureCasesheetExists() ?? Promise.resolve(null);
   const workspace = useConsultationWorkspace({ tenantId, episodeId, appointmentId, clientId });
   const visit = workspace.episodeDetails?.visits.find(v => v.appointment_id === appointmentId);
-  const active = workspace.sectionConfig.activeSections;
 
   const toggleSection = (key: SectionKey) => {
     setExpandedSections(prev => {
@@ -69,7 +65,7 @@ export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenPr
   const saveAndSubmit = async () => {
     setSubmitError(null);
     try {
-      await workspace.flushPendingAutosave();
+      await caseSheetModuleRef.current?.flushPendingAutosave();
       router.push(
         `/clinic-admin/episodes/${episodeId}/complete-consultation?appointmentId=${appointmentId}&clientId=${clientId}` as any,
       );
@@ -127,58 +123,27 @@ export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenPr
             clientName={workspace.clientName}
           />
 
-          {renderSection('chiefComplaint', expandedSections, toggleSection, workspace.sectionProgress.chiefComplaint, (
-            <ChiefComplaintSection
-              value={workspace.casesheetData.basic.chief_complaint ?? ''}
-              onChange={(value) => workspace.updateCasesheetField('chief_complaint', value)}
-              progress={workspace.sectionProgress.chiefComplaint?.status ?? 'empty'}
-              saveStatus={workspace.sectionProgress.chiefComplaint?.saveStatus ?? 'idle'}
-            />
-          ))}
-          {renderSection('clinicalNotes', expandedSections, toggleSection, workspace.sectionProgress.clinicalNotes, (
-            <ClinicalNotesSection
-              data={workspace.casesheetData.basic}
-              onChange={workspace.updateCasesheetField}
-              progress={workspace.sectionProgress.clinicalNotes?.status ?? 'empty'}
-              saveStatus={workspace.sectionProgress.clinicalNotes?.saveStatus ?? 'idle'}
-            />
-          ))}
-          {active.includes('ayurvedicAssessment') && renderSection(
-            'ayurvedicAssessment',
-            expandedSections,
-            toggleSection,
-            workspace.sectionProgress.ayurvedicAssessment,
-            <AyurvedicAssessmentSection
-              extensions={workspace.casesheetData.extensions}
-              onChange={workspace.updateExtensionField}
-              progress={workspace.sectionProgress.ayurvedicAssessment?.status ?? 'empty'}
-              saveStatus={workspace.sectionProgress.ayurvedicAssessment?.saveStatus ?? 'idle'}
-            />,
-          )}
-          {renderSection('prescription', expandedSections, toggleSection, workspace.sectionProgress.prescription, (
-            <PrescriptionSection
-              prescriptionData={workspace.prescriptionData}
-              isPrescriptionSaving={workspace.isPrescriptionSaving}
-              prescriptionSaveError={workspace.prescriptionSaveError}
-              prescriptionNotRequired={workspace.prescriptionNotRequired}
-              onSave={workspace.savePrescription}
-              onMarkNotRequired={workspace.markPrescriptionNotRequired}
-              onChange={workspace.onChange}
-              progress={workspace.sectionProgress.prescription?.status ?? 'empty'}
-              saveStatus={workspace.sectionProgress.prescription?.saveStatus ?? 'idle'}
-            />
-          ))}
-          {renderSection('treatmentRecommendation', expandedSections, toggleSection, workspace.sectionProgress.treatmentRecommendation, (
-            <TreatmentRecommendationSection
-              draft={workspace.treatmentRecommendation}
-              isSaving={workspace.isTreatmentSaving}
-              isSent={workspace.isTreatmentSent}
-              saveError={workspace.treatmentSaveError}
-              onUpdate={workspace.updateTreatmentField}
-              onSendToAdmin={workspace.sendTreatmentToAdmin}
-              progress={workspace.sectionProgress.treatmentRecommendation?.status ?? 'empty'}
-            />
-          ))}
+          <CaseSheetModule
+            ref={caseSheetModuleRef}
+            expandedSections={expandedSections}
+            onToggleSection={toggleSection}
+          />
+
+          <PrescriptionModule
+            expandedSections={expandedSections}
+            onToggleSection={toggleSection}
+          />
+
+          <TreatmentRecommendationModule
+            expandedSections={expandedSections}
+            onToggleSection={toggleSection}
+            ensureCasesheetExists={ensureCasesheetExists}
+          />
+
+          <ClinicalServicesModule
+            expandedSections={expandedSections}
+            onToggleSection={toggleSection}
+          />
 
           {!!submitError && (
             <Text style={[typography.body2, { color: colors.feedback.error }]}>{submitError}</Text>
@@ -196,48 +161,6 @@ export const ConsultationWorkspaceScreen: React.FC<ConsultationWorkspaceScreenPr
   );
 };
 
-function renderSection(
-  key: SectionKey,
-  expandedSections: Set<SectionKey>,
-  toggleSection: (key: SectionKey) => void,
-  progress: SectionProgress | undefined,
-  content: React.ReactNode,
-) {
-  if (expandedSections.has(key)) return <View key={key}>{content}</View>;
-  return <CollapsedSection key={key} label={LABELS[key]} progress={progress} onPress={() => toggleSection(key)} />;
-}
-
-const CollapsedSection: React.FC<{
-  label: string;
-  progress?: SectionProgress;
-  onPress: () => void;
-}> = ({ label, progress, onPress }) => {
-  const { colors, spacing, typography } = useClinicTheme();
-  const icon = progress?.status === 'complete' ? 'checkmark-circle' : progress?.status === 'in_progress' ? 'ellipse' : 'ellipse-outline';
-  const saveText = progress?.saveStatus === 'saving' ? 'Saving...' : progress?.saveStatus === 'saved' ? '✓ Saved' : progress?.saveStatus === 'error' ? '⚠ Save failed' : '';
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      accessibilityRole="button"
-      style={[
-        styles.collapsed,
-        {
-          backgroundColor: colors.surface.default,
-          borderColor: colors.border.default,
-          borderRadius: spacing.sm,
-          padding: spacing.md,
-          gap: spacing.sm,
-        },
-      ]}
-    >
-      <Ionicons name={icon} size={20} color={colors.primary.default} />
-      <Text style={[typography.h6, styles.collapsedText, { color: colors.text.primary }]}>{label}</Text>
-      {!!saveText && <Text style={[typography.caption, { color: colors.text.secondary }]}>{saveText}</Text>}
-      <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
-    </TouchableOpacity>
-  );
-};
-
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -245,6 +168,4 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: 'center' },
   iconButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   submit: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  collapsed: { minHeight: 64, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
-  collapsedText: { flex: 1 },
 });

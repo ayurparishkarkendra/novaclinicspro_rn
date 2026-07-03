@@ -20,6 +20,8 @@
 import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 import { useEpisodeWorkspaceData } from '../hooks/useEpisodeWorkspaceData';
 import { EpisodeDetailsResponse, VisitInfo } from '../../data/models/episodes.dtos';
+import { CasesheetResponse } from '../../../casesheets/data/models/casesheets.dtos';
+import { TreatmentSheetResponse } from '../../../treatmentSheets/data/models/treatmentSheets.dtos';
 
 export interface PatientContextValue {
   clientId: string;
@@ -27,11 +29,32 @@ export interface PatientContextValue {
 }
 
 export interface EpisodeContextValue {
+  tenantId: string;
   episodeId: string;
   episodeDetails: EpisodeDetailsResponse | undefined;
   isEpisodeLoading: boolean;
   isEpisodeError: boolean;
   refetchEpisode: () => void;
+  /**
+   * Case Sheet content resolved by ID (useEpisodeWorkspaceData's own
+   * useCasesheetDetailQuery, relocated here — not a new fetch). Exposed via
+   * Episode Context, not a separate context, since Case Sheet is
+   * Episode-owned (Phase 2 domain model) not Visit-owned.
+   */
+  casesheet: CasesheetResponse | undefined;
+  casesheetId: string | null;
+  hasCasesheet: boolean;
+  /**
+   * R3A · T-B.3: Treatment Sheet resolved by useEpisodeWorkspaceData's own
+   * useTreatmentSheetDetailQuery/useTreatmentSheetsByEpisodeQuery, relocated
+   * here — not a new fetch. Exposed via Episode Context for the same reason
+   * casesheet is (T-B.1) — TreatmentRecommendationModule needs it and it's
+   * already resolved by the same underlying call.
+   */
+  treatmentSheet: TreatmentSheetResponse | undefined;
+  treatmentSheetId: string | null;
+  hasTreatmentSheet: boolean;
+  refetchTreatmentSheet: () => void;
 }
 
 export interface VisitContextValue {
@@ -85,11 +108,19 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
         clientName: workspaceData.clientName,
       },
       episode: {
+        tenantId,
         episodeId,
         episodeDetails: workspaceData.episodeDetails,
         isEpisodeLoading: workspaceData.isEpisodeLoading,
         isEpisodeError: workspaceData.isEpisodeError,
         refetchEpisode: workspaceData.refetchEpisode,
+        casesheet: workspaceData.casesheet,
+        casesheetId: workspaceData.casesheetId,
+        hasCasesheet: workspaceData.hasCasesheet,
+        treatmentSheet: workspaceData.treatmentSheet,
+        treatmentSheetId: workspaceData.treatmentSheetId,
+        hasTreatmentSheet: workspaceData.hasTreatmentSheet,
+        refetchTreatmentSheet: workspaceData.refetchTreatmentSheet,
       },
       visit: {
         appointmentId,
@@ -97,6 +128,7 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       },
     }),
     [
+      tenantId,
       episodeId,
       appointmentId,
       visit,
@@ -106,6 +138,13 @@ export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({
       workspaceData.isEpisodeLoading,
       workspaceData.isEpisodeError,
       workspaceData.refetchEpisode,
+      workspaceData.casesheet,
+      workspaceData.casesheetId,
+      workspaceData.hasCasesheet,
+      workspaceData.treatmentSheet,
+      workspaceData.treatmentSheetId,
+      workspaceData.hasTreatmentSheet,
+      workspaceData.refetchTreatmentSheet,
     ],
   );
 
