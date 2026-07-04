@@ -5,9 +5,11 @@
 
 import { Stack } from 'expo-router';
 import { useClinicTheme } from '../../core/theme/useClinicTheme';
+import { useTranslation } from '../../core/localization/useTranslation';
 
 export default function OnboardingLayout() {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
 
   return (
     <Stack
@@ -21,36 +23,36 @@ export default function OnboardingLayout() {
         },
       }}
     >
-      <Stack.Screen 
-        name="choice" 
-        options={{ title: 'Get Started' }} 
+      <Stack.Screen
+        name="choice"
+        options={{ title: 'Get Started' }}
       />
-      <Stack.Screen 
-        name="pending-review" 
-        options={{ title: 'Application Status' }} 
+      <Stack.Screen
+        name="pending-review"
+        options={{ title: 'Application Status' }}
       />
-      <Stack.Screen 
-        name="setup-wizard" 
-        options={{ title: 'Prepare Your Clinic' }} 
+      <Stack.Screen
+        name="setup-wizard"
+        options={{ title: t('onboarding.progressiveExperience.routes.prepareClinic') }}
       />
-      <Stack.Screen 
-        name="wizard-flow" 
-        options={{ 
-          title: 'Clinic Preparation',
+      <Stack.Screen
+        name="wizard-flow"
+        options={{
+          title: t('onboarding.progressiveExperience.routes.clinicPreparation'),
           headerShown: false, // Hide header since wizard has its own
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="step-detail" 
-        options={{ title: 'Review Step' }} 
+      <Stack.Screen
+        name="step-detail"
+        options={{ title: t('onboarding.progressiveExperience.routes.reviewStep') }}
       />
-      <Stack.Screen 
-        name="rejected" 
-        options={{ title: 'Application Rejected' }} 
+      <Stack.Screen
+        name="rejected"
+        options={{ title: 'Application Rejected' }}
       />
-      <Stack.Screen 
-        name="improve" 
-        options={{ title: 'Improve Application' }} 
+      <Stack.Screen
+        name="improve"
+        options={{ title: 'Improve Application' }}
       />
     </Stack>
   );

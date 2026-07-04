@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface DemoStatusBannerProps {
   demoExpiresAt: string;
@@ -28,6 +29,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
   canExtendDemo = true,
 }) => {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const [demoTimeRemaining, setDemoTimeRemaining] = useState('');
   const [trialTimeRemaining, setTrialTimeRemaining] = useState('');
 
@@ -44,7 +46,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
         const hours = Math.floor((demoDistance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         setDemoTimeRemaining(`${days}d ${hours}h`);
       } else {
-        setDemoTimeRemaining('Expired');
+        setDemoTimeRemaining(t('onboarding.progressiveExperience.statusBanner.expired'));
       }
 
       // Trial countdown
@@ -54,7 +56,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
         const hours = Math.floor((trialDistance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         setTrialTimeRemaining(`${days}d ${hours}h`);
       } else {
-        setTrialTimeRemaining('Expired');
+        setTrialTimeRemaining(t('onboarding.progressiveExperience.statusBanner.expired'));
       }
     };
 
@@ -62,7 +64,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
     const interval = setInterval(updateCountdown, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [demoExpiresAt, trialExpiresAt]);
+  }, [demoExpiresAt, trialExpiresAt, t]);
 
   const getDemoColor = () => {
     const now = new Date().getTime();
@@ -107,11 +109,11 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
               { color: theme.colors.feedback.error, marginLeft: theme.spacing.sm },
             ]}
           >
-            Commercial Trial Ended
+            {t('onboarding.progressiveExperience.statusBanner.commercialTrialEnded')}
           </Text>
         </View>
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-          Your clinic data is safely stored. Choose a subscription plan to continue using Nova.
+          {t('onboarding.progressiveExperience.statusBanner.trialEndedMessage')}
         </Text>
       </View>
     );
@@ -147,14 +149,14 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             },
           ]}
         >
-          {isDemoExpired ? 'Commercial Trial' : 'Sample Clinic'}
+          {isDemoExpired ? t('onboarding.progressiveExperience.statusBanner.commercialTrial') : t('onboarding.progressiveExperience.statusBanner.sampleClinic')}
         </Text>
       </View>
 
       {!isDemoExpired && (
         <View style={[styles.countdown, { marginBottom: theme.spacing.sm }]}>
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-            Sample access ends in:{' '}
+            {t('onboarding.progressiveExperience.statusBanner.sampleAccessEndsIn')}{' '}
           </Text>
           <Text
             style={[
@@ -169,7 +171,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
 
       <View style={[styles.countdown, { marginBottom: theme.spacing.md }]}>
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-          Commercial trial ends in:{' '}
+          {t('onboarding.progressiveExperience.statusBanner.commercialTrialEndsIn')}{' '}
         </Text>
         <Text
           style={[
@@ -199,7 +201,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             onPress={onExtendDemo}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.primary }]}>
-              Extend Sample Access
+              {t('onboarding.progressiveExperience.statusBanner.extendSampleAccess')}
             </Text>
           </TouchableOpacity>
         )}
@@ -219,7 +221,7 @@ export const DemoStatusBanner: React.FC<DemoStatusBannerProps> = ({
             onPress={onTransitionToLive}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-              {isDemoExpired ? 'Choose Plan' : 'Ready to Start'}
+              {isDemoExpired ? t('onboarding.progressiveExperience.statusBanner.choosePlan') : t('onboarding.progressiveExperience.statusBanner.readyToStart')}
             </Text>
           </TouchableOpacity>
         )}

@@ -224,9 +224,9 @@ export default function ClinicAdminDashboard() {
             <View style={styles.setupBannerContent}>
               <Ionicons name="rocket" size={32} color={colors.primary.main} />
               <View style={styles.setupBannerText}>
-                <Text style={styles.setupBannerTitle}>Finish Preparing Your Clinic</Text>
+                <Text style={styles.setupBannerTitle}>{t('onboarding.progressiveExperience.dashboard.finishPreparingClinic')}</Text>
                 <Text style={styles.setupBannerSubtitle}>
-                  {onboardingStatus?.completed_steps || 0} of {onboardingStatus?.total_steps || 0} readiness steps complete
+                  {t('onboarding.progressiveExperience.dashboard.readinessStepsComplete', { completed: onboardingStatus?.completed_steps || 0, total: onboardingStatus?.total_steps || 0 })}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={24} color={colors.primary.main} />

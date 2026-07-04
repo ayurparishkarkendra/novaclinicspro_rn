@@ -14,9 +14,11 @@ import { useApplicationDetailQuery, useCreateDemoTenantMutation } from '../../da
 import { useOnboardingStore } from '../providers/onboarding.store';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorScreen } from '../components/ErrorScreen';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 export function ChoiceScreen() {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { applicationId } = useLocalSearchParams<{ applicationId: string }>();
   const { setCurrentApplicationId, setIsSubmitting, isSubmitting } = useOnboardingStore();
@@ -88,11 +90,11 @@ export function ChoiceScreen() {
       
       // Show success message and navigate
       Alert.alert(
-        'Sample Clinic Ready',
-        `Your sample clinic is ready with sample data. You can explore Nova without changing your real clinic workspace. Sample access ends in ${durationDays} days.`,
+        t('onboarding.progressiveExperience.choice.sampleClinicReadyTitle'),
+        t('onboarding.progressiveExperience.choice.sampleClinicReadyMessage', { durationDays }),
         [
           {
-            text: 'Explore Sample Clinic',
+            text: t('onboarding.progressiveExperience.choice.exploreSampleClinic'),
             onPress: () => {
               console.log('[ChoiceScreen] Navigating to setup wizard with tenant:', tenantId);
               router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
@@ -102,7 +104,7 @@ export function ChoiceScreen() {
       );
     } catch (error: any) {
       console.error('[ChoiceScreen] Error in handleStartDemo:', error);
-      Alert.alert('Error', error.message || 'Unable to create demo. Please try again.');
+      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.choice.sampleError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -155,7 +157,7 @@ export function ChoiceScreen() {
       router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
     } catch (error: any) {
       console.error('[ChoiceScreen] Error in handleSetupWizard:', error);
-      Alert.alert('Error', error.message || 'Unable to start clinic preparation. Please try again.');
+      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.choice.startError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -214,7 +216,7 @@ export function ChoiceScreen() {
           textAlign: 'center' 
         }
       ]}>
-        How would you like to start?
+        {t('onboarding.progressiveExperience.choice.question')}
       </Text>
 
       {/* Option 1: Prepare Clinic */}
@@ -237,7 +239,7 @@ export function ChoiceScreen() {
           <Ionicons name="rocket" size={32} color={theme.colors.primary.default} />
           <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
             <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-              Prepare My Clinic
+              {t('onboarding.progressiveExperience.choice.prepareMyClinic')}
             </Text>
             <Text style={[
               theme.typography.caption, 
@@ -246,7 +248,7 @@ export function ChoiceScreen() {
                 fontWeight: '600' 
               }
             ]}>
-              RECOMMENDED
+              {t('onboarding.progressiveExperience.choice.recommended')}
             </Text>
           </View>
         </View>
@@ -257,7 +259,7 @@ export function ChoiceScreen() {
             marginBottom: theme.spacing.sm 
           }
         ]}>
-          Let Nova prepare your real clinic workspace
+          {t('onboarding.progressiveExperience.choice.prepareDescription')}
         </Text>
         <View style={styles.featureList}>
           <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -269,7 +271,7 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              Real clinic workspace
+              {t('onboarding.progressiveExperience.choice.realWorkspace')}
             </Text>
           </View>
           <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -281,7 +283,7 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              Review and personalize before starting
+              {t('onboarding.progressiveExperience.choice.reviewBeforeStart')}
             </Text>
           </View>
           <View style={styles.featureItem}>
@@ -293,7 +295,7 @@ export function ChoiceScreen() {
                 marginLeft: 8 
               }
             ]}>
-              Ready for daily operations
+              {t('onboarding.progressiveExperience.choice.readyForOperations')}
             </Text>
           </View>
         </View>
@@ -320,7 +322,7 @@ export function ChoiceScreen() {
             <Ionicons name="flask" size={32} color={theme.colors.secondary.default} />
             <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
               <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-                Explore Sample Clinic
+                {t('onboarding.progressiveExperience.choice.exploreSampleClinic')}
               </Text>
               <Text style={[
                 theme.typography.caption, 
@@ -329,7 +331,7 @@ export function ChoiceScreen() {
                   fontWeight: '600' 
                 }
               ]}>
-                EXPLORE FEATURES
+                {t('onboarding.progressiveExperience.choice.exploreFeatures')}
               </Text>
             </View>
           </View>
@@ -340,7 +342,7 @@ export function ChoiceScreen() {
               marginBottom: theme.spacing.sm 
             }
           ]}>
-            Explore Nova with sample data
+            {t('onboarding.progressiveExperience.choice.sampleDescription')}
           </Text>
           <View style={styles.featureList}>
             <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -352,7 +354,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                Sample clinic access
+                {t('onboarding.progressiveExperience.choice.sampleAccess')}
               </Text>
             </View>
             <View style={[styles.featureItem, { marginBottom: 4 }]}>
@@ -364,7 +366,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                Guided product walkthrough
+                {t('onboarding.progressiveExperience.choice.guidedWalkthrough')}
               </Text>
             </View>
             <View style={styles.featureItem}>
@@ -376,7 +378,7 @@ export function ChoiceScreen() {
                   marginLeft: 8 
                 }
               ]}>
-                Your real clinic is prepared separately
+                {t('onboarding.progressiveExperience.choice.realClinicSeparate')}
               </Text>
             </View>
           </View>
@@ -386,7 +388,7 @@ export function ChoiceScreen() {
       {isSubmitting && (
         <View style={[styles.loadingOverlay, { marginTop: theme.spacing.md }]}>
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-            Preparing your sample clinic...
+            {t('onboarding.progressiveExperience.choice.preparingSampleClinic')}
           </Text>
         </View>
       )}

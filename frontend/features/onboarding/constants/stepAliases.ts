@@ -20,28 +20,31 @@ export const SERVICE_CATALOGUE_ALIASES = [
 
 export type ServiceCatalogueAlias = typeof SERVICE_CATALOGUE_ALIASES[number];
 
-const STEP_DISPLAY_NAMES: Record<string, string> = {
-  clinic_profile: 'Clinic Profile',
-  operating_hours: 'Operating Hours',
-  rooms_and_therapy_beds: 'Rooms & Therapy Beds',
-  treatment_rooms: 'Rooms & Therapy Beds',
-  staff_and_roles: 'Staff & Roles',
-  staff_setup: 'Staff & Roles',
-  staff_members: 'Staff & Roles',
-  inventory_setup: 'Inventory Readiness',
-  financials_and_tax: 'Billing Preferences',
-  billing_setup: 'Billing Preferences',
-  billing_settings: 'Billing Preferences',
-  payment_setup: 'Payment Methods',
-  payment_methods: 'Payment Methods',
-  subscription_payment: 'Subscription Options',
-  go_live_checklist: 'Ready to Start',
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+const STEP_DISPLAY_KEYS: Record<string, string> = {
+  clinic_profile: 'onboarding.progressiveExperience.stepLabels.clinicProfile',
+  operating_hours: 'onboarding.progressiveExperience.stepLabels.operatingHours',
+  rooms_and_therapy_beds: 'onboarding.progressiveExperience.stepLabels.roomsAndTherapyBeds',
+  treatment_rooms: 'onboarding.progressiveExperience.stepLabels.roomsAndTherapyBeds',
+  staff_and_roles: 'onboarding.progressiveExperience.stepLabels.staffAndRoles',
+  staff_setup: 'onboarding.progressiveExperience.stepLabels.staffAndRoles',
+  staff_members: 'onboarding.progressiveExperience.stepLabels.staffAndRoles',
+  inventory_setup: 'onboarding.progressiveExperience.stepLabels.inventoryReadiness',
+  financials_and_tax: 'onboarding.progressiveExperience.stepLabels.billingPreferences',
+  billing_setup: 'onboarding.progressiveExperience.stepLabels.billingPreferences',
+  billing_settings: 'onboarding.progressiveExperience.stepLabels.billingPreferences',
+  payment_setup: 'onboarding.progressiveExperience.stepLabels.paymentMethods',
+  payment_methods: 'onboarding.progressiveExperience.stepLabels.paymentMethods',
+  subscription_payment: 'onboarding.progressiveExperience.stepLabels.subscriptionOptions',
+  go_live_checklist: 'onboarding.progressiveExperience.stepLabels.readyToStart',
 };
 
-export const getPreparationStepDisplayName = (stepCode: string) => {
+export const getPreparationStepDisplayName = (stepCode: string, t: Translate) => {
   if (SERVICE_CATALOGUE_ALIASES.includes(stepCode as ServiceCatalogueAlias)) {
-    return 'Treatments & Therapies';
+    return t('onboarding.progressiveExperience.stepLabels.treatmentsAndTherapies');
   }
 
-  return STEP_DISPLAY_NAMES[stepCode] || stepCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const key = STEP_DISPLAY_KEYS[stepCode];
+  return key ? t(key) : stepCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };

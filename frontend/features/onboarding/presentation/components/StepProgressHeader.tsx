@@ -8,6 +8,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface Step {
   code: string;
@@ -24,6 +25,7 @@ interface StepProgressHeaderProps {
 
 export function StepProgressHeader({ steps, currentStepCode, tenantId }: StepProgressHeaderProps) {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const router = useRouter();
 
   const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
@@ -76,7 +78,7 @@ export function StepProgressHeader({ steps, currentStepCode, tenantId }: StepPro
         >
           <Ionicons name="chevron-back" size={20} color={theme.colors.primary.default} />
           <Text style={[theme.typography.body2, { color: theme.colors.primary.default, marginLeft: 4 }]}>
-            {currentIndex > 0 ? 'Previous' : 'Back to Preparation'}
+            {currentIndex > 0 ? t('common.previous') : t('onboarding.progressiveExperience.flow.backToPreparation')}
           </Text>
         </TouchableOpacity>
 
