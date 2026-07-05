@@ -6,8 +6,10 @@
 import React, { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 export function SetupWizardScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { tenantId } = useLocalSearchParams<{ tenantId: string }>();
 
@@ -18,5 +20,5 @@ export function SetupWizardScreen() {
     }
   }, [tenantId, router]);
 
-  return <LoadingScreen message="Loading clinic preparation..." />;
+  return <LoadingScreen message={t('onboarding.progressiveExperience.flow.loadingPreparation')} />;
 }

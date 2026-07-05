@@ -19,6 +19,7 @@ import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
 import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
 import { useWizardStore } from '../stores/wizard.store';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface Step {
   code: string;
@@ -42,6 +43,7 @@ const createSubmissionId = () => {
 
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { tenantId: tenantIdParam } = useLocalSearchParams<{ tenantId: string }>();
   const { currentUser, isAuthenticated } = useAuth();
@@ -115,7 +117,7 @@ export function SetupWizardFlow() {
 
           return {
             code: stepCode,
-            name: getPreparationStepDisplayName(stepCode),
+            name: getPreparationStepDisplayName(stepCode, t),
             status: actualStatus,
             order: index + 1,
           };
@@ -157,7 +159,7 @@ export function SetupWizardFlow() {
     } else {
       console.log('[SetupWizardFlow] No status data available');
     }
-  }, [statusData, hasManuallyNavigated, tenantId]);
+  }, [statusData, hasManuallyNavigated, tenantId, t]);
 
   const handleNext = async () => {
     if (isSubmittingRef.current || isNextPending) {
@@ -237,7 +239,7 @@ export function SetupWizardFlow() {
         return;
       }
       console.error('[SetupWizardFlow] Error submitting step:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save preparation progress. Please try again.');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('onboarding.progressiveExperience.flow.saveProgressError'));
     } finally {
       if (submissionIdRef.current === submissionId) {
         setIsHandlingNext(false);
@@ -359,7 +361,7 @@ export function SetupWizardFlow() {
       }
     } catch (error) {
       console.error('[SetupWizardFlow] Error refetching after step complete:', error);
-      Alert.alert('Error', 'Failed to refresh preparation progress. Please try again.');
+      Alert.alert(t('common.error'), t('onboarding.progressiveExperience.flow.refreshProgressError'));
     }
   };
 
@@ -393,11 +395,11 @@ export function SetupWizardFlow() {
 
   const handleExit = () => {
     Alert.alert(
-      'Exit Preparation?',
-      'You can continue reviewing and personalizing your clinic later from the dashboard.',
+      t('onboarding.progressiveExperience.flow.exitTitle'),
+      t('onboarding.progressiveExperience.flow.exitMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', onPress: () => router.replace(`/clinic-admin?tenantId=${tenantId}`) },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.close'), onPress: () => router.replace(`/clinic-admin?tenantId=${tenantId}`) },
       ]
     );
   };
@@ -417,7 +419,7 @@ export function SetupWizardFlow() {
             Treatments & Therapies
           </Text>
           <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-            Review your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue preparing your clinic.
+            {t('onboarding.progressiveExperience.flow.treatmentsDescription')}
           </Text>
           <TouchableOpacity
             style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -451,7 +453,7 @@ export function SetupWizardFlow() {
               Operating Hours
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Review your clinic operating hours in the full management screen. After setting your hours, return here to continue preparing your clinic.
+              {t('onboarding.progressiveExperience.flow.operatingHoursDescription')}
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -475,7 +477,7 @@ export function SetupWizardFlow() {
               Rooms & Therapy Beds
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Review your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue preparing your clinic.
+              {t('onboarding.progressiveExperience.flow.roomsDescription')}
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -500,7 +502,7 @@ export function SetupWizardFlow() {
               Staff & Roles
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Review staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue preparing your clinic.
+              {t('onboarding.progressiveExperience.flow.staffDescription')}
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -520,10 +522,10 @@ export function SetupWizardFlow() {
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-              Inventory Readiness
+              {t('onboarding.progressiveExperience.flow.inventoryTitle')}
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Review your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue preparing your clinic.
+              {t('onboarding.progressiveExperience.flow.inventoryDescription')}
             </Text>
             <TouchableOpacity
               style={[styles.linkButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, borderRadius: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }]}
@@ -562,10 +564,10 @@ export function SetupWizardFlow() {
         return (
           <View style={{ padding: theme.spacing.lg }}>
             <Text style={[theme.typography.h5, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-              Subscription Options
+              {t('onboarding.progressiveExperience.flow.subscriptionTitle')}
             </Text>
             <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, marginBottom: theme.spacing.lg }]}>
-              Review subscription options. Your commercial trial starts after your clinic is Ready to Start.
+              {t('onboarding.progressiveExperience.flow.subscriptionDescription')}
             </Text>
             <View style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
               {subscriptionPlans.map(plan => {
@@ -610,7 +612,7 @@ export function SetupWizardFlow() {
                 <ActivityIndicator color={theme.colors.text.onPrimary} />
               ) : (
                 <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-                  Review Subscription
+                  {t('onboarding.progressiveExperience.flow.reviewSubscription')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -656,7 +658,7 @@ export function SetupWizardFlow() {
       <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.colors.primary.default} />
         <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.md }]}>
-          Loading clinic preparation...
+          {t('onboarding.progressiveExperience.flow.loadingPreparation')}
         </Text>
       </View>
     );
@@ -668,7 +670,7 @@ export function SetupWizardFlow() {
       <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg }]}>
         <Ionicons name="alert-circle" size={48} color={theme.colors.feedback.error} />
         <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginTop: theme.spacing.md, textAlign: 'center' }]}>
-          Unable to load clinic preparation
+          {t('onboarding.progressiveExperience.flow.loadPreparationFailed')}
         </Text>
         {error && (
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
@@ -677,7 +679,7 @@ export function SetupWizardFlow() {
         )}
         {!error && steps.length === 0 && (
           <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
-            No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.
+            {t('onboarding.progressiveExperience.flow.noPreparationSteps')}
           </Text>
         )}
         <TouchableOpacity
@@ -698,7 +700,7 @@ export function SetupWizardFlow() {
       <View style={[styles.header, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.colors.border.default }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={[theme.typography.h5, { color: theme.colors.text.primary }]}>
-            Prepare Your Clinic
+            {t('onboarding.progressiveExperience.flow.prepareYourClinic')}
           </Text>
           <TouchableOpacity onPress={handleExit}>
             <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
@@ -763,7 +765,7 @@ export function SetupWizardFlow() {
           ) : (
             <>
               <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary, marginRight: theme.spacing.xs }]}>
-                {currentStepIndex === steps.length - 1 ? 'Ready to Start' : 'Next'}
+                {currentStepIndex === steps.length - 1 ? t('onboarding.progressiveExperience.flow.readyToStart') : t('common.next')}
               </Text>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.text.onPrimary} />
             </>

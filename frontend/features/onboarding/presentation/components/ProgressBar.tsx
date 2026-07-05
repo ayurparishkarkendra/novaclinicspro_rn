@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface ProgressBarProps {
   percentage: number;
@@ -17,6 +18,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   showLabel = true,
 }) => {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.container}>
@@ -30,7 +32,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               { color: theme.colors.text.secondary },
             ]}
           >
-            Clinic Preparation
+            {t('onboarding.progressiveExperience.flow.clinicPreparation')}
           </Text>
           <Text
             style={[

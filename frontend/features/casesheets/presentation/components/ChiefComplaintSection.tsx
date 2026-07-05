@@ -1,23 +1,29 @@
+/**
+ * R3B (T-B.1, ADR-R3B-05) — canonical Case Sheet field-editing core.
+ * Moved, unchanged in behavior, from
+ * `features/episodes/presentation/components/ConsultationSections/ChiefComplaintSection.tsx`
+ * (its Phase 3A origin) into this shared, context-agnostic location so both
+ * `CaseSheetModule` (workspace) and the future standalone wrapper (T-B.2)
+ * can host the same component. Takes only value/onChange/progress/
+ * saveStatus as props — no context hook calls (ADR-R3B-01).
+ */
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
-import {
-  SectionProgressStatus,
-  SectionSaveStatus,
-} from '../../hooks/useConsultationWorkspace';
+import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { CaseSheetSectionProgressStatus, CaseSheetSectionSaveStatus } from './caseSheetSectionTypes';
 
 interface ChiefComplaintSectionProps {
   value: string;
   onChange: (v: string) => void;
-  saveStatus: SectionSaveStatus;
-  progress: SectionProgressStatus;
+  saveStatus: CaseSheetSectionSaveStatus;
+  progress: CaseSheetSectionProgressStatus;
 }
 
-const progressIcon = (status: SectionProgressStatus) =>
+const progressIcon = (status: CaseSheetSectionProgressStatus) =>
   status === 'complete' ? 'checkmark-circle' : status === 'in_progress' ? 'ellipse' : 'ellipse-outline';
 
-const saveLabel = (status: SectionSaveStatus) => {
+const saveLabel = (status: CaseSheetSectionSaveStatus) => {
   if (status === 'saving') return 'Saving...';
   if (status === 'saved') return '✓ Saved';
   if (status === 'error') return '⚠ Save failed';

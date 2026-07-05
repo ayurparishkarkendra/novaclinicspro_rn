@@ -5,9 +5,11 @@
 
 import { Stack } from 'expo-router';
 import { useClinicTheme } from '../../core/theme/useClinicTheme';
+import { useTranslation } from '../../core/localization/useTranslation';
 
 export default function OnboardingLayout() {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
 
   return (
     <Stack
@@ -31,18 +33,18 @@ export default function OnboardingLayout() {
       />
       <Stack.Screen 
         name="setup-wizard" 
-        options={{ title: 'Prepare Your Clinic' }} 
+        options={{ title: t('onboarding.progressiveExperience.routes.prepareClinic') }} 
       />
       <Stack.Screen 
         name="wizard-flow" 
         options={{ 
-          title: 'Clinic Preparation',
+          title: t('onboarding.progressiveExperience.routes.clinicPreparation'),
           headerShown: false, // Hide header since wizard has its own
         }} 
       />
       <Stack.Screen 
         name="step-detail" 
-        options={{ title: 'Review Step' }} 
+        options={{ title: t('onboarding.progressiveExperience.routes.reviewStep') }} 
       />
       <Stack.Screen 
         name="rejected" 

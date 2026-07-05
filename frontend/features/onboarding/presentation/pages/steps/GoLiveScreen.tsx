@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../../auth/presentation/hooks/useAuth';
 import { useSubmitStepMutation, onboardingKeys, useCompleteSetupMutation } from '../../../data/repositories/onboarding.repository.impl';
+import { useTranslation } from '../../../../../core/localization/useTranslation';
 
 interface GoLiveScreenProps {
   tenantId: string;
@@ -23,6 +24,7 @@ interface GoLiveScreenProps {
 
 export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps, allSteps = [], isWizardMode = false, onRegisterSaveHandler }: GoLiveScreenProps) {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { refreshSession } = useAuth();
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -43,12 +45,12 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
 
   const handleGoLive = useCallback(async () => {
     if (!agreedToTerms) {
-      Alert.alert('Agreement Required', 'Please agree to the terms and conditions to proceed.');
+      Alert.alert(t('onboarding.progressiveExperience.readyToStart.agreementRequiredTitle'), t('onboarding.progressiveExperience.readyToStart.agreementRequiredMessage'));
       return;
     }
 
     if (!allComplete) {
-      Alert.alert('Clinic Not Ready Yet', 'Please finish the previous preparation steps before starting.');
+      Alert.alert(t('onboarding.progressiveExperience.readyToStart.notReadyTitle'), t('onboarding.progressiveExperience.readyToStart.notReadyMessage'));
       return;
     }
 
@@ -78,11 +80,11 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       
       // Navigate to clinic admin (router.replace prevents going back to wizard)
       Alert.alert(
-        'Congratulations! 🎉',
-        'Your clinic is ready to start using Nova.',
+        t('onboarding.progressiveExperience.readyToStart.successTitle'),
+        t('onboarding.progressiveExperience.readyToStart.successMessage'),
         [
           {
-            text: 'Go to Dashboard',
+            text: t('onboarding.progressiveExperience.readyToStart.goToDashboard'),
             onPress: () => {
               onComplete();
             },
@@ -91,9 +93,9 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       );
     } catch (error: any) {
       console.error('[GoLiveScreen] Error during go-live:', error);
-      Alert.alert('Error', error.message || 'Failed to mark clinic as ready. Please try again.');
+      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.readyToStart.errorMessage'));
     }
-  }, [agreedToTerms, allComplete, completeSetupMutation, onComplete, queryClient, refreshSession, submitStepMutation, tenantId]);
+  }, [agreedToTerms, allComplete, completeSetupMutation, onComplete, queryClient, refreshSession, submitStepMutation, tenantId, t]);
 
   useEffect(() => {
     if (!isWizardMode || !onRegisterSaveHandler) {
@@ -125,10 +127,10 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           <Ionicons name="rocket" size={40} color={theme.colors.feedback.success} />
         </View>
         <Text style={[theme.typography.h4, { color: theme.colors.text.primary, textAlign: 'center' }]}>
-          Ready to Start
+          {t('onboarding.progressiveExperience.readyToStart.title')}
         </Text>
         <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, textAlign: 'center', marginTop: theme.spacing.sm }]}>
-          Nova has prepared {completedSteps} of {totalSteps} clinic readiness steps
+          {t('onboarding.progressiveExperience.readyToStart.preparedCount', { completed: completedSteps, total: totalSteps })}
         </Text>
       </View>
 
@@ -142,7 +144,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
         }}
       >
         <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-          Clinic Readiness Checklist
+          {t('onboarding.progressiveExperience.readyToStart.checklistTitle')}
         </Text>
 
         {checklistItems.map((item) => (
@@ -195,7 +197,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
           color={agreedToTerms ? theme.colors.primary.default : theme.colors.text.secondary}
         />
         <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          I confirm that all information is accurate and I am ready to start accepting patients
+          {t('onboarding.progressiveExperience.readyToStart.confirmAccuracy')}
         </Text>
       </TouchableOpacity>
 
@@ -211,7 +213,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
       >
         <Ionicons name="information-circle" size={20} color={theme.colors.feedback.info} />
         <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          Once you start, your clinic workspace is ready for appointments, patients, and daily operations.
+          {t('onboarding.progressiveExperience.readyToStart.info')}
         </Text>
       </View>
 
@@ -233,7 +235,7 @@ export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps,
             <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
           ) : (
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-              Ready to Start
+              {t('onboarding.progressiveExperience.readyToStart.title')}
             </Text>
           )}
         </TouchableOpacity>

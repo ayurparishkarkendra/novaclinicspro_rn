@@ -47,10 +47,17 @@ import {
   SectionProgressStatus,
   SectionSaveStatus,
 } from '../../hooks/useConsultationWorkspace';
-import { ChiefComplaintSection } from './ChiefComplaintSection';
-import { ClinicalNotesSection } from './ClinicalNotesSection';
-import { AyurvedicAssessmentSection } from './AyurvedicAssessmentSection';
+import { ChiefComplaintSection } from '../../../../casesheets/presentation/components/ChiefComplaintSection';
+import { ClinicalNotesSection } from '../../../../casesheets/presentation/components/ClinicalNotesSection';
+import { CaseSheetExtensionsSection } from '../../../../casesheets/presentation/components/CaseSheetExtensionsSection';
 import { renderSection } from './sectionRenderer';
+
+// R3B (T-B.1, ADR-R3B-05): fixed set, no add/remove — reproduces
+// AyurvedicAssessmentSection's own pre-T-B.1 behavior bit-for-bit (T-0.2
+// baseline). The canonical core's full four-template registry (vitals,
+// prakriti, nadi_pariksha, custom) also exists, but this host only
+// activates the same two templates it always has.
+const AYURVEDIC_ASSESSMENT_ACTIVE_TEMPLATE_IDS = ['prakriti', 'nadi_pariksha'];
 
 const EMPTY_CASESHEET_DATA: CasesheetFormData = { basic: {}, extensions: [] };
 
@@ -399,8 +406,11 @@ export const CaseSheetModule = forwardRef<CaseSheetModuleHandle, CaseSheetModule
             expandedSections,
             onToggleSection,
             sectionProgress.ayurvedicAssessment,
-            <AyurvedicAssessmentSection
+            <CaseSheetExtensionsSection
+              title="Ayurvedic Assessment"
               extensions={casesheetData.extensions}
+              activeTemplateIds={AYURVEDIC_ASSESSMENT_ACTIVE_TEMPLATE_IDS}
+              allowAddRemove={false}
               onChange={updateExtensionField}
               progress={sectionProgress.ayurvedicAssessment?.status ?? 'empty'}
               saveStatus={sectionProgress.ayurvedicAssessment?.saveStatus ?? 'idle'}

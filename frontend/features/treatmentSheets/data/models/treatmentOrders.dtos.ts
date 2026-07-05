@@ -266,6 +266,78 @@ export const getSchedulingStatusColor = (status: SchedulingStatus): string => {
 };
 
 /**
+ * R3B · T-D.1 (FR-D2) — the single primary, business-meaningful status for a
+ * TreatmentOrderResponse. `state` and `scheduling_status` are two different
+ * dimensions of the same order's progress, never shown together (Doc 02
+ * §12's own rule: "multiple derived implementation statuses should never be
+ * presented simultaneously"). Presentation-only — does not touch how either
+ * underlying field is computed, stored, or derived (N-1); it only decides
+ * which single, most business-meaningful label to show.
+ *
+ * **Corrected (T-D.1, second pass):** the first version of this function
+ * assumed `scheduling_status` is only ever non-null/relevant while
+ * `state === 'ORDERED'` — that does not hold. Reading the backend's own
+ * `_repair_order_scheduling_states_for_tenant` (`sqlalchemy_treatment_order_
+ * repository.py`) confirms it only auto-reverts `state` back to `ORDERED`
+ * when `scheduling_status` drifts to `PENDING_SCHEDULING` — it does NOT
+ * revert on a drift to `PARTIALLY_SCHEDULED` (e.g., planned sessions
+ * increase after a plan was already fully scheduled). So a genuine, live
+ * case exists where `state` has already advanced past `ORDERED` (e.g.
+ * `SCHEDULED`/`IN_PROGRESS`) while `scheduling_status` is incomplete again —
+ * exactly the signal `orders.tsx`'s own pre-existing `showSchedChip` logic
+ * was written to surface as a second pill. Collapsing to "one status" must
+ * not silently discard this — it is the single most operationally
+ * important fact in that scenario (more important than either "Scheduled"
+ * or "Partially Scheduled" shown alone), so it is surfaced as its own
+ * explicit, task-oriented label — **"Needs Re-scheduling"** — rather than
+ * either raw value. One status ≠ less information; one status = the most
+ * important business status.
+ *
+ * Rule, in order (matches `orders.tsx`'s own pre-existing `showSchedChip`
+ * condition exactly — `scheduling_status && scheduling_status !==
+ * 'PENDING_SCHEDULING' && state !== 'ORDERED'` — rather than a broader
+ * guess): only `PARTIALLY_SCHEDULED` triggers the drift label.
+ * `PENDING_SCHEDULING` is deliberately excluded — the backend's own repair
+ * job specifically targets and reverts *that* combination back to `ORDERED`
+ * (`scheduling_status == "PENDING_SCHEDULING" and sheet.state ==
+ * "SCHEDULED"`), treating it as a transient anomaly to correct, not a
+ * stable state worth surfacing — unlike `PARTIALLY_SCHEDULED` drift, which
+ * has no such reversion and is the case `orders.tsx`'s own logic was
+ * written to catch.
+ * 1. `state !== 'ORDERED'` (already past first-pass ordering) AND
+ *    `scheduling_status === 'PARTIALLY_SCHEDULED'` → **"Needs
+ *    Re-scheduling"** (drift case).
+ * 2. `state === 'ORDERED'` AND a `scheduling_status` exists → show it
+ *    (`getSchedulingStatusLabel`) — more precise than the generic "Waiting
+ *    for Scheduling" state label during first-pass scheduling.
+ * 3. Otherwise → the order's own `state` (`getOrderStateLabel`) — covers
+ *    `DRAFT`, terminal states, and the fully-resolved case (`state`
+ *    advanced with `scheduling_status` already `FULLY_SCHEDULED` — genuinely
+ *    redundant with the state label, unlike the incomplete-scheduling case
+ *    above).
+ */
+export const getPrimaryOrderStatusLabel = (order: Pick<TreatmentOrderResponse, 'state' | 'is_order' | 'scheduling_status'>): string => {
+  if (order.is_order && order.state !== 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
+    return 'Needs Re-scheduling';
+  }
+  if (order.is_order && order.state === 'ORDERED' && order.scheduling_status) {
+    return getSchedulingStatusLabel(order.scheduling_status);
+  }
+  return getOrderStateLabel(order.state);
+};
+
+/** Color token matching whichever value `getPrimaryOrderStatusLabel` chose — "Needs Re-scheduling" uses the same urgent/attention color as `PENDING_SCHEDULING`. */
+export const getPrimaryOrderStatusColor = (order: Pick<TreatmentOrderResponse, 'state' | 'is_order' | 'scheduling_status'>): string => {
+  if (order.is_order && order.state !== 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
+    return getSchedulingStatusColor('PENDING_SCHEDULING');
+  }
+  if (order.is_order && order.state === 'ORDERED' && order.scheduling_status) {
+    return getSchedulingStatusColor(order.scheduling_status);
+  }
+  return getOrderStateColor(order.state);
+};
+
+/**
  * Returns the rows from a TreatmentOrderResponse that have a scheduled_date,
  * sorted ascending — used for the patient schedule modal (Phase 1).
  */

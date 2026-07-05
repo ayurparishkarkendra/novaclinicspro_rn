@@ -33,9 +33,8 @@ import {
   TreatmentOrderResponse,
   TreatmentOrderState,
   getOrderStateLabel,
-  getOrderStateColor,
-  getSchedulingStatusLabel,
-  getSchedulingStatusColor,
+  getPrimaryOrderStatusLabel,
+  getPrimaryOrderStatusColor,
 } from '../../../features/treatmentSheets/data/models/treatmentOrders.dtos';
 import { useClientDetailQuery } from '../../../features/clients/data/repositories/clients.repository.impl';
 import { useStaffDetailQuery } from '../../../features/staff/data/repositories/staff.repository.impl';
@@ -97,15 +96,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onPatientDeclined,
   isCancelling,
 }) => {
-  const stateColor = getOrderStateColor(order.state);
-
-  // Show scheduling_status chip only when it adds info beyond the state chip
-  // ORDERED already implies PENDING_SCHEDULING — no need to show both
-  const showSchedChip =
-    order.scheduling_status &&
-    order.scheduling_status !== 'PENDING_SCHEDULING' &&
-    order.state !== 'ORDERED';
-  const schedColor = order.scheduling_status ? getSchedulingStatusColor(order.scheduling_status) : '#6B7280';
+  // R3B · T-D.2 (FR-D2) — exactly one primary status pill, via the same
+  // shared resolution `TreatmentSheetInfoCard.tsx` uses (T-D.1). This
+  // replaces the previous two-pill display (a state chip plus a
+  // conditional scheduling-status chip) — the "needs re-scheduling" drift
+  // signal that second chip existed to catch is preserved inside
+  // `getPrimaryOrderStatusLabel` itself (see its own docstring), not lost.
+  const primaryStatusLabel = getPrimaryOrderStatusLabel(order);
+  const primaryStatusColor = getPrimaryOrderStatusColor(order);
 
   const progress = order.planned_sessions && order.planned_sessions > 0
     ? Math.round((order.scheduled_count / order.planned_sessions) * 100)
@@ -161,19 +159,12 @@ const OrderCard: React.FC<OrderCardProps> = ({
         </View>
       )}
 
-      {/* State chip + optional scheduling chip */}
+      {/* Single primary status pill (R3B · T-D.2, FR-D2) */}
       <View style={styles.cardTopRow}>
-        <View style={[styles.pill, { backgroundColor: stateColor + '18', borderColor: stateColor + '50' }]}>
-          <View style={[styles.pillDot, { backgroundColor: stateColor }]} />
-          <Text style={[styles.pillText, { color: stateColor }]}>{getOrderStateLabel(order.state)}</Text>
+        <View style={[styles.pill, { backgroundColor: primaryStatusColor + '18', borderColor: primaryStatusColor + '50' }]}>
+          <View style={[styles.pillDot, { backgroundColor: primaryStatusColor }]} />
+          <Text style={[styles.pillText, { color: primaryStatusColor }]}>{primaryStatusLabel}</Text>
         </View>
-        {showSchedChip && (
-          <View style={[styles.pill, { backgroundColor: schedColor + '18', borderColor: schedColor + '50' }]}>
-            <Text style={[styles.pillText, { color: schedColor }]}>
-              {getSchedulingStatusLabel(order.scheduling_status)}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Sessions + ordered date */}
@@ -194,7 +185,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
       {order.planned_sessions != null && order.planned_sessions > 0 && order.scheduled_count > 0 && (
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress}%` as any, backgroundColor: stateColor }]} />
+            <View style={[styles.progressFill, { width: `${progress}%` as any, backgroundColor: primaryStatusColor }]} />
           </View>
           <Text style={styles.progressLabel}>
             {order.scheduled_count}/{order.planned_sessions} scheduled
@@ -380,7 +371,12 @@ export default function TreatmentOrdersScreen() {
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Treatment Orders</Text>
+        {/* R3B · T-D.2 (FR-D1, Doc 03 §19) — "Treatment Plans" matches the
+            app's own already-established task-oriented term for this same
+            entity (app/clinic-admin/index.tsx's "Treatment Plan(s) to
+            Schedule" widget navigates to this exact screen), replacing the
+            raw entity name "Treatment Orders". */}
+        <Text style={styles.headerTitle}>Treatment Plans</Text>
         <TouchableOpacity onPress={() => refetch()} disabled={isRefetching}>
           <Ionicons name="refresh" size={22} color={isRefetching ? colors.text.disabled : colors.primary.main} />
         </TouchableOpacity>

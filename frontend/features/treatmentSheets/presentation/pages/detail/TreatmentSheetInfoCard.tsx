@@ -7,9 +7,8 @@ import { formatDateTime } from '../../../data/models/treatmentSheets.dtos';
 import { TreatmentSheetResponse } from '../../../data/models/treatmentSheets.dtos';
 import {
   TreatmentOrderResponse,
-  getOrderStateColor,
-  getOrderStateLabel,
-  getSchedulingStatusLabel,
+  getPrimaryOrderStatusColor,
+  getPrimaryOrderStatusLabel,
 } from '../../../data/models/treatmentOrders.dtos';
 import { ClientEntity, HeaderEntity, RowFormData } from './types';
 
@@ -77,11 +76,9 @@ export const TreatmentSheetInfoCard: React.FC<Props> = ({
         <InfoRow
           icon="git-branch-outline"
           label="Status:"
-          value={`${getOrderStateLabel(treatmentOrder.state)}${
-            treatmentOrder.is_order ? ` · ${getSchedulingStatusLabel(treatmentOrder.scheduling_status)}` : ''
-          }`}
+          value={getPrimaryOrderStatusLabel(treatmentOrder)}
           strong
-          color={getOrderStateColor(treatmentOrder.state)}
+          color={getPrimaryOrderStatusColor(treatmentOrder)}
         />
       ) : null}
       {treatmentSheet.agreed_package_cost ? (

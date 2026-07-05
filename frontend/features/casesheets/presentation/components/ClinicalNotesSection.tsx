@@ -1,18 +1,22 @@
+/**
+ * R3B (T-B.1, ADR-R3B-05) — canonical Case Sheet field-editing core.
+ * Moved, unchanged in behavior, from
+ * `features/episodes/presentation/components/ConsultationSections/ClinicalNotesSection.tsx`
+ * (its Phase 3A origin) into this shared, context-agnostic location. See
+ * ChiefComplaintSection.tsx's own header comment for the full rationale.
+ */
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
-import { CasesheetFormData } from '../../../../casesheets/presentation/components/CasesheetForm';
-import {
-  SectionProgressStatus,
-  SectionSaveStatus,
-} from '../../hooks/useConsultationWorkspace';
+import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { CasesheetFormData } from './CasesheetForm';
+import { CaseSheetSectionProgressStatus, CaseSheetSectionSaveStatus } from './caseSheetSectionTypes';
 
 interface ClinicalNotesSectionProps {
   data: CasesheetFormData['basic'];
   onChange: (field: string, value: string) => void;
-  saveStatus: SectionSaveStatus;
-  progress: SectionProgressStatus;
+  saveStatus: CaseSheetSectionSaveStatus;
+  progress: CaseSheetSectionProgressStatus;
 }
 
 const FIELDS = [
@@ -24,10 +28,10 @@ const FIELDS = [
   ['final_diagnosis', 'Final Diagnosis', 'Confirmed diagnosis'],
 ];
 
-const progressIcon = (status: SectionProgressStatus) =>
+const progressIcon = (status: CaseSheetSectionProgressStatus) =>
   status === 'complete' ? 'checkmark-circle' : status === 'in_progress' ? 'ellipse' : 'ellipse-outline';
 
-const saveLabel = (status: SectionSaveStatus) => {
+const saveLabel = (status: CaseSheetSectionSaveStatus) => {
   if (status === 'saving') return 'Saving...';
   if (status === 'saved') return '✓ Saved';
   if (status === 'error') return '⚠ Save failed';

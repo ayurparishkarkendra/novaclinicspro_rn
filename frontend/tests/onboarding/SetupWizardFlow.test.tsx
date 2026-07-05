@@ -183,8 +183,14 @@ const renderFlow = () => {
 describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
     mockMutateAsync.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   // ── 1. console.error fires on visible_steps: null ─────────────────────────
@@ -375,8 +381,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       expect(getByText('Next')).toBeTruthy();
     });
 
-    fireEvent.press(getByText('Next'));
-    fireEvent.press(getByText('Next'));
+    const nextButton = getByText('Next');
+    fireEvent.press(nextButton);
+    fireEvent.press(nextButton);
 
     expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockMutateAsync.mock.calls[0][0]).toEqual(

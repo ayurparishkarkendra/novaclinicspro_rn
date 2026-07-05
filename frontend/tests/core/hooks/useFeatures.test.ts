@@ -33,6 +33,7 @@ import {
   hasGenderMatching,
   hasTreatmentSheets,
   isFreshnessV1Enabled,
+  isClinicalSpineV1Enabled,
   type FeatureConfig,
 } from '../../../core/hooks/useFeatures';
 
@@ -42,6 +43,7 @@ function makeFeatures(overrides: Partial<FeatureConfig> = {}): FeatureConfig {
     appointments: { allow_multiday: false, enable_gender_matching: false },
     treatment_sheets: { enable_treatment_sheets: false, enable_sheet_sync: false },
     freshness_v1_enabled: false,
+    clinical_spine_v1_enabled: false,
     ...overrides,
   };
 }
@@ -139,6 +141,43 @@ describe('freshness_v1_enabled feature flag (T-A.6, ADR-P1-01, FR-A6/RB-1)', () 
     const flagLineIndex = fnBody.indexOf('freshness_v1_enabled: !!raw?.freshness_v1_enabled');
     const flagLine = fnBody.slice(flagLineIndex, flagLineIndex + 60);
     expect(flagLine).not.toContain('therapyClinic');
+  });
+});
+
+describe('clinical_spine_v1_enabled feature flag (R3B · T-A.1, ADR-R3B-04)', () => {
+  it('isClinicalSpineV1Enabled reflects whatever the field is set to', () => {
+    expect(isClinicalSpineV1Enabled(makeFeatures({ clinical_spine_v1_enabled: true }))).toBe(true);
+    expect(isClinicalSpineV1Enabled(makeFeatures({ clinical_spine_v1_enabled: false }))).toBe(false);
+  });
+
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../../core/hooks/useFeatures.ts'),
+    'utf8'
+  );
+
+  it('DEFAULT_FEATURES defaults clinical_spine_v1_enabled to false (fail-closed if the API is unreachable)', () => {
+    const defaultsBlock = source.slice(
+      source.indexOf('const DEFAULT_FEATURES'),
+      source.indexOf('};', source.indexOf('const DEFAULT_FEATURES'))
+    );
+    expect(defaultsBlock).toContain('clinical_spine_v1_enabled: false');
+  });
+
+  it('normalizeFeatures reads clinical_spine_v1_enabled directly from the raw API response, NOT gated by clinic type (global rollout flag, not a clinic-type feature)', () => {
+    const fnBody = source.slice(
+      source.indexOf('function normalizeFeatures'),
+      source.indexOf('\n}', source.indexOf('function normalizeFeatures'))
+    );
+    expect(fnBody).toContain('clinical_spine_v1_enabled: !!raw?.clinical_spine_v1_enabled');
+    // Distinguish from the therapyClinic-gated fields above it.
+    const flagLineIndex = fnBody.indexOf('clinical_spine_v1_enabled: !!raw?.clinical_spine_v1_enabled');
+    const flagLine = fnBody.slice(flagLineIndex, flagLineIndex + 70);
+    expect(flagLine).not.toContain('therapyClinic');
+  });
+
+  it('is independent of freshness_v1_enabled — one can be true while the other is false', () => {
+    expect(isClinicalSpineV1Enabled(makeFeatures({ clinical_spine_v1_enabled: true, freshness_v1_enabled: false }))).toBe(true);
+    expect(isFreshnessV1Enabled(makeFeatures({ clinical_spine_v1_enabled: true, freshness_v1_enabled: false }))).toBe(false);
   });
 });
 

@@ -15,9 +15,11 @@ import { StepProgressHeader } from '../components/StepProgressHeader';
 import { useOnboardingStatusQuery } from '../../data/repositories/onboarding.repository.impl';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES } from '../../constants/stepAliases';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 
 export function StepDetailScreen() {
   const theme = useClinicTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { tenantId, stepCode } = useLocalSearchParams<{ 
     tenantId: string; 
@@ -77,7 +79,7 @@ export function StepDetailScreen() {
  const steps = statusData?.per_step_validation
   ? Object.entries(statusData.per_step_validation).map(([code, step], index) => ({
       code: step.step_code,
-      name: getPreparationStepDisplayName(code),
+      name: getPreparationStepDisplayName(code, t),
       status: step.status,
       order: index + 1,
     }))
@@ -131,7 +133,7 @@ export function StepDetailScreen() {
       case 'go_live_checklist':
         return (
           <ErrorScreen 
-            message="Ready to Start Checklist - This step confirms your clinic is ready to start. Finish the previous preparation steps first."
+            message={t('onboarding.progressiveExperience.stepDetail.readyToStartChecklistMessage')}
           />
         );
       

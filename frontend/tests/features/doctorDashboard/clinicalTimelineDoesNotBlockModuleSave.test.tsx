@@ -1,6 +1,6 @@
 import '../doctorDashboard/setup';
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClinicalWorkspace } from '../../../features/episodes/presentation/pages/ClinicalWorkspace';
 import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData';
@@ -12,26 +12,33 @@ import {
 } from '../../../features/treatmentSheets/data/datasources/treatmentSheets.api';
 import { sendToSchedulingApi, createTreatmentRecommendationApi } from '../../../features/treatmentSheets/data/datasources/treatmentOrders.api';
 import { axiosClient } from '../../../core/api/axiosClient';
+import { useAppointmentsListQuery } from '../../../features/appointments/data/repositories/appointments.repository.impl';
+import { usePrescriptionsListQuery } from '../../../features/prescriptions/data/repositories/prescriptions.repository.impl';
+import { useTreatmentSheetsByEpisodeQuery } from '../../../features/treatmentSheets/data/repositories/treatmentSheets.repository.impl';
+import { listClinicalServicesByVisitApi } from '../../../features/clinicalServices/data/datasources/clinicalServices.api';
 
-// R3A · T-A.2 — ClinicalWorkspace is a shell wrapping the unchanged
-// ConsultationWorkspaceScreen in WorkspaceProvider (design §9.A). This test
-// proves the doctor's rendered experience is identical to rendering
-// ConsultationWorkspaceScreen directly (as consultation.tsx did before this
-// task) — zero visible behavior change, since no module reads from context
-// yet.
+/**
+ * R3B · T-E.4 — Explicit negative check: `ClinicalTimeline`'s presence
+ * (flag ON) never delays, blocks, or duplicates another module's own save
+ * (CO-6), with a negative control (Execution Governance #2) proving the
+ * check itself can actually fail. Extends `clinicalWorkspaceShell.test.tsx`'s
+ * own proven mock recipe (T-A.2) with the additional query mocks
+ * `ClinicalTimeline`/its adapter need to mount safely (flag ON) without
+ * crashing, so both flag states can be rendered in the SAME real
+ * `ClinicalWorkspace` tree — not a stub — for a faithful comparison.
+ */
 
+let mockFeatures: any = { clinic_type: 'ayurveda', clinical_spine_v1_enabled: false };
 let mockAuth = { currentUser: { tenantId: 'tenant-1' }, selectedClinicId: null as string | null };
+
 jest.mock('../../../features/auth/presentation/hooks/useAuth', () => ({
   useAuth: () => mockAuth,
 }));
 jest.mock('../../../core/hooks/useFeatures', () => ({
-  useFeatures: () => ({ clinic_type: 'ayurveda' }),
+  useFeatures: () => mockFeatures,
   isAyurvedaClinic: (value: any) => value.clinic_type === 'ayurveda',
   isFreshnessV1Enabled: () => false,
-  // R3B · T-C.2: ClinicalWorkspace now also checks this flag to decide
-  // whether to mount ClinicalTimeline. Defaulting to false here reproduces
-  // this test's own pre-T-C.2 baseline exactly (no Timeline rendered).
-  isClinicalSpineV1Enabled: () => false,
+  isClinicalSpineV1Enabled: (value: any) => !!value.clinical_spine_v1_enabled,
 }));
 jest.mock('../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData', () => ({
   useEpisodeWorkspaceData: jest.fn(),
@@ -54,6 +61,20 @@ jest.mock('../../../features/treatmentSheets/data/datasources/treatmentOrders.ap
 }));
 jest.mock('../../../core/api/axiosClient', () => ({
   axiosClient: { get: jest.fn(), post: jest.fn() },
+}));
+// Additional to clinicalWorkspaceShell.test.tsx's own recipe — needed so
+// ClinicalTimeline/useClinicalTimelineData can mount safely with the flag ON.
+jest.mock('../../../features/appointments/data/repositories/appointments.repository.impl', () => ({
+  useAppointmentsListQuery: jest.fn(),
+}));
+jest.mock('../../../features/prescriptions/data/repositories/prescriptions.repository.impl', () => ({
+  usePrescriptionsListQuery: jest.fn(),
+}));
+jest.mock('../../../features/treatmentSheets/data/repositories/treatmentSheets.repository.impl', () => ({
+  useTreatmentSheetsByEpisodeQuery: jest.fn(),
+}));
+jest.mock('../../../features/clinicalServices/data/datasources/clinicalServices.api', () => ({
+  listClinicalServicesByVisitApi: jest.fn(),
 }));
 
 const episodeDetails = {
@@ -102,7 +123,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
-describe('ClinicalWorkspace shell (R3A · T-A.2)', () => {
+describe('ClinicalTimeline does not block/duplicate another module\'s save (R3B · T-E.4, CO-6)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -118,41 +139,56 @@ describe('ClinicalWorkspace shell (R3A · T-A.2)', () => {
     (axiosClient.get as jest.Mock).mockResolvedValue({ data: { items: [] } });
     (axiosClient.post as jest.Mock).mockResolvedValue({ data: { id: 'new-sheet', rows: [], version: 1 } });
     (sendToSchedulingApi as jest.Mock).mockResolvedValue({ id: 'sheet-1', state: 'ORDERED', is_order: true, version: 1 });
+    (useAppointmentsListQuery as jest.Mock).mockReturnValue({ data: { items: [] }, isLoading: false });
+    (usePrescriptionsListQuery as jest.Mock).mockReturnValue({ data: { items: [] }, isLoading: false });
+    (useTreatmentSheetsByEpisodeQuery as jest.Mock).mockReturnValue({ data: { treatment_sheets: [] }, isLoading: false });
+    (listClinicalServicesByVisitApi as jest.Mock).mockResolvedValue({ items: [], total: 0, skip: 0, limit: 50 });
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('renders the SAME consultation experience as rendering ConsultationWorkspaceScreen directly — same episode title, same sections', () => {
-    const { getAllByText, getByText } = render(
+  const typeChiefComplaintAndAdvance = async (utils: ReturnType<typeof render>) => {
+    fireEvent.changeText(utils.getByDisplayValue(''), 'Knee pain');
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+  };
+
+  it('flag OFF (no Timeline mounted): Case Sheet autosave fires once, after the usual 1000ms debounce, with the expected payload', async () => {
+    mockFeatures = { clinic_type: 'ayurveda', clinical_spine_v1_enabled: false };
+    const utils = render(
       <ClinicalWorkspace episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
       { wrapper },
     );
-    // Rendered twice today (header title + PatientSummarySection's "Treatment
-    // Case" row) — both expected, unchanged from ConsultationWorkspaceScreen.
-    expect(getAllByText('Chronic Knee Pain').length).toBe(2);
-    expect(getByText('Clinical Notes')).toBeTruthy();
-    expect(getByText('Prescription')).toBeTruthy();
-    expect(getByText('Treatment Recommendation')).toBeTruthy();
+    expect(utils.queryByText('Clinical Timeline')).toBeNull();
+
+    await typeChiefComplaintAndAdvance(utils);
+
+    expect(createCasesheetApi).toHaveBeenCalledTimes(1);
+    expect(createCasesheetApi).toHaveBeenCalledWith('tenant-1', 'client-1', expect.objectContaining({
+      appointment_id: 'appointment-1',
+      episode_id: 'episode-1',
+    }));
   });
 
-  it('passes episodeId/appointmentId/clientId through to ConsultationWorkspaceScreen unchanged (via the same useEpisodeWorkspaceData call it always made)', () => {
-    render(
+  it('flag ON (Timeline mounted alongside): Case Sheet autosave fires identically — same call count, same timing, same payload', async () => {
+    mockFeatures = { clinic_type: 'ayurveda', clinical_spine_v1_enabled: true };
+    const utils = render(
       <ClinicalWorkspace episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
       { wrapper },
     );
-    // useConsultationWorkspace.ts's own internal call to useEpisodeWorkspaceData
-    // is completely unmodified by this task — same identifiers, same shape.
-    expect(useEpisodeWorkspaceData).toHaveBeenCalledWith('tenant-1', 'episode-1', 'client-1');
-  });
+    // Confirms the Timeline genuinely mounted (not a false-positive comparison).
+    expect(utils.getByText('Clinical Timeline')).toBeTruthy();
 
-  it('resolves tenantId via selectedClinicId first, falling back to currentUser.tenantId — matching ConsultationWorkspaceScreen\'s own existing resolution', () => {
-    mockAuth = { currentUser: { tenantId: 'tenant-1' }, selectedClinicId: 'tenant-selected' };
-    render(
-      <ClinicalWorkspace episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
-      { wrapper },
-    );
-    expect(useEpisodeWorkspaceData).toHaveBeenCalledWith('tenant-selected', 'episode-1', 'client-1');
+    await typeChiefComplaintAndAdvance(utils);
+
+    expect(createCasesheetApi).toHaveBeenCalledTimes(1);
+    expect(createCasesheetApi).toHaveBeenCalledWith('tenant-1', 'client-1', expect.objectContaining({
+      appointment_id: 'appointment-1',
+      episode_id: 'episode-1',
+    }));
   });
 });

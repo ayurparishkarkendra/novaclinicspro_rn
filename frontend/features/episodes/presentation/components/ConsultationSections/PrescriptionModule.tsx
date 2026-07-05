@@ -16,7 +16,9 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Text, TouchableOpacity } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { isFreshnessV1Enabled, useFeatures } from '../../../../../core/hooks/useFeatures';
 import { createPrescriptionApi, updatePrescriptionApi } from '../../../../prescriptions/data/datasources/prescriptions.api';
 import { prescriptionsKeys } from '../../../../prescriptions/data/repositories/prescriptions.repository.impl';
@@ -25,8 +27,14 @@ import { axiosClient } from '../../../../../core/api/axiosClient';
 import { useEpisodeContext, usePatientContext, useVisitContext } from '../../context/ClinicalWorkspaceContext';
 import { useReportSaveStatus } from '../../context/WorkspaceSaveStatusContext';
 import { SectionKey, SectionProgress, SectionProgressStatus, SectionSaveStatus } from '../../hooks/useConsultationWorkspace';
-import { PrescriptionSection } from './PrescriptionSection';
+import { PrescriptionEditingCore } from '../../../../prescriptions/presentation/components/PrescriptionEditingCore';
 import { renderSection } from './sectionRenderer';
+
+// R3B (T-B.4, ADR-R3B-05): fixed set — reproduces PrescriptionSection's own
+// pre-T-B.4 advice-field behavior bit-for-bit (T-0.3 baseline). The
+// canonical core's full field set (also notes, next_visit_days) exists, but
+// this host only activates the same three fields it always has.
+const PRESCRIPTION_MODULE_ACTIVE_ADVICE_FIELDS = ['dietary_advice', 'lifestyle_advice', 'follow_up_instructions'] as const;
 
 const EMPTY_PRESCRIPTION_DATA: PrescriptionData = { medications: [] };
 
@@ -49,6 +57,7 @@ export interface PrescriptionModuleProps {
 
 export const PrescriptionModule: React.FC<PrescriptionModuleProps> = ({ expandedSections, onToggleSection }) => {
   const queryClient = useQueryClient();
+  const { colors, spacing, typography } = useClinicTheme();
   const features = useFeatures();
   const { tenantId, episodeId } = useEpisodeContext();
   const { clientId: resolvedClientId } = usePatientContext();
@@ -202,16 +211,34 @@ export const PrescriptionModule: React.FC<PrescriptionModuleProps> = ({ expanded
         expandedSections,
         onToggleSection,
         sectionProgress,
-        <PrescriptionSection
+        <PrescriptionEditingCore
           prescriptionData={prescriptionData}
-          isPrescriptionSaving={isPrescriptionSaving}
-          prescriptionSaveError={prescriptionSaveError}
-          prescriptionNotRequired={prescriptionNotRequired}
+          isSaving={isPrescriptionSaving}
+          saveError={prescriptionSaveError}
+          resolvedWithoutSave={prescriptionNotRequired}
           onSave={savePrescription}
-          onMarkNotRequired={markPrescriptionNotRequired}
           onChange={onChange}
           progress={sectionProgress.status}
           saveStatus={sectionProgress.saveStatus}
+          activeAdviceFields={PRESCRIPTION_MODULE_ACTIVE_ADVICE_FIELDS as any}
+          extraActions={
+            <TouchableOpacity
+              onPress={markPrescriptionNotRequired}
+              accessibilityRole="button"
+              style={{
+                minHeight: 44,
+                borderWidth: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderColor: colors.border.default,
+                borderRadius: spacing.sm,
+                padding: spacing.sm,
+              }}
+            >
+              <Text style={[typography.button, { color: colors.text.secondary }]}>Mark as Not Required</Text>
+            </TouchableOpacity>
+          }
         />,
       )}
     </>

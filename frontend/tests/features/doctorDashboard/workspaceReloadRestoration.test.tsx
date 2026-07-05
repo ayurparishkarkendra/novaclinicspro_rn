@@ -44,6 +44,10 @@ jest.mock('../../../core/hooks/useFeatures', () => ({
   useFeatures: () => ({ clinic_type: 'ayurveda' }),
   isAyurvedaClinic: (value: any) => value.clinic_type === 'ayurveda',
   isFreshnessV1Enabled: () => false,
+  // R3B · T-C.2: ClinicalWorkspace now also checks this flag to decide
+  // whether to mount ClinicalTimeline. Defaulting to false reproduces this
+  // test's own pre-T-C.2 baseline exactly (no Timeline rendered).
+  isClinicalSpineV1Enabled: () => false,
 }));
 jest.mock('../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData', () => ({
   useEpisodeWorkspaceData: jest.fn(),

@@ -38,6 +38,16 @@ export interface FeatureConfig {
    * unreachable or the field is absent.
    */
   freshness_v1_enabled: boolean;
+  /**
+   * Phase 3B (R3B) · T-A.1 (ADR-R3B-04): rollout flag for Clinical Spine
+   * navigation convergence, canonical editor routing, and the Clinical
+   * Timeline. Mirrors `freshness_v1_enabled` exactly — global (not
+   * clinic-type-derived), served as-is from GET /tenants/{id}/features
+   * (backend OrgTenantsService.get_tenant_features, env-var-driven).
+   * Defaults to false (fail-closed to today's existing navigation/editor
+   * behavior) if the API is unreachable or the field is absent.
+   */
+  clinical_spine_v1_enabled: boolean;
 }
 
 const DEFAULT_FEATURES: FeatureConfig = {
@@ -51,6 +61,7 @@ const DEFAULT_FEATURES: FeatureConfig = {
     enable_sheet_sync: false,
   },
   freshness_v1_enabled: false,
+  clinical_spine_v1_enabled: false,
 };
 
 function normalizeClinicType(value?: string): FeatureConfig['clinic_type'] {
@@ -84,6 +95,11 @@ function normalizeFeatures(raw?: any): FeatureConfig {
     // Not gated by therapyClinic — this is a platform-wide rollout flag, not
     // a clinic-type feature.
     freshness_v1_enabled: !!raw?.freshness_v1_enabled,
+    // Phase 3B (R3B) · T-A.1 (ADR-R3B-04): same shape as freshness_v1_enabled
+    // above — global rollout flag, not clinic-type-derived. `!!` coerces a
+    // missing/undefined field (API unreachable, or an older backend that
+    // hasn't deployed this field yet) safely to false.
+    clinical_spine_v1_enabled: !!raw?.clinical_spine_v1_enabled,
   };
 }
 
@@ -209,4 +225,9 @@ export function hasTreatmentSheets(features: FeatureConfig): boolean {
 /** Phase 1 · T-A.6 (ADR-P1-01, FR-A6, RB-1). */
 export function isFreshnessV1Enabled(features: FeatureConfig): boolean {
   return features.freshness_v1_enabled;
+}
+
+/** Phase 3B (R3B) · T-A.1 (ADR-R3B-04). */
+export function isClinicalSpineV1Enabled(features: FeatureConfig): boolean {
+  return features.clinical_spine_v1_enabled;
 }

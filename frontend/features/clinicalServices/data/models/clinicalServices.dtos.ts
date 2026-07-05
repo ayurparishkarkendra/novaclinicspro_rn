@@ -30,3 +30,18 @@ export interface ClinicalServiceResponse {
   delivered_at: string;
   created_at: string;
 }
+
+/**
+ * R3B · T-C.1 (Clinical Timeline) — the first frontend consumer of the
+ * backend's own `GET /clinic/{tenant_id}/clinical-services?visit_id=...`
+ * list endpoint (Phase 2, `clinical_services_router.py`), unused by the
+ * frontend until now. Matches the backend's `PaginatedResponse` shape
+ * exactly (`items`/`total`/`skip`/`limit`), the same convention every other
+ * paginated list response in this codebase already uses.
+ */
+export interface ClinicalServiceListResponse {
+  items: ClinicalServiceResponse[];
+  total: number;
+  skip: number;
+  limit: number;
+}

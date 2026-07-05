@@ -655,11 +655,11 @@ export default function DoctorDashboard() {
           )}
         </View>
 
-        {/* Pending Documentation Widget */}
+        {/* Needs Documentation Widget (R3B · T-D.2, FR-D1, Doc 03 §19 — task-oriented language, not "Pending Documentation") */}
         {pendingDocItems.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Pending Documentation</Text>
+              <Text style={styles.sectionTitle}>Needs Documentation</Text>
             </View>
             {pendingDocItems.slice(0, 5).map((order) => (
               <TouchableOpacity
@@ -692,7 +692,7 @@ export default function DoctorDashboard() {
             ))}
             {pendingDocItems.length > 5 && (
               <Text style={pendingDocStyles.moreText}>
-                +{pendingDocItems.length - 5} more pending
+                +{pendingDocItems.length - 5} more need documentation
               </Text>
             )}
           </View>

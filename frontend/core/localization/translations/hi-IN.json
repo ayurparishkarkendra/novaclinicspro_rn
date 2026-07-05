@@ -54,7 +54,6 @@
     "minEach": "मिनट प्रत्येक",
     "yesCancel": "हां, रद्द करें"
   },
-
   "navigation": {
     "dashboard": "डैशबोर्ड",
     "appointments": "अपॉइंटमेंट",
@@ -69,7 +68,6 @@
     "profile": "प्रोफ़ाइल",
     "logout": "लॉग आउट"
   },
-
   "errors": {
     "network": {
       "generic": "सर्वर से कनेक्ट करने में असमर्थ। कृपया अपना इंटरनेट कनेक्शन जांचें।",
@@ -77,7 +75,6 @@
       "noConnection": "इंटरनेट कनेक्शन नहीं है। कृपया अपनी नेटवर्क सेटिंग्स जांचें।",
       "serverUnavailable": "सर्वर अस्थायी रूप से अनुपलब्ध है। कृपया बाद में पुनः प्रयास करें।"
     },
-
     "auth": {
       "sessionExpired": "आपका सत्र समाप्त हो गया है। कृपया पुनः लॉग इन करें।",
       "invalidCredentials": "अमान्य ईमेल या पासवर्ड। कृपया पुनः प्रयास करें।",
@@ -88,7 +85,6 @@
       "logoutFailed": "लॉगआउट विफल। कृपया पुनः प्रयास करें।",
       "tokenRefreshFailed": "आपका सत्र रिफ्रेश करने में विफल। कृपया पुनः लॉग इन करें।"
     },
-
     "generic": {
       "loadFailed": "डेटा लोड करने में विफल। कृपया पुनः प्रयास करें।",
       "saveFailed": "सहेजने में विफल। कृपया पुनः प्रयास करें।",
@@ -100,7 +96,6 @@
       "withResource": "{{resource}} लोड नहीं हो सका। कृपया पुनः प्रयास करें।",
       "withRetry": "एक त्रुटि हुई। {{seconds}} सेकंड में पुनः प्रयास किया जाएगा।"
     },
-
     "appointments": {
       "loadFailed": "अपॉइंटमेंट लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "createFailed": "अपॉइंटमेंट बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
@@ -162,7 +157,6 @@
       "failedToCreate": "अपॉइंटमेंट बनाने में विफल",
       "confirmSessions": "{{count}} सत्रों की पुष्टि करें"
     },
-
     "clients": {
       "loadFailed": "ग्राहक लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "loadDetailsFailed": "ग्राहक विवरण लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
@@ -171,7 +165,6 @@
       "deleteFailed": "ग्राहक हटाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "searchFailed": "ग्राहक खोज विफल। कृपया पुनः प्रयास करें।"
     },
-
     "staff": {
       "loadFailed": "स्टाफ सदस्य लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "loadDetailsFailed": "स्टाफ विवरण लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
@@ -180,120 +173,101 @@
       "deleteFailed": "स्टाफ सदस्य हटाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "inviteFailed": "आमंत्रण भेजने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "dashboard": {
       "loadFailed": "डैशबोर्ड डेटा लोड नहीं हो सका। पुनः प्रयास के लिए नीचे खींचें।",
       "accessRestricted": "पहुंच प्रतिबंधित",
       "permissionRequired": "आपकी भूमिका के पास इस डैशबोर्ड को देखने की अनुमति नहीं है। कृपया पहुंच का अनुरोध करने के लिए अपने व्यवस्थापक से संपर्क करें।"
     },
-
     "notifications": {
       "loadFailed": "सूचनाएं लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "markReadFailed": "सूचना को पढ़ा गया के रूप में चिह्नित करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "markAllReadFailed": "सभी सूचनाओं को पढ़ा गया के रूप में चिह्नित करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "deleteFailed": "सूचना हटाने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "notificationPreferences": {
       "loadFailed": "सूचना प्राथमिकताएं लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "updateFailed": "सूचना प्राथमिकताएं अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "settings": {
       "loadFailed": "सेटिंग्स लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "updateFailed": "सेटिंग्स अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "saveFailed": "सेटिंग्स सहेजने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "localization": {
       "loadFailed": "भाषा सेटिंग्स लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "updateFailed": "भाषा प्राथमिकता अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "invalidLocale": "चयनित भाषा समर्थित नहीं है।"
     },
-
     "branding": {
       "loadFailed": "ब्रांडिंग सेटिंग्स लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "updateFailed": "ब्रांडिंग अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "logoUploadFailed": "लोगो अपलोड करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "analytics": {
       "loadFailed": "एनालिटिक्स डेटा लोड नहीं हो सका। कृपया पुनः प्रयास करें।",
       "exportFailed": "एनालिटिक्स निर्यात करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "reports": {
       "loadFailed": "रिपोर्ट लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "generateFailed": "रिपोर्ट जनरेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "downloadFailed": "रिपोर्ट डाउनलोड करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "billing": {
       "loadFailed": "बिलिंग जानकारी लोड नहीं हो सकी। कृपया पुनः प्रयास करें।",
       "invoiceLoadFailed": "इनवॉइस लोड नहीं हो सका। कृपया पुनः प्रयास करें।",
       "paymentFailed": "भुगतान प्रसंस्करण विफल। कृपया पुनः प्रयास करें।",
       "refundFailed": "रिफंड प्रसंस्करण विफल। कृपया पुनः प्रयास करें।"
     },
-
     "inventory": {
       "loadFailed": "इन्वेंटरी लोड नहीं हो सकी। कृपया पुनः प्रयास करें।",
       "updateFailed": "इन्वेंटरी अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "stockAdjustmentFailed": "स्टॉक स्तर समायोजित करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "treatmentSessions": {
       "loadFailed": "उपचार सत्र लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "createFailed": "उपचार सत्र बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "updateFailed": "उपचार सत्र अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "completeFailed": "उपचार सत्र पूर्ण करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "treatments": {
       "loadFailed": "उपचार लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "createFailed": "उपचार बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "updateFailed": "उपचार अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "deleteFailed": "उपचार हटाने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "prescriptions": {
       "loadFailed": "नुस्खे लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "createFailed": "नुस्खा बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "updateFailed": "नुस्खा अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "casesheets": {
       "loadFailed": "केस शीट लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "createFailed": "केस शीट बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "updateFailed": "केस शीट अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "documents": {
       "loadFailed": "दस्तावेज़ लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "uploadFailed": "दस्तावेज़ अपलोड करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "downloadFailed": "दस्तावेज़ डाउनलोड करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "deleteFailed": "दस्तावेज़ हटाने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "rbac": {
       "loadRolesFailed": "भूमिकाएं लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "loadPermissionsFailed": "अनुमतियां लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
       "updateRoleFailed": "भूमिका अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "assignRoleFailed": "भूमिका निर्धारित करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "tenants": {
       "loadFailed": "टेनेंट लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "createFailed": "टेनेंट बनाने में असमर्थ। कृपया पुनः प्रयास करें।",
       "updateFailed": "टेनेंट अपडेट करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "suspendFailed": "टेनेंट निलंबित करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "applications": {
       "loadFailed": "आवेदन लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
       "approveFailed": "आवेदन स्वीकृत करने में असमर्थ। कृपया पुनः प्रयास करें।",
       "rejectFailed": "आवेदन अस्वीकृत करने में असमर्थ। कृपया पुनः प्रयास करें।"
     },
-
     "validation": {
       "required": "यह फ़ील्ड आवश्यक है।",
       "invalidEmail": "कृपया एक वैध ईमेल पता दर्ज करें।",
@@ -305,7 +279,6 @@
       "passwordMismatch": "पासवर्ड मेल नहीं खाते।",
       "invalidFormat": "अमान्य प्रारूप।"
     },
-
     "file": {
       "tooLarge": "फ़ाइल बहुत बड़ी है। अधिकतम आकार {{maxSize}} है।",
       "invalidType": "अमान्य फ़ाइल प्रकार। कृपया एक समर्थित प्रारूप चुनें।",
@@ -313,7 +286,6 @@
       "downloadFailed": "फ़ाइल डाउनलोड विफल। कृपया पुनः प्रयास करें।"
     }
   },
-
   "success": {
     "saved": "सफलतापूर्वक सहेजा गया।",
     "updated": "सफलतापूर्वक अपडेट किया गया।",
@@ -322,7 +294,6 @@
     "uploaded": "सफलतापूर्वक अपलोड किया गया।",
     "sent": "सफलतापूर्वक भेजा गया।"
   },
-
   "appointments": {
     "noPhoneNumber": "ग्राहक का फोन नंबर उपलब्ध नहीं है",
     "session": "सत्र",
@@ -382,14 +353,12 @@
     "cancelFailed": "अपॉइंटमेंट रद्द करने में असमर्थ। कृपया पुनः प्रयास करें।",
     "rescheduleFailed": "अपॉइंटमेंट पुनर्निर्धारित करने में असमर्थ। कृपया पुनः प्रयास करें।"
   },
-
   "confirmations": {
     "delete": "क्या आप वाकई इसे हटाना चाहते हैं?",
     "discard": "परिवर्तन छोड़ें?",
     "logout": "क्या आप वाकई लॉग आउट करना चाहते हैं?",
     "cancel": "क्या आप वाकई रद्द करना चाहते हैं?"
   },
-
   "empty": {
     "noData": "कोई डेटा उपलब्ध नहीं।",
     "noResults": "कोई परिणाम नहीं मिला।",
@@ -398,7 +367,6 @@
     "noClients": "कोई ग्राहक नहीं मिला।",
     "noStaff": "कोई स्टाफ सदस्य नहीं मिला।"
   },
-
   "episodes": {
     "episode": "एपिसोड",
     "episodes": "एपिसोड",
@@ -434,5 +402,102 @@
     "episodeUpdated": "एपिसोड सफलतापूर्वक अपडेट किया गया",
     "appointmentLinked": "अपॉइंटमेंट एपिसोड से लिंक किया गया",
     "appointmentUnlinked": "अपॉइंटमेंट एपिसोड से अनलिंक किया गया"
+  },
+  "onboarding": {
+    "progressiveExperience": {
+      "routes": {
+        "prepareClinic": "Prepare Your Clinic",
+        "clinicPreparation": "Clinic Preparation",
+        "reviewStep": "Review Step"
+      },
+      "dashboard": {
+        "finishPreparingClinic": "Finish Preparing Your Clinic",
+        "readinessStepsComplete": "{{completed}} of {{total}} readiness steps complete"
+      },
+      "choice": {
+        "sampleClinicReadyTitle": "Sample Clinic Ready",
+        "sampleClinicReadyMessage": "Your sample clinic is ready with sample data. You can explore Nova without changing your real clinic workspace. Sample access ends in {{durationDays}} days.",
+        "exploreSampleClinic": "Explore Sample Clinic",
+        "startError": "Unable to start clinic preparation. Please try again.",
+        "question": "How would you like to start?",
+        "prepareMyClinic": "Prepare My Clinic",
+        "recommended": "RECOMMENDED",
+        "prepareDescription": "Let Nova prepare your real clinic workspace",
+        "realWorkspace": "Real clinic workspace",
+        "reviewBeforeStart": "Review and personalize before starting",
+        "readyForOperations": "Ready for daily operations",
+        "exploreFeatures": "EXPLORE FEATURES",
+        "sampleDescription": "Explore Nova with sample data",
+        "sampleAccess": "Sample clinic access",
+        "guidedWalkthrough": "Guided product walkthrough",
+        "realClinicSeparate": "Your real clinic is prepared separately",
+        "preparingSampleClinic": "Preparing your sample clinic...",
+        "sampleError": "Unable to create sample clinic. Please try again."
+      },
+      "statusBanner": {
+        "commercialTrialEnded": "Commercial Trial Ended",
+        "trialEndedMessage": "Your clinic data is safely stored. Choose a subscription plan to continue using Nova.",
+        "commercialTrial": "Commercial Trial",
+        "sampleClinic": "Sample Clinic",
+        "sampleAccessEndsIn": "Sample access ends in:",
+        "commercialTrialEndsIn": "Commercial trial ends in:",
+        "extendSampleAccess": "Extend Sample Access",
+        "choosePlan": "Choose Plan",
+        "readyToStart": "Ready to Start",
+        "expired": "Expired"
+      },
+      "flow": {
+        "saveProgressError": "Failed to save preparation progress. Please try again.",
+        "refreshProgressError": "Failed to refresh preparation progress. Please try again.",
+        "exitTitle": "Exit Preparation?",
+        "exitMessage": "You can continue reviewing and personalizing your clinic later from the dashboard.",
+        "treatmentsDescription": "Review your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue preparing your clinic.",
+        "operatingHoursDescription": "Review your clinic operating hours in the full management screen. After setting your hours, return here to continue preparing your clinic.",
+        "roomsDescription": "Review your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue preparing your clinic.",
+        "staffDescription": "Review staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue preparing your clinic.",
+        "inventoryTitle": "Inventory Readiness",
+        "inventoryDescription": "Review your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue preparing your clinic.",
+        "subscriptionTitle": "Subscription Options",
+        "subscriptionDescription": "Review subscription options. Your commercial trial starts after your clinic is Ready to Start.",
+        "reviewSubscription": "Review Subscription",
+        "loadingPreparation": "Loading clinic preparation...",
+        "loadPreparationFailed": "Unable to load clinic preparation",
+        "noPreparationSteps": "No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.",
+        "prepareYourClinic": "Prepare Your Clinic",
+        "readyToStart": "Ready to Start",
+        "backToPreparation": "Back to Preparation",
+        "clinicPreparation": "Clinic Preparation"
+      },
+      "stepLabels": {
+        "clinicProfile": "Clinic Profile",
+        "operatingHours": "Operating Hours",
+        "roomsAndTherapyBeds": "Rooms & Therapy Beds",
+        "staffAndRoles": "Staff & Roles",
+        "inventoryReadiness": "Inventory Readiness",
+        "billingPreferences": "Billing Preferences",
+        "paymentMethods": "Payment Methods",
+        "subscriptionOptions": "Subscription Options",
+        "readyToStart": "Ready to Start",
+        "treatmentsAndTherapies": "Treatments & Therapies"
+      },
+      "stepDetail": {
+        "readyToStartChecklistMessage": "Ready to Start Checklist - This step confirms your clinic is ready to start. Finish the previous preparation steps first."
+      },
+      "readyToStart": {
+        "agreementRequiredTitle": "Agreement Required",
+        "agreementRequiredMessage": "Please agree to the terms and conditions to proceed.",
+        "notReadyTitle": "Clinic Not Ready Yet",
+        "notReadyMessage": "Please finish the previous preparation steps before starting.",
+        "successMessage": "Your clinic is ready to start using Nova.",
+        "errorMessage": "Failed to mark clinic as ready. Please try again.",
+        "title": "Ready to Start",
+        "preparedCount": "Nova has prepared {{completed}} of {{total}} clinic readiness steps",
+        "checklistTitle": "Clinic Readiness Checklist",
+        "confirmAccuracy": "I confirm that all information is accurate and I am ready to start accepting patients",
+        "info": "Once you start, your clinic workspace is ready for appointments, patients, and daily operations.",
+        "successTitle": "Congratulations!",
+        "goToDashboard": "Go to Dashboard"
+      }
+    }
   }
 }
