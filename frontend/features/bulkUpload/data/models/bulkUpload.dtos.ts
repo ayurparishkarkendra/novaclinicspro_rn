@@ -45,6 +45,25 @@ export interface BulkUploadResponse {
   template_used: boolean | null;
 }
 
+/** Field metadata returned with a downloadable template */
+export interface BulkTemplateField {
+  name: string;
+  label: string;
+  required: boolean;
+  field_type: string;
+  description: string | null;
+  enum_values: string[] | null;
+}
+
+/** CSV template response */
+export interface BulkTemplateResponse {
+  entity_type: BulkEntityType;
+  filename: string;
+  content_type: string;
+  csv_content: string;
+  fields: BulkTemplateField[];
+}
+
 /** Job summary */
 export interface JobSummary {
   id: string;
@@ -179,7 +198,7 @@ export const getRequiredFields = (type: BulkEntityType): string[] => {
     clients: ['name', 'phone'],
     treatments: ['name', 'duration_minutes'],
     inventory: ['name'],
-    appointments: ['client_id', 'staff_id', 'start_time'],
+    appointments: ['client_id', 'therapist_ids', 'start_time'],
   };
   return fields[type] || [];
 };
@@ -190,7 +209,7 @@ export const getSampleFields = (type: BulkEntityType): string[] => {
     clients: ['name', 'phone', 'email', 'date_of_birth', 'gender', 'address'],
     treatments: ['name', 'duration_minutes', 'price', 'category', 'description'],
     inventory: ['name', 'brand', 'category', 'unit', 'price', 'reorder_point'],
-    appointments: ['client_id', 'staff_id', 'treatment_id', 'start_time', 'end_time', 'notes'],
+    appointments: ['client_id', 'doctor_id', 'therapist_ids', 'treatment_id', 'start_time', 'end_time', 'notes'],
   };
   return fields[type] || [];
 };

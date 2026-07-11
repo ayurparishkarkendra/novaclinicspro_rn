@@ -24,6 +24,7 @@ export interface CasesheetCreateRequest {
   template_id?: string;
   appointment_id?: string;
   encounter_id?: string;
+  episode_id?: string; // Added: Link casesheet to episode directly
 }
 
 /** Update casesheet request */
@@ -56,6 +57,8 @@ export interface CasesheetResponse {
   client_id: string;
   template_id: string | null;
   appointment_id: string | null;
+  episode_id: string | null;
+  treatment_sheet_id: string | null; // ID of associated treatment sheet (if exists)
   chief_complaint: string | null;
   provisional_diagnosis: string | null;
   final_diagnosis: string | null;

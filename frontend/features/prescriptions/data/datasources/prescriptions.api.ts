@@ -15,6 +15,7 @@ import {
   PrescriptionListResponse,
   PrescriptionShareResponse,
   ListPrescriptionsParams,
+  PrescriptionPrintResponse,
 } from '../models/prescriptions.dtos';
 
 /**
@@ -25,9 +26,16 @@ export const listPrescriptionsApi = async (
   tenantId: string,
   params?: ListPrescriptionsParams
 ): Promise<PrescriptionListResponse> => {
+  const requestParams = {
+    ...params,
+    start_date: params?.from_date,
+    end_date: params?.to_date,
+    from_date: undefined,
+    to_date: undefined,
+  };
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/prescriptions`,
-    { params }
+    { params: requestParams }
   );
   return response.data;
 };
@@ -102,6 +110,20 @@ export const sharePrescriptionApi = async (
   const response = await axiosClient.post(
     `/api/v1/clinic/${tenantId}/prescriptions/${prescriptionId}/share`,
     payload
+  );
+  return response.data;
+};
+
+/**
+ * Get structured prescription print payload with clinic branding
+ * GET /api/v1/clinic/{tenant_id}/prescriptions/{prescription_id}/print
+ */
+export const getPrescriptionPrintApi = async (
+  tenantId: string,
+  prescriptionId: string
+): Promise<PrescriptionPrintResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/prescriptions/${prescriptionId}/print`
   );
   return response.data;
 };

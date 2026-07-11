@@ -9,6 +9,7 @@ import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   BulkEntityType,
   BulkUploadResponse,
+  BulkTemplateResponse,
   JobSummary,
   ValidationSummary,
   CommitResult,
@@ -43,6 +44,17 @@ export const bulkUploadFileApi = async (
       },
     }
   );
+  return response.data;
+};
+
+/**
+ * Download the backend-defined CSV template for an entity type
+ * GET /api/v1/bulk/{entity_type}/template
+ */
+export const getBulkTemplateApi = async (
+  entityType: BulkEntityType
+): Promise<BulkTemplateResponse> => {
+  const response = await axiosClient.get(`/api/v1/bulk/${entityType}/template`);
   return response.data;
 };
 

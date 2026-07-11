@@ -51,7 +51,7 @@ const STAFF_TYPE_FILTERS: (StaffType | 'all')[] = [
   'admin',
 ];
 
-const STATUS_FILTERS = ['all', 'active', 'inactive'] as const;
+const STATUS_FILTERS = ['active', 'inactive'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
 // Minimum characters before triggering search
@@ -67,7 +67,7 @@ export const StaffListScreen: React.FC = () => {
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<StaffType | 'all'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('active');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Debounce search query - only trigger API call after user stops typing
@@ -81,7 +81,7 @@ export const StaffListScreen: React.FC = () => {
   // Build query params based on filters (for list API when not searching)
   const queryParams = useMemo(() => ({
     staff_type: selectedType === 'all' ? undefined : selectedType,
-    is_active: selectedStatus === 'all' ? undefined : selectedStatus === 'active',
+    is_active: selectedStatus === 'active',
     limit: 100, // Load more to enable client-side filtering
   }), [selectedType, selectedStatus]);
 
@@ -128,8 +128,8 @@ export const StaffListScreen: React.FC = () => {
     }
     
     // Apply status filter (when using search API)
-    if (effectiveSearchQuery && selectedStatus !== 'all') {
-      staff = staff.filter(s => 
+    if (effectiveSearchQuery) {
+      staff = staff.filter(s =>
         selectedStatus === 'active' ? s.is_active : !s.is_active
       );
     }
@@ -155,7 +155,13 @@ export const StaffListScreen: React.FC = () => {
         setShowAddModal(false);
         Alert.alert(t('common.success'), t('success.created'));
       } catch (err: any) {
-        Alert.alert(t('common.error'), err.message || t(ErrorTokens.staff.createFailed));
+        const message =
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.response?.data?.detail ||
+          err?.message ||
+          t(ErrorTokens.staff.createFailed);
+        Alert.alert(t('common.error'), message);
       }
     },
     [createMutation]
@@ -176,7 +182,13 @@ export const StaffListScreen: React.FC = () => {
                 await deleteMutation.mutateAsync(staffId);
                 Alert.alert('Success', 'Staff member deleted');
               } catch (err: any) {
-                Alert.alert('Error', err.message || 'Failed to delete staff');
+                const message =
+                  err?.response?.data?.error ||
+                  err?.response?.data?.message ||
+                  err?.response?.data?.detail ||
+                  err?.message ||
+                  'Failed to delete staff';
+                Alert.alert('Error', message);
               }
             },
           },
@@ -225,7 +237,7 @@ export const StaffListScreen: React.FC = () => {
                     selectedStatus === status && styles.filterChipTextSelected,
                   ]}
                 >
-                  {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -274,15 +286,7 @@ export const StaffListScreen: React.FC = () => {
           ? 'Try adjusting your search or filters'
           : 'Add your first staff member to get started'}
       </Text>
-      {!searchQuery && (
-        <TouchableOpacity
-          style={styles.emptyButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <Ionicons name="add" size={20} color={colors.background.default} />
-          <Text style={styles.emptyButtonText}>Add Staff</Text>
-        </TouchableOpacity>
-      )}
+
     </View>
   );
 

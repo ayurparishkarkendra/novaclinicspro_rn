@@ -16,6 +16,7 @@ import {
   rejectLeaveApi,
   cancelLeaveApi,
   searchStaffApi,
+  listAllStaffLeaveApi,
 } from '../datasources/staff.api';
 import {
   StaffCreate,
@@ -176,6 +177,24 @@ export const useCreateLeaveMutation = (tenantId: string, staffId: string) => {
 /**
  * Hook to approve a leave request
  */
+/**
+ * Hook to list all leave requests across all staff (admin view)
+ * Uses the tenant-level endpoint — no staffId required
+ */
+export const useAllStaffLeaveListQuery = (
+  tenantId: string,
+  params?: ListStaffLeaveParams,
+  options?: Omit<UseQueryOptions<PaginatedLeaveResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<PaginatedLeaveResponse, Error>({
+    queryKey: [...staffKeys.leaves(), tenantId, 'all', params] as const,
+    queryFn: () => listAllStaffLeaveApi(tenantId, params),
+    enabled: !!tenantId,
+    staleTime: 30_000,
+    ...options,
+  });
+};
+
 export const useApproveLeaveMutation = (tenantId: string) => {
   const queryClient = useQueryClient();
 

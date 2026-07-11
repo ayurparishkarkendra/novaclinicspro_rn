@@ -28,25 +28,36 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { treatmentOrderKeys } from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useOperatingHoursListQuery } from '../../../operatingHours/data/repositories/operatingHours.repository.impl';
 import {
   useCreateAppointmentMutation,
   useGenerateTherapyPlanMutation,
+  useBulkCreateAppointmentsMutation,
 } from '../../data/repositories/appointments.repository.impl';
 import {
   AppointmentCreate,
+  BulkAppointmentItem,
+  BulkCreateRequest,
+} from '../../data/models/appointments.dtos';
+import {
   openWhatsApp,
   generateWhatsAppSeriesMessage,
-} from '../../data/models/appointments.dtos';
-import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
+} from '../../domain/helpers';
+import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
+import { buildInitialEffectiveTimes } from '../../utils/previewEffectiveTimes';
 // Import centralized date/time utils
 import {
   formatDate,
@@ -57,6 +68,7 @@ import {
   extractTimePattern,
   extractHour,
   extractMinute,
+  buildLocalTimeISO,
 } from '../../../../core/utils/dateTimeUtils';
 
 // ============================================
@@ -71,6 +83,7 @@ interface EffectiveTime {
   start: string;
   end: string;
   staff_id: string | null;
+  staff_ids: string[];           // all assigned therapist ids
   staff_name: string | null;
   room_id: string | null;
   room_name: string | null;
@@ -99,6 +112,27 @@ const safeFormatDate = formatDate;
 const safeFormatTime = formatTime;
 const safeFormatDayOfWeek = formatDayOfWeek;
 const safeFormatShortDate = formatShortDate;
+
+/**
+ * Format time from ISO string
+ * The axios interceptor converts backend UTC times to local ISO strings (without Z)
+ * This function parses the local ISO string and formats it for display
+ */
+const formatLocalTime = (isoString: string): string => {
+  if (!isoString) return '—';
+  
+  // Parse ISO string to Date object
+  // If it has Z suffix (UTC), Date constructor converts to local
+  // If no Z suffix (local ISO from interceptor), Date constructor treats as local
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '—';
+  
+  // Get local time components
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  
+  return formatTimeFromParts(hour, minute);
+};
 
 // ============================================
 // STAFF ASSIGNMENT TYPE (matching backend)
@@ -133,14 +167,14 @@ interface AlternativeSlot {
 // ============================================
 // SESSION DATA TYPE - Updated per API spec
 // ============================================
-
 interface SessionData {
   session_number: number;
   appointment_start: string;
   appointment_end: string;
-  staff_id: string | null;
-  staff_name: string | null;  // Deprecated - use staff_assignments
-  staff_assignments?: StaffAssignment[] | null;  // All assigned therapists
+  doctor_id?: string | null;
+  therapist_ids?: string[];
+  staff_name: string | null;
+  staff_assignments?: StaffAssignment[] | null;
   room_id: string | null;
   room_name: string | null;
   is_conflicted: boolean;
@@ -332,14 +366,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </Text>
           </View>
           <Text style={styles.sessionTime}>
-            {safeFormatTime(displayStartTime)} - {safeFormatTime(displayEndTime)}
-          </Text>
-          {/* Display therapist - BUG FIX #1: No duplicate "Unassigned" */}
-          <Text style={[
-            styles.sessionStaff,
-            hasConflict && !isResolved && styles.sessionStaffConflict,
-          ]}>
-            {displayStaffName}
+            {formatLocalTime(displayStartTime)} - {formatLocalTime(displayEndTime)}
           </Text>
           {/* Display room name */}
           <Text style={styles.sessionRoom}>
@@ -397,7 +424,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   >
                     <View style={styles.alternativeContent}>
                       <Text style={[styles.alternativeTime, isSelected && styles.alternativeTextSelected]}>
-                        {safeFormatTime(alt.start)} - {safeFormatTime(alt.end)}
+                        {formatLocalTime(alt.start)} - {formatLocalTime(alt.end)}
                       </Text>
                       <Text style={[styles.alternativeStaff, isSelected && styles.alternativeTextSelected]}>
                         {firstStaff?.full_name || t('common.therapist') || 'Therapist'}
@@ -438,20 +465,35 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <TouchableOpacity
               style={[
                 styles.customTimeRow,
-                effectiveTime.is_resolved && styles.customTimeRowSelected,
+                effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start)) &&
+                  styles.customTimeRowSelected,
               ]}
               onPress={() => onOpenCustomTimePicker?.(session.session_number)}
               data-testid={`custom-time-${session.session_number}`}
             >
-              <Ionicons name="time-outline" size={18} color={colors.primary.main} />
+              <Ionicons 
+                name={effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start))
+                  ? "checkmark-circle" 
+                  : "time-outline"
+                } 
+                size={18} 
+                color={effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start))
+                  ? colors.success.main
+                  : colors.primary.main
+                } 
+              />
               <View style={styles.customTimeContent}>
                 <Text style={styles.customTimeText}>
                   {t('appointments.chooseDifferentTime') || 'Choose a different time…'}
                 </Text>
                 {/* BUG FIX #7: Show the selected custom time if one was chosen */}
-                {effectiveTime.is_resolved && alternativeSlots.length === 0 && (
+                {effectiveTime.is_resolved && 
+                  alternativeSlots.every(alt => extractTimePattern(alt.start) !== extractTimePattern(effectiveTime.start)) && (
                   <Text style={styles.customTimeSelectedText}>
-                    {t('appointments.selectedTime') || 'Selected'}: {safeFormatTime(effectiveTime.start)}
+                    {t('appointments.selectedTime') || 'Selected'}: {formatLocalTime(effectiveTime.start)} - {formatLocalTime(effectiveTime.end)}
                   </Text>
                 )}
               </View>
@@ -477,7 +519,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     clientPhone: string;
     treatmentId: string;
     treatmentName: string;
-    staffIds: string;
+    doctorId?: string;
+    therapistIds: string;
     staffNames: string;
     startDate: string;
     durationDays: string;
@@ -486,9 +529,13 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     preferredTimeMinutesLocal: string;
     durationMinutes: string;
     notes: string;
+    treatmentSheetId?: string; // Added for treatment sheet sync
+    episodeId?: string; // Added for episode linking
+    caseSheetId?: string; // Added for casesheet linking
   }>();
   const { currentUser } = useAuth();
   const tenantId = currentUser?.tenantId || '';
+  const queryClient = useQueryClient();
 
   // ============================================
   // STATE - SINGLE SOURCE OF TRUTH
@@ -496,6 +543,9 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   
   // Raw sessions from API (immutable after fetch)
   const [sessions, setSessions] = useState<SessionData[]>([]);
+  
+  // Series ID from therapy plan response (used for bulk create)
+  const [seriesId, setSeriesId] = useState<string | null>(null);
   
   // SINGLE SOURCE OF TRUTH: effectiveTimes indexed by session_number
   // This is the ONLY place to read session times from
@@ -511,13 +561,21 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
   // #7: Custom Time Picker State
   const [customTimePickerSession, setCustomTimePickerSession] = useState<number | null>(null);
-  const [customTimePickerDate, setCustomTimePickerDate] = useState<Date>(new Date());
   const [showCustomTimePicker, setShowCustomTimePicker] = useState(false);
   const [isValidatingCustomTime, setIsValidatingCustomTime] = useState(false);
+  const [validationToast, setValidationToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ visible: false, message: '', type: 'success' });
 
   // Mutations
   const createMutation = useCreateAppointmentMutation(tenantId);
+  const bulkCreateMutation = useBulkCreateAppointmentsMutation();
   const generatePlanMutation = useGenerateTherapyPlanMutation();
+  
+  // Operating hours for validation
+  const { data: operatingHoursData } = useOperatingHoursListQuery(tenantId);
 
   // Extract params with fallbacks
   const clientId = params.clientId || '';
@@ -526,22 +584,43 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   const clientPhone = params.clientPhone || '';
   const treatmentId = params.treatmentId || '';
   const treatmentName = params.treatmentName || t('common.therapy');
-  const staffIdsStr = params.staffIds || '';
+  const doctorId = params.doctorId || '';
+  const therapistIdsStr = params.therapistIds || '';
   const staffNames = params.staffNames || '';
   const startDateStr = params.startDate || new Date().toISOString();
   const durationDays = parseInt(params.durationDays || '7', 10);
   
-  // Per THERAPY_PLAN_TIME_HANDLING.md: Extract time from startDateStr (not from separate preferredTimeHour param)
-  // The startDateStr contains LOCAL time in ISO format (e.g., "2026-02-15T16:43:00Z")
-  const timeMatch = startDateStr.match(/T(\d{2}):(\d{2})/);
-  const preferredTimeHourLocal = timeMatch ? parseInt(timeMatch[1], 10) : parseInt(params.preferredTimeHourLocal || '10', 10);
-  const preferredTimeMinutesLocal = timeMatch ? parseInt(timeMatch[2], 10) : parseInt(params.preferredTimeMinutesLocal || '0', 10);
+  // Use the local time params passed from CreateAppointmentScreen
+  // These represent the user's selected time in their local timezone
+  const preferredTimeHourLocal = parseInt(params.preferredTimeHourLocal || '10', 10);
+  const preferredTimeMinutesLocal = parseInt(params.preferredTimeMinutesLocal || '0', 10);
   
   const durationMinutes = parseInt(params.durationMinutes || '60', 10);
   const notes = params.notes || '';
+  const treatmentSheetId = params.treatmentSheetId; // Extract treatmentSheetId
+  const episodeId = params.episodeId; // Extract episodeId
+  const caseSheetId = params.caseSheetId; // Extract caseSheetId
 
-  // Parse staffIds once
-  const staffIds = useMemo(() => staffIdsStr.split(',').filter(Boolean), [staffIdsStr]);
+  // Parse therapistIds once
+  const therapistIds = useMemo(() => therapistIdsStr.split(',').filter(Boolean), [therapistIdsStr]);
+
+  // Log params on mount to verify treatmentSheetId is received
+  useEffect(() => {
+    console.log('[PreviewAppointmentsScreen] Received params:', {
+      clientId,
+      treatmentId,
+      doctorId,
+      therapistIds,
+      startDateStr,
+      durationDays,
+      treatmentSheetId,
+      episodeId,
+      caseSheetId,
+      hasTreatmentSheetId: !!treatmentSheetId,
+      hasEpisodeId: !!episodeId,
+      hasCaseSheetId: !!caseSheetId,
+    });
+  }, [clientId, treatmentId, doctorId, therapistIds, startDateStr, durationDays, treatmentSheetId, episodeId, caseSheetId]);
 
   // ============================================
   // COMPUTE PLAN-LEVEL ALTERNATIVES
@@ -607,31 +686,10 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // ============================================
   
   const initializeEffectiveTimes = useCallback((newSessions: SessionData[]) => {
-    const newEffectiveTimes = new Map<number, EffectiveTime>();
-    
-    newSessions.forEach(session => {
-      // Get staff info
-      let staffId = session.staff_id;
-      let staffName = session.staff_name;
-      
-      if (session.staff_assignments && session.staff_assignments.length > 0) {
-        staffId = session.staff_assignments[0].id;
-        staffName = session.staff_assignments.map(s => s.name).join(', ');
-      }
-      
-      newEffectiveTimes.set(session.session_number, {
-        start: session.appointment_start,
-        end: session.appointment_end,
-        staff_id: staffId,
-        staff_name: staffName,
-        room_id: session.room_id,
-        room_name: session.room_name,
-        is_resolved: !session.is_conflicted, // Non-conflicted sessions are already resolved
-      });
-    });
-    
-    setEffectiveTimes(newEffectiveTimes);
-  }, []);
+    setEffectiveTimes(
+      buildInitialEffectiveTimes(newSessions, therapistIds, staffNames) as Map<number, EffectiveTime>
+    );
+  }, [therapistIds, staffNames]);
 
   // ============================================
   // BACKEND-DRIVEN SESSION GENERATION
@@ -639,7 +697,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   
   useEffect(() => {
     if (hasFetched) return;
-    if (!clientId || !treatmentId || staffIds.length === 0) return;
+    if (!clientId || !treatmentId || therapistIds.length === 0) return;
 
     const fetchTherapyPlan = async () => {
       setHasFetched(true);
@@ -648,8 +706,17 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         console.log('[PreviewAppointments] Fetching therapy plan with:', {
           client_id: clientId,
           treatment_id: treatmentId,
-          staff_ids: staffIds,
+          doctor_id: doctorId || undefined,
+          therapist_ids: therapistIds,
           start_date: startDateStr,
+          start_date_parsed: new Date(startDateStr).toLocaleString('en-IN'),
+          start_date_components: {
+            year: startDateStr.match(/^(\d{4})/)?.[1],
+            month: startDateStr.match(/-(\d{2})-/)?.[1],
+            day: startDateStr.match(/-(\d{2})T/)?.[1],
+            hour: startDateStr.match(/T(\d{2}):/)?.[1],
+            minute: startDateStr.match(/:(\d{2}):/)?.[1],
+          },
           duration_days: durationDays,
           // NOTE: NOT sending preferred_time_hour - backend extracts time from start_date
         });
@@ -660,7 +727,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         const response = await generatePlanMutation.mutateAsync({
           client_id: clientId,
           treatment_id: treatmentId,
-          staff_ids: staffIds,
+          doctor_id: doctorId || undefined,
+          therapist_ids: therapistIds,
           start_date: startDateStr,
           duration_days: durationDays,
           // DO NOT send preferred_time_hour - backend uses start_date time
@@ -668,16 +736,32 @@ export const PreviewAppointmentsScreen: React.FC = () => {
 
         console.log('[PreviewAppointments] Backend response:', JSON.stringify(response, null, 2));
 
+        // Capture series_id from therapy plan response
+        if (response.series_id) {
+          setSeriesId(response.series_id);
+          console.log('[PreviewAppointments] Captured series_id from therapy plan:', response.series_id);
+        }
+
         if (response.client_name) {
           setApiClientName(response.client_name);
         }
 
         if (response.sessions && response.sessions.length > 0) {
+          console.log('[PreviewAppointments] First session from backend:', {
+            session_number: response.sessions[0].session_number,
+            appointment_start: response.sessions[0].appointment_start,
+            appointment_end: response.sessions[0].appointment_end,
+            is_conflicted: response.sessions[0].is_conflicted,
+          });
+          
           const mappedSessions: SessionData[] = response.sessions.map((session: any) => ({
             session_number: session.session_number,
             appointment_start: session.appointment_start,
             appointment_end: session.appointment_end,
             staff_id: session.staff_id,
+            therapist_ids: session.therapist_ids && session.therapist_ids.length > 0
+              ? session.therapist_ids
+              : therapistIds,
             staff_name: session.staff_name || null,
             staff_assignments: session.staff_assignments || null,
             room_id: session.room_id,
@@ -699,7 +783,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     };
 
     fetchTherapyPlan();
-  }, [hasFetched, clientId, treatmentId, staffIds, startDateStr, durationDays, initializeEffectiveTimes]);
+  }, [hasFetched, clientId, treatmentId, doctorId, therapistIds, startDateStr, durationDays, initializeEffectiveTimes]);
 
   // ============================================
   // ALTERNATIVE SELECTION HANDLERS
@@ -722,7 +806,8 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         start: alt.start,
         end: alt.end,
         staff_id: firstStaff?.staff_id || null,
-        staff_name: firstStaff?.full_name || null,
+        staff_ids: alt.available_staff?.map(s => s.staff_id) || [],
+        staff_name: alt.available_staff?.map(s => s.full_name).join(', ') || null,
         room_id: firstRoom?.room_id || null,
         room_name: firstRoom?.name || null,
         is_resolved: true,
@@ -757,14 +842,14 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         );
         
         if (matchingAlt) {
-          const firstStaff = matchingAlt.available_staff?.[0];
           const firstRoom = matchingAlt.available_rooms?.[0];
           
           newMap.set(sessionNumber, {
             start: matchingAlt.start,
             end: matchingAlt.end,
-            staff_id: firstStaff?.staff_id || null,
-            staff_name: firstStaff?.full_name || null,
+            staff_id: matchingAlt.available_staff?.[0]?.staff_id || null,
+            staff_ids: matchingAlt.available_staff?.map(s => s.staff_id) || [],
+            staff_name: matchingAlt.available_staff?.map(s => s.full_name).join(', ') || null,
             room_id: firstRoom?.room_id || null,
             room_name: firstRoom?.name || null,
             is_resolved: true,
@@ -783,28 +868,20 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // ============================================
 
   const handleOpenCustomTimePicker = useCallback((sessionNumber: number) => {
-    const session = sessions.find(s => s.session_number === sessionNumber);
-    if (!session) return;
-
-    // Initialize picker with session date and preferred time
-    const sessionDate = new Date(session.appointment_start);
-    sessionDate.setHours(preferredTimeHourLocal, preferredTimeMinutesLocal, 0, 0);
-    
     setCustomTimePickerSession(sessionNumber);
-    setCustomTimePickerDate(sessionDate);
     setShowCustomTimePicker(true);
-  }, [sessions, preferredTimeHourLocal, preferredTimeMinutesLocal]);
+  }, []);
 
-  const handleCustomTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowCustomTimePicker(false);
+  const handleCustomTimeChange = useCallback(async (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowCustomTimePicker(false);
+    
+    // User cancelled
+    if (event.type === 'dismissed' || !selectedDate) {
+      setCustomTimePickerSession(null);
+      return;
     }
-    if (selectedDate) {
-      setCustomTimePickerDate(selectedDate);
-    }
-  };
 
-  const handleConfirmCustomTime = useCallback(async () => {
+    // User selected a time - validate it immediately
     if (customTimePickerSession === null) return;
 
     const session = sessions.find(s => s.session_number === customTimePickerSession);
@@ -813,80 +890,113 @@ export const PreviewAppointmentsScreen: React.FC = () => {
     setIsValidatingCustomTime(true);
 
     try {
-      // Build custom time slot from picker
+      const pickerHours = selectedDate.getHours();
+      const pickerMinutes = selectedDate.getMinutes();
+      
+      // Build ISO string with LOCAL time preserved (not converted to UTC)
       const sessionDate = new Date(session.appointment_start);
-      const pickerHours = customTimePickerDate.getHours();
-      const pickerMinutes = customTimePickerDate.getMinutes();
+      const startDateTimeISO = buildLocalTimeISO(sessionDate, selectedDate);
       
-      // Build ISO start/end using session date + picker time
-      const startDate = new Date(sessionDate);
-      startDate.setHours(pickerHours, pickerMinutes, 0, 0);
-      
-      const endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + durationMinutes);
+      // Calculate end time
+      const endTime = new Date(selectedDate);
+      endTime.setMinutes(endTime.getMinutes() + durationMinutes);
+      const endDateTimeISO = buildLocalTimeISO(sessionDate, endTime);
 
-      // For custom time validation, we'll check available slots for that date
-      const dateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = new Date(startDate.getTime() + 86400000).toISOString().split('T')[0]; // Next day
-      
-      const validationResult = await getAvailableSlotsApi({
-        start_date: dateStr,
-        end_date: endDateStr,
-        treatment_id: treatmentId,
-        duration_minutes: durationMinutes,
+      console.log('[CustomTime] Validating custom time:', {
+        session: customTimePickerSession,
+        requestedTime: `${pickerHours}:${pickerMinutes}`,
+        startDateTime: startDateTimeISO,
+        endDateTime: endDateTimeISO,
       });
 
-      // Check if requested time is available in returned slots
-      const requestedHour = pickerHours;
-      const requestedMinute = pickerMinutes;
-      const isTimeAvailable = validationResult.slots?.some(slot => {
-        // AvailableSlot uses 'start' not 'start_time'
-        const slotHour = extractHour(slot.start);
-        const slotMinute = extractMinute(slot.start);
-        return slotHour === requestedHour && slotMinute === requestedMinute;
-      }) || validationResult.slots?.length === 0; // If no specific slots returned, assume valid
+      // Call therapy plan API with the new start time to validate
+      const validationResponse = await generatePlanMutation.mutateAsync({
+        client_id: clientId,
+        treatment_id: treatmentId,
+        doctor_id: doctorId || undefined,
+        therapist_ids: therapistIds,
+        start_date: startDateTimeISO,
+        duration_days: durationDays,
+      });
 
-      if (isTimeAvailable || validationResult.slots === undefined) {
-        // Update effectiveTimes with custom selection
-        setEffectiveTimes(prevMap => {
-          const newMap = new Map(prevMap);
-          newMap.set(customTimePickerSession, {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            staff_id: staffIds[0] || null,
-            staff_name: staffNames || null,
-            room_id: null,
-            room_name: null,
-            is_resolved: true,
-          });
-          return newMap;
-        });
-
-        console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
-        
-        setShowCustomTimePicker(false);
-        setCustomTimePickerSession(null);
-      } else {
-        Alert.alert(
-          t('common.error') || 'Error',
-          t('appointments.timeNotAvailable') || 'Selected time is not available. Please choose another time.'
-        );
-      }
-    } catch (error) {
-      console.error('[CustomTime] Validation failed:', error);
-      Alert.alert(
-        t('common.error') || 'Error',
-        t('appointments.validationFailed') || 'Could not validate the selected time. Please try again.'
+      // Find the corresponding session in the validation response
+      const validatedSession = validationResponse.sessions?.find(
+        (s: any) => s.session_number === customTimePickerSession
       );
+
+      if (!validatedSession) {
+        throw new Error('Session not found in validation response');
+      }
+
+      // Check if the custom time has conflicts
+      if (validatedSession.is_conflicted) {
+        console.log('[CustomTime] Custom time has conflicts:', validatedSession.conflict);
+        
+        // Show error toast
+        setValidationToast({
+          visible: true,
+          message: validatedSession.conflict?.message || 'Selected time is not available',
+          type: 'error',
+        });
+        
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+          setValidationToast({ visible: false, message: '', type: 'success' });
+        }, 3000);
+        
+        return;
+      }
+
+      // Time is available - update effectiveTimes
+      setEffectiveTimes(prevMap => {
+        const newMap = new Map(prevMap);
+        newMap.set(customTimePickerSession, {
+          start: validatedSession.appointment_start,
+          end: validatedSession.appointment_end,
+          staff_id: validatedSession.staff_id || therapistIds[0] || null,
+          staff_ids: therapistIds,
+          staff_name: staffNames || null,
+          room_id: validatedSession.room_id || null,
+          room_name: null,
+          is_resolved: true,
+        });
+        return newMap;
+      });
+
+      console.log(`[CustomTime] Applied custom time ${pickerHours}:${pickerMinutes} to session ${customTimePickerSession}`);
+      
+      // Show success toast
+      setValidationToast({
+        visible: true,
+        message: `Time ${formatTimeFromParts(pickerHours, pickerMinutes)} is available!`,
+        type: 'success',
+      });
+      
+      // Hide toast after 2 seconds
+      setTimeout(() => {
+        setValidationToast({ visible: false, message: '', type: 'success' });
+      }, 2000);
+      
+      // Clear global selection since user picked custom time
+      setSelectedGlobalPattern(null);
+    } catch (error: any) {
+      console.error('[CustomTime] Validation failed:', error);
+      
+      // Show error toast
+      setValidationToast({
+        visible: true,
+        message: 'Could not validate the selected time. Please try again.',
+        type: 'error',
+      });
+      
+      setTimeout(() => {
+        setValidationToast({ visible: false, message: '', type: 'success' });
+      }, 3000);
     } finally {
       setIsValidatingCustomTime(false);
+      setCustomTimePickerSession(null);
     }
-  }, [customTimePickerSession, customTimePickerDate, sessions, tenantId, treatmentId, durationMinutes, staffIds, staffNames, t]);
-
-  const handleCancelCustomTimePicker = useCallback(() => {
-    setShowCustomTimePicker(false);
-    setCustomTimePickerSession(null);
-  }, []);
+  }, [customTimePickerSession, sessions, clientId, treatmentId, doctorId, therapistIds, staffNames, durationDays, durationMinutes, generatePlanMutation]);
 
   // ============================================
   // DERIVED STATE (from single source of truth)
@@ -935,37 +1045,156 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       return;
     }
 
+    // TASK 4: Frontend validation for first appointment
+    const operatingHours = operatingHoursData?.items || [];
+    const firstSession = sessions[0];
+    if (firstSession) {
+      const firstEffective = effectiveTimes.get(firstSession.session_number);
+      if (firstEffective) {
+        console.log('[PreviewScreen] First effective time:', firstEffective.start);
+        
+        // Parse ISO string as LOCAL time (not UTC)
+        // The backend sends local time with Z suffix, so we need to parse it correctly
+        const isoStr = firstEffective.start;
+        const match = isoStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+        if (!match) {
+          console.error('[PreviewScreen] Invalid ISO format:', isoStr);
+          return;
+        }
+        
+        const [, year, month, day, hour, minute, second] = match;
+        const startDateTime = new Date(
+          parseInt(year),
+          parseInt(month) - 1, // JS months are 0-indexed
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute),
+          parseInt(second)
+        );
+        
+        console.log('[PreviewScreen] Parsed Date object:', {
+          iso: startDateTime.toISOString(),
+          local: startDateTime.toLocaleString('en-IN'),
+          hours: startDateTime.getHours(),
+          minutes: startDateTime.getMinutes(),
+        });
+        const validationResult = validateAppointmentTime(startDateTime, operatingHours);
+        
+        if (validationResult.hasWarnings) {
+          const message = formatValidationMessage(validationResult);
+          
+          // Show confirmation dialog
+          Alert.alert(
+            'Booking Warning',
+            message + '\n\nThis applies to the first appointment. Do you want to proceed with all appointments?',
+            [
+              { text: 'No, Cancel', style: 'cancel' },
+              { 
+                text: 'Yes, Proceed', 
+                onPress: () => proceedWithMultiDayBooking(validationResult)
+              }
+            ]
+          );
+          return;
+        }
+      }
+    }
+    
+    // No warnings - proceed directly
+    await proceedWithMultiDayBooking({
+      hasWarnings: false,
+      isPast: false,
+      isOutsideOperatingHours: false,
+      isDuringBreak: false,
+      isOnWeeklyOff: false,
+      warnings: [],
+    });
+  };
+  
+  // Extract booking logic into separate function
+  const proceedWithMultiDayBooking = async (validationResult: ValidationResult) => {
     setIsCreating(true);
-    let createdCount = 0;
-    const errors: string[] = [];
 
     try {
-      // Create appointments using EFFECTIVE TIMES (single source of truth)
-      for (const session of sessions) {
-        const effective = effectiveTimes.get(session.session_number);
-        if (!effective) continue;
+      // Verify we have a series_id from the therapy plan
+      if (!seriesId) {
+        throw new Error('No series_id available. Please refresh and try again.');
+      }
+      
+      console.log('[PreviewScreen] Creating bulk appointments with series_id from therapy plan:', seriesId);
 
-        const payload: AppointmentCreate = {
+      // Build bulk appointment items using EFFECTIVE TIMES (single source of truth)
+      const appointmentItems: BulkAppointmentItem[] = sessions.map(session => {
+        const effective = effectiveTimes.get(session.session_number);
+        if (!effective) {
+          throw new Error(`No effective time found for session ${session.session_number}`);
+        }
+
+        return {
           client_id: clientId,
-          staff_id: effective.staff_id || staffIds[0],
+          doctor_id: doctorId || undefined,
+          therapist_ids: effective.staff_ids.length > 0 ? effective.staff_ids : therapistIds,
+          room_id: effective.room_id || undefined,
           treatment_id: treatmentId,
           appointment_start: effective.start,
           appointment_end: effective.end,
           status: 'scheduled',
+          session_number: session.session_number,
           notes: notes || `${t('appointments.session')} ${session.session_number} of ${sessions.length}`,
-          appointment_type: 'MULTI',
+          // Link to episode, casesheet, and treatment sheet
+          episode_id: episodeId || undefined,
+          case_sheet_id: caseSheetId || undefined,
+          treatment_sheet_id: treatmentSheetId || undefined,
+          // Add validation flags (apply to all appointments in series)
+          is_past_booking: validationResult.isPast,
+          is_outside_operating_hours: validationResult.isOutsideOperatingHours,
+          is_during_break_time: validationResult.isDuringBreak,
+          is_on_weekly_off: validationResult.isOnWeeklyOff,
         };
+      });
 
-        try {
-          await createMutation.mutateAsync(payload);
-          createdCount++;
-        } catch (err: any) {
-          errors.push(`${t('appointments.session')} ${session.session_number}: ${err.message || t('common.failed')}`);
-        }
-      }
+      // Call bulk create API with series_id from therapy plan
+      const bulkPayload: BulkCreateRequest = {
+        series_id: seriesId, // Use series_id from therapy plan response
+        appointments: appointmentItems,
+      };
 
-      // Show result - use modal on web for reliable button handling
-      if (createdCount === sessions.length) {
+      console.log('[PreviewScreen] Bulk create payload:', {
+        series_id: seriesId,
+        appointment_count: appointmentItems.length,
+        therapist_ids_by_session: appointmentItems.map(item => ({
+          session_number: item.session_number,
+          therapist_ids: item.therapist_ids,
+        })),
+        has_episode_id: !!episodeId,
+        has_case_sheet_id: !!caseSheetId,
+        has_treatment_sheet_id: !!treatmentSheetId,
+      });
+
+      const bulkResponse = await bulkCreateMutation.mutateAsync(bulkPayload);
+      
+      console.log('[PreviewScreen] Bulk create response:', {
+        full_response: JSON.stringify(bulkResponse),
+        total_created: bulkResponse.total_created,
+        expected: sessions.length,
+      });
+
+      if (bulkResponse.total_created === sessions.length) {
+        console.log('[PreviewScreen] All appointments created successfully. Backend links treatment sheet rows inline:', {
+          treatmentSheetId,
+          seriesId,
+          expectedSessions: sessions.length,
+        });
+
+        // Invalidate treatment orders so admin worklist and doctor pending-docs widget refresh
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.worklists(tenantId), exact: false }),
+          queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.pendingDocumentation(tenantId, 'doctor') }),
+          ...(treatmentSheetId
+            ? [queryClient.invalidateQueries({ queryKey: treatmentOrderKeys.detail(treatmentSheetId) })]
+            : []),
+        ]);
+
         let whatsappUrl: string | null = null;
         if (clientPhone) {
           const firstEffective = effectiveTimes.get(1);
@@ -981,51 +1210,81 @@ export const PreviewAppointmentsScreen: React.FC = () => {
           whatsappUrl = openWhatsApp(clientPhone, message);
         }
         
+        // Determine navigation target based on user role
+        // Navigate to role-specific dashboard
+        const userRole = currentUser?.roles?.[0];
+        let navigationTarget: any;
+        
+        if (userRole === 'doctor') {
+          navigationTarget = '/doctor' as any;
+        } else if (userRole === 'therapist') {
+          navigationTarget = '/therapist' as any;
+        } else {
+          // clinic_admin, receptionist - go to their dashboard
+          navigationTarget = '/clinic-admin' as any;
+        }
+        
+        console.log('[PreviewScreen] Navigating to role dashboard:', { 
+          userRole, 
+          navigationTarget 
+        });
+        
         // On web, Alert buttons don't work reliably - show success modal instead
         if (Platform.OS === 'web') {
-          setSuccessModal({ visible: true, createdCount, whatsappUrl });
+          setSuccessModal({ visible: true, createdCount: bulkResponse.total_created, whatsappUrl });
         } else {
           // Native: use Alert
           if (whatsappUrl) {
             Alert.alert(
               t('appointments.appointmentsCreated'),
-              `${createdCount} ${t('appointments.sessionsScheduled')}`,
+              `${bulkResponse.total_created} ${t('appointments.sessionsScheduled')}`,
               [
                 { 
                   text: t('common.done'), 
                   style: 'cancel', 
-                  onPress: () => router.replace('/clinic-admin/appointments' as any) 
+                  onPress: () => router.replace(navigationTarget) 
                 },
                 {
                   text: t('appointments.sendWhatsApp'),
                   onPress: () => {
                     Linking.openURL(whatsappUrl!);
-                    router.replace('/clinic-admin/appointments' as any);
+                    router.replace(navigationTarget);
                   },
                 },
               ]
             );
           } else {
-            Alert.alert(t('common.success'), `${createdCount} ${t('appointments.appointmentsCreatedSuccess')}`);
-            router.replace('/clinic-admin/appointments' as any);
+            Alert.alert(t('common.success'), `${bulkResponse.total_created} ${t('appointments.appointmentsCreatedSuccess')}`);
+            router.replace(navigationTarget);
           }
         }
-      } else if (createdCount > 0) {
-        // Partial success - navigate directly on web
+      } else {
+        // Partial success - some appointments were created but not all
+        const userRole = currentUser?.roles?.[0];
+        let navigationTarget: any;
+        
+        if (userRole === 'doctor') {
+          navigationTarget = '/doctor' as any;
+        } else if (userRole === 'therapist') {
+          navigationTarget = '/therapist' as any;
+        } else {
+          // clinic_admin, receptionist
+          navigationTarget = '/clinic-admin' as any;
+        }
+        
         if (Platform.OS === 'web') {
-          alert(`${t('appointments.created') || 'Created'} ${createdCount} of ${sessions.length}. Some errors occurred.`);
-          router.replace('/clinic-admin/appointments' as any);
+          alert(`${t('appointments.created') || 'Created'} ${bulkResponse.total_created} of ${sessions.length}. Some appointments failed.`);
+          router.replace(navigationTarget);
         } else {
           Alert.alert(
             t('appointments.partialSuccess'),
-            `${t('appointments.created')} ${createdCount} of ${sessions.length}.\n\n${t('common.errors')}:\n${errors.join('\n')}`,
-            [{ text: t('common.ok'), onPress: () => router.replace('/clinic-admin/appointments' as any) }]
+            `${t('appointments.created')} ${bulkResponse.total_created} of ${sessions.length}.`,
+            [{ text: t('common.ok'), onPress: () => router.replace(navigationTarget) }]
           );
         }
-      } else {
-        Alert.alert(t('common.error'), `${t('appointments.failedToCreate')}:\n${errors.join('\n')}`);
       }
     } catch (err: any) {
+      console.error('[PreviewScreen] Bulk create failed:', err);
       Alert.alert(t('common.error'), err.message || t('appointments.failedToCreate'));
     } finally {
       setIsCreating(false);
@@ -1035,7 +1294,21 @@ export const PreviewAppointmentsScreen: React.FC = () => {
   // Handle success modal actions
   const handleSuccessModalDone = () => {
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    router.replace('/clinic-admin/appointments' as any);
+    
+    // Navigate to role-specific dashboard
+    const userRole = currentUser?.roles?.[0];
+    let navigationTarget: any;
+    
+    if (userRole === 'doctor') {
+      navigationTarget = '/doctor' as any;
+    } else if (userRole === 'therapist') {
+      navigationTarget = '/therapist' as any;
+    } else {
+      // clinic_admin, receptionist
+      navigationTarget = '/clinic-admin' as any;
+    }
+    
+    router.replace(navigationTarget);
   };
 
   const handleSuccessModalWhatsApp = () => {
@@ -1043,7 +1316,21 @@ export const PreviewAppointmentsScreen: React.FC = () => {
       Linking.openURL(successModal.whatsappUrl);
     }
     setSuccessModal({ visible: false, createdCount: 0, whatsappUrl: null });
-    router.replace('/clinic-admin/appointments' as any);
+    
+    // Navigate to role-specific dashboard
+    const userRole = currentUser?.roles?.[0];
+    let navigationTarget: any;
+    
+    if (userRole === 'doctor') {
+      navigationTarget = '/doctor' as any;
+    } else if (userRole === 'therapist') {
+      navigationTarget = '/therapist' as any;
+    } else {
+      // clinic_admin, receptionist
+      navigationTarget = '/clinic-admin' as any;
+    }
+    
+    router.replace(navigationTarget);
   };
 
   return (
@@ -1135,11 +1422,7 @@ export const PreviewAppointmentsScreen: React.FC = () => {
                 {staffNames || t('appointments.therapistsAssigned')}
               </Text>
               <Text style={styles.clientDetails}>
-                {t('appointments.starting')} {safeFormatDate(startDateStr)} • {durationMinutes} {t('common.minEach')}
-              </Text>
-              {/* Display the user's REQUESTED time (from params) */}
-              <Text style={styles.preferredTimeText}>
-                {t('appointments.requestedTime') || 'Requested'}: {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)}
+                {t('appointments.starting')} {safeFormatDate(startDateStr)} at {formatTimeFromParts(preferredTimeHourLocal, preferredTimeMinutesLocal)} • {durationMinutes} {t('common.minEach')}
               </Text>
             </View>
           </View>
@@ -1251,94 +1534,42 @@ export const PreviewAppointmentsScreen: React.FC = () => {
         </>
       )}
 
-      {/* #7: Custom Time Picker Modal */}
+      {/* #7: Custom Time Picker - Native only, no modal wrapper */}
       {showCustomTimePicker && (
-        <Modal
-          visible={showCustomTimePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={handleCancelCustomTimePicker}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {t('appointments.chooseDifferentTime') || 'Choose a different time'}
-                </Text>
-                <TouchableOpacity onPress={handleCancelCustomTimePicker}>
-                  <Ionicons name="close" size={24} color={colors.text.primary} />
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.modalSubtitle}>
-                {t('appointments.session') || 'Session'} {customTimePickerSession}
-              </Text>
-              
-              {/* Time Picker - Platform-specific rendering */}
-              {Platform.OS === 'web' ? (
-                // Web: Use native HTML time input
-                <View style={styles.webTimePickerContainer}>
-                  <Text style={styles.webTimeLabel}>{t('appointments.selectTime') || 'Select Time'}:</Text>
-                  <input
-                    type="time"
-                    value={`${customTimePickerDate.getHours().toString().padStart(2, '0')}:${customTimePickerDate.getMinutes().toString().padStart(2, '0')}`}
-                    onChange={(e) => {
-                      const [hours, minutes] = e.target.value.split(':').map(Number);
-                      const newDate = new Date(customTimePickerDate);
-                      newDate.setHours(hours, minutes, 0, 0);
-                      setCustomTimePickerDate(newDate);
-                    }}
-                    style={{
-                      fontSize: 24,
-                      padding: 16,
-                      borderRadius: 8,
-                      border: `1px solid ${colors.border.main}`,
-                      backgroundColor: colors.background.paper,
-                      color: colors.text.primary,
-                      width: '100%',
-                      textAlign: 'center',
-                    }}
-                  />
-                  <Text style={styles.webTimePreview}>
-                    {t('appointments.selectedTime') || 'Selected'}: {formatTimeFromParts(customTimePickerDate.getHours(), customTimePickerDate.getMinutes())}
-                  </Text>
-                </View>
-              ) : (
-                // Native: Use DateTimePicker
-                <DateTimePicker
-                  value={customTimePickerDate}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleCustomTimeChange}
-                  minuteInterval={15}
-                />
-              )}
-              
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={handleCancelCustomTimePicker}
-                >
-                  <Text style={styles.modalCancelText}>{t('common.cancel') || 'Cancel'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalConfirmButton,
-                    isValidatingCustomTime && styles.modalButtonDisabled,
-                  ]}
-                  onPress={handleConfirmCustomTime}
-                  disabled={isValidatingCustomTime}
-                >
-                  {isValidatingCustomTime ? (
-                    <ActivityIndicator size="small" color={colors.background.default} />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>{t('common.confirm') || 'Confirm'}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+        <CrossPlatformDateTimePicker
+          value={new Date()}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleCustomTimeChange}
+          minuteInterval={15}
+        />
+      )}
+
+      {/* Validation Toast - Bottom notification */}
+      {validationToast.visible && (
+        <View style={[
+          styles.validationToast,
+          validationToast.type === 'error' ? styles.validationToastError : styles.validationToastSuccess,
+        ]}>
+          <Ionicons 
+            name={validationToast.type === 'error' ? 'close-circle' : 'checkmark-circle'} 
+            size={20} 
+            color="#fff" 
+          />
+          <Text style={styles.validationToastText}>{validationToast.message}</Text>
+        </View>
+      )}
+
+      {/* Loading overlay during validation */}
+      {isValidatingCustomTime && (
+        <View style={styles.validationOverlay}>
+          <View style={styles.validationOverlayContent}>
+            <ActivityIndicator size="large" color={colors.primary.main} />
+            <Text style={styles.validationOverlayText}>
+              {t('appointments.validatingTime') || 'Validating time...'}
+            </Text>
           </View>
-        </Modal>
+        </View>
       )}
 
       {/* Success Modal (for web compatibility) */}
@@ -1889,9 +2120,10 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   customTimeRowSelected: {
-    backgroundColor: colors.primary.main + '15',
-    borderColor: colors.primary.main,
+    backgroundColor: colors.success.main + '15',
+    borderColor: colors.success.main,
     borderStyle: 'solid',
+    borderWidth: 2,
   },
   customTimeContent: {
     flex: 1,
@@ -1908,84 +2140,67 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs / 2,
   },
 
-  // #7: Custom Time Picker Modal
+  // Validation Toast
+  validationToast: {
+    position: 'absolute',
+    bottom: 100,
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  validationToastSuccess: {
+    backgroundColor: colors.success.main,
+  },
+  validationToastError: {
+    backgroundColor: colors.error.main,
+  },
+  validationToastText: {
+    ...typography.body2,
+    color: '#fff',
+    flex: 1,
+  },
+
+  // Validation Overlay
+  validationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  validationOverlayContent: {
+    backgroundColor: colors.background.default,
+    padding: spacing.xl,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  validationOverlayText: {
+    ...typography.body2,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+  },
+
+  // Success Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background.default,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  modalTitle: {
-    ...typography.h6,
-    color: colors.text.primary,
-  },
-  modalSubtitle: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  modalCancelButton: {
-    flex: 1,
+    justifyContent: 'center',
     padding: spacing.md,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.main,
-    alignItems: 'center',
   },
-  modalCancelText: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  modalConfirmButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.primary.main,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    ...typography.button,
-    color: colors.background.default,
-  },
-  modalButtonDisabled: {
-    opacity: 0.6,
-  },
-  // Web Time Picker Styles
-  webTimePickerContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  webTimeLabel: {
-    ...typography.body1,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-    fontWeight: '600',
-  },
-  webTimePreview: {
-    ...typography.body2,
-    color: colors.primary.main,
-    marginTop: spacing.md,
-    fontWeight: '500',
-  },
-  // Success Modal Styles
   successModalContent: {
     backgroundColor: colors.background.default,
     borderRadius: spacing.lg,

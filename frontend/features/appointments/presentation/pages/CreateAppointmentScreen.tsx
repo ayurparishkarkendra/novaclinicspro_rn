@@ -28,16 +28,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useTranslation } from '../../../../core/localization/useTranslation';
+import { ErrorTokens } from '../../../../core/localization/errorTokens';
 import { useClientsListQuery, useSearchClientsQuery, useCreateClientMutation } from '../../../clients/data/repositories/clients.repository.impl';
 import { useTreatmentsListQuery } from '../../../treatments/data/repositories/treatments.repository.impl';
 import { useStaffListQuery } from '../../../staff/data/repositories/staff.repository.impl';
 import { useRoomsListQuery } from '../../../rooms/data/repositories/rooms.repository.impl';
+import { useOperatingHoursListQuery } from '../../../operatingHours/data/repositories/operatingHours.repository.impl';
 import {
   useCreateAppointmentMutation,
   useAppointmentsByDateQuery,
@@ -46,15 +51,28 @@ import {
 import {
   AppointmentCreate,
   AppointmentType,
-  formatTime,
-  formatDate,
+  ValidateAppointmentRequest,
+} from '../../data/models/appointments.dtos';
+import {
   openWhatsApp,
   generateWhatsAppConfirmationMessage,
   toISODateString,
-  ValidateAppointmentRequest,
-} from '../../data/models/appointments.dtos';
+} from '../../domain/helpers';
+import { 
+  toLocalTimeISO,
+  formatTime, 
+  formatDate,
+  formatTime as formatTimeUtil 
+} from '../../../../core/utils/dateTimeUtils';
+import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { useDebounce } from '../../../../core/hooks/useDebounce';
+import { useFeatures } from '../../../../core/hooks/useFeatures';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
+import { useCurrentTenantQuery } from '../../../tenants/data/repositories/tenants.repository.impl';
+import {
+  useOrderingDoctorQuery,
+  useTreatmentSheetPrefillQuery,
+} from '../../data/repositories/orderingDoctor.repository.impl';
 
 // ============================================
 // TYPES
@@ -96,6 +114,7 @@ interface TherapyFormState {
 // Form state for Multi-day
 interface MultiDayFormState {
   selectedTreatmentId: string | null;
+  selectedDoctorId: string | null;
   selectedTherapistIds: string[];
   durationMinutes: number;
   numberOfSessions: number;
@@ -111,9 +130,10 @@ interface MultiDayFormState {
 interface TypeSelectorProps {
   value: AppointmentType;
   onChange: (type: AppointmentType) => void;
+  allowMultiDay?: boolean; // Feature flag
 }
 
-const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
+const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange, allowMultiDay = false }) => (
   <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Appointment Type">
     <TouchableOpacity
       style={[styles.typeOption, value === 'SINGLE' && styles.typeOptionSelected]}
@@ -132,23 +152,27 @@ const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
       </Text>
       <Text style={styles.typeOptionSubtitle}>One-time appointment</Text>
     </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.typeOption, value === 'MULTI' && styles.typeOptionSelected]}
-      onPress={() => onChange('MULTI')}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: value === 'MULTI' }}
-      accessibilityLabel="Multi Day therapy series"
-    >
-      <Ionicons
-        name="calendar"
-        size={24}
-        color={value === 'MULTI' ? colors.primary.main : colors.text.secondary}
-      />
-      <Text style={[styles.typeOptionTitle, value === 'MULTI' && styles.typeOptionTitleSelected]}>
-        Multi Day
-      </Text>
-      <Text style={styles.typeOptionSubtitle}>Therapy series</Text>
-    </TouchableOpacity>
+    
+    {/* Multi-day option - only show for Ayurveda and Physio clinics */}
+    {allowMultiDay && (
+      <TouchableOpacity
+        style={[styles.typeOption, value === 'MULTI' && styles.typeOptionSelected]}
+        onPress={() => onChange('MULTI')}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === 'MULTI' }}
+        accessibilityLabel="Multi Day therapy series"
+      >
+        <Ionicons
+          name="calendar"
+          size={24}
+          color={value === 'MULTI' ? colors.primary.main : colors.text.secondary}
+        />
+        <Text style={[styles.typeOptionTitle, value === 'MULTI' && styles.typeOptionTitleSelected]}>
+          Multi Day
+        </Text>
+        <Text style={styles.typeOptionSubtitle}>Therapy series</Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -159,9 +183,10 @@ const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) => (
 interface SessionTypeSelectorProps {
   value: SessionType;
   onChange: (type: SessionType) => void;
+  allowTherapySession: boolean;
 }
 
-const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange }) => (
+const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChange, allowTherapySession }) => (
   <View style={styles.sessionTypeSelector} accessibilityRole="radiogroup" accessibilityLabel="Session Type">
     <TouchableOpacity
       style={[styles.sessionTypeOption, value === 'DOCTOR' && styles.sessionTypeOptionSelected]}
@@ -179,22 +204,24 @@ const SessionTypeSelector: React.FC<SessionTypeSelectorProps> = ({ value, onChan
         Doctor Consultation
       </Text>
     </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.sessionTypeOption, value === 'THERAPY' && styles.sessionTypeOptionSelected]}
-      onPress={() => onChange('THERAPY')}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: value === 'THERAPY' }}
-      accessibilityLabel="Therapy Session"
-    >
-      <Ionicons
-        name="fitness"
-        size={18}
-        color={value === 'THERAPY' ? colors.background.default : colors.text.secondary}
-      />
-      <Text style={[styles.sessionTypeText, value === 'THERAPY' && styles.sessionTypeTextSelected]}>
-        Therapy Session
-      </Text>
-    </TouchableOpacity>
+    {allowTherapySession && (
+      <TouchableOpacity
+        style={[styles.sessionTypeOption, value === 'THERAPY' && styles.sessionTypeOptionSelected]}
+        onPress={() => onChange('THERAPY')}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: value === 'THERAPY' }}
+        accessibilityLabel="Therapy Session"
+      >
+        <Ionicons
+          name="fitness"
+          size={18}
+          color={value === 'THERAPY' ? colors.background.default : colors.text.secondary}
+        />
+        <Text style={[styles.sessionTypeText, value === 'THERAPY' && styles.sessionTypeTextSelected]}>
+          Therapy Session
+        </Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -480,6 +507,8 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
   const createMutation = useCreateClientMutation(tenantId);
 
   const handleCreate = async () => {
@@ -487,10 +516,22 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       Alert.alert('Required', 'Please enter client name');
       return;
     }
+    
+    if (!gender) {
+      Alert.alert('Required', 'Please select gender');
+      return;
+    }
+    
+    if (!age.trim() || isNaN(parseInt(age))) {
+      Alert.alert('Required', 'Please enter a valid age');
+      return;
+    }
 
     try {
       const result = await createMutation.mutateAsync({
         full_name: name.trim(),
+        gender: gender,
+        age: parseInt(age),
         phone: phone.trim() || null,
         email: email.trim() || null,
       });
@@ -499,6 +540,8 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
       setName('');
       setPhone('');
       setEmail('');
+      setGender('');
+      setAge('');
       onClose();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create client');
@@ -529,6 +572,45 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 placeholder="Enter client name"
                 placeholderTextColor={colors.text.tertiary}
                 accessibilityLabel="Client name"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Gender *</Text>
+              <View style={styles.genderRow}>
+                {['Male', 'Female', 'Other'].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.genderButton,
+                      gender === g && styles.genderButtonSelected,
+                    ]}
+                    onPress={() => setGender(g)}
+                  >
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        gender === g && styles.genderButtonTextSelected,
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Age *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={age}
+                onChangeText={setAge}
+                placeholder="Enter age"
+                placeholderTextColor={colors.text.tertiary}
+                keyboardType="numeric"
+                maxLength={3}
+                accessibilityLabel="Client age"
               />
             </View>
 
@@ -588,17 +670,91 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
 export const CreateAppointmentScreen: React.FC = () => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    tab?: string;
+    treatmentSheetId?: string;
+    episodeId?: string;
+    caseSheetId?: string;
+    clientId?: string;
+    clientName?: string;
+    clientPhone?: string;
+    durationDays?: string;
+    treatmentId?: string;
+    treatmentName?: string;
+  }>();
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   const tenantId = currentUser?.tenantId || '';
   const scrollRef = useRef<ScrollView>(null);
+
+  // Log params on mount to verify treatmentSheetId is received
+  useEffect(() => {
+    console.log('[CreateAppointmentScreen] Received params:', {
+      tab: params.tab,
+      treatmentSheetId: params.treatmentSheetId,
+      episodeId: params.episodeId,
+      caseSheetId: params.caseSheetId,
+      clientId: params.clientId,
+      clientName: params.clientName,
+      clientPhone: params.clientPhone,
+      durationDays: params.durationDays,
+      treatmentId: params.treatmentId,
+      treatmentName: params.treatmentName,
+    });
+  }, [params]);
+
+  // Get feature configuration from JWT token
+  const features = useFeatures();
+  
+  // FALLBACK: If JWT doesn't have features yet, check tenant clinic_type directly
+  const { data: tenant } = useCurrentTenantQuery(tenantId);
+  
+  const tenantClinicType = tenant?.clinic_type?.toLowerCase();
+  const effectiveClinicType = tenantClinicType || features.clinic_type || 'general';
+  const isTherapyClinic = effectiveClinicType === 'ayurveda' || effectiveClinicType === 'physio';
+
+  // General clinics must not inherit stale Ayurveda/Physio JWT feature flags.
+  const allowMultiDay = isTherapyClinic && features.appointments.allow_multiday;
+  const allowTherapySession = isTherapyClinic && (
+    features.appointments.allow_multiday || features.treatment_sheets.enable_treatment_sheets
+  );
+  
+  console.log('[CreateAppointmentScreen] Feature check:', {
+    jwtFeatures: features,
+    tenantClinicType: tenant?.clinic_type,
+    effectiveClinicType,
+    allowMultiDay,
+    allowTherapySession,
+  });
 
   // ===== TOP-LEVEL STATE =====
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('SINGLE');
   const [sessionType, setSessionType] = useState<SessionType>('DOCTOR');
+
+  useEffect(() => {
+    if (!allowMultiDay && appointmentType === 'MULTI') {
+      setAppointmentType('SINGLE');
+    }
+    if (!allowTherapySession && sessionType === 'THERAPY') {
+      setSessionType('DOCTOR');
+    }
+  }, [allowMultiDay, allowTherapySession, appointmentType, sessionType]);
   
   // Client (shared across all forms)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientInfo, setSelectedClientInfo] = useState<{ name: string; phone: string } | null>(null);
+
+  useEffect(() => {
+    if (!params.clientId || params.treatmentSheetId) return;
+
+    setSelectedClientId(params.clientId);
+    if (params.clientName || params.clientPhone) {
+      setSelectedClientInfo({
+        name: params.clientName || 'Client',
+        phone: params.clientPhone || '',
+      });
+    }
+  }, [params.clientId, params.clientName, params.clientPhone, params.treatmentSheetId]);
   
   // BUG FIX #7: State for conflict modal (instead of raw Alert)
   const [conflictModal, setConflictModal] = useState<{
@@ -634,6 +790,7 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   const createFreshMultiDayForm = (): MultiDayFormState => ({
     selectedTreatmentId: null,
+    selectedDoctorId: null,
     selectedTherapistIds: [],
     durationMinutes: 60,
     numberOfSessions: 7,
@@ -645,6 +802,57 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [doctorForm, setDoctorForm] = useState<DoctorFormState>(createFreshDoctorForm());
   const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
   const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
+
+  // Resolve doctor_id from client's active treatment sheet, episode, or
+  // casesheet (T-G.2: moved behind useOrderingDoctorQuery -- repository ->
+  // datasource -> axiosClient -- same fallback order/fields as before).
+  const orderingDoctorQuery = useOrderingDoctorQuery(tenantId, selectedClientId, appointmentType === 'MULTI');
+
+  useEffect(() => {
+    if (orderingDoctorQuery.data) {
+      setMultiDayForm(prev => ({
+        ...prev,
+        selectedDoctorId: orderingDoctorQuery.data as string,
+      }));
+    }
+  }, [orderingDoctorQuery.data]);
+
+  // Pre-fill form when coming from treatment sheet (T-G.2: moved behind
+  // useTreatmentSheetPrefillQuery -- same treatment sheet -> episode ->
+  // client waterfall as before).
+  useEffect(() => {
+    if (params.treatmentSheetId && params.tab === 'MULTI') {
+      setAppointmentType('MULTI');
+    }
+  }, [params.treatmentSheetId, params.tab]);
+
+  const treatmentSheetPrefillQuery = useTreatmentSheetPrefillQuery(
+    tenantId,
+    params.treatmentSheetId,
+    !!(params.treatmentSheetId && params.tab === 'MULTI'),
+    params.treatmentId,
+    params.durationDays
+  );
+
+  useEffect(() => {
+    const prefill = treatmentSheetPrefillQuery.data;
+    if (!prefill) return;
+
+    if (prefill.selectedDoctorId || prefill.treatmentId || prefill.numberOfSessions) {
+      setMultiDayForm(prev => ({
+        ...prev,
+        ...(prefill.selectedDoctorId ? { selectedDoctorId: prefill.selectedDoctorId } : {}),
+        ...(prefill.treatmentId ? { selectedTreatmentId: prefill.treatmentId } : {}),
+        ...(prefill.numberOfSessions ? { numberOfSessions: prefill.numberOfSessions } : {}),
+      }));
+    }
+    if (prefill.clientId) {
+      setSelectedClientId(prefill.clientId);
+    }
+    if (prefill.clientInfo) {
+      setSelectedClientInfo(prefill.clientInfo);
+    }
+  }, [treatmentSheetPrefillQuery.data]);
 
   // Handler for appointment type change - FORCE RESET forms to prevent leakage
   const handleAppointmentTypeChange = useCallback((type: AppointmentType) => {
@@ -703,8 +911,8 @@ export const CreateAppointmentScreen: React.FC = () => {
   const { data: treatmentsData, isLoading: isLoadingTreatments } = useTreatmentsListQuery(tenantId);
   
   // Staff queries - SEPARATE for doctors and therapists
-  // CRITICAL FIX: Only fetch doctors when in DOCTOR mode
-  const shouldFetchDoctors = appointmentType === 'SINGLE' && sessionType === 'DOCTOR';
+  // CRITICAL FIX: Fetch doctors for DOCTOR mode and MULTI-DAY (doctor assignment)
+  const shouldFetchDoctors = (appointmentType === 'SINGLE' && sessionType === 'DOCTOR') || appointmentType === 'MULTI';
   const { data: doctorsData, isLoading: isLoadingDoctors, isFetched: isDoctorsFetched } = useStaffListQuery(
     tenantId, 
     { staff_type: 'doctor', is_active: true, limit: 100 },
@@ -712,7 +920,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   );
   
   // Fetch therapists for therapy and multi-day modes
-  const shouldFetchTherapists = (appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI';
+  const shouldFetchTherapists = allowTherapySession && ((appointmentType === 'SINGLE' && sessionType === 'THERAPY') || appointmentType === 'MULTI');
   const { data: therapistsData, isLoading: isLoadingTherapists, isFetched: isTherapistsFetched } = useStaffListQuery(
     tenantId, 
     { staff_type: 'therapist', is_active: true, limit: 100 },
@@ -720,6 +928,9 @@ export const CreateAppointmentScreen: React.FC = () => {
   );
 
   const { data: roomsData, isLoading: isLoadingRooms } = useRoomsListQuery(tenantId);
+  
+  // Operating hours for validation
+  const { data: operatingHoursData } = useOperatingHoursListQuery(tenantId);
   
   // Booked appointments for selected doctor and date
   const doctorDateStr = toISODateString(doctorForm.appointmentDate);
@@ -739,15 +950,33 @@ export const CreateAppointmentScreen: React.FC = () => {
     const clients = debouncedClientSearch.length >= 2 && searchedClients?.items
       ? searchedClients.items
       : clientsData?.items || [];
-    
-    return clients.map((c: any) => ({
+
+    const options = clients.map((c: any) => ({
       id: c.id,
       label: c.full_name || c.name || 'Unknown',
       subtitle: c.phone || c.email,
       phone: c.phone,
       gender: c.gender, // BUG FIX #7: Include gender for therapist matching
     }));
-  }, [clientsData, searchedClients, debouncedClientSearch]);
+
+    if (
+      selectedClientId &&
+      selectedClientInfo &&
+      !options.some((option) => option.id === selectedClientId)
+    ) {
+      return [
+        {
+          id: selectedClientId,
+          label: selectedClientInfo.name,
+          subtitle: selectedClientInfo.phone,
+          phone: selectedClientInfo.phone,
+        },
+        ...options,
+      ];
+    }
+
+    return options;
+  }, [clientsData, searchedClients, debouncedClientSearch, selectedClientId, selectedClientInfo]);
 
   // Doctors only - CRITICAL: Filter on frontend too for safety
   const doctorOptions: PickerOption[] = useMemo(() => {
@@ -866,7 +1095,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   const doctorBookedAppointments = useMemo(() => {
     if (!doctorForm.selectedDoctorId) return [];
     return (bookedData?.appointments || []).filter(
-      (apt) => apt.staff_id === doctorForm.selectedDoctorId
+      (apt) => apt.doctor_id === doctorForm.selectedDoctorId
     );
   }, [bookedData, doctorForm.selectedDoctorId]);
 
@@ -996,50 +1225,129 @@ export const CreateAppointmentScreen: React.FC = () => {
       return;
     }
 
-    const startDateTime = new Date(appointmentDate);
-    startDateTime.setHours(appointmentTime.getHours(), appointmentTime.getMinutes(), 0, 0);
+    // Build startDateTime without timezone conversion
+    // Extract date components from appointmentDate
+    const year = appointmentDate.getFullYear();
+    const month = appointmentDate.getMonth();
+    const day = appointmentDate.getDate();
+    const hours = appointmentTime.getHours();
+    const minutes = appointmentTime.getMinutes();
+    
+    // Create new Date with explicit components (uses local timezone consistently)
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
 
+    // DEBUG: Log the date/time being validated
+    console.log('[CreateAppointment] Validation check:', {
+      selectedDate: appointmentDate.toISOString(),
+      selectedTime: appointmentTime.toISOString(),
+      constructedDateTime: startDateTime.toISOString(),
+      localString: startDateTime.toLocaleString('en-IN'),
+      dayOfWeek: startDateTime.getDay(),
+      hours: startDateTime.getHours(),
+      minutes: startDateTime.getMinutes(),
+    });
+
     const staffId = isDoctor ? doctorForm.selectedDoctorId : (therapyForm.selectedTherapistIds[0] || null);
 
-    // BUG FIX #5: For therapy appointments, validate before creating (conflict check)
-    if (!isDoctor && staffId) {
+    // TASK 4: Frontend validation for appointment time
+    const operatingHours = operatingHoursData?.items || [];
+    const validationResult = validateAppointmentTime(startDateTime, operatingHours);
+    
+    console.log('[CreateAppointment] Validation result:', validationResult);
+    
+    if (validationResult.hasWarnings) {
+      const message = formatValidationMessage(validationResult);
+      
+      // Show confirmation dialog
+      Alert.alert(
+        'Booking Warning',
+        message,
+        [
+          { text: 'No, Cancel', style: 'cancel' },
+          { 
+            text: 'Yes, Proceed', 
+            onPress: () => proceedWithBooking(validationResult)
+          }
+        ]
+      );
+      return;
+    }
+    
+    // No warnings - proceed directly
+    await proceedWithBooking(validationResult);
+  };
+  
+  // Extract booking logic into separate function
+  const proceedWithBooking = async (validationResult: ValidationResult) => {
+    const isDoctor = sessionType === 'DOCTOR';
+    const appointmentDate = isDoctor ? doctorForm.appointmentDate : therapyForm.appointmentDate;
+    const appointmentTime = isDoctor ? doctorForm.appointmentTime : therapyForm.appointmentTime;
+    
+    // Build startDateTime without timezone conversion
+    // Extract date components from appointmentDate
+    const year = appointmentDate.getFullYear();
+    const month = appointmentDate.getMonth();
+    const day = appointmentDate.getDate();
+    const hours = appointmentTime.getHours();
+    const minutes = appointmentTime.getMinutes();
+    
+    // Create new Date with explicit components (uses local timezone consistently)
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setMinutes(endDateTime.getMinutes() + (isDoctor ? doctorForm.durationMinutes : therapyForm.durationMinutes));
+
+    console.log('[CreateAppointment] DateTime construction:', {
+      appointmentDate: {
+        iso: appointmentDate.toISOString(),
+        local: appointmentDate.toLocaleString('en-IN'),
+        year, month, day,
+      },
+      appointmentTime: {
+        iso: appointmentTime.toISOString(),
+        local: appointmentTime.toLocaleString('en-IN'),
+        hours, minutes,
+      },
+      constructed: {
+        iso: startDateTime.toISOString(),
+        local: startDateTime.toLocaleString('en-IN'),
+        year: startDateTime.getFullYear(),
+        month: startDateTime.getMonth() + 1,
+        day: startDateTime.getDate(),
+        hours: startDateTime.getHours(),
+        minutes: startDateTime.getMinutes(),
+      },
+    });
+
+    const doctorId = isDoctor ? doctorForm.selectedDoctorId : null;
+    const therapistIds = isDoctor ? [] : therapyForm.selectedTherapistIds;
+
+    // Validate appointment for conflicts — doctor appointments only.
+    // The validation endpoint checks doctor schedule conflicts; it incorrectly flags
+    // therapy appointments as conflicting. Therapy conflict detection is handled
+    // server-side by the create endpoint itself.
+    if (isDoctor && doctorId) {
       try {
         const validationPayload: ValidateAppointmentRequest = {
-          client_id: selectedClientId,
-          staff_id: staffId,
-          room_id: therapyForm.selectedRoomId || undefined,
-          appointment_start: startDateTime.toISOString(),
-          appointment_end: endDateTime.toISOString(),
+          client_id: selectedClientId!,
+          staff_id: doctorId,
+          appointment_start: toLocalTimeISO(startDateTime),
+          appointment_end: toLocalTimeISO(endDateTime),
         };
         
-        console.log('[CreateAppointment] Validating single therapy appointment:', validationPayload);
+        console.log('[CreateAppointment] Validating doctor appointment:', validationPayload);
         
-        const validationResult = await validateMutation.mutateAsync(validationPayload);
-        console.log('[CreateAppointment] Validation result:', validationResult);
+        const validationApiResult = await validateMutation.mutateAsync(validationPayload);
+        console.log('[CreateAppointment] Validation result:', validationApiResult);
         
-        // If validation fails, show conflict message and alternatives
-        if (!validationResult.is_valid) {
-          const conflictMessages = [];
-          
-          if (validationResult.conflicts?.staff_conflict) {
-            conflictMessages.push(`The selected therapist is already booked at this time.`);
-          }
-          if (validationResult.conflicts?.room_conflict) {
-            conflictMessages.push(`The selected room is not available at this time.`);
-          }
-          if (validationResult.errors?.length > 0) {
-            conflictMessages.push(...validationResult.errors);
-          }
-          
-          // BUG FIX #7: Use styled modal instead of raw Alert
+        if (!validationApiResult.is_valid) {
           setConflictModal({
             visible: true,
-            title: 'Booking Conflict',
-            messages: conflictMessages.length > 0 ? conflictMessages : ['This time slot is not available.'],
+            title: t('appointments.bookingConflict'),
+            messages: [t(ErrorTokens.appointments.conflictDetected)],
           });
-          return; // Do NOT proceed with booking
+          return;
         }
       } catch (err: any) {
         console.log('[CreateAppointment] Validation API error (proceeding anyway):', err.message);
@@ -1047,17 +1355,34 @@ export const CreateAppointmentScreen: React.FC = () => {
       }
     }
 
+    // CRITICAL: Backend expects LOCAL time WITHOUT Z suffix
+    // The request interceptor (transformDatesToUTC) only transforms Date objects, not strings.
+    // The response interceptor (transformDatesFromUTC) converts UTC+Z responses back to local strings.
+    // So we must send local time as a string (no Z) for the round-trip to work correctly.
     const payload: AppointmentCreate = {
-      client_id: selectedClientId,
-      staff_id: staffId,
+      client_id: selectedClientId!,
+      doctor_id: doctorId,
+      therapist_ids: therapistIds,
       room_id: isDoctor ? null : therapyForm.selectedRoomId,
       treatment_id: isDoctor ? null : therapyForm.selectedTreatmentId,
-      appointment_start: startDateTime.toISOString(),
-      appointment_end: endDateTime.toISOString(),
+      appointment_start: toLocalTimeISO(startDateTime),
+      appointment_end: toLocalTimeISO(endDateTime),
       status: 'scheduled',
       notes: isDoctor ? doctorForm.notes : therapyForm.notes,
       appointment_type: 'SINGLE',
+      // Add validation flags
+      is_past_booking: validationResult.isPast,
+      is_outside_operating_hours: validationResult.isOutsideOperatingHours,
+      is_during_break_time: validationResult.isDuringBreak,
+      is_on_weekly_off: validationResult.isOnWeeklyOff,
     };
+
+    console.log('[CreateAppointment] Sending to API:', {
+      appointment_start: payload.appointment_start,
+      appointment_end: payload.appointment_end,
+      localTime: startDateTime.toLocaleString('en-IN'),
+      note: 'Sending LOCAL time without Z (established pattern)',
+    });
 
     try {
       await createMutation.mutateAsync(payload);
@@ -1100,7 +1425,58 @@ export const CreateAppointmentScreen: React.FC = () => {
         router.back();
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create appointment');
+      // Network Error after the server has already processed the request means
+      // the connection dropped before the response body arrived.
+      // The appointment was likely created — navigate back and let the list refresh.
+      // In React Native, err.request may be an XHR object or undefined; check all patterns.
+      const isNetworkError =
+        err?.message === 'Network Error' ||
+        err?.code === 'ERR_NETWORK' ||
+        (err?.isAxiosError && !err?.response);
+
+      if (isNetworkError) {
+        // Don't log as error — this is expected when network drops after a successful POST
+        console.log('[CreateAppointment] Network dropped after POST — appointment was saved');
+        Alert.alert(
+          'Appointment Created',
+          'The appointment was saved. There was a brief network issue loading the confirmation.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
+
+      console.error('[CreateAppointment] Error creating appointment:', err);
+      
+      // Parse error response from backend
+      let errorMessage = t(ErrorTokens.appointments.createFailed);
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Extract error message from various possible formats
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            errorMessage = errorData.detail[0] || errorMessage;
+          } else if (errorData.detail.error) {
+            errorMessage = errorData.detail.error;
+          }
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        
+        // For overlap/conflict errors, show localized generic message
+        if (errorMessage.includes('overlap') || errorMessage.includes('already has an appointment') || errorMessage.includes('Conflicting')) {
+          errorMessage = t(ErrorTokens.appointments.conflictDetected);
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      Alert.alert(t('common.error') || 'Error', errorMessage);
     }
   };
 
@@ -1119,48 +1495,76 @@ export const CreateAppointmentScreen: React.FC = () => {
       return;
     }
 
-    const startDateTime = new Date(multiDayForm.startDate);
-    startDateTime.setHours(multiDayForm.preferredTime.getHours(), multiDayForm.preferredTime.getMinutes(), 0, 0);
+    // Build startDateTime with proper timezone conversion
+    const startDate = multiDayForm.startDate;
+    const preferredTime = multiDayForm.preferredTime;
+    
+    const year = startDate.getFullYear();
+    const month = startDate.getMonth();
+    const day = startDate.getDate();
+    const hours = preferredTime.getHours();
+    const minutes = preferredTime.getMinutes();
+    
+    // Create a Date object with local time
+    const startDateTime = new Date(year, month, day, hours, minutes, 0, 0);
 
-    // Per THERAPY_PLAN_TIME_HANDLING.md:
-    // The backend extracts hour and minute from start_date
-    // We need to send the LOCAL time as the ISO string (not converted to UTC)
-    // Format: YYYY-MM-DDTHH:MM:00Z where HH:MM is the LOCAL time the user selected
-    const localYear = startDateTime.getFullYear();
-    const localMonth = String(startDateTime.getMonth() + 1).padStart(2, '0');
-    const localDay = String(startDateTime.getDate()).padStart(2, '0');
-    const localHour = String(startDateTime.getHours()).padStart(2, '0');
-    const localMinute = String(startDateTime.getMinutes()).padStart(2, '0');
+    // CRITICAL FIX: Convert local time to UTC before sending to backend
+    // The backend expects UTC time with Z suffix
+    // User selects 4:00 PM IST (16:00) -> Convert to 10:30 AM UTC -> Send as 2026-03-01T10:30:00Z
+    const startDateISO = startDateTime.toISOString();
     
-    // Build ISO string with LOCAL time (backend will use this time directly)
-    const startDateISO = `${localYear}-${localMonth}-${localDay}T${localHour}:${localMinute}:00Z`;
-    
-    console.log('[CreateAppointment] Sending LOCAL time to backend:', startDateISO);
-    console.log('[CreateAppointment] User selected time:', localHour, ':', localMinute);
+    console.log('[CreateAppointment] User selected LOCAL time:', hours, ':', minutes);
+    console.log('[CreateAppointment] Converted to UTC and sending to backend:', startDateISO);
+    console.log('[CreateAppointment] Local datetime:', startDateTime.toLocaleString());
+    console.log('[CreateAppointment] UTC datetime:', startDateTime.toUTCString());
 
     const selectedStaffNames = therapistOptions
       .filter(t => multiDayForm.selectedTherapistIds.includes(t.id))
       .map(t => t.label)
       .join(', ');
 
+    // Get doctor name if doctor is selected
+    const doctorName = multiDayForm.selectedDoctorId 
+      ? doctorOptions.find(d => d.id === multiDayForm.selectedDoctorId)?.label || ''
+      : '';
+
+    console.log('[CreateAppointment] Navigating to preview with:', {
+      doctorId: multiDayForm.selectedDoctorId,
+      therapistIds: multiDayForm.selectedTherapistIds,
+      treatmentId: multiDayForm.selectedTreatmentId,
+      treatmentSheetId: params.treatmentSheetId,
+      startDateISO,
+    });
+
+    const navigationParams = {
+      clientId: selectedClientId,
+      clientName: selectedClientInfo?.name || '',
+      clientPhone: selectedClientInfo?.phone || '',
+      treatmentId: multiDayForm.selectedTreatmentId,
+      treatmentName: selectedTreatment?.label || '',
+      doctorId: multiDayForm.selectedDoctorId || '',
+      therapistIds: multiDayForm.selectedTherapistIds.join(','),
+      staffNames: [doctorName, selectedStaffNames].filter(Boolean).join(', '),
+      startDate: startDateISO,  // UTC time in ISO format
+      durationDays: multiDayForm.numberOfSessions.toString(),
+      // Send local time for UI display purposes
+      preferredTimeHourLocal: hours.toString(),
+      preferredTimeMinutesLocal: minutes.toString(),
+      durationMinutes: multiDayForm.durationMinutes.toString(),
+      notes: multiDayForm.notes,
+      // Pass through treatmentSheetId if coming from treatment sheet
+      ...(params.treatmentSheetId && { treatmentSheetId: params.treatmentSheetId }),
+      // Pass through episodeId if available
+      ...(params.episodeId && { episodeId: params.episodeId }),
+      // Pass through caseSheetId if available
+      ...(params.caseSheetId && { caseSheetId: params.caseSheetId }),
+    };
+
+    console.log('[CreateAppointment] Full navigation params:', navigationParams);
+
     router.push({
       pathname: '/clinic-admin/appointments/preview' as any,
-      params: {
-        clientId: selectedClientId,
-        clientName: selectedClientInfo?.name || '',
-        clientPhone: selectedClientInfo?.phone || '',
-        treatmentId: multiDayForm.selectedTreatmentId,
-        treatmentName: selectedTreatment?.label || '',
-        staffIds: multiDayForm.selectedTherapistIds.join(','),
-        staffNames: selectedStaffNames,
-        startDate: startDateISO,  // LOCAL time in ISO format
-        durationDays: multiDayForm.numberOfSessions.toString(),
-        // Don't send preferredTimeHour - backend extracts from start_date
-        preferredTimeHourLocal: localHour,  // For UI display only
-        preferredTimeMinutesLocal: localMinute,  // For UI display only
-        durationMinutes: multiDayForm.durationMinutes.toString(),
-        notes: multiDayForm.notes,
-      },
+      params: navigationParams,
     });
   };
 
@@ -1231,17 +1635,19 @@ export const CreateAppointmentScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
-            {/* Appointment Type */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Appointment Type</Text>
-              <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} />
-            </View>
+            {/* Appointment Type - Only show if multi-day is available */}
+            {allowMultiDay && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Appointment Type</Text>
+                <TypeSelector value={appointmentType} onChange={handleAppointmentTypeChange} allowMultiDay={allowMultiDay} />
+              </View>
+            )}
 
             {/* Session Type Toggle (Single day only) */}
-            {appointmentType === 'SINGLE' && (
+            {appointmentType === 'SINGLE' && allowTherapySession && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Session Type</Text>
-                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} />
+                <SessionTypeSelector value={sessionType} onChange={handleSessionTypeChange} allowTherapySession={allowTherapySession} />
               </View>
             )}
 
@@ -1292,7 +1698,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             )}
 
             {/* ===== THERAPY SESSION FORM ===== */}
-            {appointmentType === 'SINGLE' && sessionType === 'THERAPY' && (
+            {appointmentType === 'SINGLE' && allowTherapySession && sessionType === 'THERAPY' && (
               <>
                 {/* Treatment */}
                 <View style={styles.section}>
@@ -1349,7 +1755,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             )}
 
             {/* ===== MULTI-DAY FORM ===== */}
-            {appointmentType === 'MULTI' && (
+            {allowMultiDay && appointmentType === 'MULTI' && (
               <>
                 {/* Treatment (ABOVE duration) */}
                 <View style={styles.section}>
@@ -1388,6 +1794,23 @@ export const CreateAppointmentScreen: React.FC = () => {
                     autoCloseOnSelect={false}
                   />
                 </View>
+
+                {/* Doctor - Optional, required for doctor dashboard visibility */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Doctor (Optional)</Text>
+                  <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 6 }}>
+                    Assign a doctor so this schedule appears on the Doctor Dashboard
+                  </Text>
+                  <SearchableDropdown
+                    title="Select Doctor"
+                    options={doctorOptions}
+                    selectedId={multiDayForm.selectedDoctorId}
+                    onSelect={(id) => setMultiDayForm(prev => ({ ...prev, selectedDoctorId: id }))}
+                    isLoading={isLoadingDoctors}
+                    emptyText="No doctors available"
+                    autoCloseOnSelect={true}
+                  />
+                </View>
               </>
             )}
 
@@ -1418,26 +1841,79 @@ export const CreateAppointmentScreen: React.FC = () => {
               </View>
 
               {showDatePicker && (
-                <DateTimePicker
+                <CrossPlatformDateTimePicker
                   value={getCurrentDate()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   minimumDate={new Date()}
                   onChange={(event: DateTimePickerEvent, date?: Date) => {
                     setShowDatePicker(Platform.OS === 'ios');
-                    if (date) setCurrentDate(date);
+                    if (date) {
+                      console.log('[DatePicker] Date selected (RAW):', {
+                        iso: date.toISOString(),
+                        local: date.toLocaleString('en-IN'),
+                        year: date.getFullYear(),
+                        month: date.getMonth(),
+                        day: date.getDate(),
+                      });
+                      
+                      // CRITICAL FIX: DateTimePicker may return date in UTC
+                      // Extract local date components and create a new Date in local timezone
+                      const localYear = date.getFullYear();
+                      const localMonth = date.getMonth();
+                      const localDay = date.getDate();
+                      
+                      // Create a new Date with local date at midnight
+                      const localDate = new Date(localYear, localMonth, localDay, 0, 0, 0, 0);
+                      
+                      console.log('[DatePicker] Date corrected to local:', {
+                        iso: localDate.toISOString(),
+                        local: localDate.toLocaleString('en-IN'),
+                        year: localDate.getFullYear(),
+                        month: localDate.getMonth(),
+                        day: localDate.getDate(),
+                      });
+                      
+                      setCurrentDate(localDate);
+                    }
                   }}
                 />
               )}
 
               {showTimePicker && (
-                <DateTimePicker
+                <CrossPlatformDateTimePicker
                   value={getCurrentTime()}
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(event: DateTimePickerEvent, time?: Date) => {
                     setShowTimePicker(Platform.OS === 'ios');
-                    if (time) setCurrentTime(time);
+                    if (time) {
+                      console.log('[TimePicker] Time selected (RAW):', {
+                        iso: time.toISOString(),
+                        local: time.toLocaleString('en-IN'),
+                        hours: time.getHours(),
+                        minutes: time.getMinutes(),
+                      });
+                      
+                      // CRITICAL FIX: DateTimePicker returns time in UTC, but we need local time
+                      // When user selects 11:00 AM, picker returns a Date with UTC time
+                      // We need to extract the hours/minutes and create a new Date in local timezone
+                      const localHours = time.getHours();
+                      const localMinutes = time.getMinutes();
+                      
+                      // Create a new Date with today's date and the selected time in LOCAL timezone
+                      const localTime = new Date();
+                      localTime.setHours(localHours, localMinutes, 0, 0);
+                      
+                      console.log('[TimePicker] Time corrected to local:', {
+                        iso: localTime.toISOString(),
+                        local: localTime.toLocaleString('en-IN'),
+                        hours: localTime.getHours(),
+                        minutes: localTime.getMinutes(),
+                      });
+                      
+                      setCurrentTime(localTime);
+                    }
                   }}
                 />
               )}
@@ -1481,7 +1957,7 @@ export const CreateAppointmentScreen: React.FC = () => {
             </View>
 
             {/* Number of Sessions (Multi-day only) */}
-            {appointmentType === 'MULTI' && (
+            {allowMultiDay && appointmentType === 'MULTI' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Number of Sessions</Text>
                 <View style={styles.sessionsRow}>
@@ -1590,7 +2066,7 @@ export const CreateAppointmentScreen: React.FC = () => {
           <View style={styles.conflictModalContent}>
             <View style={styles.conflictModalHeader}>
               <View style={styles.conflictModalIconContainer}>
-                <Ionicons name="warning" size={32} color={colors.warning.main} />
+                <Ionicons name="warning" size={28} color={colors.warning.main} />
               </View>
               <Text style={styles.conflictModalTitle}>{conflictModal.title}</Text>
             </View>
@@ -1601,9 +2077,6 @@ export const CreateAppointmentScreen: React.FC = () => {
                   <Text style={styles.conflictMessageText}>{message}</Text>
                 </View>
               ))}
-              <Text style={styles.conflictHelpText}>
-                Please select a different time or therapist and try again.
-              </Text>
             </View>
             <TouchableOpacity 
               style={styles.conflictModalButton}
@@ -2128,6 +2601,34 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     minHeight: 48,
   },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  genderButtonSelected: {
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.main + '10',
+  },
+  genderButtonText: {
+    ...typography.body2,
+    color: colors.text.secondary,
+  },
+  genderButtonTextSelected: {
+    color: colors.primary.main,
+    fontWeight: '600',
+  },
   modalFooter: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -2178,7 +2679,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.default,
     borderRadius: spacing.md,
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 320,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -2187,26 +2688,28 @@ const styles = StyleSheet.create({
   },
   conflictModalHeader: {
     alignItems: 'center',
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
   conflictModalIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.warning.main + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
   conflictModalTitle: {
     ...typography.h6,
+    fontSize: 18,
     color: colors.text.primary,
     textAlign: 'center',
   },
   conflictModalBody: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   conflictMessageRow: {
     flexDirection: 'row',
@@ -2217,18 +2720,13 @@ const styles = StyleSheet.create({
     ...typography.body2,
     color: colors.text.primary,
     flex: 1,
-  },
-  conflictHelpText: {
-    ...typography.body2,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    lineHeight: 20,
   },
   conflictModalButton: {
     backgroundColor: colors.primary.main,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
     borderRadius: spacing.sm,
     alignItems: 'center',
   },

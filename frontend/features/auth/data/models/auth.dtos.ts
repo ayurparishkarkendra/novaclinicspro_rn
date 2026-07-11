@@ -13,6 +13,10 @@ export interface CurrentUserResponse {
   roles: string[];
   permissions: string[];
   is_org_admin: boolean;
+  application_status?: 'draft' | 'pending_review' | 'approved' | 'onboarding' | 'active' | 'rejected' | null;
+  full_name?: string;
+  clinic_name?: string;  // single string (legacy / owner path)
+  clinic_names?: string[]; // list shape from new backend implementation
 }
 
 /**

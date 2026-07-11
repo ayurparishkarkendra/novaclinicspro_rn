@@ -25,7 +25,6 @@ import { DashboardHeader } from '../../../../core/components/DashboardHeader';
 import {
   useRoomsListQuery,
   useCreateRoomMutation,
-  useDeleteRoomMutation,
 } from '../../data/repositories/rooms.repository.impl';
 import {
   RoomResponse,
@@ -42,8 +41,7 @@ import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
 const RoomCard: React.FC<{
   room: RoomResponse;
   onPress: () => void;
-  onDelete: () => void;
-}> = ({ room, onPress, onDelete }) => {
+}> = ({ room, onPress }) => {
   const typeLabel = getRoomTypeLabel(room.room_type);
   const typeIcon = getRoomTypeIcon(room.room_type) as keyof typeof Ionicons.glyphMap;
   const typeColor = room.room_type ? getTypeColor(room.room_type) : '#6B7280';
@@ -80,14 +78,6 @@ const RoomCard: React.FC<{
           </View>
         </View>
       </View>
-
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={onDelete}
-        accessibilityLabel={`Delete ${room.name}`}
-      >
-        <Ionicons name="trash-outline" size={18} color="#EF4444" />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 };
@@ -110,22 +100,33 @@ export const RoomsScreen: React.FC = () => {
   const tenantId = currentUser?.tenantId || '';
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     capacity: '1',
     roomType: null as RoomType | null,
   });
 
-  const roomsQuery = useRoomsListQuery(tenantId, { limit: 50 }, {
+  // Fetch all rooms once — backend may not support is_active filtering
+  // Client-side filter is the reliable fallback
+  const allRoomsQuery = useRoomsListQuery(tenantId, { limit: 500 }, {
     enabled: !!tenantId,
   });
 
+  const activeRooms = (allRoomsQuery.data?.items || []).filter(r => r.is_active === true);
+  const inactiveRooms = (allRoomsQuery.data?.items || []).filter(r => r.is_active === false);
+
+  const activeCount = activeRooms.length;
+  const inactiveCount = inactiveRooms.length;
+  const displayedRooms = showInactive ? inactiveRooms : activeRooms;
+
+  const isRefetching = allRoomsQuery.isRefetching;
+
   const createMutation = useCreateRoomMutation(tenantId);
-  const deleteMutation = useDeleteRoomMutation(tenantId);
 
   const handleRefresh = useCallback(() => {
-    roomsQuery.refetch();
-  }, [roomsQuery]);
+    allRoomsQuery.refetch();
+  }, [allRoomsQuery]);
 
   const handleCreateRoom = useCallback(async () => {
     if (!formData.name.trim()) {
@@ -147,38 +148,12 @@ export const RoomsScreen: React.FC = () => {
     }
   }, [createMutation, formData]);
 
-  const handleDeleteRoom = useCallback((room: RoomResponse) => {
-    Alert.alert(
-      'Delete Room',
-      `Are you sure you want to delete "${room.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteMutation.mutateAsync(room.id);
-              Alert.alert('Success', 'Room deleted successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete room');
-            }
-          },
-        },
-      ]
-    );
-  }, [deleteMutation]);
-
   const renderRoom = useCallback(({ item }: { item: RoomResponse }) => (
     <RoomCard
       room={item}
       onPress={() => router.push(`/clinic-admin/settings/rooms/${item.id}` as any)}
-      onDelete={() => handleDeleteRoom(item)}
     />
-  ), [router, handleDeleteRoom]);
-
-  const activeRooms = roomsQuery.data?.items.filter(r => r.is_active).length || 0;
-  const totalRooms = roomsQuery.data?.total || 0;
+  ), [router]);
 
   if (!tenantId) {
     return (
@@ -200,21 +175,27 @@ export const RoomsScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Rooms & Resources"
-        subtitle={`${activeRooms} active rooms`}
+        subtitle={`${activeCount} active rooms`}
         onBackPress={() => router.back()}
       />
 
       {/* Toolbar */}
       <View style={styles.toolbar}>
         <View style={styles.statsRow}>
-          <View style={styles.statBadge}>
-            <Text style={styles.statValue}>{totalRooms}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
-          <View style={[styles.statBadge, { backgroundColor: '#10B98115' }]}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{activeRooms}</Text>
+          <TouchableOpacity
+            style={[styles.statBadge, !showInactive && { backgroundColor: '#10B98120', borderColor: '#10B981' }]}
+            onPress={() => setShowInactive(false)}
+          >
+            <Text style={[styles.statValue, { color: '#10B981' }]}>{activeCount}</Text>
             <Text style={styles.statLabel}>Active</Text>
-          </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statBadge, showInactive && { backgroundColor: '#F3F4F620', borderColor: '#9CA3AF' }]}
+            onPress={() => setShowInactive(true)}
+          >
+            <Text style={[styles.statValue, { color: '#6B7280' }]}>{inactiveCount}</Text>
+            <Text style={styles.statLabel}>Inactive</Text>
+          </TouchableOpacity>
         </View>
         <TouchableOpacity
           style={styles.addButton}
@@ -227,13 +208,13 @@ export const RoomsScreen: React.FC = () => {
 
       {/* Room List */}
       <FlatList
-        data={roomsQuery.data?.items || []}
+        data={displayedRooms}
         keyExtractor={(item) => item.id}
         renderItem={renderRoom}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
-            refreshing={roomsQuery.isRefetching}
+            refreshing={isRefetching}
             onRefresh={handleRefresh}
             colors={['#2F6F4E']}
             tintColor="#2F6F4E"

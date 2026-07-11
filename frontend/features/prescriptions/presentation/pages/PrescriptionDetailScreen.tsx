@@ -20,12 +20,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { ClinicalPrintPreviewModal } from '../../../../core/clinicalPrint/ClinicalPrintPreviewModal';
+import { buildPrescriptionPrintHtml } from '../../../../core/clinicalPrint/adapters';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   usePrescriptionDetailQuery,
   useUpdatePrescriptionMutation,
   useDeletePrescriptionMutation,
   useSharePrescriptionMutation,
+  usePrescriptionPrintMutation,
   PrescriptionShareRequest,
   formatDateTime,
   formatMedication,
@@ -46,6 +49,8 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const prescriptionId = params.prescriptionId || '';
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printHtmlContent, setPrintHtmlContent] = useState('');
 
   const {
     data: prescription,
@@ -59,6 +64,7 @@ export const PrescriptionDetailScreen: React.FC = () => {
   const updateMutation = useUpdatePrescriptionMutation(tenantId, prescriptionId);
   const deleteMutation = useDeletePrescriptionMutation(tenantId, prescriptionId);
   const shareMutation = useSharePrescriptionMutation(tenantId, prescriptionId);
+  const printMutation = usePrescriptionPrintMutation(tenantId, prescriptionId);
 
   const handleStatusTransition = useCallback(async (newStatus: string) => {
     try {
@@ -105,6 +111,16 @@ export const PrescriptionDetailScreen: React.FC = () => {
       Alert.alert('Error', err.message || 'Failed to share prescription.');
     }
   }, [shareMutation]);
+
+  const handlePrint = useCallback(async () => {
+    try {
+      const printData = await printMutation.mutateAsync();
+      setPrintHtmlContent(buildPrescriptionPrintHtml(printData));
+      setShowPrintPreview(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to prepare prescription for print.');
+    }
+  }, [printMutation]);
 
   const handleEdit = useCallback(() => {
     if (clientId) {
@@ -205,6 +221,15 @@ export const PrescriptionDetailScreen: React.FC = () => {
               <Text style={styles.actionButtonText}>Share</Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.printButton]}
+            onPress={handlePrint}
+            disabled={printMutation.isPending}
+          >
+            <Ionicons name="print-outline" size={18} color={colors.text.primary} />
+            <Text style={[styles.actionButtonText, styles.printButtonText]}>Print</Text>
+          </TouchableOpacity>
 
           {/* Delete Button */}
           <TouchableOpacity
@@ -368,6 +393,12 @@ export const PrescriptionDetailScreen: React.FC = () => {
         onClose={() => setShowShareModal(false)}
         onShare={handleShare}
         isLoading={shareMutation.isPending}
+      />
+      <ClinicalPrintPreviewModal
+        visible={showPrintPreview}
+        html={printHtmlContent}
+        title="Prescription Preview"
+        onClose={() => setShowPrintPreview(false)}
       />
     </SafeAreaView>
   );
@@ -536,6 +567,14 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     backgroundColor: colors.primary.main,
+  },
+  printButton: {
+    backgroundColor: colors.grey[100],
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  printButtonText: {
+    color: colors.text.primary,
   },
   deleteButton: {
     backgroundColor: colors.error.main + '15',

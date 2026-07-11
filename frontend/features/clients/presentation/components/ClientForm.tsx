@@ -39,7 +39,8 @@ const clientSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   mobile_code: z.string().max(5).optional(),
   email: z.string().email('Invalid email').optional().nullable().or(z.literal('')),
-  gender: z.string().optional().nullable(),
+  gender: z.string().min(1, 'Gender is required'),
+  age: z.number().min(0, 'Age must be 0 or greater').max(150, 'Age must be less than 150'),
   date_of_birth: z.string().optional().nullable(),
   address_line: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -87,6 +88,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
       mobile_code: initialData?.mobile_code || '+91',
       email: initialData?.email || '',
       gender: initialData?.gender || '',
+      age: initialData?.age || undefined,
       date_of_birth: initialData?.date_of_birth || '',
       address_line: initialData?.address_line || '',
       city: initialData?.city || '',
@@ -219,7 +221,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
 
           {/* Gender */}
           <View style={styles.field}>
-            <Text style={styles.label}>Gender (Optional)</Text>
+            <Text style={styles.label}>Gender *</Text>
             <Controller
               control={control}
               name="gender"
@@ -231,6 +233,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                       style={[
                         styles.optionButton,
                         value === gender && styles.optionButtonSelected,
+                        errors.gender && !value && styles.inputError,
                       ]}
                       onPress={() => onChange(gender)}
                     >
@@ -247,6 +250,36 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                 </View>
               )}
             />
+            {errors.gender && (
+              <Text style={styles.errorText}>{errors.gender.message}</Text>
+            )}
+          </View>
+
+          {/* Age */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Age *</Text>
+            <Controller
+              control={control}
+              name="age"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.age && styles.inputError]}
+                  value={value !== undefined ? String(value) : ''}
+                  onChangeText={(text) => {
+                    const numValue = text === '' ? undefined : parseInt(text, 10);
+                    onChange(numValue);
+                  }}
+                  onBlur={onBlur}
+                  placeholder="Enter age"
+                  placeholderTextColor={colors.text.tertiary}
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+              )}
+            />
+            {errors.age && (
+              <Text style={styles.errorText}>{errors.age.message}</Text>
+            )}
           </View>
 
           {/* Date of Birth */}

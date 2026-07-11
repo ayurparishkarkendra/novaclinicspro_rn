@@ -37,8 +37,22 @@ export const getDoctorKpisApi = async (
     if (params.to_date) queryParams.set('to_date', params.to_date);
   }
 
+  console.log('[KPI API] Fetching doctor KPIs:', {
+    tenantId,
+    staffId,
+    params,
+    url: `/api/v1/clinic/${tenantId}/staff/${staffId}/kpis?${queryParams.toString()}`
+  });
+
   const response = await axiosClient.get<DoctorKpiResponseDTO>(
     `/api/v1/clinic/${tenantId}/staff/${staffId}/kpis?${queryParams.toString()}`
   );
+  
+  console.log('[KPI API] Response:', {
+    consultations: response.data.consultations,
+    patients: response.data.patients,
+    hasData: !!response.data,
+  });
+  
   return response.data;
 };

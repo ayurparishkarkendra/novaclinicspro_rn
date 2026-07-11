@@ -4,8 +4,11 @@
  */
 
 import { useCallback } from 'react';
+import { InteractionManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../../core/api/supabaseClient';
+import { queryClient } from '../../../../core/api/queryClient';
+import { setLoggingOut } from '../../../../core/api/authGuard';
 import { useAuthStore } from '../providers/auth.store';
 import { authRepository } from '../../data/repositories/auth.repository.impl';
 import { BootstrapSessionUseCase } from '../../domain/usecases/bootstrap-session.usecase';
@@ -19,7 +22,8 @@ interface UseAuthReturn {
   setSelectedClinic: (clinicId: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  bootstrapSession: () => Promise<void>;
+  bootstrapSession: () => Promise<{ authenticated: boolean; session: AuthUserSession | null }>;
+  refreshSession: () => Promise<void>;
   navigateToLanding: () => void;
 }
 
@@ -56,6 +60,10 @@ export const useAuth = (): UseAuthReturn => {
    */
   const login = useCallback(
     async (email: string, password: string) => {
+      // T-A.4: defensive reset — the authGuard flag is set/cleared around
+      // logout()'s own lifecycle, but a fresh login should never be
+      // suppressed by it regardless.
+      setLoggingOut(false);
       try {
         // Sign in with Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -83,20 +91,28 @@ export const useAuth = (): UseAuthReturn => {
         // Store tokens
         await setTokens(data.session.access_token, data.session.refresh_token);
 
-        // Fetch user context from backend
+        // Fetch user context from backend — retry once on network drop
+        // (backend may return 200 but connection drops before body arrives)
+        const fetchUserWithRetry = async (): Promise<ReturnType<typeof authRepository.getCurrentUser>> => {
+          try {
+            return await authRepository.getCurrentUser();
+          } catch (firstErr: any) {
+            const isNetworkDrop = firstErr?.isAxiosError && !firstErr?.response;
+            if (isNetworkDrop) {
+              console.log('[useAuth] Network drop on /auth/me — retrying once...');
+              await new Promise(resolve => setTimeout(resolve, 800));
+              return await authRepository.getCurrentUser();
+            }
+            throw firstErr;
+          }
+        };
+
         try {
-          const userSession = await authRepository.getCurrentUser();
+          const userSession = await fetchUserWithRetry();
           setCurrentUser(userSession);
 
-          // Navigate using centralized logic
-          const route = getLandingRoute(userSession);
-          console.log('[useAuth] Post-login navigation:', { 
-            isOrgAdmin: userSession.isOrgAdmin, 
-            tenantId: userSession.tenantId,
-            ownedClinics: userSession.ownedClinics.length,
-            route,
-          });
-          router.replace(route as any);
+          // Navigate based on status
+          navigateBasedOnStatus(userSession);
         } catch (backendError: any) {
           console.error('Backend context error:', backendError);
           // If backend fails, sign out from Supabase to avoid inconsistent state
@@ -110,7 +126,7 @@ export const useAuth = (): UseAuthReturn => {
             throw new Error('Access denied. Your account may be suspended.');
           } else if (backendError?.response?.status === 404) {
             throw new Error('User profile not found. Please contact support to set up your account.');
-          } else if (backendError?.message?.includes('Network Error')) {
+          } else if (backendError?.isAxiosError && !backendError?.response) {
             throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
           } else {
             throw new Error('Unable to load your profile. Please try again later.');
@@ -126,20 +142,61 @@ export const useAuth = (): UseAuthReturn => {
 
   /**
    * Logout - clears ALL session state including selectedClinicId
+   *
+   * T-A.4 (FR-A5, ADR-P1-01, design.md §6.2): order is unauthenticated-flag
+   * -> cancel -> clear -> navigate, with the remote Supabase signOut call
+   * moved to best-effort AFTER local cleanup. Previously, signOut() was
+   * awaited FIRST, so a signOut failure (e.g. network drop) meant
+   * clearSession()/cancelQueries()/clear() were never reached at all —
+   * the user was left fully authenticated locally despite attempting to
+   * log out (see tests/features/auth/logoutBoundary.characterization.test.tsx's
+   * baseline for this gap, T-0.4). Local logout must not depend on a
+   * network call succeeding.
    */
   const logout = useCallback(async () => {
+    // Step 1 (synchronous, unconditional): flip the shared flag axiosClient's
+    // request interceptor checks, before anything else — closes the window
+    // where an in-flight or React-Query-untracked request could still be
+    // issued with a valid token during this transition.
+    setLoggingOut(true);
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-
-      // Clear local session (includes selectedClinicId reset)
+      // Step 2: clear local session (includes selectedClinicId reset).
+      // clearSession() itself marks isAuthenticated:false synchronously as
+      // its first action (see auth.store.ts), before its own awaited
+      // storage cleanup.
       await clearSession();
 
-      // Navigate to login
-      router.replace('/login');
+      // Step 3: cancel any in-flight queries and wipe the cache. Without
+      // this, a screen that's still mounted during the navigation
+      // transition (e.g. one using useFocusEffect to call refetch()
+      // directly) can still fire a request — refetch() bypasses each
+      // query's `enabled` guard. Between this and the authGuard flag above,
+      // any such request goes out unauthenticated and is rejected by the
+      // backend with 401 "Authorization header required".
+      await queryClient.cancelQueries();
+      queryClient.clear();
+
+      // Step 4: navigate after state updates settle so the root Stack stays
+      // mounted.
+      InteractionManager.runAfterInteractions(() => {
+        router.replace('/login');
+      });
+
+      // Best-effort remote signOut, AFTER local cleanup — its failure must
+      // not prevent local logout, which has already completed above.
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Supabase signOut error (local session already cleared):', signOutError);
+      }
     } catch (error) {
+      // A genuine failure in local cleanup itself (clearSession/cancelQueries/
+      // clear) — distinct from the signOut failure handled above, which is
+      // intentionally swallowed. Re-thrown so the UI can still surface it.
       console.error('Logout error:', error);
       throw error;
+    } finally {
+      setLoggingOut(false);
     }
   }, [clearSession, router]);
 
@@ -153,7 +210,151 @@ export const useAuth = (): UseAuthReturn => {
     if (result.authenticated && result.session) {
       setCurrentUser(result.session);
     }
+    
+    return result;
   }, [setCurrentUser]);
+
+  /**
+   * Refresh session to get updated JWT token with tenant_id
+   * CRITICAL: Must be called after demo creation to get tenant_id in token
+   */
+  const refreshSession = useCallback(async () => {
+    try {
+      console.log('[useAuth] Refreshing session to get updated token...');
+      
+      // Refresh the Supabase session to get new JWT with tenant_id
+      const { data, error } = await supabase.auth.refreshSession();
+
+      if (error) {
+        console.error('[useAuth] Token refresh error:', error);
+        throw new Error('Failed to refresh session');
+      }
+
+      if (!data.session) {
+        throw new Error('No session returned from refresh');
+      }
+
+      console.log('[useAuth] Session refreshed successfully');
+      console.log('[useAuth] New access token (first 50 chars):', data.session.access_token.substring(0, 50));
+
+      // Store new tokens
+      await setTokens(data.session.access_token, data.session.refresh_token);
+
+      // CRITICAL: Wait for Supabase to update its internal storage
+      // This ensures getSession() returns the new token in axios interceptor
+      console.log('[useAuth] Waiting for token to propagate in Supabase storage...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify the token is now available via getSession()
+      const { data: { session: verifySession } } = await supabase.auth.getSession();
+      if (verifySession?.access_token) {
+        console.log('[useAuth] Verified token in storage (first 50 chars):', verifySession.access_token.substring(0, 50));
+        
+        if (verifySession.access_token !== data.session.access_token) {
+          console.error('[useAuth] WARNING: getSession() returned different token than refreshSession()!');
+          console.error('[useAuth] This means axios interceptor will use the old token!');
+        } else {
+          console.log('[useAuth] ✅ Token verified - getSession() returns the refreshed token');
+        }
+      }
+
+      // Fetch updated user context from backend (now includes tenant_id)
+      console.log('[useAuth] Fetching updated user context...');
+      const userSession = await authRepository.getCurrentUser();
+      setCurrentUser(userSession);
+
+      console.log('[useAuth] User context updated:', {
+        tenantId: userSession.tenantId,
+        email: userSession.email,
+        isOrgAdmin: userSession.isOrgAdmin,
+      });
+    } catch (error) {
+      console.error('[useAuth] Refresh session error:', error);
+      throw error;
+    }
+  }, [setTokens, setCurrentUser]);
+
+  /**
+   * Navigate based on user status and permissions
+   * Priority:
+   * 1. Super admin → /super-admin
+   * 2. Application status → onboarding flow or active
+   * 3. Fallback → /
+   */
+  const navigateBasedOnStatus = (user: AuthUserSession) => {
+    console.log('[useAuth] Navigating based on status:', { 
+      isOrgAdmin: user.isOrgAdmin, 
+      tenantId: user.tenantId,
+      applicationStatus: user.applicationStatus,
+      permissions: user.permissions 
+    });
+    
+    // Super admin always goes to super-admin dashboard
+    if (user.isOrgAdmin) {
+      router.replace('/super-admin');
+      return;
+    }
+
+    // Route based on application status
+    switch (user.applicationStatus) {
+      case 'onboarding':
+        if (user.tenantId) {
+          console.log('[useAuth] Status is onboarding, navigating to wizard');
+          router.replace(`/onboarding/wizard-flow?tenantId=${user.tenantId}`);
+        } else {
+          console.log('[useAuth] Status is onboarding but tenantId is missing, routing through index');
+          router.replace('/');
+        }
+        break;
+        
+      case 'approved':
+        console.log('[useAuth] Status is approved, routing through index to resolve applicationId');
+        router.replace('/');
+        break;
+        
+      case 'active':
+        console.log('[useAuth] Status is active, routing based on role');
+        // Route to appropriate dashboard based on role
+        const userRole = user.roles?.[0]?.toLowerCase() || '';
+        console.log('[useAuth] User role:', userRole);
+        
+        if (userRole === 'doctor') {
+          console.log('[useAuth] Routing to doctor dashboard');
+          router.replace('/doctor');
+        } else if (userRole === 'therapist') {
+          console.log('[useAuth] Routing to therapist dashboard');
+          router.replace('/therapist');
+        } else if (['clinic owner', 'clinic_owner', 'clinic admin', 'clinic_admin', 'receptionist', 'tenant admin', 'tenant_admin'].includes(userRole)) {
+          console.log('[useAuth] Routing to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        } else {
+          // Default to clinic-admin for unknown roles
+          console.log('[useAuth] Unknown role, defaulting to clinic-admin dashboard');
+          router.replace('/clinic-admin');
+        }
+        break;
+        
+      case 'pending_review':
+        console.log('[useAuth] Status is pending_review, routing through index to resolve applicationId');
+        router.replace('/');
+        break;
+        
+      case 'rejected':
+        console.log('[useAuth] Status is rejected, routing through index to resolve applicationId');
+        router.replace('/');
+        break;
+        
+      case 'draft':
+        console.log('[useAuth] Status is draft, routing through index to resolve applicationId');
+        router.replace('/');
+        break;
+        
+      default:
+        // No tenant or unknown status - fallback to index
+        console.log('[useAuth] Unknown or null status, navigating to index');
+        router.replace('/');
+    }
+  };
 
   return {
     currentUser,
@@ -164,6 +365,7 @@ export const useAuth = (): UseAuthReturn => {
     login,
     logout,
     bootstrapSession,
+    refreshSession,
     navigateToLanding,
   };
 };

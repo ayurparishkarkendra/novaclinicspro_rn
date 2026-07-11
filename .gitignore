@@ -3,7 +3,6 @@
 # IDE and editors
 .idea/
 .vscode/
-
 # Dependencies
 node_modules/
 /node_modules
@@ -237,3 +236,9 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+frontend/ios/
+.kiro/
+frontend/.metro-cache/
+*.md
+frontend/docs/
+.emergent/

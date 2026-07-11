@@ -11,6 +11,7 @@ import {
   updatePrescriptionApi,
   deletePrescriptionApi,
   sharePrescriptionApi,
+  getPrescriptionPrintApi,
 } from '../datasources/prescriptions.api';
 import {
   PrescriptionCreateRequest,
@@ -19,6 +20,7 @@ import {
   PrescriptionResponse,
   PrescriptionListResponse,
   PrescriptionShareResponse,
+  PrescriptionPrintResponse,
   ListPrescriptionsParams,
 } from '../models/prescriptions.dtos';
 
@@ -34,6 +36,17 @@ export const prescriptionsKeys = {
   details: () => [...prescriptionsKeys.all, 'detail'] as const,
   detail: (tenantId: string, prescriptionId: string) =>
     [...prescriptionsKeys.details(), tenantId, prescriptionId] as const,
+  /**
+   * Phase 1 · T-A.1 (ADR-P1-01): deterministic key for "the prescription for
+   * this consultation" (episode+appointment scoped), matching design §5's
+   * addressing requirement for this read. Before this task, the consultation
+   * workspace resolved this via an ad-hoc `axiosClient.get` call with no
+   * corresponding query key at all — this key/hook establish the addressing
+   * scheme. Wiring the workspace's read/save to actually use it is a later,
+   * flag-gated task (T-A.2/T-A.5), not this one.
+   */
+  byAppointment: (tenantId: string, episodeId: string, appointmentId: string) =>
+    [...prescriptionsKeys.all, 'byAppointment', tenantId, episodeId, appointmentId] as const,
 };
 
 // ============================================
@@ -53,6 +66,29 @@ export const usePrescriptionsListQuery = (
     queryFn: () => listPrescriptionsApi(tenantId, params),
     enabled: !!tenantId,
     staleTime: 30 * 1000, // 30 seconds
+    ...options,
+  });
+};
+
+/**
+ * Phase 1 · T-A.1 — Hook to look up the prescription for one consultation
+ * (episode+appointment), matching the exact request the consultation
+ * workspace currently issues manually (`appointment_id` + `episode_id`
+ * filter on the same list endpoint). Not yet consumed by the workspace —
+ * establishing the addressing scheme is this task's scope; wiring it in is
+ * a later task.
+ */
+export const usePrescriptionByAppointmentQuery = (
+  tenantId: string,
+  episodeId: string,
+  appointmentId: string,
+  options?: Omit<UseQueryOptions<PrescriptionListResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<PrescriptionListResponse, Error>({
+    queryKey: prescriptionsKeys.byAppointment(tenantId, episodeId, appointmentId),
+    queryFn: () => listPrescriptionsApi(tenantId, { appointment_id: appointmentId, episode_id: episodeId }),
+    enabled: !!tenantId && !!episodeId && !!appointmentId,
+    staleTime: 30 * 1000,
     ...options,
   });
 };
@@ -151,6 +187,17 @@ export const useSharePrescriptionMutation = (
 ) => {
   return useMutation<PrescriptionShareResponse, Error, PrescriptionShareRequest>({
     mutationFn: (payload) => sharePrescriptionApi(tenantId, prescriptionId, payload),
+    ...options,
+  });
+};
+
+export const usePrescriptionPrintMutation = (
+  tenantId: string,
+  prescriptionId: string,
+  options?: UseMutationOptions<PrescriptionPrintResponse, Error, void>
+) => {
+  return useMutation<PrescriptionPrintResponse, Error, void>({
+    mutationFn: () => getPrescriptionPrintApi(tenantId, prescriptionId),
     ...options,
   });
 };

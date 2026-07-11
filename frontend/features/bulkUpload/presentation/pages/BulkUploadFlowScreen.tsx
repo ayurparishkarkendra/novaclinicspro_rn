@@ -14,11 +14,13 @@ import {
   Alert,
   FlatList,
   Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
@@ -30,6 +32,7 @@ import {
 } from '../../data/models/bulkUpload.dtos';
 import {
   useBulkUploadMutation,
+  useBulkTemplateMutation,
   useJobQuery,
   useApplyMappingMutation,
   useValidateJobMutation,
@@ -59,6 +62,7 @@ export const BulkUploadFlowScreen: React.FC = () => {
 
   // Mutations
   const uploadMutation = useBulkUploadMutation();
+  const templateMutation = useBulkTemplateMutation();
   const mappingMutation = useApplyMappingMutation(jobId || '');
   const validateMutation = useValidateJobMutation(jobId || '');
   const commitMutation = useCommitJobMutation(jobId || '');
@@ -74,6 +78,49 @@ export const BulkUploadFlowScreen: React.FC = () => {
 
   const job = jobData?.job;
   const rows = jobData?.rows || [];
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const template = await templateMutation.mutateAsync(entity);
+
+      if (Platform.OS === 'web') {
+        const documentRef = (globalThis as any).document;
+        if (!documentRef) {
+          throw new Error('Template download is not available in this environment.');
+        }
+
+        const blob = new Blob([template.csv_content], { type: template.content_type });
+        const url = URL.createObjectURL(blob);
+        const link = documentRef.createElement('a');
+        link.href = url;
+        link.download = template.filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const targetDirectory = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      if (!targetDirectory) {
+        throw new Error('Unable to access device storage for template download.');
+      }
+
+      const fileUri = `${targetDirectory}${template.filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, template.csv_content, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      await Share.share({
+        title: template.filename,
+        message: `CSV template saved: ${template.filename}`,
+        url: fileUri,
+      });
+    } catch (error: any) {
+      Alert.alert(
+        'Template Download Failed',
+        error?.message || 'Failed to download template. Please try again.'
+      );
+    }
+  };
 
   // Handle file selection and upload
   const handleSelectFile = async () => {
@@ -193,6 +240,21 @@ export const BulkUploadFlowScreen: React.FC = () => {
             <>
               <Ionicons name="folder-open" size={20} color={colors.text.light} />
               <Text style={styles.uploadButtonText}>Select File</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.templateButton}
+          onPress={handleDownloadTemplate}
+          disabled={templateMutation.isPending}
+        >
+          {templateMutation.isPending ? (
+            <ActivityIndicator color={colors.primary.main} />
+          ) : (
+            <>
+              <Ionicons name="download-outline" size={20} color={colors.primary.main} />
+              <Text style={styles.templateButtonText}>Download CSV Template</Text>
             </>
           )}
         </TouchableOpacity>
@@ -509,6 +571,23 @@ const styles = StyleSheet.create({
     ...typography.body1,
     fontWeight: '700',
     color: colors.text.light,
+  },
+  templateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+    backgroundColor: colors.background.default,
+  },
+  templateButtonText: {
+    ...typography.body2,
+    fontWeight: '700',
+    color: colors.primary.main,
   },
   hintsCard: {
     backgroundColor: colors.grey[50],

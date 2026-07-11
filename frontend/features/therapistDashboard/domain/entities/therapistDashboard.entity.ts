@@ -16,6 +16,88 @@ import { StaffLeaveResponse } from '../../../staff/data/models/staff.dtos';
 import { colors } from '../../../../core/theme/colors';
 
 // ============================================
+// DOMAIN INTERFACES (Task 5.1)
+// ============================================
+
+/** Summary data for the dashboard header and stat cards */
+export interface TherapistDashboard {
+  displayName: string;
+  todayDate: string;
+  totalSessions: number;
+  completedSessions: number;
+  pendingSessions: number;
+  averageRating: number | null;
+}
+
+/** A single session row — rowId maps from row_id */
+export interface TherapistSession {
+  rowId: string;               // maps from row_id — the only completion identifier
+  clientName: string | null;
+  treatmentName: string | null;
+  dayNumber: number;
+  scheduledTime: string | null;
+  status: string;
+  isCompletable: boolean;      // derived: canCompleteSession(status)
+  isTerminal: boolean;         // derived: isTerminalStatus(status)
+}
+
+/** KPI metrics for display */
+export interface TherapistKpi {
+  completionRate: number;
+  retentionRate: number;
+  satisfactionScore: number | null;
+  ratingDistribution: Record<string, number>;
+  periodLabel: string;
+}
+
+/** A pre-configured material/consumable from the usables endpoint */
+export interface SheetRowUsable {
+  inventoryItemId: string | null;
+  materialName: string;
+  materialCode: string | null;
+  quantityUsed: number;
+  unit: string;
+  mlPerUnit: number;
+  category: 'oil' | 'medicine' | 'disposable' | 'other';
+}
+
+/** A material in the completion payload */
+export interface CompleteMaterial {
+  inventoryItemId?: string | null;
+  materialName: string;
+  materialCode?: string | null;
+  quantityUsed: number;
+  unit: string;
+  mlPerUnit: number;
+  category: 'oil' | 'medicine' | 'disposable' | 'other';
+}
+
+// ============================================
+// SESSION STATUS HELPERS (Tasks 5.2 & 5.3)
+// ============================================
+
+/**
+ * Determines if a session status allows completion.
+ * Returns true only after the therapist has started the session.
+ * Returns false for all other statuses (including terminal ones).
+ *
+ * Requirements: 4.6, 4.7
+ */
+export const canCompleteSession = (status: string): boolean => {
+  return status?.toLowerCase() === 'in_progress';
+};
+
+/**
+ * Determines if a session status is terminal (no further actions available).
+ * Returns true for 'completed', 'cancelled', 'no_show'.
+ *
+ * Requirements: 4.7
+ */
+export const isTerminalStatus = (status: string): boolean => {
+  return status === 'completed' || status === 'cancelled' || status === 'no_show';
+};
+
+// ============================================
 // WORKLIST SESSION ENTITY HELPERS
 // ============================================
 
@@ -28,19 +110,11 @@ export const canStartSession = (session: TherapistSessionItem): boolean => {
 };
 
 /**
- * Check if session can be completed
- */
-export const canCompleteSession = (session: TherapistSessionItem): boolean => {
-  const status = session.status?.toLowerCase();
-  return status === 'in_progress';
-};
-
-/**
  * Check if session is actionable (not terminal state)
+ * @deprecated Use isTerminalStatus(session.status) instead
  */
 export const isSessionActionable = (session: TherapistSessionItem): boolean => {
-  const terminalStatuses = ['completed', 'cancelled', 'no_show'];
-  return !terminalStatuses.includes(session.status?.toLowerCase() || '');
+  return !isTerminalStatus(session.status?.toLowerCase() || '');
 };
 
 /**

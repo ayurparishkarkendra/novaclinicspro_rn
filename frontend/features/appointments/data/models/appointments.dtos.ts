@@ -1,6 +1,9 @@
 /**
  * Appointments DTOs
  * Data Transfer Objects matching OpenAPI schemas
+ * 
+ * CLEAN ARCHITECTURE: This file contains ONLY data contracts (interfaces, types, enums).
+ * All business logic, formatting, and messaging has been moved to separate utility modules.
  */
 
 // ============================================
@@ -16,6 +19,19 @@ export type AppointmentStatus =
   | 'cancelled'
   | 'no_show';
 
+/** Appointment type */
+export type AppointmentType = 'SINGLE' | 'MULTI';
+
+/** Status options for filtering */
+export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  'scheduled',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+  'no_show',
+];
+
 // ============================================
 // REQUEST DTOs
 // ============================================
@@ -23,7 +39,8 @@ export type AppointmentStatus =
 /** Request to create an appointment */
 export interface AppointmentCreate {
   client_id: string;
-  staff_id?: string | null;
+  doctor_id?: string | null;
+  therapist_ids?: string[];
   room_id?: string | null;
   treatment_id?: string | null;
   appointment_start: string; // ISO datetime
@@ -32,11 +49,21 @@ export interface AppointmentCreate {
   notes?: string | null;
   series_id?: string | null;
   appointment_type?: string | null;
+  // Linking fields for multi-day appointments
+  episode_id?: string | null;
+  case_sheet_id?: string | null;
+  treatment_sheet_id?: string | null;
+  // Validation flags
+  is_past_booking?: boolean;
+  is_outside_operating_hours?: boolean;
+  is_during_break_time?: boolean;
+  is_on_weekly_off?: boolean;
 }
 
 /** Request to update an appointment */
 export interface AppointmentUpdate {
-  staff_id?: string | null;
+  doctor_id?: string | null;
+  therapist_ids?: string[];
   room_id?: string | null;
   treatment_id?: string | null;
   appointment_start?: string | null;
@@ -59,11 +86,20 @@ export interface AppointmentReschedule {
 export interface ListAppointmentsParams {
   status?: string;
   client_id?: string;
-  staff_id?: string;
+  doctor_id?: string;
+  therapist_id?: string;
+  episode_id?: string;
   start_date?: string;
   end_date?: string;
   skip?: number;
   limit?: number;
+}
+
+/** Search appointments params */
+export interface SearchAppointmentsParams {
+  q: string;
+  date?: string;
+  status?: string;
 }
 
 // ============================================
@@ -76,12 +112,28 @@ export interface StaffAssignment {
   name: string;
 }
 
+/** Staff info in responses */
+export interface StaffInfo {
+  id: string;
+  name: string;
+  gender?: string;
+  role?: string;
+}
+
+/** Room info in responses */
+export interface RoomInfo {
+  id: string;
+  name: string;
+  capacity?: number;
+}
+
 /** Response for an appointment */
 export interface AppointmentResponse {
   id: string;
   tenant_id: string;
   client_id: string;
-  staff_id: string | null;
+  doctor_id: string | null;
+  therapist_ids: string[];
   room_id: string | null;
   treatment_id: string | null;
   appointment_start: string;
@@ -95,13 +147,28 @@ export interface AppointmentResponse {
   series_id: string | null;
   session_number?: number;
   total_sessions?: number;
+  // Episode fields (optional, nullable)
+  episode_id?: string | null;
+  episode_title?: string;
+  episode_status?: 'ACTIVE' | 'CLOSED';
+  // Multi-day treatment fields (optional, nullable)
+  treatment_sheet_id?: string | null;
+  session_id?: string | null;
   // Expanded fields (may be present)
   client_name?: string;
   client_phone?: string;
-  staff_name?: string;  // Deprecated - use staff_assignments
-  staff_assignments?: StaffAssignment[] | null;  // ✨ NEW - All assigned therapists
+  doctor_name?: string;
+  staff_assignments?: StaffAssignment[] | null;
   treatment_name?: string;
   room_name?: string;
+}
+
+/** Enhanced appointment response with expanded fields */
+export interface AppointmentWithDetails extends AppointmentResponse {
+  client_phone?: string;
+  staff?: StaffInfo[];
+  session_number?: number;
+  total_sessions?: number;
 }
 
 /** Paginated response for appointments */
@@ -123,207 +190,6 @@ export interface AppointmentRescheduleResponse {
   rescheduled_by: string | null;
 }
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Get comma-separated therapist names from staff_assignments
- * Uses staff_assignments array (preferred) with fallback to deprecated staff_name
- */
-export const getTherapistNames = (appointment: AppointmentResponse | null): string => {
-  if (!appointment) return 'Unassigned';
-  
-  // Use staff_assignments (new API format)
-  if (appointment.staff_assignments && appointment.staff_assignments.length > 0) {
-    return appointment.staff_assignments.map(staff => staff.name).join(', ');
-  }
-  
-  // Fallback to deprecated staff_name
-  if (appointment.staff_name) {
-    return appointment.staff_name;
-  }
-  
-  return 'Unassigned';
-};
-
-/**
- * Get therapist count from staff_assignments
- */
-export const getTherapistCount = (appointment: AppointmentResponse | null): number => {
-  return appointment?.staff_assignments?.length || (appointment?.staff_name ? 1 : 0);
-};
-
-/**
- * Check if appointment has multiple therapists
- */
-export const hasMultipleTherapists = (appointment: AppointmentResponse | null): boolean => {
-  return (appointment?.staff_assignments?.length || 0) > 1;
-};
-
-/**
- * Get all therapist IDs from staff_assignments
- */
-export const getTherapistIds = (appointment: AppointmentResponse | null): string[] => {
-  if (!appointment?.staff_assignments) {
-    return appointment?.staff_id ? [appointment.staff_id] : [];
-  }
-  return appointment.staff_assignments.map(staff => staff.id);
-};
-
-/** Get display name for appointment status */
-export const getStatusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    scheduled: 'Scheduled',
-    confirmed: 'Confirmed',
-    in_progress: 'In Progress',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    no_show: 'No Show',
-  };
-  // FIX: Use case-insensitive status lookup
-  return labels[status?.toLowerCase()] || status;
-};
-
-/** Get color for appointment status */
-export const getStatusColor = (status: string): string => {
-  const colors: Record<string, string> = {
-    scheduled: '#3B82F6', // Blue
-    confirmed: '#10B981', // Green
-    in_progress: '#F59E0B', // Amber
-    completed: '#059669', // Emerald
-    cancelled: '#EF4444', // Red
-    no_show: '#6B7280', // Gray
-  };
-  // FIX: Use case-insensitive status lookup
-  return colors[status?.toLowerCase()] || '#6B7280';
-};
-
-/** Format date for display */
-export const formatDate = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-};
-
-/** 
- * Format time for display - WITHOUT timezone conversion.
- * Backend returns times like "2026-02-14T16:00:00Z" where 16:00 represents
- * the user's intended local time (4 PM IST). We must NOT convert this to local timezone
- * as that would shift 16:00 UTC to 21:30 IST incorrectly.
- * 
- * Instead, we extract hours/minutes directly from the ISO string.
- */
-export const formatTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    // If it's a string, extract hours/minutes directly from the ISO string
-    // to avoid timezone conversion
-    if (typeof dateStr === 'string') {
-      // Parse ISO format: "2026-02-14T16:00:00Z" or "2026-02-14T16:00:00"
-      const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = parseInt(timeMatch[1], 10);
-        const minutes = parseInt(timeMatch[2], 10);
-        const period = hours >= 12 ? 'pm' : 'am';
-        const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-      }
-    }
-    // Fallback for non-ISO strings - use UTC methods to avoid conversion
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '—';
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const period = hours >= 12 ? 'pm' : 'am';
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-  } catch {
-    return dateStr;
-  }
-};
-
-/** Format date and time for display */
-export const formatDateTime = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return dateStr;
-  }
-};
-
-/** Calculate appointment duration in minutes */
-export const calculateDuration = (start: string, end: string | null): number | null => {
-  if (!end) return null;
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
-};
-
-/** Format duration for display */
-export const formatDuration = (minutes: number | null): string => {
-  if (!minutes) return '—';
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (mins === 0) return `${hours} hr`;
-  return `${hours} hr ${mins} min`;
-};
-
-/** Status options for filtering */
-export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
-  'scheduled',
-  'confirmed',
-  'in_progress',
-  'completed',
-  'cancelled',
-  'no_show',
-];
-
-// ============================================
-// ENHANCED DTOs FOR WORKFLOW
-// ============================================
-
-/** Appointment type */
-export type AppointmentType = 'SINGLE' | 'MULTI';
-
-/** Staff info in responses */
-export interface StaffInfo {
-  id: string;
-  name: string;
-  gender?: string;
-  role?: string;
-}
-
-/** Room info in responses */
-export interface RoomInfo {
-  id: string;
-  name: string;
-  capacity?: number;
-}
-
-/** Enhanced appointment response with expanded fields */
-export interface AppointmentWithDetails extends AppointmentResponse {
-  client_phone?: string;
-  staff?: StaffInfo[];
-  session_number?: number;
-  total_sessions?: number;
-}
-
 /** Daily summary for appointments */
 export interface AppointmentSummary {
   total: number;
@@ -339,6 +205,10 @@ export interface AppointmentsListResponse {
   appointments: AppointmentWithDetails[];
   summary: AppointmentSummary;
 }
+
+// ============================================
+// AVAILABILITY & SCHEDULING DTOs
+// ============================================
 
 /** Available slot */
 export interface AvailableSlot {
@@ -374,6 +244,10 @@ export interface AvailableTherapist {
   unavailable_dates: string[];
   qualifications?: string[];
 }
+
+// ============================================
+// VALIDATION DTOs
+// ============================================
 
 /** Validation request */
 export interface ValidateAppointmentRequest {
@@ -413,6 +287,10 @@ export interface AlternativeSlot {
   score: number;
 }
 
+// ============================================
+// MULTI-DAY THERAPY DTOs
+// ============================================
+
 /** Session in therapy plan - matches API response */
 export interface TherapyPlanSession {
   session_number: number;
@@ -448,7 +326,8 @@ export interface TherapyPlanSession {
 export interface TherapyPlanRequest {
   client_id: string;
   treatment_id: string;
-  staff_ids: string[];
+  doctor_id?: string;
+  therapist_ids: string[];
   start_date: string;
   duration_days: number;
   // Per THERAPY_PLAN_TIME_HANDLING.md: preferred_time_hour is OPTIONAL
@@ -477,7 +356,8 @@ export interface TherapyPlanResponse {
 /** Bulk create appointment item */
 export interface BulkAppointmentItem {
   client_id: string;
-  staff_id: string;
+  doctor_id?: string;
+  therapist_ids?: string[];
   room_id?: string;
   treatment_id: string;
   appointment_start: string;
@@ -485,11 +365,21 @@ export interface BulkAppointmentItem {
   status: string;
   session_number: number;
   notes?: string;
+  // Linking fields for multi-day appointments
+  episode_id?: string;
+  case_sheet_id?: string;
+  treatment_sheet_id?: string;
+  // Validation flags
+  is_past_booking?: boolean;
+  is_outside_operating_hours?: boolean;
+  is_during_break_time?: boolean;
+  is_on_weekly_off?: boolean;
 }
 
 /** Bulk create request */
 export interface BulkCreateRequest {
   series_id: string;
+  episode_id?: string; // When present, appointments are linked to treatment sheet rows inline
   appointments: BulkAppointmentItem[];
 }
 
@@ -500,6 +390,7 @@ export interface CreatedAppointmentSummary {
   session_number: number;
   appointment_start: string;
   status: string;
+  episode_id?: string | null;
 }
 
 /** Bulk create response */
@@ -507,278 +398,3 @@ export interface BulkCreateResponse {
   created_appointments: CreatedAppointmentSummary[];
   total_created: number;
 }
-
-/** Search appointments params */
-export interface SearchAppointmentsParams {
-  q: string;
-  date?: string;
-  status?: string;
-}
-
-// ============================================
-// WHATSAPP HELPERS
-// ============================================
-
-/** Get role label based on appointment type or staff role */
-export const getRoleLabel = (appointmentType?: string | null, staffRole?: string | null): string => {
-  // If appointment type explicitly indicates doctor consultation
-  if (appointmentType?.toUpperCase() === 'DOCTOR_CONSULTATION' || 
-      appointmentType?.toUpperCase() === 'CONSULTATION' ||
-      appointmentType?.toUpperCase() === 'DOCTOR') {
-    return 'Doctor';
-  }
-  
-  // If appointment type explicitly indicates therapy
-  if (appointmentType?.toUpperCase() === 'THERAPY' || 
-      appointmentType?.toUpperCase() === 'THERAPY_SESSION' ||
-      appointmentType?.toUpperCase() === 'MULTI') {
-    return 'Therapist';
-  }
-  
-  // Check staff role/type
-  const role = (staffRole || '').toLowerCase();
-  if (role.includes('doctor') || role.includes('vaidya') || role.includes('physician')) {
-    return 'Doctor';
-  }
-  if (role.includes('therapist')) {
-    return 'Therapist';
-  }
-  
-  // Default fallback
-  return 'Staff';
-};
-
-/** Generate WhatsApp confirmation message */
-export const generateWhatsAppConfirmationMessage = (
-  clientName: string,
-  clinicName: string,
-  date: string,
-  time: string,
-  staffName: string,
-  treatmentName: string,
-  clinicPhone: string,
-  appointmentType?: string | null
-): string => {
-  const roleLabel = getRoleLabel(appointmentType);
-  return `Hi ${clientName},
-
-Your appointment has been confirmed! 📅
-
-📍 Clinic: ${clinicName}
-📅 Date: ${date}
-🕐 Time: ${time}
-👨‍⚕️ ${roleLabel}: ${staffName}
-💆 Treatment: ${treatmentName}
-
-Please arrive 10 minutes early.
-
-For any changes, please call us at ${clinicPhone}.
-
-Thank you!`;
-};
-
-/** Generate WhatsApp cancellation message */
-export const generateWhatsAppCancellationMessage = (
-  clientName: string,
-  date: string,
-  time: string,
-  treatmentName: string,
-  clinicPhone: string
-): string => {
-  return `Hi ${clientName},
-
-Your appointment has been cancelled. ❌
-
-📅 Date: ${date}
-🕐 Time: ${time}
-💆 Treatment: ${treatmentName}
-
-If you'd like to reschedule, please call us at ${clinicPhone}.
-
-Thank you!`;
-};
-
-/** Generate WhatsApp reschedule message */
-export const generateWhatsAppRescheduleMessage = (
-  clientName: string,
-  oldDate: string,
-  oldTime: string,
-  newDate: string,
-  newTime: string,
-  staffName: string,
-  treatmentName: string,
-  appointmentType?: string | null
-): string => {
-  const roleLabel = getRoleLabel(appointmentType);
-  return `Hi ${clientName},
-
-Your appointment has been rescheduled. 📅
-
-Previous:
-📅 ${oldDate} at ${oldTime}
-
-New:
-📅 ${newDate} at ${newTime}
-👨‍⚕️ ${roleLabel}: ${staffName}
-💆 Treatment: ${treatmentName}
-
-Please confirm if this works for you.
-
-Thank you!`;
-};
-
-/** Generate WhatsApp multi-slot confirmation message */
-export const generateWhatsAppSeriesMessage = (
-  clientName: string,
-  clinicName: string,
-  treatmentName: string,
-  totalSessions: number,
-  firstSessionDate: string,
-  firstSessionTime: string,
-  clinicPhone: string
-): string => {
-  return `Hi ${clientName},
-
-Your therapy plan has been scheduled! 📅
-
-📍 Clinic: ${clinicName}
-💆 Treatment: ${treatmentName}
-📊 Total Sessions: ${totalSessions}
-
-First Session:
-📅 ${firstSessionDate} at ${firstSessionTime}
-
-You will receive reminders before each session.
-
-For any changes, please call us at ${clinicPhone}.
-
-Thank you!`;
-};
-
-/** Open WhatsApp with pre-filled message */
-export const openWhatsApp = (phone: string, message: string): string => {
-  // Clean phone number - remove non-numeric except +
-  const cleanPhone = phone.replace(/[^\d+]/g, '');
-  const encodedMessage = encodeURIComponent(message);
-  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
-};
-
-/** Generate WhatsApp no-show message */
-export const generateWhatsAppNoShowMessage = (
-  clientName: string,
-  date: string,
-  time: string,
-  treatmentName: string,
-  clinicPhone: string
-): string => {
-  return `Hi ${clientName},
-
-We noticed you missed your appointment today.
-
-📅 Date: ${date}
-🕐 Time: ${time}
-💆 Treatment: ${treatmentName}
-
-We hope everything is okay! If you'd like to reschedule, please call us at ${clinicPhone}.
-
-Thank you!`;
-};
-
-/** Generate WhatsApp appointment completed message */
-export const generateWhatsAppCompletedMessage = (
-  clientName: string,
-  date: string,
-  treatmentName: string,
-  clinicPhone: string
-): string => {
-  return `Hi ${clientName},
-
-Thank you for visiting us today! 🙏
-
-💆 Treatment: ${treatmentName}
-📅 Date: ${date}
-
-We hope you had a great experience. If you have any questions or need to book your next appointment, please call us at ${clinicPhone}.
-
-Take care and see you soon!`;
-};
-
-/** Generate WhatsApp appointment created message */
-export const generateWhatsAppCreatedMessage = (
-  clientName: string,
-  clinicName: string,
-  date: string,
-  time: string,
-  staffName: string,
-  treatmentName: string,
-  clinicPhone: string,
-  appointmentType?: string | null
-): string => {
-  const roleLabel = getRoleLabel(appointmentType);
-  return `Hi ${clientName},
-
-Your appointment has been booked! 📅
-
-📍 Clinic: ${clinicName}
-📅 Date: ${date}
-🕐 Time: ${time}
-👨‍⚕️ ${roleLabel}: ${staffName}
-💆 Treatment: ${treatmentName}
-
-Please arrive 10 minutes early.
-
-For any changes, please call us at ${clinicPhone}.
-
-Thank you!`;
-};
-
-/** Format short date for display */
-export const formatShortDate = (dateStr: string | null): string => {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return dateStr;
-  }
-};
-
-/** Format day of week */
-export const formatDayOfWeek = (dateStr: string): string => {
-  try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      weekday: 'short',
-    });
-  } catch {
-    return '';
-  }
-};
-
-/** Check if date is today */
-export const isToday = (dateStr: string): boolean => {
-  const today = new Date();
-  const date = new Date(dateStr);
-  return (
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear()
-  );
-};
-
-/** Generate date range for date slider */
-export const generateDateRange = (centerDate: Date, daysAround: number = 7): Date[] => {
-  const dates: Date[] = [];
-  for (let i = -daysAround; i <= daysAround; i++) {
-    const date = new Date(centerDate);
-    date.setDate(centerDate.getDate() + i);
-    dates.push(date);
-  }
-  return dates;
-};
-
-/** Format ISO date string (YYYY-MM-DD) */
-export const toISODateString = (date: Date): string => {
-  return date.toISOString().split('T')[0];
-};

@@ -37,7 +37,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         <Ionicons name={icon} size={24} color={color} />
       </View>
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
         <Text style={styles.value}>{value}</Text>
         {trend && (
           <View style={styles.trendContainer}>
@@ -67,6 +67,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
+    flex: 1,
     backgroundColor: colors.background.default,
     borderRadius: 12,
     padding: spacing.md,

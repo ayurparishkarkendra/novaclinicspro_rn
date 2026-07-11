@@ -1,0 +1,118 @@
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import fs from 'fs';
+import path from 'path';
+import { useLocalSearchParams } from 'expo-router';
+
+/**
+ * Phase 4 (R4) · T-E.3b — the Prescription standalone routes
+ * (`.../prescriptions/[prescriptionId]/edit.tsx`, `.../prescriptions/new.tsx`)
+ * now render the canonical `PrescriptionStandaloneScreen` (T-B.5)
+ * UNCONDITIONALLY.
+ *
+ * SUPERSEDES the R3B · T-B.6 flag-switch suite this file used to contain:
+ * the `isClinicalSpineV1Enabled` OFF-path (`PrescriptionEditScreen`/
+ * `CreatePrescriptionScreen`/`PrescriptionForm.tsx`) has been deleted per
+ * T-E.3's own parity audit finding no capability gap -- there is no flag
+ * branch left to test. The "flag OFF" tests and the "OFF-path preservation"
+ * describe block that used to live here are removed, not modified, since
+ * there is nothing left for them to prove. The MIG-1 "every known caller"
+ * sub-suite is kept verbatim -- it never depended on the flag or the old
+ * screens, only on the routes' own deep-link surface.
+ */
+
+jest.mock('expo-router', () => ({ useLocalSearchParams: jest.fn() }));
+jest.mock('../../../features/prescriptions/presentation/pages/PrescriptionStandaloneScreen', () => ({
+  PrescriptionStandaloneScreen: (props: any) => {
+    const { Text } = require('react-native');
+    return <Text testID="standalone-screen-props">{JSON.stringify(props)}</Text>;
+  },
+}));
+
+import EditPrescriptionRoute from '../../../app/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit';
+import NewPrescriptionRoute from '../../../app/clinic-admin/clients/[clientId]/prescriptions/new';
+
+describe('Prescription standalone routes render the canonical core only (R4 · T-E.3b)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('edit.tsx', () => {
+    it('renders PrescriptionStandaloneScreen with clientId/prescriptionId from route params', () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1', prescriptionId: 'rx-1' });
+      const { getByTestId } = render(<EditPrescriptionRoute />);
+      const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
+      expect(props).toEqual({ clientId: 'client-1', prescriptionId: 'rx-1' });
+    });
+  });
+
+  describe('new.tsx', () => {
+    it('renders PrescriptionStandaloneScreen with clientId + optional appointmentId from route params', () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1', appointmentId: 'appointment-1' });
+      const { getByTestId } = render(<NewPrescriptionRoute />);
+      const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
+      expect(props).toEqual({ clientId: 'client-1', appointmentId: 'appointment-1' });
+    });
+
+    it('works with only clientId present — no dangling failure for the PrescriptionsListScreen "Add Prescription" caller, which passes no appointmentId', () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1' });
+      const { getByTestId } = render(<NewPrescriptionRoute />);
+      const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
+      expect(props.clientId).toBe('client-1');
+    });
+  });
+
+  describe('MIG-1: every known client-scoped caller of these two routes is unchanged (no dangling deep link, no caller needed updating)', () => {
+    const appointmentDetailScreen = fs.readFileSync(
+      path.resolve(__dirname, '../../../features/appointments/presentation/pages/AppointmentDetailScreen.tsx'),
+      'utf8',
+    );
+    const episodeWorkspaceScreen = fs.readFileSync(
+      path.resolve(__dirname, '../../../features/episodes/presentation/pages/EpisodeWorkspaceScreen.tsx'),
+      'utf8',
+    );
+    const prescriptionsListScreen = fs.readFileSync(
+      path.resolve(__dirname, '../../../features/prescriptions/presentation/pages/PrescriptionsListScreen.tsx'),
+      'utf8',
+    );
+    const prescriptionDetailScreen = fs.readFileSync(
+      path.resolve(__dirname, '../../../features/prescriptions/presentation/pages/PrescriptionDetailScreen.tsx'),
+      'utf8',
+    );
+
+    it('AppointmentDetailScreen still routes to prescriptions/new — automatically covered by the route, no caller change needed', () => {
+      expect(appointmentDetailScreen).toContain('prescriptions/new?appointmentId=');
+    });
+
+    it('EpisodeWorkspaceScreen still routes to prescriptions/new — automatically covered', () => {
+      expect(episodeWorkspaceScreen).toContain('/prescriptions/new?appointmentId=');
+    });
+
+    it('PrescriptionsListScreen still routes to prescriptions/new (client-scoped branch) — automatically covered; its non-client-scoped else-branch (/clinic-admin/prescriptions/new) is a separate, pre-existing dead route with no corresponding route file, unrelated to this task, logged not fixed', () => {
+      expect(prescriptionsListScreen).toContain("pathname: '/clinic-admin/clients/[clientId]/prescriptions/new'");
+    });
+
+    it('PrescriptionDetailScreen still routes to prescriptions/[prescriptionId]/edit (client-scoped branch) — automatically covered', () => {
+      expect(prescriptionDetailScreen).toContain(
+        "pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit'",
+      );
+    });
+  });
+
+  describe('no old-editor fallback remains', () => {
+    it('the two route files no longer import PrescriptionEditScreen/CreatePrescriptionScreen', () => {
+      const editRoute = fs.readFileSync(
+        path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit.tsx'),
+        'utf8',
+      );
+      const newRoute = fs.readFileSync(
+        path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/prescriptions/new.tsx'),
+        'utf8',
+      );
+      expect(editRoute).not.toMatch(/import\s*\{[^}]*PrescriptionEditScreen/);
+      expect(newRoute).not.toMatch(/import\s*\{[^}]*CreatePrescriptionScreen/);
+      expect(editRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
+      expect(newRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
+    });
+  });
+});

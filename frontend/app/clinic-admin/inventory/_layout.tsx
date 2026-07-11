@@ -5,6 +5,7 @@ export default function InventoryLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="[itemId]" />
+      <Stack.Screen name="[itemId]/edit" />
       <Stack.Screen name="create" />
       <Stack.Screen name="adjust" />
       <Stack.Screen name="alerts" />

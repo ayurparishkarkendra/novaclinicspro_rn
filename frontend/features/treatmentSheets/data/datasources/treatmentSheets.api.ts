@@ -26,11 +26,20 @@ export const createTreatmentSheetApi = async (
   casesheetId: string,
   payload: TreatmentSheetCreateRequest
 ): Promise<TreatmentSheetResponse> => {
-  const response = await axiosClient.post(
-    `/api/v1/clinic/casesheets/${casesheetId}/treatment-sheets`,
-    payload
-  );
-  return response.data;
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/clinic/casesheets/${casesheetId}/treatment-sheets`,
+      payload
+    );
+    return response.data;
+  } catch (err: any) {
+    // Surface count-mismatch 400 errors directly to the user
+    const detail = err?.response?.data?.detail || err?.response?.data?.message;
+    if (err?.response?.status === 400 && detail) {
+      throw new Error(detail);
+    }
+    throw err;
+  }
 };
 
 /**
@@ -50,35 +59,74 @@ export const createSimpleTreatmentSheetApi = async (
 
 /**
  * Get a treatment sheet by ID
- * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}?tenant_id={tenant_id}
- * 
- * BUG FIX #9: Backend requires tenant_id as a query parameter
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}
  */
 export const getTreatmentSheetApi = async (
   treatmentSheetId: string,
-  tenantId?: string
+  tenantId: string
 ): Promise<TreatmentSheetResponse> => {
-  const params: Record<string, string> = {};
-  if (tenantId) {
-    params.tenant_id = tenantId;
-  }
   const response = await axiosClient.get(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`,
-    { params }
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}`
   );
   return response.data;
 };
 
 /**
+ * Get treatment sheets by episode ID
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets?episode_id={episode_id}
+ */
+export const getTreatmentSheetsByEpisodeApi = async (
+  tenantId: string,
+  episodeId: string
+): Promise<{ treatment_sheets: TreatmentSheetResponse[]; total: number }> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets`,
+    { params: { episode_id: episodeId } }
+  );
+  const items = response.data?.treatment_sheets ?? response.data?.items ?? [];
+  return {
+    treatment_sheets: items,
+    total: response.data?.total ?? items.length,
+  };
+};
+
+/**
+ * List treatment sheets for a client, optionally filtered by status --
+ * used to resolve the "ordering doctor" from a client's active treatment
+ * sheet (T-G.2, clean-architecture boundary restoration; extracted from an
+ * inline axiosClient call in CreateAppointmentScreen.tsx).
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets?client_id=...&status=...&limit=...
+ */
+export const listTreatmentSheetsByClientApi = async (
+  tenantId: string,
+  params: { client_id: string; status?: string; limit?: number }
+): Promise<{ items: TreatmentSheetResponse[]; total: number }> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets`,
+    { params }
+  );
+  const items = response.data?.items ?? [];
+  return {
+    items,
+    total: response.data?.total ?? items.length,
+  };
+};
+
+/**
  * Transition treatment sheet status (DRAFT → FINAL → SIGNED)
- * PATCH /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/status
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/status
+ *
+ * Use this ONLY for the doctor explicitly finalising/locking the clinical document.
+ * Do NOT call this as a side-effect of scheduling. Document status (DRAFT/FINAL/SIGNED)
+ * and execution state (DRAFT/ORDERED/SCHEDULED/…) are independent axes.
  */
 export const transitionTreatmentSheetStatusApi = async (
+  tenantId: string,
   treatmentSheetId: string,
   payload: TreatmentSheetStatusTransitionRequest
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/status`,
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/status`,
     payload
   );
   return response.data;
@@ -86,52 +134,75 @@ export const transitionTreatmentSheetStatusApi = async (
 
 /**
  * Sync treatment sheet with treatment sessions
- * POST /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/sync
+ * POST /api/v1/clinic/{tenant_id}/treatment-sheets/{sheet_id}/sync?series_id={series_id}
  */
 export const syncTreatmentSheetApi = async (
-  treatmentSheetId: string
+  tenantId: string,
+  treatmentSheetId: string,
+  seriesId: string
 ): Promise<TreatmentSheetSyncResponse> => {
   const response = await axiosClient.post(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/sync`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/sync`,
+    null,
+    { params: { series_id: seriesId } }
   );
   return response.data;
 };
 
 /**
  * Print treatment sheet
- * GET /api/v1/clinic/treatment-sheets/{treatment_sheet_id}/print
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/print
  */
 export const printTreatmentSheetApi = async (
+  tenantId: string,
   treatmentSheetId: string
 ): Promise<TreatmentSheetPrintResponse> => {
   const response = await axiosClient.get(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}/print`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/print`
   );
   return response.data;
 };
 
 /**
  * Archive (soft delete) a treatment sheet
- * DELETE /api/v1/clinic/treatment-sheets/{treatment_sheet_id}
+ * DELETE /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}
  */
 export const archiveTreatmentSheetApi = async (
+  tenantId: string,
   treatmentSheetId: string
 ): Promise<void> => {
   await axiosClient.delete(
-    `/api/v1/clinic/treatment-sheets/${treatmentSheetId}`
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}`
   );
 };
 
 /**
- * Update a treatment sheet row
- * PATCH /api/v1/clinic/treatment-sheets/rows/{row_id}
+ * Update all treatment sheet rows (bulk update)
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/rows
+ */
+export const updateAllTreatmentSheetRowsApi = async (
+  tenantId: string,
+  treatmentSheetId: string,
+  rows: Array<{ id: string } & TreatmentSheetRowUpdateRequest>
+): Promise<TreatmentSheetResponse> => {
+  const response = await axiosClient.patch(
+    `/api/v1/clinic/${tenantId}/treatment-sheets/${treatmentSheetId}/rows`,
+    { rows }
+  );
+  return response.data;
+};
+
+/**
+ * Update a single treatment sheet row
+ * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/rows/{row_id}
  */
 export const updateTreatmentSheetRowApi = async (
+  tenantId: string,
   rowId: string,
   payload: TreatmentSheetRowUpdateRequest
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/treatment-sheets/rows/${rowId}`,
+    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}`,
     payload
   );
   return response.data;

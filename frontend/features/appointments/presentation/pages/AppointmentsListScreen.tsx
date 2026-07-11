@@ -24,7 +24,6 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -43,18 +42,25 @@ import {
 import {
   AppointmentWithDetails,
   AppointmentSummary,
+} from '../../data/models/appointments.dtos';
+import {
   getStatusLabel,
   getStatusColor,
+  generateDateRange,
+  calculateDuration,
+  isToday,
+  toISODateString,
+} from '../../domain/helpers';
+import {
   formatTime,
   formatShortDate,
   formatDayOfWeek,
-  isToday,
-  generateDateRange,
-  toISODateString,
   formatDate,
-  calculateDuration,
-} from '../../data/models/appointments.dtos';
-import { AppointmentListItem } from '../components/AppointmentListItem';
+} from '../../../../core/utils/dateTimeUtils';
+import { AppointmentRow } from '../components/AppointmentRow';
+import CrossPlatformDateTimePicker, {
+  DateTimePickerEvent,
+} from '../../../../core/components/CrossPlatformDateTimePicker';
 
 // ============================================
 // DATE SLIDER COMPONENT - FIXED LAYOUT
@@ -159,7 +165,9 @@ interface SummaryCardProps {
 }
 
 const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
-  const activeCount = summary.scheduled + summary.in_progress + (summary.completed || 0);
+  // Calculate visited count from completed appointments
+  // Use both summary.completed and manual count as fallback
+  const visitedCount = summary.completed || 0;
 
   return (
     <View style={styles.summaryCard}>
@@ -173,8 +181,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.success.main }]}>{activeCount}</Text>
-          <Text style={styles.summaryLabel}>Active</Text>
+          <Text style={[styles.summaryValue, { color: colors.success.main }]}>{visitedCount}</Text>
+          <Text style={styles.summaryLabel}>Visited</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
@@ -191,7 +199,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, selectedDate }) => {
   );
 };
 
-// AppointmentCard removed - using AppointmentListItem component instead
+// AppointmentCard removed - using AppointmentRow component instead
 
 // ============================================
 // MAIN SCREEN
@@ -254,7 +262,7 @@ export const AppointmentsListScreen: React.FC = () => {
     }
   }, [updateStatusMutation, refetch]);
 
-  // Handler for cancellation - confirmation is now in AppointmentListItem
+  // Handler for cancellation - confirmation is now in AppointmentRow
   const handleCancel = useCallback(async (appointmentId: string) => {
     try {
       await cancelMutation.mutateAsync(appointmentId);
@@ -313,12 +321,22 @@ export const AppointmentsListScreen: React.FC = () => {
       return;
     }
 
+    // Calculate new end time based on original appointment duration
+    const originalStart = new Date(selectedAppointmentForReschedule.appointment_start);
+    const originalEnd = selectedAppointmentForReschedule.appointment_end 
+      ? new Date(selectedAppointmentForReschedule.appointment_end)
+      : new Date(originalStart.getTime() + 60 * 60 * 1000); // Default 1 hour if no end time
+    
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const newEndDateTime = new Date(newDateTime.getTime() + durationMs);
+
     setIsRescheduling(true);
     try {
       await rescheduleMutation.mutateAsync({
         tenantId,
         appointmentId: selectedAppointmentForReschedule.id,
         newStart: newDateTime.toISOString(),
+        newEnd: newEndDateTime.toISOString(),
       });
       setRescheduleModalVisible(false);
       setSelectedAppointmentForReschedule(null);
@@ -344,14 +362,23 @@ export const AppointmentsListScreen: React.FC = () => {
     no_show: 0,
   };
 
-  // Sort appointments by time
+  // Sort appointments by time - latest first
   const sortedAppointments = [...appointments].sort((a, b) => 
-    new Date(a.appointment_start).getTime() - new Date(b.appointment_start).getTime()
+    new Date(b.appointment_start).getTime() - new Date(a.appointment_start).getTime()
   );
 
   const handleAppointmentPress = useCallback(
     (appointment: AppointmentWithDetails) => {
-      router.push(`/clinic-admin/appointments/${appointment.id}` as any);
+      // If appointment has an episode, go directly to the Episode Workspace (admin mode)
+      // This is the flattened navigation: Appointments → EpisodeWorkspace (no intermediate screens)
+      if (appointment.episode_id) {
+        router.push(
+          `/clinic-admin/episodes/${appointment.episode_id}/workspace?mode=admin&clientId=${appointment.client_id}` as any
+        );
+      } else {
+        // No episode yet — go to appointment detail to create/link one
+        router.push(`/clinic-admin/appointments/${appointment.id}` as any);
+      }
     },
     [router]
   );
@@ -462,7 +489,8 @@ export const AppointmentsListScreen: React.FC = () => {
           data={sortedAppointments}
           ListEmptyComponent={renderEmptyList}
           renderItem={({ item }) => (
-            <AppointmentListItem
+            <AppointmentRow
+              variant="full"
               appointment={item}
               onPress={() => handleAppointmentPress(item)}
               userRole={currentUser?.roles?.[0] || 'clinic_admin'}
@@ -470,6 +498,18 @@ export const AppointmentsListScreen: React.FC = () => {
               onStatusUpdate={handleStatusUpdate}
               onCancel={handleCancel}
               onReschedule={handleReschedule}
+              onViewEpisode={(episodeId) => {
+                router.push(`/clinic-admin/episodes/${episodeId}/workspace?mode=admin&clientId=${item.client_id}` as any);
+              }}
+              onViewAllEpisodes={(clientId) => {
+                router.push(`/clinic-admin/clients/${clientId}/episodes` as any);
+              }}
+              onLinkEpisode={(appointmentId, clientId) => {
+                router.push(`/clinic-admin/appointments/${appointmentId}/link-episode?clientId=${clientId}` as any);
+              }}
+              onCreateEpisode={(appointmentId, clientId) => {
+                router.push(`/clinic-admin/appointments/${appointmentId}/create-episode?clientId=${clientId}` as any);
+              }}
             />
           )}
           keyExtractor={(item) => item.id}
@@ -554,7 +594,7 @@ export const AppointmentsListScreen: React.FC = () => {
             {(showDatePicker || Platform.OS === 'ios') && (
               <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
                 {showDatePicker && (
-                  <DateTimePicker
+                  <CrossPlatformDateTimePicker
                     value={rescheduleDate}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -568,7 +608,7 @@ export const AppointmentsListScreen: React.FC = () => {
             {(showTimePicker || Platform.OS === 'ios') && (
               <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
                 {showTimePicker && (
-                  <DateTimePicker
+                  <CrossPlatformDateTimePicker
                     value={rescheduleTime}
                     mode="time"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}

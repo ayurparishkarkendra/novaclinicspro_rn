@@ -4,27 +4,28 @@
  */
 
 import { Stack } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../core/providers/AuthProvider';
+import { queryClient } from '../core/api/queryClient';
+import { LogBox } from 'react-native';
 
-// Create a client with smart retry logic
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Only retry on network errors, not on business errors (401, 403, 404)
-      retry: (failureCount, error: any) => {
-        // Don't retry on authentication/authorization errors
-        const status = error?.response?.status;
-        if (status === 401 || status === 403 || status === 404) {
-          return false;
-        }
-        // Retry up to 2 times for other errors (network issues, 500s)
-        return failureCount < 2;
-      },
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
+// Ignore only specific non-critical warnings
+LogBox.ignoreLogs([
+  // Expo Go limitations (not relevant for production builds)
+  'expo-notifications: Android Push notifications',
+  'expo-notifications functionality is not fully supported in Expo Go',
+  
+  // Known React Native warnings that don't affect functionality
+  'Require cycle:',
+  'VirtualizedLists should never be nested',
+  
+  // Route warnings (handled by expo-router)
+  'Route "',
+  'is missing the required default export',
+  
+  // Layout warnings
+  '[Layout children]:',
+]);
 
 export default function RootLayout() {
   return (

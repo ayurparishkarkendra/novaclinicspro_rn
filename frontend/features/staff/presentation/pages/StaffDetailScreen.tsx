@@ -22,7 +22,7 @@ import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { t, ErrorTokens } from '../../../../core/localization';
+
 import {
   useStaffDetailQuery,
   useUpdateStaffMutation,
@@ -60,13 +60,7 @@ export const StaffDetailScreen: React.FC = () => {
     return currentUser.id === staffId || (currentUser as any).staffId === staffId;
   }, [currentUser, staffId]);
 
-  // Check if current user is Clinic Admin (can deactivate)
-  const isClinicAdmin = useMemo(() => {
-    if (!currentUser) return false;
-    return (currentUser as any).roles?.some((role: string) => 
-      role.toLowerCase().includes('admin') || role.toLowerCase().includes('clinic_admin')
-    ) || (currentUser as any).role === 'clinic_admin';
-  }, [currentUser]);
+
 
   // Queries
   const {
@@ -97,11 +91,37 @@ export const StaffDetailScreen: React.FC = () => {
         setShowEditModal(false);
         Alert.alert('Success', 'Staff member updated successfully');
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to update staff');
+        const message = err?.response?.data?.error || err?.response?.data?.message || err?.response?.data?.detail || err?.message || 'Failed to update staff';
+        Alert.alert('Error', message);
       }
     },
     [updateMutation]
   );
+
+  const handleToggleActive = useCallback(() => {
+    const action = staff?.is_active ? 'deactivate' : 'activate';
+    const actionLabel = staff?.is_active ? 'Deactivate' : 'Activate';
+    Alert.alert(
+      `${actionLabel} Staff`,
+      `Are you sure you want to ${action} ${staff?.full_name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: actionLabel,
+          style: staff?.is_active ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              await updateMutation.mutateAsync({ is_active: !staff?.is_active });
+              Alert.alert('Success', `Staff member ${action}d successfully`);
+            } catch (err: any) {
+              const message = err?.response?.data?.error || err?.response?.data?.message || err?.response?.data?.detail || err?.message || `Failed to ${action} staff`;
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ]
+    );
+  }, [updateMutation, staff]);
 
   const handleDelete = useCallback(() => {
     Alert.alert(
@@ -118,7 +138,8 @@ export const StaffDetailScreen: React.FC = () => {
               Alert.alert('Success', 'Staff member deleted');
               router.back();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete staff');
+              const message = err?.response?.data?.error || err?.response?.data?.message || err?.response?.data?.detail || err?.message || 'Failed to delete staff';
+              Alert.alert('Error', message);
             }
           },
         },
@@ -133,7 +154,8 @@ export const StaffDetailScreen: React.FC = () => {
         setShowLeaveModal(false);
         Alert.alert('Success', 'Leave request submitted');
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to submit leave request');
+        const message = err?.response?.data?.error || err?.response?.data?.message || err?.response?.data?.detail || err?.message || 'Failed to submit leave request';
+        Alert.alert('Error', message);
       }
     },
     [createLeaveMutation]
@@ -192,9 +214,13 @@ export const StaffDetailScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={handleDelete}
+            onPress={handleToggleActive}
           >
-            <Ionicons name="trash" size={20} color={colors.error.main} />
+            <Ionicons
+              name={staff.is_active ? 'pause-circle-outline' : 'play-circle-outline'}
+              size={20}
+              color={staff.is_active ? colors.warning.main : colors.success.main}
+            />
           </TouchableOpacity>
         </View>
       </View>

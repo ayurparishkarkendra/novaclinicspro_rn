@@ -28,14 +28,11 @@ import { t, ErrorTokens } from '../../../../core/localization';
 import {
   useClientsListQuery,
   useCreateClientMutation,
-  useSearchClientsQuery,
 } from '../../data/repositories/clients.repository.impl';
-import { ClientResponse, ClientCreate } from '../../data/models/clients.dtos';
+import { ClientResponse, ClientCreate, ClientUpdate } from '../../data/models/clients.dtos';
 import { ClientListItem } from '../components/ClientListItem';
 import { ClientForm } from '../components/ClientForm';
 
-// Minimum characters before triggering search
-const MIN_SEARCH_LENGTH = 3;
 // Debounce delay in milliseconds
 const DEBOUNCE_DELAY = 300;
 
@@ -48,52 +45,34 @@ export const ClientsListScreen: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Debounce search input - this prevents jumping by delaying all filtering
+  // Debounce search input - delays filtering until user stops typing
   const debouncedSearchQuery = useDebounce(searchInput, DEBOUNCE_DELAY);
-  
-  // Only use search query if >= 3 characters for API call
-  const effectiveSearchQuery = debouncedSearchQuery.length >= MIN_SEARCH_LENGTH 
-    ? debouncedSearchQuery 
-    : '';
 
-  // Queries - use list API when not searching, search API when searching
+  // Always load the full list (up to 100) — search is done client-side
   const listQuery = useClientsListQuery(
     tenantId, 
     { limit: 100 },
-    { enabled: !!tenantId && effectiveSearchQuery === '' }
-  );
-  
-  const searchResultsQuery = useSearchClientsQuery(
-    tenantId,
-    effectiveSearchQuery,
-    100,
-    { enabled: !!tenantId && effectiveSearchQuery.length >= MIN_SEARCH_LENGTH }
+    { enabled: !!tenantId }
   );
 
-  // Combine data sources
-  const clientsData = effectiveSearchQuery ? searchResultsQuery.data : listQuery.data;
-  const isLoading = effectiveSearchQuery ? searchResultsQuery.isLoading : listQuery.isLoading;
-  const isError = effectiveSearchQuery ? searchResultsQuery.isError : listQuery.isError;
-  const error = effectiveSearchQuery ? searchResultsQuery.error : listQuery.error;
-  const isRefetching = effectiveSearchQuery ? searchResultsQuery.isRefetching : listQuery.isRefetching;
-  const refetch = effectiveSearchQuery ? searchResultsQuery.refetch : listQuery.refetch;
-
-  // Client-side filtering for partial search (< 3 chars) - uses DEBOUNCED value to prevent jumping
+  // Client-side filtering using the debounced value (prevents jumping on every keystroke)
   const filteredClients = useMemo(() => {
-    const clients = clientsData?.items || [];
-    
-    // If debounced search query is 1-2 characters, filter client-side
-    if (debouncedSearchQuery.length > 0 && debouncedSearchQuery.length < MIN_SEARCH_LENGTH) {
-      const lowerQuery = debouncedSearchQuery.toLowerCase();
-      return clients.filter(c => 
-        c.full_name.toLowerCase().includes(lowerQuery) ||
-        c.email?.toLowerCase().includes(lowerQuery) ||
-        (c.phone && c.phone.includes(debouncedSearchQuery))
-      );
-    }
-    
-    return clients;
-  }, [clientsData?.items, debouncedSearchQuery]);
+    const clients = listQuery.data?.items || [];
+    if (debouncedSearchQuery.length === 0) return clients;
+    const lowerQuery = debouncedSearchQuery.toLowerCase();
+    return clients.filter(c =>
+      c.full_name.toLowerCase().includes(lowerQuery) ||
+      c.email?.toLowerCase().includes(lowerQuery) ||
+      (c.phone && c.phone.includes(debouncedSearchQuery))
+    );
+  }, [listQuery.data?.items, debouncedSearchQuery]);
+
+  const isLoading = listQuery.isLoading;
+  const isError = listQuery.isError;
+  const error = listQuery.error;
+  const isRefetching = listQuery.isRefetching;
+  const refetch = listQuery.refetch;
+  const clientsData = listQuery.data;
 
   // Mutations
   const createMutation = useCreateClientMutation(tenantId);
@@ -106,9 +85,10 @@ export const ClientsListScreen: React.FC = () => {
   );
 
   const handleCreateClient = useCallback(
-    async (data: ClientCreate) => {
+    async (data: ClientCreate | ClientUpdate) => {
       try {
-        await createMutation.mutateAsync(data);
+        // Cast to ClientCreate since we're only creating in this modal
+        await createMutation.mutateAsync(data as ClientCreate);
         setShowAddModal(false);
         Alert.alert(t('common.success'), t('success.created'));
       } catch (err: any) {
@@ -118,28 +98,7 @@ export const ClientsListScreen: React.FC = () => {
     [createMutation]
   );
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={colors.text.tertiary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={`Search clients... (min ${MIN_SEARCH_LENGTH} chars)`}
-          placeholderTextColor={colors.text.tertiary}
-          value={searchInput}
-          onChangeText={setSearchInput}
-        />
-        {searchInput.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchInput('')}>
-            <Ionicons name="close-circle" size={20} color={colors.text.tertiary} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-
-  const renderEmptyList = () => (
+  const renderEmptyList = useCallback(() => (
     <View style={styles.emptyContainer}>
       <Ionicons name="people-outline" size={64} color={colors.text.tertiary} />
       <Text style={styles.emptyTitle}>No Clients Found</Text>
@@ -158,7 +117,13 @@ export const ClientsListScreen: React.FC = () => {
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [debouncedSearchQuery]);
+
+  const renderItem = useCallback(({ item }: { item: ClientResponse }) => (
+    <ClientListItem client={item} onPress={handleClientPress} />
+  ), [handleClientPress]);
+
+  const keyExtractor = useCallback((item: ClientResponse) => item.id, []);
 
   // Error state
   if (isError && !clientsData) {
@@ -202,6 +167,25 @@ export const ClientsListScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Search Bar - outside FlatList to prevent keyboard dismissal */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color={colors.text.tertiary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search clients..."
+          placeholderTextColor={colors.text.tertiary}
+          value={searchInput}
+          onChangeText={setSearchInput}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+        {searchInput.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchInput('')}>
+            <Ionicons name="close-circle" size={20} color={colors.text.tertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Main Content */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -211,12 +195,9 @@ export const ClientsListScreen: React.FC = () => {
       ) : (
         <FlatList
           data={filteredClients}
-          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmptyList}
-          renderItem={({ item }) => (
-            <ClientListItem client={item} onPress={handleClientPress} />
-          )}
-          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -226,6 +207,9 @@ export const ClientsListScreen: React.FC = () => {
             />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
       )}
 
@@ -289,15 +273,14 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: 8,
   },
-  header: {
-    paddingBottom: spacing.md,
-  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background.default,
     borderRadius: 8,
     paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.light,
   },

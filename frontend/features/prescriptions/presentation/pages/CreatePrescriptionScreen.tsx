@@ -20,6 +20,8 @@ import { typography } from '../../../../core/theme/typography';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useCreatePrescriptionMutation } from '../../index';
 import { PrescriptionForm, PrescriptionFormData } from '../components/PrescriptionForm';
+import { useAppointmentDetailQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
+import { useEpisodeQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
 
 export const CreatePrescriptionScreen: React.FC = () => {
   const router = useRouter();
@@ -30,6 +32,21 @@ export const CreatePrescriptionScreen: React.FC = () => {
   const appointmentId = params.appointmentId;
 
   const createMutation = useCreatePrescriptionMutation(tenantId);
+
+  // Fetch appointment details if appointmentId is provided
+  const { data: appointment } = useAppointmentDetailQuery(
+    tenantId,
+    appointmentId || '',
+    { enabled: !!appointmentId }
+  );
+
+  // Fetch episode details if appointment has episode_id
+  const episodeId = appointment?.episode_id;
+  const { data: episode } = useEpisodeQuery(
+    tenantId,
+    episodeId || '',
+    { enabled: !!episodeId }
+  );
 
   const handleSubmit = useCallback(async (data: PrescriptionFormData) => {
     try {
@@ -43,18 +60,43 @@ export const CreatePrescriptionScreen: React.FC = () => {
         notes: data.notes,
         next_visit_days: data.next_visit_days,
         appointment_id: appointmentId,
+        episode_id: episodeId || undefined,
       });
       
-      // Navigate immediately after successful creation
-      // Go to the prescriptions list for this client
       router.replace({
-        pathname: '/clinic-admin/clients/[clientId]/prescriptions',
-        params: { clientId },
+        pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]' as any,
+        params: { clientId, prescriptionId: result.id },
       });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create prescription.');
+      const detail = err?.response?.data?.detail;
+      if (detail?.error === 'PRESCRIPTION_ALREADY_EXISTS' && detail?.prescription_id) {
+        Alert.alert(
+          'Prescription Already Exists',
+          detail.message || 'This visit already has a prescription.',
+          [
+            {
+              text: 'View Prescription',
+              onPress: () => router.replace({
+                pathname: '/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]' as any,
+                params: { clientId, prescriptionId: detail.prescription_id },
+              }),
+            },
+          ]
+        );
+        return;
+      }
+      // Handle EPISODE_MISMATCH error
+      if (err.error_code === 'EPISODE_MISMATCH' || err.message?.includes('episode_id must match')) {
+        Alert.alert(
+          'Episode Mismatch',
+          'Document episode must match appointment episode. Please try again.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', err.message || 'Failed to create prescription.');
+      }
     }
-  }, [createMutation, clientId, appointmentId, router]);
+  }, [createMutation, clientId, appointmentId, episodeId, router]);
 
   const handleCancel = useCallback(() => {
     // Navigate back immediately without confirmation for better UX
@@ -74,9 +116,18 @@ export const CreatePrescriptionScreen: React.FC = () => {
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
         <Text style={styles.headerTitle}>New Prescription</Text>
-        <Text style={styles.headerSubtitle}>
-          Create a new prescription
-        </Text>
+        {episode ? (
+          <View style={styles.episodeContext}>
+            <Ionicons name="folder-outline" size={14} color={colors.primary.main} />
+            <Text style={styles.episodeContextText}>
+              Episode: {episode.title}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.headerSubtitle}>
+            Create a new prescription
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -124,6 +175,17 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     ...typography.caption,
     color: colors.text.secondary,
+  },
+  episodeContext: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  episodeContextText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

@@ -15,6 +15,7 @@ import {
   AlertAcknowledgeRequest,
   InventoryItemResponse,
   InventoryListResponse,
+  InventoryLocation,
   MovementResponse,
   MovementsListResponse,
   BatchResponse,
@@ -24,7 +25,22 @@ import {
   ListMovementsParams,
   ListBatchesParams,
   ListAlertsParams,
+  parseLocationString,
 } from '../models/inventory.dtos';
+
+const normalizeInventoryLocation = (
+  location: InventoryCreateRequest['location'] | InventoryUpdateRequest['location'] | string | undefined
+): InventoryLocation | null | undefined => {
+  if (location === undefined) return undefined;
+  if (location === null) return null;
+  if (typeof location === 'string') return parseLocationString(location);
+  return location;
+};
+
+const normalizeInventoryPayload = <T extends InventoryCreateRequest | InventoryUpdateRequest>(payload: T): T => ({
+  ...payload,
+  location: normalizeInventoryLocation((payload as any).location),
+});
 
 // ============================================
 // INVENTORY ITEMS
@@ -69,7 +85,7 @@ export const createInventoryItemApi = async (
 ): Promise<InventoryItemResponse> => {
   const response = await axiosClient.post(
     `/api/v1/clinic/${tenantId}/inventory`,
-    payload
+    normalizeInventoryPayload(payload)
   );
   return response.data;
 };
@@ -85,7 +101,7 @@ export const updateInventoryItemApi = async (
 ): Promise<InventoryItemResponse> => {
   const response = await axiosClient.patch(
     `/api/v1/clinic/${tenantId}/inventory/${itemId}`,
-    payload
+    normalizeInventoryPayload(payload)
   );
   return response.data;
 };

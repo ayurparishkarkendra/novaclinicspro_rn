@@ -19,13 +19,18 @@ import {
   Modal,
   TextInput,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
+import { ClinicalPrintPreviewModal } from '../../../../core/clinicalPrint/ClinicalPrintPreviewModal';
+import { buildCasesheetPrintHtml } from '../../../../core/clinicalPrint/adapters';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
   useCasesheetDetailQuery,
@@ -35,11 +40,12 @@ import {
   CasesheetStatus,
   formatDateTime,
   isEditable,
+  getAllowedTransitions,
 } from '../../index';
 import { useCreateTreatmentSheetMutation } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import { CasesheetStatusBadge } from '../components/CasesheetStatusBadge';
-import { CasesheetActions } from '../components/CasesheetActions';
 import { EmptyCasesheetsState } from '../components/EmptyCasesheetsState';
+import { useQueryClient } from '@tanstack/react-query';
 
 const DURATION_OPTIONS = [
   { days: 7, label: '7 Days' },
@@ -54,6 +60,7 @@ export const CasesheetDetailScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ clientId: string; casesheetId: string }>();
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const tenantId = currentUser?.tenantId || '';
   const clientId = params.clientId || '';
   const casesheetId = params.casesheetId || '';
@@ -72,6 +79,71 @@ export const CasesheetDetailScreen: React.FC = () => {
     isRefetching,
   } = useCasesheetDetailQuery(tenantId, casesheetId);
 
+  // Fetch client details to show name, age, gender, phone
+  const { data: client, isLoading: isClientLoading } = useQuery({
+    queryKey: ['client', tenantId, clientId],
+    queryFn: async () => {
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      const response = await axiosClient.get(`/api/v1/clinic/${tenantId}/clients/${clientId}`);
+      console.log('📋 Client data loaded:', {
+        full_name: response.data.full_name,
+        age: response.data.age,
+        age_type: typeof response.data.age,
+        age_is_null: response.data.age === null,
+        age_is_undefined: response.data.age === undefined,
+        gender: response.data.gender,
+        gender_type: typeof response.data.gender,
+        phone: response.data.phone,
+        raw: response.data
+      });
+      return response.data;
+    },
+    enabled: !!tenantId && !!clientId,
+  });
+
+  // Fetch episode details to show disease name in treatment sheet section
+  const { data: episode } = useQuery({
+    queryKey: ['episode', tenantId, casesheet?.episode_id],
+    queryFn: async () => {
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      const response = await axiosClient.get(`/api/v1/clinic/${tenantId}/episodes/${casesheet?.episode_id}`);
+      return response.data;
+    },
+    enabled: !!tenantId && !!casesheet?.episode_id,
+  });
+
+  // Fetch treatment sheets for this episode
+  // Primary: Use casesheet.treatment_sheet_id if available
+  // Fallback: Fetch by episode_id (always enabled as backend may not update treatment_sheet_id yet)
+  const { data: treatmentSheetsData } = useQuery({
+    queryKey: ['treatment-sheets-by-episode', tenantId, casesheet?.episode_id],
+    queryFn: async () => {
+      const { axiosClient } = await import('../../../../core/api/axiosClient');
+      const response = await axiosClient.get(
+        `/api/v1/clinic/${tenantId}/treatment-sheets`,
+        { params: { episode_id: casesheet?.episode_id } }
+      );
+      console.log('[CasesheetDetail] Treatment sheets by episode response:', response.data);
+      return response.data;
+    },
+    enabled: !!tenantId && !!casesheet?.episode_id,
+  });
+
+  // Determine which treatment sheet to show:
+  // 1. First priority: casesheet.treatment_sheet_id (direct link from backend)
+  // 2. Fallback: Most recent treatment sheet from episode query
+  const treatmentSheetId = casesheet?.treatment_sheet_id || treatmentSheetsData?.treatment_sheets?.[0]?.id;
+  
+  // Debug logging
+  console.log('[CasesheetDetail] Treatment sheet detection:', {
+    casesheetId: casesheet?.id,
+    treatment_sheet_id: casesheet?.treatment_sheet_id,
+    episodeId: casesheet?.episode_id,
+    fallbackTreatmentSheets: treatmentSheetsData?.treatment_sheets?.length || 0,
+    fallbackTreatmentSheetIds: treatmentSheetsData?.treatment_sheets?.map((ts: any) => ts.id) || [],
+    finalTreatmentSheetId: treatmentSheetId,
+  });
+
   const transitionMutation = useTransitionCasesheetStatusMutation(tenantId, casesheetId);
   const printMutation = usePrintCasesheetMutation(tenantId, casesheetId);
   const archiveMutation = useArchiveCasesheetMutation(tenantId, casesheetId, clientId);
@@ -86,11 +158,15 @@ export const CasesheetDetailScreen: React.FC = () => {
     }
   }, [transitionMutation]);
 
+  // BUG FIX #5: Show print preview modal with HTML content
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printHtmlContent, setPrintHtmlContent] = useState<string>('');
+
   const handlePrint = useCallback(async () => {
     try {
-      const result = await printMutation.mutateAsync();
-      Alert.alert('Print', 'Print content ready. Opening print preview...');
-      // In production, this would open a WebView with the HTML content
+      const result: any = await printMutation.mutateAsync();
+      setPrintHtmlContent(buildCasesheetPrintHtml(result));
+      setShowPrintPreview(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to print casesheet.');
     }
@@ -123,6 +199,11 @@ export const CasesheetDetailScreen: React.FC = () => {
     try {
       const result = await createTSMutation.mutateAsync({ duration_days: duration });
       setShowCreateTSModal(false);
+      
+      // Invalidate casesheet query - backend now updates treatment_sheet_id
+      queryClient.invalidateQueries({ queryKey: ['casesheets', 'detail', tenantId, casesheetId] });
+      await refetch();
+      
       Alert.alert(
         'Success',
         'Treatment sheet created successfully.',
@@ -132,7 +213,7 @@ export const CasesheetDetailScreen: React.FC = () => {
             onPress: () => {
               router.push({
                 pathname: '/clinic-admin/treatment-sheets/[treatmentSheetId]' as any,
-                params: { treatmentSheetId: result.id },
+                params: { treatmentSheetId: result.id, casesheetId },
               });
             },
           },
@@ -142,7 +223,7 @@ export const CasesheetDetailScreen: React.FC = () => {
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create treatment sheet.');
     }
-  }, [createTSMutation, selectedDuration, customDuration, router]);
+  }, [createTSMutation, selectedDuration, customDuration, router, refetch, queryClient, tenantId, casesheetId]);
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -156,17 +237,52 @@ export const CasesheetDetailScreen: React.FC = () => {
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
         <Text style={styles.headerTitle}>Casesheet</Text>
-        <Text style={styles.headerSubtitle}>v{casesheet?.document_version || 1}</Text>
+        {casesheet && (
+          <CasesheetStatusBadge status={casesheet.status} size="small" />
+        )}
       </View>
       {casesheet && (
-        <CasesheetStatusBadge status={casesheet.status} size="medium" />
+        <View style={styles.headerActions}>
+          {/* Edit Button (only for drafts) */}
+          {isEditable(casesheet.status) && (
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={handleEdit}
+              accessibilityRole="button"
+              accessibilityLabel="Edit casesheet"
+            >
+              <Ionicons name="create-outline" size={20} color={colors.primary.main} />
+            </TouchableOpacity>
+          )}
+          {/* Finalize/Sign Button */}
+          {getAllowedTransitions(casesheet.status).length > 0 && (
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={() => {
+                const nextStatus = getAllowedTransitions(casesheet.status)[0];
+                handleTransition(nextStatus);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={getAllowedTransitions(casesheet.status)[0] === 'SIGNED' ? 'Sign casesheet' : 'Finalize casesheet'}
+            >
+              <Ionicons 
+                name={getAllowedTransitions(casesheet.status)[0] === 'SIGNED' ? 'shield-checkmark' : 'checkmark-circle'} 
+                size={20} 
+                color={colors.success.main} 
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
 
   const renderBrandingHeader = () => {
     const headerData = casesheet?.header_snapshot;
-    if (!headerData) return null;
+    // Don't render anything if no header data exists
+    if (!headerData || (!headerData.logo_url && !headerData.clinic_name && !headerData.tagline && !headerData.address && !headerData.phone)) {
+      return null;
+    }
 
     return (
       <View style={styles.brandingSection} testID="branding-header">
@@ -378,21 +494,58 @@ export const CasesheetDetailScreen: React.FC = () => {
     }
 
     return (
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
-            colors={[colors.primary.main]}
-            tintColor={colors.primary.main}
-          />
-        }
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
+              colors={[colors.primary.main]}
+              tintColor={colors.primary.main}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header Branding */}
         {renderBrandingHeader()}
+
+        {/* Client Info - Show name with age/gender badge, and phone */}
+        {client && (
+          <View style={styles.clientInfoCard}>
+            <View style={styles.clientNameRow}>
+              <Text style={styles.clientName}>
+                {client.full_name || 'Unknown Patient'}
+              </Text>
+              {(() => {
+                const hasAge = client.age !== null && client.age !== undefined;
+                const hasGender = !!client.gender;
+                const shouldShowBadge = hasAge || hasGender;
+                console.log('🏷️ Age/Gender Badge Check:', { hasAge, hasGender, shouldShowBadge, age: client.age, gender: client.gender });
+                
+                return shouldShowBadge ? (
+                  <View style={styles.ageGenderBadge}>
+                    <Text style={styles.ageGenderText}>
+                      {hasAge ? client.age : '?'}/{hasGender ? String(client.gender).charAt(0).toUpperCase() : '?'}
+                    </Text>
+                  </View>
+                ) : null;
+              })()}
+            </View>
+            {client.phone && (
+              <View style={styles.clientDetail}>
+                <Ionicons name="call-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.clientDetailText}>{client.phone}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Document Info */}
         <View style={styles.infoCard}>
@@ -438,52 +591,53 @@ export const CasesheetDetailScreen: React.FC = () => {
         {/* Extensions */}
         {renderExtensions()}
 
-        {/* Treatment Sheets Section */}
-        <View style={styles.treatmentSheetsSection}>
-          <View style={styles.treatmentSheetsHeader}>
-            <View style={styles.treatmentSheetsIcon}>
-              <Ionicons name="fitness" size={24} color={colors.success.main} />
-            </View>
-            <View style={styles.treatmentSheetsInfo}>
-              <Text style={styles.treatmentSheetsTitle}>Treatment Sheets</Text>
-              <Text style={styles.treatmentSheetsSubtitle}>
-                Therapy plans and progress tracking
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.createTreatmentSheetButton}
-            onPress={() => setShowCreateTSModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Create treatment sheet"
-            testID="create-treatment-sheet-btn"
-          >
-            <Ionicons name="add-circle-outline" size={20} color={colors.success.main} />
-            <Text style={styles.createTreatmentSheetText}>Create Treatment Sheet</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
-          </TouchableOpacity>
-        </View>
-
         {/* Footer Branding */}
         {renderBrandingFooter()}
 
-        {/* Actions */}
+        {/* Other Actions */}
         <View style={styles.actionsContainer}>
-          <Text style={styles.actionsTitle}>Actions</Text>
-          <CasesheetActions
-            status={casesheet.status}
-            onTransition={handleTransition}
-            onPrint={handlePrint}
-            onArchive={handleArchive}
-            onEdit={isEditable(casesheet.status) ? handleEdit : undefined}
-            isLoading={
-              transitionMutation.isPending ||
-              printMutation.isPending ||
-              archiveMutation.isPending
-            }
-          />
+          <Text style={styles.actionsTitle}>Other Actions</Text>
+          <View style={styles.otherActionsRow}>
+            {/* Print Button */}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={handlePrint}
+              disabled={printMutation.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Print casesheet"
+            >
+              <Ionicons name="print-outline" size={18} color={colors.text.primary} />
+              <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>Print</Text>
+            </TouchableOpacity>
+
+            {/* Archive Button */}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.dangerButton]}
+              onPress={() => {
+                Alert.alert(
+                  'Archive Casesheet',
+                  'This will archive the casesheet. It will no longer appear in the active list. Are you sure?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Archive',
+                      style: 'destructive',
+                      onPress: handleArchive,
+                    },
+                  ]
+                );
+              }}
+              disabled={archiveMutation.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Archive casesheet"
+            >
+              <Ionicons name="archive-outline" size={18} color={colors.error.main} />
+              <Text style={[styles.actionButtonText, styles.dangerButtonText]}>Archive</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   };
 
@@ -494,6 +648,12 @@ export const CasesheetDetailScreen: React.FC = () => {
         {renderContent()}
       </View>
       {renderCreateTreatmentSheetModal()}
+      <ClinicalPrintPreviewModal
+        visible={showPrintPreview}
+        html={printHtmlContent}
+        title="Case Sheet Preview"
+        onClose={() => setShowPrintPreview(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -510,6 +670,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.paper,
   },
   backButton: {
     padding: spacing.xs,
@@ -517,10 +678,25 @@ const styles = StyleSheet.create({
   },
   headerTitleContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   headerTitle: {
     ...typography.h5,
     color: colors.text.primary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerActionButton: {
+    padding: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.background.default,
+    borderWidth: 1,
+    borderColor: colors.border.light,
   },
   headerSubtitle: {
     ...typography.caption,
@@ -612,6 +788,49 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary.main,
     marginTop: spacing.xs,
+  },
+
+  // Client Info Card
+  clientInfoCard: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  clientNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  clientName: {
+    ...typography.h6,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  ageGenderBadge: {
+    backgroundColor: colors.primary.main + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  ageGenderText: {
+    ...typography.caption,
+    color: colors.primary.main,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  clientDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: spacing.xs,
+  },
+  clientDetailText: {
+    ...typography.body2,
+    color: colors.text.secondary,
   },
 
   // Info Card
@@ -735,6 +954,36 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontWeight: '500',
   },
+  otherActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    gap: spacing.xs,
+  },
+  actionButtonText: {
+    ...typography.button,
+  },
+  secondaryButton: {
+    backgroundColor: colors.grey[200],
+  },
+  secondaryButtonText: {
+    color: colors.text.primary,
+  },
+  dangerButton: {
+    backgroundColor: colors.error.main + '15',
+    borderWidth: 1,
+    borderColor: colors.error.main,
+  },
+  dangerButtonText: {
+    color: colors.error.main,
+  },
 
   // Treatment Sheets
   treatmentSheetsSection: {
@@ -786,6 +1035,26 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.success.main,
     flex: 1,
+  },
+  viewTreatmentSheetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.success.main + '10',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.success.main + '30',
+    gap: spacing.xs,
+  },
+  viewTreatmentSheetText: {
+    ...typography.button,
+    color: colors.success.main,
+  },
+  treatmentSheetDisease: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
 
   // Modal
@@ -893,6 +1162,32 @@ const styles = StyleSheet.create({
   modalCreateText: {
     ...typography.button,
     color: colors.common.white,
+  },
+
+  // BUG FIX #5: Print Preview Modal Styles
+  printPreviewContainer: {
+    flex: 1,
+    backgroundColor: colors.background.paper,
+  },
+  printPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.default,
+  },
+  printPreviewTitle: {
+    ...typography.h6,
+    color: colors.text.primary,
+  },
+  printPreviewCloseButton: {
+    padding: spacing.xs,
+  },
+  printPreviewWebView: {
+    flex: 1,
   },
 });
 

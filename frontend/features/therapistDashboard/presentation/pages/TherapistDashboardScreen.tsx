@@ -1,128 +1,310 @@
 /**
- * Therapist Dashboard Screen
- * Main dashboard page for therapists with worklist, KPIs, HR self-service, and learning
- * 
- * API Support Summary:
- * - Worklist/Schedule: SUPPORTED via therapist dashboard API
- * - KPIs: SUPPORTED (derived from worklist data)
- * - Leave Requests: SUPPORTED via staff leave API
- * - Documents: NOT SUPPORTED - shows disabled state
- * - Bank Details: NOT SUPPORTED - shows disabled state
- * - Salary/Payslips: NOT SUPPORTED - shows disabled state
- * - Learning: NOT SUPPORTED - shows coming soon state
+ * TherapistDashboardScreen
+ *
+ * Uses the dedicated therapist sessions endpoint (getTherapistSessionsApi)
+ * which returns only this therapist's sessions, filtered by date.
+ * Each session carries row_id directly — no secondary lookup needed.
+ *
+ * Requirements: 1.1–1.5, 2.1, 3.1, 3.3, 3.4, 4.1, 4.3, 4.5,
+ *               5.1–5.5, 6.1, 6.2, 6.6, 9.1, 10.1, 11.1, 12.6
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
+  Text,
   ScrollView,
   StyleSheet,
   RefreshControl,
-  Alert,
   ActivityIndicator,
-  Text,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+
 import { colors } from '../../../../core/theme/colors';
 import { spacing } from '../../../../core/theme/spacing';
 import { typography } from '../../../../core/theme/typography';
-import { DashboardHeader } from '../../../../core/components/DashboardHeader';
-import { OnLeaveBanner, EmptyDashboardState } from '../../../staffDashboards';
-import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { t, ErrorTokens } from '../../../../core/localization';
 
-// Feature imports
+import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+
+// Data layer
 import {
-  useTherapistWorklistQuery,
-  useTherapistKpisQuery,
+  useTherapistSessionsQuery,
+  useSheetRowUsablesQuery,
+  useCompleteSheetRowMutation,
+  staffDashboardsKeys,
+} from '../../../staffDashboards/data/repositories/staffDashboards.repository.impl';
+import { TherapistSessionItemV2 } from '../../../staffDashboards/data/models/staffDashboards.dtos';
+import { useUpdateAppointmentStatusMutation } from '../../../appointments/data/repositories/appointments.repository.impl';
+import {
+  useStartSessionMutation,
+  useTreatmentOrderQuery,
+} from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
+
+// Domain / use cases
+import { useGetTherapistDashboard } from '../../domain/usecases/get-therapist-dashboard.usecase';
+
+// Presentation components
+import { TherapistDashboardSummary } from '../components/TherapistDashboardSummary';
+import { TreatmentSessionCompleteModal } from '../components/TreatmentSessionCompleteModal';
+import { TherapistKpiSection } from '../components/TherapistKpiSection';
+import { LeaveSection } from '../components/LeaveSection';
+import { HrSection } from '../components/HrSection';
+import { AppointmentRow } from '../../../appointments/presentation/components/AppointmentRow';
+import { AppointmentResponse } from '../../../appointments/data/models/appointments.dtos';
+
+import { DateStrip } from '../../../../core/components/DateStrip';
+import { DashboardHeader } from '../../../../core/components/DashboardHeader';
+import { useTherapistDashboardDate } from '../../../staffDashboards/presentation/hooks/useDashboardDate';
+import { therapistKeys } from '../../../staffDashboards/data/repositories/staffDashboards.repository.impl';
+
+// Leave / HR data
+import {
   useTherapistLeaveRequestsQuery,
   useCreateLeaveRequestMutation,
   useCancelLeaveRequestMutation,
 } from '../../data/repositories/therapistDashboard.repository.impl';
-import {
-  WorklistPeriod,
-  filterSessionsByPeriod,
-  StaffLeaveCreate,
-} from '../../data/models/therapistDashboard.dtos';
-import { kpiSummaryToMetrics, getPendingLeaveCount } from '../../domain/entities/therapistDashboard.entity';
+import { getPendingLeaveCount } from '../../domain/entities/therapistDashboard.entity';
+import { StaffLeaveCreate } from '../../data/models/therapistDashboard.dtos';
 
-// Components
-import { TherapistKpiRow } from '../components/TherapistKpiRow';
-import { WorklistSection } from '../components/WorklistSection';
-import { HrSection } from '../components/HrSection';
-import { LeaveSection } from '../components/LeaveSection';
-import { LearningSection } from '../components/LearningSection';
-import { StaffFeedbackSection } from '../../../feedback';
+// ============================================
+// HELPERS
+// ============================================
+
+/**
+ * Map a TherapistSessionItemV2 to the AppointmentResponse shape
+ * expected by AppointmentRow.
+ *
+ * scheduled_time / scheduled_end_time: full ISO strings with timezone offset.
+ *   Passed directly as appointment_start/end — formatTime() handles UTC conversion.
+ * all_therapist_names: all assigned therapists joined with ", " for display.
+ */
+function sessionToAppointment(
+  session: TherapistSessionItemV2,
+  tenantId: string
+): AppointmentResponse {
+  // Build a valid ISO datetime from "HH:MM:SS" + session_date, or pass through full ISO.
+  const buildIso = (timeField: string | null): string | null => {
+    if (!timeField) return null;
+    const isFullIso = timeField.includes('T') || timeField.includes('+');
+    if (isFullIso) return timeField;
+    const dateBase = session.session_date ?? new Date().toISOString().split('T')[0];
+    return `${dateBase}T${timeField}`;
+  };
+
+  const appointmentStart = buildIso(session.scheduled_time) ?? session.session_date ?? new Date().toISOString();
+  const appointmentEnd = buildIso(session.scheduled_end_time);
+
+  const cardId = session.row_id ?? session.appointment_id ?? '';
+
+  // Build display name: all assigned therapists, falling back to the logged-in one
+  const staffDisplayName =
+    session.all_therapist_names && session.all_therapist_names.length > 0
+      ? session.all_therapist_names.join(', ')
+      : (session.therapist_name ?? undefined);
+
+  return {
+    id: cardId,
+    tenant_id: tenantId,
+    client_id: '',
+    doctor_id: null,
+    therapist_ids: [],
+    room_id: session.room_id ?? null,
+    treatment_id: null,
+    appointment_start: appointmentStart,
+    appointment_end: appointmentEnd,
+    status: session.status ?? 'scheduled',
+    notes: session.instructions ?? null,
+    is_active: true,
+    created_at: '',
+    appointment_type: null,
+    series_id: null,
+    client_name: session.client_name ?? undefined,
+    treatment_name: session.treatment_name ?? undefined,
+    room_name: session.room_name ?? undefined,
+    staff_name: staffDisplayName,
+  } as AppointmentResponse & { staff_name?: string };
+}
+
+const getSessionStartDate = (session: TherapistSessionItemV2): Date | null => {
+  const value = session.scheduled_time ?? session.session_time ?? session.session_date;
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isSessionStartDue = (session: TherapistSessionItemV2): boolean => {
+  const startDate = getSessionStartDate(session);
+  return !startDate || new Date() >= startDate;
+};
+
+const isSessionInProgress = (session?: TherapistSessionItemV2 | null): boolean =>
+  session?.status?.toLowerCase() === 'in_progress';
+
+// ============================================
+// COMPONENT
+// ============================================
 
 export const TherapistDashboardScreen: React.FC = () => {
   const router = useRouter();
-  const { logout, currentUser } = useAuth();
-  const tenantId = currentUser?.tenantId || '';
-  
-  // For leave API, we need staffId. In real app, this would come from auth context
-  // For now, we'll use a placeholder since the backend uses /me/ endpoint
-  const staffId = currentUser?.userId || '';
+  const queryClient = useQueryClient();
+  const { currentUser, logout } = useAuth();
 
-  // State
-  const [worklistPeriod, setWorklistPeriod] = useState<WorklistPeriod>('today');
-  const [kpiPeriod, setKpiPeriod] = useState<WorklistPeriod>('today');
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  // ── Auth context ──────────────────────────────────────────────────────────
+  const tenantId: string = currentUser?.tenantId ?? '';
+  const staffId: string = currentUser?.userId ?? '';
+  const displayName: string = currentUser?.fullName ?? '';
+  const userRole: string = (currentUser?.roles?.[0] ?? '').toLowerCase();
 
-  // Queries
+  // ── RBAC guard ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    if (userRole === 'therapist') return;
+
+    if (userRole === 'doctor') {
+      router.replace('/doctor');
+    } else if (
+      userRole === 'clinic admin' ||
+      userRole === 'clinic_admin' ||
+      userRole === 'receptionist' ||
+      userRole === 'tenant admin' ||
+      userRole === 'tenant_admin'
+    ) {
+      router.replace('/clinic-admin');
+    } else if (currentUser.isOrgAdmin) {
+      router.replace('/super-admin');
+    } else {
+      router.replace('/');
+    }
+  }, [currentUser, userRole, router]);
+
+  // ── Completion flow state ─────────────────────────────────────────────────
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [usablesError, setUsablesError] = useState<string | null>(null);
+  const [expandedInstructionIds, setExpandedInstructionIds] = useState<Record<string, boolean>>({});
+
+  // ── Date selection ────────────────────────────────────────────────────────
+  const {
+    selectedDate: therapistSelectedDate,
+    setSelectedDate: setTherapistSelectedDate,
+    selectedDateStr,
+    isToday,
+  } = useTherapistDashboardDate();
+
+  // ── Dashboard summary ─────────────────────────────────────────────────────
+  // Only used for averageRating — all session counts are derived from sessionsData below.
   const {
     data: dashboardData,
-    isLoading: isWorklistLoading,
-    isError: isWorklistError,
-    error: worklistError,
-    refetch: refetchWorklist,
-    isRefetching: isWorklistRefetching,
-  } = useTherapistWorklistQuery(tenantId, undefined, {
-    enabled: !!tenantId,
-  });
+    isError: isDashboardError,
+  } = useGetTherapistDashboard(tenantId, displayName);
 
+  // ── Sessions list — dedicated therapist endpoint, filtered by date ─────────
+  // This endpoint returns ONLY this therapist's sessions (server-side filtered).
+  // Each item has row_id directly — no secondary lookup needed.
   const {
-    data: kpiData,
-    isLoading: isKpiLoading,
-  } = useTherapistKpisQuery(tenantId, kpiPeriod, {
-    enabled: !!tenantId,
+    data: sessionsData,
+    isLoading: isSessionsLoading,
+  } = useTherapistSessionsQuery(
+    tenantId,
+    { date: selectedDateStr },
+    { enabled: !!tenantId }
+  );
+
+  // Derive summary stats from sessions — no extra network call needed
+  const sessionItems = sessionsData?.items ?? [];
+  const totalSessions = sessionsData?.total ?? sessionItems.length;
+  const completedSessions = sessionItems.filter((s) => s.status === 'completed').length;
+  const pendingSessions = sessionItems.filter(
+    (s) => s.status === 'scheduled' || s.status === 'in_progress'
+  ).length;
+
+  // ── Usables fetch (fetches when a row is selected, modal opens immediately) ─
+  const {
+    data: usablesData,
+  } = useSheetRowUsablesQuery(tenantId, selectedRowId, {
+    enabled: !!tenantId && !!selectedRowId,
   });
 
+  // ── Completion mutation (multi-day: sheet row) ────────────────────────────
+  const {
+    mutate: completeRow,
+    submitStatus,
+    errorMessage: completionError,
+    reset: resetCompletion,
+  } = useCompleteSheetRowMutation(tenantId);
+
+  // ── Completion mutation (single-day: appointment status) ──────────────────
+  const updateStatusMutation = useUpdateAppointmentStatusMutation();
+
+  // ── Start session mutation (multi-day: SCHEDULED → IN_PROGRESS) ───────────
+  const startSession = useStartSessionMutation(tenantId);
+  // Track which row is being started (to show per-card loading)
+  const [startingRowId, setStartingRowId] = useState<string | null>(null);
+  // Cache for order versions: sheetId → version
+  const [orderVersionCache, setOrderVersionCache] = useState<Record<string, number>>({});
+
+  const prevSubmitStatusRef = React.useRef<string>('idle');
+  useEffect(() => {
+    if (submitStatus === 'conflict') {
+      setCompletionModalOpen(false);
+      setSelectedRowId(null);
+      setSelectedAppointmentId(null);
+      resetCompletion();
+    } else if (submitStatus === 'idle' && prevSubmitStatusRef.current === 'completing') {
+      // Success: mutation went completing → idle, close the modal
+      setCompletionModalOpen(false);
+      setSelectedRowId(null);
+      setSelectedAppointmentId(null);
+    }
+    prevSubmitStatusRef.current = submitStatus;
+  }, [submitStatus, resetCompletion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Leave ─────────────────────────────────────────────────────────────────
+  const [openLeaveModal, setOpenLeaveModal] = useState(false);
   const {
     data: leaveData,
     isLoading: isLeaveLoading,
-    refetch: refetchLeave,
   } = useTherapistLeaveRequestsQuery(tenantId, staffId, undefined, {
     enabled: !!tenantId && !!staffId,
   });
 
-  // Mutations
   const createLeaveMutation = useCreateLeaveRequestMutation(tenantId, staffId);
   const cancelLeaveMutation = useCancelLeaveRequestMutation(tenantId, staffId);
 
-  // Derived data
-  const filteredSessions = useMemo(() => {
-    if (!dashboardData?.sessions) return [];
-    return filterSessionsByPeriod(dashboardData.sessions, worklistPeriod);
-  }, [dashboardData?.sessions, worklistPeriod]);
+  const leaves = leaveData?.items ?? [];
+  const pendingLeaveCount = getPendingLeaveCount(leaves);
 
-  const kpiMetrics = useMemo(() => {
-    if (!kpiData) return [];
-    return kpiSummaryToMetrics(kpiData);
-  }, [kpiData]);
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const leaves = leaveData?.items || [];
-  const pendingLeaveCount = useMemo(() => getPendingLeaveCount(leaves), [leaves]);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: staffDashboardsKeys.therapist(tenantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['staffDashboards', 'therapist', 'sessions', tenantId],
+          exact: false,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['staffDashboards', 'therapist', 'kpis', tenantId],
+          exact: false,
+        }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient, tenantId]);
 
-  // Handlers
-  const handleRefresh = useCallback(() => {
-    refetchWorklist();
-    refetchLeave();
-  }, [refetchWorklist, refetchLeave]);
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -134,260 +316,426 @@ export const TherapistDashboardScreen: React.FC = () => {
           onPress: async () => {
             try {
               await logout();
-            } catch (err) {
+            } catch {
               Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },
         },
       ]
     );
-  };
+  }, [logout]);
 
-  const handleSessionPress = useCallback((session: any) => {
-    // Navigate to treatment sheet detail if available
-    if (session.treatment_sheet_id) {
-      router.push(`/clinic-admin/treatment-sheets/${session.treatment_sheet_id}`);
-    } else {
-      router.push(`/clinic-admin/treatment-sessions/${session.id}`);
-    }
-  }, [router]);
-
-  const handleStartSession = useCallback((session: any) => {
-    Alert.alert(
-      'Start Session',
-      `Start session #${session.session_number} with ${session.client_name || 'client'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Start',
-          onPress: () => {
-            // Navigate to session detail to start
-            handleSessionPress(session);
-          },
-        },
-      ]
-    );
-  }, [handleSessionPress]);
-
-  const handleViewAllSessions = useCallback(() => {
-    router.push('/clinic-admin/treatment-sessions');
-  }, [router]);
-
-  const handleApplyLeave = useCallback(async (payload: StaffLeaveCreate) => {
-    await createLeaveMutation.mutateAsync(payload);
-  }, [createLeaveMutation]);
-
-  const handleCancelLeave = useCallback(async (leaveId: string) => {
-    try {
-      await cancelLeaveMutation.mutateAsync(leaveId);
-      Alert.alert('Success', 'Leave request cancelled');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to cancel leave request');
-    }
-  }, [cancelLeaveMutation]);
-
-  const handleLeavePress = useCallback(() => {
-    setShowLeaveModal(true);
+  const toggleInstructions = useCallback((cardId: string) => {
+    setExpandedInstructionIds((prev) => ({
+      ...prev,
+      [cardId]: !prev[cardId],
+    }));
   }, []);
 
-  // Render loading state
-  if (isWorklistLoading && !dashboardData) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <DashboardHeader
-          title="Therapist Dashboard"
-          subtitle={currentUser?.fullName || 'Therapist'}
-          userName={currentUser?.email?.split('@')[0] || 'Therapist'}
-          onNotificationPress={() => router.push('/notifications')}
-          onProfilePress={() => {}}
-          onLogoutPress={handleLogout}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.success.main} />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  /** Shared helper — invalidates sessions + KPIs after any completion */
+  const invalidateAfterCompletion = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: ['staffDashboards', 'therapist', 'sessions', tenantId],
+      exact: false,
+    });
+    queryClient.invalidateQueries({
+      queryKey: staffDashboardsKeys.therapist(tenantId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['staffDashboards', 'therapist', 'kpis', tenantId],
+      exact: false,
+    });
+  }, [queryClient, tenantId]);
 
-  // Render error state
-  if (isWorklistError) {
-    const axiosError = worklistError as any;
-    const status = axiosError?.response?.status;
-    const isPermissionError = status === 403;
-    const isAuthError = status === 401;
+  /**
+   * Called by AppointmentRow's onComplete(cardId).
+   * cardId = row_id (multi-day) or appointment_id (single-day).
+   * - Multi-day: opens materials modal → completeSheetRowApi
+   * - Single-day: shows confirmation → updateAppointmentStatusApi
+   */
+  const handleAppointmentComplete = useCallback(
+    (cardId: string) => {
+      const session = (sessionsData?.items ?? []).find(
+        (s) => (s.row_id ?? s.appointment_id) === cardId
+      );
 
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <DashboardHeader
-          title="Therapist Dashboard"
-          subtitle={currentUser?.fullName || 'Therapist'}
-          userName={currentUser?.email?.split('@')[0] || 'Therapist'}
-          onNotificationPress={() => router.push('/notifications')}
-          onProfilePress={() => {}}
-          onLogoutPress={handleLogout}
-        />
-        <View style={styles.errorContainer}>
-          <EmptyDashboardState
-            variant="error"
-            title={
-              isPermissionError
-                ? t(ErrorTokens.dashboard.accessRestricted)
-                : isAuthError
-                ? 'Session Expired'
-                : t('common.error')
-            }
-            message={
-              isPermissionError
-                ? t(ErrorTokens.auth.permissionDenied)
-                : isAuthError
-                ? t(ErrorTokens.auth.sessionExpired)
-                : t(ErrorTokens.treatmentSessions.loadFailed)
-            }
-            actionLabel={isPermissionError ? t('common.goBack') : isAuthError ? 'Login' : t('common.retry')}
-            onActionPress={() => {
-              if (isPermissionError) {
-                router.back();
-              } else if (isAuthError) {
-                router.replace('/login');
-              } else {
-                refetchWorklist();
-              }
-            }}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
+      if (!isSessionInProgress(session)) {
+        Alert.alert('Start Required', 'Please start the therapy session before completing it.');
+        return;
+      }
 
-  const isOnLeave = dashboardData?.on_leave_today || false;
-
-  // Settings icon for notification preferences
-  const settingsButton = (
-    <TouchableOpacity
-      style={styles.settingsButton}
-      onPress={() => router.push('/notifications/preferences')}
-      accessibilityRole="button"
-      accessibilityLabel="Notification settings"
-    >
-      <Ionicons name="settings-outline" size={22} color={colors.text.secondary} />
-    </TouchableOpacity>
+      setUsablesError(null);
+      setSelectedRowId(session?.row_id ?? null);
+      setSelectedAppointmentId(session?.appointment_id ?? null);
+      setCompletionModalOpen(true);
+    },
+    [sessionsData?.items]
   );
 
+  const handleModalClose = useCallback(() => {
+    setCompletionModalOpen(false);
+    setSelectedRowId(null);
+    setSelectedAppointmentId(null);
+    resetCompletion();
+  }, [resetCompletion]);
+
+  /**
+   * Start a multi-day session row (SCHEDULED → IN_PROGRESS).
+   * Fetches the order version on demand if not cached, then calls startSheetRowApi.
+   */
+  const handleStartSession = useCallback(
+    async (session: TherapistSessionItemV2) => {
+      if (!isSessionStartDue(session)) {
+        Alert.alert('Not Yet Available', 'This therapy can be started only at or after the scheduled start time.');
+        return;
+      }
+
+      if (!session.row_id || !session.treatment_sheet_id) {
+        if (session.appointment_id) {
+          updateStatusMutation.mutate(
+            { appointmentId: session.appointment_id, status: 'IN_PROGRESS' },
+            {
+              onSuccess: invalidateAfterCompletion,
+              onError: (err: any) => {
+                Alert.alert('Error', err?.message || 'Failed to start session.');
+              },
+            }
+          );
+        }
+        return;
+      }
+      const sheetId = session.treatment_sheet_id;
+      const rowId = session.row_id;
+
+      setStartingRowId(rowId);
+      startSession.reset();
+
+      try {
+        let version = orderVersionCache[sheetId];
+        if (!version) {
+          const { getTreatmentOrderApi } = await import(
+            '../../../treatmentSheets/data/datasources/treatmentOrders.api'
+          );
+          const order = await getTreatmentOrderApi(sheetId, tenantId);
+          version = order.version;
+          setOrderVersionCache((prev) => ({ ...prev, [sheetId]: version }));
+        }
+        startSession.mutate({ sheetId, rowId, version });
+      } catch {
+        Alert.alert('Error', 'Could not fetch session details. Please try again.');
+      } finally {
+        setStartingRowId(null);
+      }
+    },
+    [startSession, orderVersionCache, tenantId, updateStatusMutation, invalidateAfterCompletion]
+  );
+
+  // React to start session status changes
+  useEffect(() => {
+    if (startSession.status === 'success') {
+      setOrderVersionCache({});
+      startSession.reset();
+    } else if (startSession.status === 'conflict') {
+      Alert.alert('Session Updated', startSession.errorMessage ?? 'This session was updated elsewhere. Refreshing…');
+      setOrderVersionCache({});
+      startSession.reset();
+    } else if (startSession.status === 'error' && startSession.errorMessage) {
+      Alert.alert('Error', startSession.errorMessage);
+      startSession.reset();
+    }
+  }, [startSession.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleModalSubmit = useCallback(
+    async (payload: Parameters<typeof completeRow>[0]['payload']) => {
+      if (selectedRowId) {
+        // Multi-day: complete the sheet row (records materials server-side)
+        // Find the session to get treatment_sheet_id for order invalidation
+        const session = (sessionsData?.items ?? []).find((s) => s.row_id === selectedRowId);
+        completeRow({ rowId: selectedRowId, payload, sheetId: session?.treatment_sheet_id ?? undefined });
+      } else if (selectedAppointmentId) {
+        // Single-day: mark appointment completed
+        updateStatusMutation.mutate(
+          { appointmentId: selectedAppointmentId, status: 'COMPLETED' },
+          {
+            onSuccess: () => {
+              setCompletionModalOpen(false);
+              setSelectedAppointmentId(null);
+              invalidateAfterCompletion();
+            },
+            onError: (err: any) => {
+              Alert.alert('Error', err?.message || 'Failed to complete session.');
+            },
+          }
+        );
+      }
+    },
+    [completeRow, selectedRowId, selectedAppointmentId, updateStatusMutation, invalidateAfterCompletion]
+  );
+
+  const handleApplyLeave = useCallback(
+    async (payload: StaffLeaveCreate) => {
+      await createLeaveMutation.mutateAsync(payload);
+    },
+    [createLeaveMutation]
+  );
+
+  const handleCancelLeave = useCallback(
+    async (leaveId: string) => {
+      try {
+        await cancelLeaveMutation.mutateAsync(leaveId);
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to cancel leave request');
+      }
+    },
+    [cancelLeaveMutation]
+  );
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const initialMaterials = useMemo(() => usablesData?.items ?? [], [usablesData?.items]);
+
+  const modalSubmitStatus: 'idle' | 'completing' | 'error' =
+    submitStatus === 'completing'
+      ? 'completing'
+      : submitStatus === 'error' || submitStatus === 'partial_error'
+      ? 'error'
+      : 'idle';
+
+  // ── Loading guard ─────────────────────────────────────────────────────────
+  if (!tenantId) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.centeredFull}>
+          <ActivityIndicator size="large" color={colors.primary.main} accessibilityLabel="Loading dashboard" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isDashboardError) {
+    // Non-fatal — summary stats are derived from sessions, so just log and continue
+    console.warn('[TherapistDashboard] Dashboard endpoint error — using session-derived stats');
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <DashboardHeader
         title="Therapist Dashboard"
-        subtitle={currentUser?.fullName || 'Therapist'}
-        userName={currentUser?.email?.split('@')[0] || 'Therapist'}
-        onNotificationPress={() => router.push('/notifications')}
-        onProfilePress={() => {}}
+        subtitle={`Welcome, ${displayName}`}
+        onNotificationPress={() => router.push('/notifications' as any)}
+        onProfilePress={() => router.push('/profile' as any)}
         onLogoutPress={handleLogout}
-        rightAction={settingsButton}
       />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isWorklistRefetching}
+            refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.success.main]}
-            tintColor={colors.success.main}
+            colors={[colors.primary.main]}
+            tintColor={colors.primary.main}
           />
         }
       >
-        {/* On Leave Banner */}
-        {isOnLeave && (
-          <View style={styles.section}>
-            <OnLeaveBanner />
+        {/* Dashboard Summary */}
+        <TherapistDashboardSummary
+          displayName={displayName}
+          totalSessions={totalSessions}
+          completedSessions={completedSessions}
+          pendingSessions={pendingSessions}
+          averageRating={dashboardData?.averageRating ?? null}
+          isLoading={isSessionsLoading}
+        />
+
+        {/* Usables error banner */}
+        {usablesError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{usablesError}</Text>
           </View>
-        )}
+        ) : null}
 
-        {/* KPI Row */}
-        <View style={styles.section}>
-          <TherapistKpiRow
-            metrics={kpiMetrics}
-            period={kpiPeriod}
-            isLoading={isKpiLoading}
+        {/* Date strip */}
+        <View style={styles.dateStripSection}>
+          <DateStrip
+            selectedDate={therapistSelectedDate}
+            onDateChange={setTherapistSelectedDate}
           />
         </View>
 
-        {/* Worklist Section */}
+        {/* Sessions list */}
         <View style={styles.section}>
-          <WorklistSection
-            sessions={filteredSessions}
-            period={worklistPeriod}
-            onPeriodChange={setWorklistPeriod}
-            onSessionPress={handleSessionPress}
-            onStartSession={handleStartSession}
-            onViewAllPress={handleViewAllSessions}
-            isLoading={isWorklistLoading}
-            isOnLeave={isOnLeave}
+          <Text style={styles.sectionTitle}>
+            {isToday
+              ? "Today's Sessions"
+              : `Sessions — ${therapistSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+          </Text>
+
+          {isSessionsLoading ? (
+            <View style={styles.centeredSection}>
+              <ActivityIndicator size="small" color={colors.primary.main} accessibilityLabel="Loading sessions" />
+            </View>
+          ) : (sessionsData?.items ?? []).length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                {isToday
+                  ? 'No sessions scheduled for today.'
+                  : `No sessions on ${therapistSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`}
+              </Text>
+            </View>
+          ) : (
+            (sessionsData?.items ?? []).map((session) => {
+              const cardId = session.row_id ?? session.appointment_id ?? session.id ?? '';
+              const hasInstructions = Boolean(
+                session.room_name ||
+                session.treatment_description ||
+                session.medicines_given ||
+                session.instructions
+              );
+              const isInstructionsExpanded = Boolean(expandedInstructionIds[cardId]);
+              const canStart =
+                ['pending', 'scheduled', 'confirmed'].includes(session.status?.toLowerCase() ?? '') &&
+                isSessionStartDue(session) &&
+                !session.started_at;
+              const isStarting = startingRowId === session.row_id;
+
+              return (
+                <View key={cardId} style={styles.sessionCardBlock}>
+                  <AppointmentRow
+                    variant="full"
+                    appointment={sessionToAppointment(session, tenantId)}
+                    onPress={undefined}
+                    showActions={true}
+                    userRole="therapist"
+                    onComplete={handleAppointmentComplete}
+                  />
+                  {hasInstructions && (
+                    <TouchableOpacity
+                      style={[
+                        styles.instructionsToggle,
+                        isInstructionsExpanded && styles.instructionsToggleExpanded,
+                      ]}
+                      onPress={() => toggleInstructions(cardId)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={isInstructionsExpanded ? 'Hide treatment instructions' : 'Show treatment instructions'}
+                      accessibilityState={{ expanded: isInstructionsExpanded }}
+                    >
+                      <View style={styles.instructionsToggleLabel}>
+                        <Ionicons name="clipboard-outline" size={15} color={colors.text.secondary} />
+                        <Text style={styles.instructionsToggleText}>Treatment Instructions</Text>
+                      </View>
+                      <Ionicons
+                        name={isInstructionsExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.text.secondary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {hasInstructions && isInstructionsExpanded && (
+                    <View style={styles.instructionsPanel}>
+                      {session.room_name && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="business-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText} numberOfLines={1}>{session.room_name}</Text>
+                        </View>
+                      )}
+                      {session.treatment_description && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="medical-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.treatment_description}</Text>
+                        </View>
+                      )}
+                      {session.medicines_given && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="flask-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.medicines_given}</Text>
+                        </View>
+                      )}
+                      {session.instructions && (
+                        <View style={styles.instructionsLine}>
+                          <Ionicons name="clipboard-outline" size={14} color={colors.text.secondary} />
+                          <Text style={styles.instructionsText}>{session.instructions}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {canStart && (
+                    <TouchableOpacity
+                      style={styles.startSessionBtn}
+                      onPress={() => handleStartSession(session)}
+                      disabled={isStarting || startSession.status === 'starting'}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Start session"
+                    >
+                      {isStarting || startSession.status === 'starting' ? (
+                        <ActivityIndicator size="small" color={colors.common.white} />
+                      ) : (
+                        <>
+                          <Ionicons name="play-circle-outline" size={16} color={colors.common.white} />
+                          <Text style={styles.startSessionBtnText}>Start Session</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* KPI Section */}
+        <View style={styles.section}>
+          <TherapistKpiSection tenantId={tenantId} staffId={staffId} isLoading={false} />
+        </View>
+
+        {/* Leave Section */}
+        <View style={styles.section}>
+          <LeaveSection
+            leaves={leaves}
+            pendingCount={pendingLeaveCount}
+            isLoading={isLeaveLoading}
+            onApplyLeave={handleApplyLeave}
+            onCancelLeave={handleCancelLeave}
+            isSubmitting={createLeaveMutation.isPending}
+            externalOpen={openLeaveModal}
+            onExternalOpenHandled={() => setOpenLeaveModal(false)}
           />
         </View>
 
-        {/* HR Self-Service Section */}
+        {/* HR Section */}
         <View style={styles.section}>
           <HrSection
-            onLeavePress={handleLeavePress}
-            onDocumentsPress={() => {
-              Alert.alert(
-                'Not Available',
-                'Document management is not available in this environment.'
-              );
-            }}
-            onBankDetailsPress={() => {
-              Alert.alert(
-                'Not Available',
-                'Bank details management is not available in this environment.'
-              );
-            }}
-            onPayslipsPress={() => {
-              Alert.alert(
-                'Not Available',
-                'Salary slips are not available in this environment.'
-              );
-            }}
+            onLeavePress={() => setOpenLeaveModal(true)}
+            onDocumentsPress={() => Alert.alert('Not Available', 'Document management is not available in this environment.')}
+            onBankDetailsPress={() => Alert.alert('Not Available', 'Bank details management is not available in this environment.')}
+            onPayslipsPress={() => Alert.alert('Not Available', 'Salary slips are not available in this environment.')}
           />
         </View>
-
-        {/* Leave Section (when modal is open or inline) */}
-        {showLeaveModal && (
-          <View style={styles.section}>
-            <LeaveSection
-              leaves={leaves}
-              pendingCount={pendingLeaveCount}
-              isLoading={isLeaveLoading}
-              onApplyLeave={handleApplyLeave}
-              onCancelLeave={handleCancelLeave}
-              isSubmitting={createLeaveMutation.isPending}
-            />
-          </View>
-        )}
-
-        {/* Learning Section */}
-        <View style={styles.section}>
-          <LearningSection />
-        </View>
-
-        {/* Patient Feedback Section */}
-        {tenantId && staffId && (
-          <View style={styles.section}>
-            <StaffFeedbackSection
-              tenantId={tenantId}
-              staffId={staffId}
-              staffType="therapist"
-              testID="therapist-feedback-section"
-            />
-          </View>
-        )}
       </ScrollView>
+
+      {/* Completion Modal */}
+      {completionModalOpen ? (
+        <TreatmentSessionCompleteModal
+          visible={completionModalOpen}
+          rowId={selectedRowId}
+          initialMaterials={initialMaterials}
+          onSubmit={handleModalSubmit}
+          onClose={handleModalClose}
+          isSubmitting={submitStatus === 'completing' || updateStatusMutation.isPending}
+          submitStatus={modalSubmitStatus}
+          errorMessage={completionError}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
+
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   container: {
@@ -400,27 +748,143 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xxl,
   },
+  centeredFull: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  centeredSection: {
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
   section: {
     paddingHorizontal: spacing.md,
     marginTop: spacing.lg,
   },
-  loadingContainer: {
-    flex: 1,
+  sectionTitle: {
+    ...typography.subtitle1,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  accessDeniedTitle: {
+    ...typography.h5,
+    color: colors.error.main,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  accessDeniedMessage: {
+    ...typography.body1,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  backButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary.main,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    ...typography.button,
+    color: colors.common.white,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    backgroundColor: colors.error.main + '15',
+    borderRadius: 8,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.error.main + '40',
+  },
+  errorBannerText: {
+    ...typography.body2,
+    color: colors.error.main,
+    textAlign: 'center',
+  },
+  emptyState: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    ...typography.body1,
+    color: colors.text.secondary,
+  },
+  sessionCardBlock: {
+    marginBottom: spacing.md,
+  },
+  startSessionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+    marginHorizontal: spacing.md,
   },
-  loadingText: {
+  startSessionBtnText: {
+    ...typography.button,
+    color: colors.common.white,
+    fontSize: 13,
+  },
+  instructionsToggle: {
+    marginHorizontal: spacing.md,
+    marginTop: -spacing.sm,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border.light,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.background.paper,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  instructionsToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  instructionsToggleText: {
     ...typography.body2,
     color: colors.text.secondary,
-    marginTop: spacing.md,
+    fontWeight: '600',
   },
-  errorContainer: {
+  instructionsToggleExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  instructionsPanel: {
+    marginHorizontal: spacing.md,
+    marginTop: 0,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border.light,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.background.paper,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  instructionsLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  instructionsText: {
+    ...typography.body2,
+    color: colors.text.secondary,
     flex: 1,
-    padding: spacing.md,
   },
-  settingsButton: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
+  dateStripSection: {
+    marginTop: spacing.md,
   },
 });
 

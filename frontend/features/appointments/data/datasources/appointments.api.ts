@@ -30,6 +30,8 @@ import {
 /**
  * List appointments for a tenant
  * GET /api/v1/clinic/{tenant_id}/appointments
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const listAppointmentsApi = async (
   tenantId: string,
@@ -37,7 +39,7 @@ export const listAppointmentsApi = async (
 ): Promise<PaginatedAppointmentsResponse> => {
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/appointments`,
-    { params }
+    { params: { ...params, expand: 'staff' } }
   );
   return response.data;
 };
@@ -45,13 +47,16 @@ export const listAppointmentsApi = async (
 /**
  * Get a single appointment
  * GET /api/v1/clinic/{tenant_id}/appointments/{appointment_id}
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const getAppointmentApi = async (
   tenantId: string,
   appointmentId: string
 ): Promise<AppointmentResponse> => {
   const response = await axiosClient.get(
-    `/api/v1/clinic/${tenantId}/appointments/${appointmentId}`
+    `/api/v1/clinic/${tenantId}/appointments/${appointmentId}`,
+    { params: { expand: 'staff' } }
   );
   return response.data;
 };
@@ -125,10 +130,11 @@ export const rescheduleAppointmentApi = async (
   appointmentId: string,
   payload: AppointmentReschedule
 ): Promise<AppointmentRescheduleResponse> => {
-  // Ensure payload has appointment_start field (backend requirement)
+  // Ensure payload has appointment_start and appointment_end fields (backend requirement)
   const apiPayload = {
     ...payload,
     appointment_start: payload.new_start || payload.appointment_start,
+    appointment_end: payload.new_end || payload.appointment_end,
   };
   
   const response = await axiosClient.post(
@@ -145,6 +151,8 @@ export const rescheduleAppointmentApi = async (
 /**
  * List appointments with summary for a specific date
  * GET /api/v1/clinic/{tenant_id}/appointments?date={date}
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const listAppointmentsByDateApi = async (
   tenantId: string,
@@ -152,7 +160,7 @@ export const listAppointmentsByDateApi = async (
 ): Promise<AppointmentsListResponse> => {
   const response = await axiosClient.get(
     `/api/v1/clinic/${tenantId}/appointments`,
-    { params: { date, limit: 100 } }
+    { params: { date, limit: 100, expand: 'staff' } }
   );
   
   // Transform response to include summary if backend doesn't provide it
@@ -162,11 +170,11 @@ export const listAppointmentsByDateApi = async (
     const appointments = data.items;
     const summary = {
       total: appointments.length,
-      scheduled: appointments.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
-      in_progress: appointments.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
-      completed: appointments.filter((a: AppointmentResponse) => a.status === 'completed').length,
-      cancelled: appointments.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
-      no_show: appointments.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+      scheduled: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'scheduled').length,
+      in_progress: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'in_progress').length,
+      completed: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'completed').length,
+      cancelled: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'cancelled').length,
+      no_show: appointments.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'no_show').length,
     };
     return { appointments, summary };
   }
@@ -176,6 +184,8 @@ export const listAppointmentsByDateApi = async (
 /**
  * Search appointments
  * GET /api/v1/clinic/{tenant_id}/appointments/search
+ * 
+ * IMPORTANT: Always include expand=staff to get staff_name populated
  */
 export const searchAppointmentsApi = async (
   tenantId: string,
@@ -184,14 +194,14 @@ export const searchAppointmentsApi = async (
   try {
     const response = await axiosClient.get(
       `/api/v1/clinic/${tenantId}/appointments/search`,
-      { params }
+      { params: { ...params, expand: 'staff' } }
     );
     return response.data;
   } catch {
     // Fallback to regular list with client-side filtering
     const response = await axiosClient.get(
       `/api/v1/clinic/${tenantId}/appointments`,
-      { params: { limit: 100 } }
+      { params: { limit: 100, expand: 'staff' } }
     );
     const allAppointments = response.data.items || [];
     const query = params.q.toLowerCase();
@@ -203,11 +213,11 @@ export const searchAppointmentsApi = async (
       appointments: filtered,
       summary: {
         total: filtered.length,
-        scheduled: filtered.filter((a: AppointmentResponse) => a.status === 'scheduled').length,
-        in_progress: filtered.filter((a: AppointmentResponse) => a.status === 'in_progress').length,
-        completed: filtered.filter((a: AppointmentResponse) => a.status === 'completed').length,
-        cancelled: filtered.filter((a: AppointmentResponse) => a.status === 'cancelled').length,
-        no_show: filtered.filter((a: AppointmentResponse) => a.status === 'no_show').length,
+        scheduled: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'scheduled').length,
+        in_progress: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'in_progress').length,
+        completed: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'completed').length,
+        cancelled: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'cancelled').length,
+        no_show: filtered.filter((a: AppointmentResponse) => a.status?.toLowerCase() === 'no_show').length,
       }
     };
   }
@@ -292,16 +302,32 @@ export const generateTherapyPlanApi = async (
 
 /**
  * Bulk create appointments (for multi-slot)
- * POST /api/v1/appointments/bulk-create
+ * POST /api/v1/clinic/{tenant_id}/appointments/bulk-create
  */
 export const bulkCreateAppointmentsApi = async (
   payload: BulkCreateRequest
 ): Promise<BulkCreateResponse> => {
-  const response = await axiosClient.post(
-    `/api/v1/appointments/bulk-create`,
-    payload
-  );
-  return response.data;
+  console.log('[API] Bulk create appointments:', {
+    series_id: payload.series_id,
+    episode_id: payload.episode_id,
+    count: payload.appointments.length,
+    episode_ids: payload.appointments.map(a => a.episode_id),
+    has_episode_id: payload.appointments.some(a => !!a.episode_id),
+  });
+  try {
+    const response = await axiosClient.post(
+      `/api/v1/appointments/bulk-create`,
+      payload
+    );
+    return response.data;
+  } catch (err: any) {
+    // Surface count-mismatch 400 errors directly to the user
+    const detail = err?.response?.data?.detail || err?.response?.data?.message;
+    if (err?.response?.status === 400 && detail) {
+      throw new Error(detail);
+    }
+    throw err;
+  }
 };
 
 /**

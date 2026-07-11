@@ -118,6 +118,21 @@ export const listStaffLeaveApi = async (
 };
 
 /**
+ * List all leave requests across all staff for a tenant (admin view)
+ * GET /api/v1/clinic/{tenant_id}/leave
+ */
+export const listAllStaffLeaveApi = async (
+  tenantId: string,
+  params?: ListStaffLeaveParams
+): Promise<PaginatedLeaveResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/leave`,
+    { params }
+  );
+  return response.data;
+};
+
+/**
  * Create a leave request
  * POST /api/v1/clinic/{tenant_id}/staff/{staff_id}/leave
  */

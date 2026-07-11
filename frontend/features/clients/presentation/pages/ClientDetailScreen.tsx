@@ -34,6 +34,8 @@ import {
   formatPhone,
 } from '../../data/models/clients.dtos';
 import { ClientForm } from '../components/ClientForm';
+import { useEpisodesQuery } from '../../../episodes/data/repositories/episodes.repository.impl';
+import { MultiDayTreatmentsSection } from '../components/MultiDayTreatmentsSection';
 
 export const ClientDetailScreen: React.FC = () => {
   const router = useRouter();
@@ -53,6 +55,16 @@ export const ClientDetailScreen: React.FC = () => {
     refetch,
     isRefetching,
   } = useClientDetailQuery(tenantId, clientId || '');
+
+  // Fetch active episodes for this client
+  const {
+    data: episodesData,
+    isLoading: isLoadingEpisodes,
+  } = useEpisodesQuery(
+    tenantId,
+    { client_id: clientId, status: 'ACTIVE' },
+    { enabled: !!tenantId && !!clientId }
+  );
 
   // Mutations
   const updateMutation = useUpdateClientMutation(tenantId, clientId || '');
@@ -93,6 +105,19 @@ export const ClientDetailScreen: React.FC = () => {
       ]
     );
   }, [deleteMutation, client, clientId, router]);
+
+  const handleCreateAppointment = useCallback(() => {
+    if (!clientId || !client) return;
+
+    router.push({
+      pathname: '/clinic-admin/appointments/create',
+      params: {
+        clientId,
+        clientName: client.full_name,
+        clientPhone: client.phone || '',
+      },
+    });
+  }, [clientId, client, router]);
 
   // Loading state
   if (isLoading) {
@@ -345,6 +370,34 @@ export const ClientDetailScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Episodes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Episodes</Text>
+          <TouchableOpacity
+            style={styles.documentCard}
+            onPress={() => router.push({
+              pathname: '/clinic-admin/clients/[clientId]/episodes',
+              params: { clientId: clientId, clientName: client.full_name },
+            })}
+          >
+            <View style={[styles.documentIcon, { backgroundColor: colors.info.main + '15' }]}>
+              <Ionicons name="albums" size={24} color={colors.info.main} />
+            </View>
+            <Text style={styles.documentTitle}>Episodes of Care</Text>
+            <Text style={styles.documentSubtitle}>View treatment episodes</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Multi-Day Treatments */}
+        {!isLoadingEpisodes && episodesData?.items && episodesData.items.length > 0 && (
+          <>
+            {episodesData.items.map((episode) => (
+              <MultiDayTreatmentsSection key={episode.id} episodeId={episode.id} />
+            ))}
+          </>
+        )}
+
         {/* Clinical Documents */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Clinical Documents</Text>
@@ -402,6 +455,17 @@ export const ClientDetailScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      <TouchableOpacity
+        style={styles.createAppointmentFab}
+        onPress={handleCreateAppointment}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`Create appointment for ${client.full_name}`}
+      >
+        <Ionicons name="calendar" size={22} color={colors.common.white} />
+        <Text style={styles.createAppointmentFabText}>Appointment</Text>
+      </TouchableOpacity>
 
       {/* Edit Modal */}
       <Modal
@@ -472,7 +536,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl * 3,
   },
   profileCard: {
     alignItems: 'center',
@@ -668,6 +732,27 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     marginRight: spacing.sm,
+  },
+  createAppointmentFab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  createAppointmentFabText: {
+    ...typography.button,
+    color: colors.common.white,
   },
 });
 

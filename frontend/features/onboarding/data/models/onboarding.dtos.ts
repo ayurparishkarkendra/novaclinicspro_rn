@@ -1,0 +1,211 @@
+/**
+ * Onboarding DTOs
+ * Data Transfer Objects for onboarding flow
+ */
+
+// === Application Detail Response ===
+export interface ApplicationDetailResponse {
+  id: string;
+  tenant_id?: string;
+  tenant_name: string;
+  status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ACTIVE';
+  business_profile?: Record<string, any>;
+  contact_details?: Record<string, any>;
+  app_context?: Record<string, any>;
+  component_recommendations?: ComponentRecommendation[];
+  auto_approval_result?: AutoApprovalResult;
+  approved_components?: string[];
+  validation_errors?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComponentRecommendation {
+  component: string;
+  confidence: number;
+  reason: string;
+}
+
+export interface AutoApprovalResult {
+  eligible: boolean;
+  risk_score: number;
+  risk_factors: string[];
+  reason?: string;
+}
+
+// === Validation Report ===
+export interface ValidationReportResponse {
+  application_id: string;
+  overall_score: number;
+  validation_errors: ValidationError[];
+  missing_fields: ValidationError[];
+  format_issues: ValidationError[];
+  priority_fixes: string[];
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+  priority: 'high' | 'medium' | 'low';
+  example?: string;
+}
+
+// === Application Improvement ===
+export interface ApplicationImprovementRequest {
+  business_profile?: Record<string, any>;
+  contact_details?: Record<string, any>;
+  app_context?: Record<string, any>;
+}
+
+export interface ApplicationImprovementResponse {
+  application_id: string;
+  improvement_applied: boolean;
+  previous_risk_score: number;
+  new_risk_score: number;
+  previous_eligible: boolean;
+  new_eligible: boolean;
+  remaining_risk_factors: string[];
+}
+
+// === Demo Mode ===
+export interface DemoCreateRequest {
+  application_id: string;
+}
+
+export interface DemoCreateResponse {
+  demo_tenant_id: string;
+  tenant_id: string;
+  demo_url: string;
+  expires_at: string;
+  duration_days: number;
+  status?: string;
+}
+
+export interface DemoStatusResponse {
+  demo_tenant_id: string;
+  display_name: string;
+  status: 'TRIAL' | 'PENDING' | 'ACTIVE' | 'expired' | 'transitioned';
+  demo_expires_at: string;
+  trial_expires_at: string;
+  demo_time_remaining_seconds: number;
+  trial_time_remaining_seconds: number;
+  is_demo_expired: boolean;
+  is_trial_expired: boolean;
+  demo_url: string;
+  created_at: string;
+}
+
+// === Setup Wizard (OLD - Keep for backward compatibility) ===
+export interface SetupWizardContextResponse {
+  application_id: string;
+  tenant_name: string;
+  pre_populated_data: {
+    clinic_profile?: Record<string, any>;
+    operating_hours?: Record<string, any>;
+  };
+  setup_steps: string[];
+  estimated_time: string;
+}
+
+export interface SetupWizardProgressResponse {
+  application_id: string;
+  completed_steps: string[];
+  total_steps: number;
+  completion_percentage: number;
+  next_step?: string;
+}
+
+// === Onboarding Status (NEW - Dynamic Steps) ===
+export interface OnboardingStatusResponse {
+  tenant_id: string;
+  template_id: string;
+  clinic_type: string;
+  total_steps: number;
+  completed_steps: number;
+  in_progress_steps: number;
+  pending_steps: number;
+  blocked_steps: number;
+  completion_percentage: number;
+  current_step: string;
+  next_recommended_step: string;
+  is_ready_to_go_live: boolean;
+  per_step_validation: Record<string, StepValidationDTO>;
+  visible_steps: string[];
+  actionable_steps: string[];
+}
+
+export interface StepValidationDTO {
+  step_code: string;
+  status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
+  is_complete: boolean;
+  is_valid: boolean;
+  issues: ValidationIssueDTO[];
+  blocked_reason: string | null;
+  action_url_template: string;
+  entity_type: string;
+  icon: string;
+  category: string;
+  visible: boolean;
+  actionable: boolean;
+}
+
+export interface ValidationIssueDTO {
+  severity: 'blocker' | 'warning' | 'info';
+  error_key: string;
+  resolved_message: string;
+  entity: string | null;
+  field: string | null;
+}
+
+// === Step Submission ===
+export interface StepSubmitRequest {
+  data: Record<string, any>;
+  mark_complete?: boolean;
+}
+
+export interface StepSubmitResponse {
+  step_code: string;
+  status: 'completed' | 'in_progress' | 'blocked';
+  created_entities: CreatedEntity[];
+  validation_errors: StepValidationError[];
+  next_step: string | null;
+  message: string;
+}
+
+export interface CreatedEntity {
+  entity_type: string;
+  entity_id: string;
+  name: string;
+}
+
+export interface StepValidationError {
+  field: string;
+  message: string;
+  code: string;
+}
+
+// === Complete Setup ===
+export interface CompleteSetupResponse {
+  success: boolean;
+  tenant_id: string;
+  status: 'ACTIVE';
+  subscription_start_date: string;
+  message: string;
+  subscription_info: {
+    plan: string;
+    billing_cycle: string;
+    trial_days_used: number;
+    subscription_starts_at: string;
+    days_until_billing: number;
+    free_active_days: number;
+    first_billing: {
+      date: string;
+      is_prorated: boolean;
+      prorated_days: number;
+      prorated_amount: number;
+      full_monthly_price: number;
+      description: string;
+      next_full_billing_date: string;
+    };
+  };
+}

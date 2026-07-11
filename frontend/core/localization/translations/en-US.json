@@ -55,7 +55,6 @@
     "minEach": "min each",
     "yesCancel": "Yes, Cancel"
   },
-
   "navigation": {
     "dashboard": "Dashboard",
     "appointments": "Appointments",
@@ -70,7 +69,6 @@
     "profile": "Profile",
     "logout": "Logout"
   },
-
   "errors": {
     "network": {
       "generic": "Unable to connect to the server. Please check your internet connection.",
@@ -78,7 +76,6 @@
       "noConnection": "No internet connection. Please check your network settings.",
       "serverUnavailable": "The server is temporarily unavailable. Please try again later."
     },
-
     "auth": {
       "sessionExpired": "Your session has expired. Please log in again.",
       "invalidCredentials": "Invalid email or password. Please try again.",
@@ -89,7 +86,6 @@
       "logoutFailed": "Logout failed. Please try again.",
       "tokenRefreshFailed": "Failed to refresh your session. Please log in again."
     },
-
     "generic": {
       "loadFailed": "Failed to load data. Please try again.",
       "saveFailed": "Failed to save. Please try again.",
@@ -101,7 +97,6 @@
       "withResource": "Could not load {{resource}}. Please try again.",
       "withRetry": "An error occurred. Retrying in {{seconds}} seconds."
     },
-
     "appointments": {
       "loadFailed": "Could not load appointments. Please try again.",
       "createFailed": "Could not create the appointment. Please try again.",
@@ -171,7 +166,6 @@
       "highCoverageOptions": "These times work for most sessions",
       "worksForSessions": "Works for {{count}}/{{total}} sessions"
     },
-
     "clients": {
       "loadFailed": "Could not load clients. Please try again.",
       "loadDetailsFailed": "Could not load client details. Please try again.",
@@ -180,7 +174,6 @@
       "deleteFailed": "Could not delete the client. Please try again.",
       "searchFailed": "Client search failed. Please try again."
     },
-
     "staff": {
       "loadFailed": "Could not load staff members. Please try again.",
       "loadDetailsFailed": "Could not load staff details. Please try again.",
@@ -189,120 +182,101 @@
       "deleteFailed": "Could not remove staff member. Please try again.",
       "inviteFailed": "Could not send invitation. Please try again."
     },
-
     "dashboard": {
       "loadFailed": "Could not load dashboard data. Pull down to retry.",
       "accessRestricted": "Access Restricted",
       "permissionRequired": "Your role does not have permission to view this dashboard. Please contact your administrator to request access."
     },
-
     "notifications": {
       "loadFailed": "Could not load notifications. Please try again.",
       "markReadFailed": "Could not mark notification as read. Please try again.",
       "markAllReadFailed": "Could not mark all notifications as read. Please try again.",
       "deleteFailed": "Could not delete notification. Please try again."
     },
-
     "notificationPreferences": {
       "loadFailed": "Could not load notification preferences. Please try again.",
       "updateFailed": "Could not update notification preferences. Please try again."
     },
-
     "settings": {
       "loadFailed": "Could not load settings. Please try again.",
       "updateFailed": "Could not update settings. Please try again.",
       "saveFailed": "Could not save settings. Please try again."
     },
-
     "localization": {
       "loadFailed": "Could not load language settings. Please try again.",
       "updateFailed": "Could not update language preference. Please try again.",
       "invalidLocale": "The selected language is not supported."
     },
-
     "branding": {
       "loadFailed": "Could not load branding settings. Please try again.",
       "updateFailed": "Could not update branding. Please try again.",
       "logoUploadFailed": "Could not upload logo. Please try again."
     },
-
     "analytics": {
       "loadFailed": "Could not load analytics data. Please try again.",
       "exportFailed": "Could not export analytics. Please try again."
     },
-
     "reports": {
       "loadFailed": "Could not load reports. Please try again.",
       "generateFailed": "Could not generate report. Please try again.",
       "downloadFailed": "Could not download report. Please try again."
     },
-
     "billing": {
       "loadFailed": "Could not load billing information. Please try again.",
       "invoiceLoadFailed": "Could not load invoice. Please try again.",
       "paymentFailed": "Payment processing failed. Please try again.",
       "refundFailed": "Refund processing failed. Please try again."
     },
-
     "inventory": {
       "loadFailed": "Could not load inventory. Please try again.",
       "updateFailed": "Could not update inventory. Please try again.",
       "stockAdjustmentFailed": "Could not adjust stock levels. Please try again."
     },
-
     "treatmentSessions": {
       "loadFailed": "Could not load treatment sessions. Please try again.",
       "createFailed": "Could not create treatment session. Please try again.",
       "updateFailed": "Could not update treatment session. Please try again.",
       "completeFailed": "Could not complete treatment session. Please try again."
     },
-
     "treatments": {
       "loadFailed": "Could not load treatments. Please try again.",
       "createFailed": "Could not create treatment. Please try again.",
       "updateFailed": "Could not update treatment. Please try again.",
       "deleteFailed": "Could not delete treatment. Please try again."
     },
-
     "prescriptions": {
       "loadFailed": "Could not load prescriptions. Please try again.",
       "createFailed": "Could not create prescription. Please try again.",
       "updateFailed": "Could not update prescription. Please try again."
     },
-
     "casesheets": {
       "loadFailed": "Could not load case sheets. Please try again.",
       "createFailed": "Could not create case sheet. Please try again.",
       "updateFailed": "Could not update case sheet. Please try again."
     },
-
     "documents": {
       "loadFailed": "Could not load documents. Please try again.",
       "uploadFailed": "Could not upload document. Please try again.",
       "downloadFailed": "Could not download document. Please try again.",
       "deleteFailed": "Could not delete document. Please try again."
     },
-
     "rbac": {
       "loadRolesFailed": "Could not load roles. Please try again.",
       "loadPermissionsFailed": "Could not load permissions. Please try again.",
       "updateRoleFailed": "Could not update role. Please try again.",
       "assignRoleFailed": "Could not assign role. Please try again."
     },
-
     "tenants": {
       "loadFailed": "Could not load tenants. Please try again.",
       "createFailed": "Could not create tenant. Please try again.",
       "updateFailed": "Could not update tenant. Please try again.",
       "suspendFailed": "Could not suspend tenant. Please try again."
     },
-
     "applications": {
       "loadFailed": "Could not load applications. Please try again.",
       "approveFailed": "Could not approve application. Please try again.",
       "rejectFailed": "Could not reject application. Please try again."
     },
-
     "validation": {
       "required": "This field is required.",
       "invalidEmail": "Please enter a valid email address.",
@@ -314,29 +288,118 @@
       "passwordMismatch": "Passwords do not match.",
       "invalidFormat": "Invalid format."
     },
-
     "file": {
       "tooLarge": "File is too large. Maximum size is {{maxSize}}.",
       "invalidType": "Invalid file type. Please select a supported format.",
       "uploadFailed": "File upload failed. Please try again.",
       "downloadFailed": "File download failed. Please try again."
     },
-
     "leave": {
       "loadFailed": "Could not load leave requests. Please try again.",
       "createFailed": "Could not submit leave request. Please try again.",
       "cancelFailed": "Could not cancel leave request. Please try again.",
       "notAvailable": "Leave management is not available in this environment."
     },
-
     "therapistDashboard": {
       "loadFailed": "Could not load therapist dashboard. Please try again.",
       "worklistLoadFailed": "Could not load your schedule. Please try again.",
       "kpiLoadFailed": "Could not load performance metrics. Please try again.",
       "featureNotAvailable": "This feature is not available in this environment."
+    },
+    "episodeWorkspace": {
+      "loadFailed": "Could not load episode workspace. Please try again.",
+      "casesheetLoadFailed": "Could not load visit notes. Please try again.",
+      "treatmentSheetsLoadFailed": "Could not load treatment plans. Please try again.",
+      "prescriptionsLoadFailed": "Could not load prescriptions. Please try again."
     }
   },
-
+  "episodeWorkspace": {
+    "header": {
+      "episode": "Episode",
+      "visit": "Visit",
+      "visitNumber": "Visit {{number}}",
+      "episodeStatus": "Episode Status",
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "tabs": {
+      "visitNotes": "Casesheet",
+      "treatmentPlans": "Treatment Plans",
+      "prescriptions": "Visits"
+    },
+    "visitNotes": {
+      "title": "Casesheet",
+      "addNotes": "Add Casesheet",
+      "editNotes": "View Casesheet",
+      "viewNotes": "View Casesheet",
+      "empty": "No casesheet for this episode yet.",
+      "chiefComplaint": "Chief Complaint",
+      "diagnosis": "Diagnosis",
+      "status": "Status",
+      "draft": "Draft",
+      "final": "Final",
+      "signed": "Signed"
+    },
+    "casesheet": {
+      "title": "Casesheet",
+      "addCasesheet": "Add Casesheet",
+      "viewCasesheet": "View Casesheet",
+      "editCasesheet": "Edit",
+      "empty": "No casesheet for this episode yet.",
+      "chiefComplaint": "Chief Complaint",
+      "diagnosis": "Diagnosis",
+      "progressNotes": "Visit / Progress Notes",
+      "noProgressNotes": "No visits recorded yet.",
+      "noContent": "No details recorded yet.",
+      "save": "Save Casesheet",
+      "status": {
+        "draft": "Draft",
+        "final": "Final",
+        "signed": "Signed"
+      }
+    },
+    "treatmentPlans": {
+      "title": "Treatment Plans",
+      "empty": "No treatment plans yet — create one to start therapy.",
+      "createPlan": "Create Treatment Plan",
+      "openActivePlan": "Open Active Plan",
+      "fillDetails": "Fill Treatment Details",
+      "schedulePlan": "Schedule Plan",
+      "viewSchedule": "View Schedule",
+      "sendToScheduling": "Send to Scheduling",
+      "waitingForScheduling": "Waiting for Scheduling",
+      "continueDocumentation": "Continue Documentation",
+      "viewCompleted": "View Completed Plan",
+      "sessions": "{{count}} sessions",
+      "schedulingStatus": "Scheduling Status",
+      "pendingScheduling": "Pending Scheduling",
+      "partiallyScheduled": "Partially Scheduled",
+      "fullyScheduled": "Fully Scheduled"
+    },
+    "prescriptions": {
+      "title": "Prescriptions",
+      "empty": "No prescriptions recorded for this episode.",
+      "newPrescription": "New Prescription",
+      "viewPrescription": "View Prescription",
+      "medications": "{{count}} medication(s)",
+      "issued": "Issued {{date}}"
+    },
+    "visits": {
+      "title": "Visits",
+      "empty": "No visits recorded for this episode yet.",
+      "viewPrescription": "View Prescription",
+      "addPrescription": "Add Prescription",
+      "paymentDetails": "Payment Details",
+      "paymentNotImplemented": "Payment details screen is coming soon.",
+      "staffLabel": "Doctor / Therapist",
+      "treatmentLabel": "Treatment"
+    },
+    "actions": {
+      "retry": "Retry",
+      "back": "Back"
+    },
+    "loading": "Loading episode..."
+  },
   "success": {
     "saved": "Successfully saved.",
     "updated": "Successfully updated.",
@@ -345,8 +408,8 @@
     "uploaded": "Successfully uploaded.",
     "sent": "Successfully sent."
   },
-
   "appointments": {
+    "bookingConflict": "Booking Conflict",
     "noPhoneNumber": "Client phone number is not available",
     "session": "Session",
     "notFound": "Appointment not found",
@@ -430,14 +493,12 @@
     "confirmComplete": "Mark this appointment as completed?",
     "confirmReschedule": "Open reschedule options for this appointment?"
   },
-
   "confirmations": {
     "delete": "Are you sure you want to delete this?",
     "discard": "Discard changes?",
     "logout": "Are you sure you want to logout?",
     "cancel": "Are you sure you want to cancel?"
   },
-
   "empty": {
     "noData": "No data available.",
     "noResults": "No results found.",
@@ -445,5 +506,155 @@
     "noNotifications": "No notifications.",
     "noClients": "No clients found.",
     "noStaff": "No staff members found."
+  },
+  "episodes": {
+    "episode": "Episode",
+    "episodes": "Episodes",
+    "visitNotLinked": "This visit is not linked to an episode",
+    "visitsInEpisode": "Visits in This Episode",
+    "noVisitsInEpisode": "No visits in this episode yet",
+    "noOtherVisits": "No other visits in this episode yet",
+    "viewAllEpisodes": "View all episodes for this client",
+    "linkToEpisode": "Link to Episode",
+    "createNewEpisode": "Create New Episode",
+    "selectEpisode": "Select Episode",
+    "episodeDetails": "Episode Details",
+    "episodeName": "Episode Name",
+    "episodeDescription": "Description",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "status": "Status",
+    "active": "Active",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "onHold": "On Hold",
+    "diagnosis": "Diagnosis",
+    "diagnosisCode": "Diagnosis Code",
+    "codeSystem": "Code System",
+    "noEpisodesFound": "No episodes found",
+    "createFirstEpisode": "Create your first episode to track related visits",
+    "createEpisodeHelpText": "Create an episode to group this appointment with related visits and documents. Episodes help you track treatment for a specific condition over time.",
+    "linkEpisodeHelpText": "Select an episode to link this appointment. Episodes group all visits and documents for a specific condition or treatment plan.",
+    "episodeCreatedAndLinked": "Episode created and linked to this appointment.",
+    "viewEpisode": "View Episode",
+    "linkedToVisit": "Linked to visit",
+    "loadFailed": "Could not load episodes. Please try again.",
+    "createFailed": "Could not create episode. Please try again.",
+    "updateFailed": "Could not update episode. Please try again.",
+    "linkFailed": "Could not link appointment to episode. Please try again.",
+    "unlinkFailed": "Could not unlink appointment from episode. Please try again.",
+    "episodeCreated": "Episode created successfully",
+    "episodeUpdated": "Episode updated successfully",
+    "appointmentLinked": "Appointment linked to episode",
+    "appointmentUnlinked": "Appointment unlinked from episode",
+    "addCasesheet": "Add Casesheet",
+    "viewCasesheet": "View Casesheet",
+    "addTreatmentSheet": "Add Treatment Sheet",
+    "viewTreatmentSheet": "View Treatment Sheet",
+    "addPrescription": "Add Prescription",
+    "viewPrescription": "View Prescription",
+    "paymentDetails": "Payment Details",
+    "noCasesheetYet": "No casesheet created yet",
+    "noTreatmentSheetYet": "No treatment sheet created yet",
+    "noPrescriptionYet": "No prescription for this visit",
+    "noPaymentYet": "No payment recorded",
+    "dangerZone": "Danger Zone"
+  },
+  "onboarding": {
+    "progressiveExperience": {
+      "routes": {
+        "prepareClinic": "Prepare Your Clinic",
+        "clinicPreparation": "Clinic Preparation",
+        "reviewStep": "Review Step"
+      },
+      "dashboard": {
+        "finishPreparingClinic": "Finish Preparing Your Clinic",
+        "readinessStepsComplete": "{{completed}} of {{total}} readiness steps complete"
+      },
+      "choice": {
+        "sampleClinicReadyTitle": "Sample Clinic Ready",
+        "sampleClinicReadyMessage": "Your sample clinic is ready with sample data. You can explore Nova without changing your real clinic workspace. Sample access ends in {{durationDays}} days.",
+        "exploreSampleClinic": "Explore Sample Clinic",
+        "startError": "Unable to start clinic preparation. Please try again.",
+        "question": "How would you like to start?",
+        "prepareMyClinic": "Prepare My Clinic",
+        "recommended": "RECOMMENDED",
+        "prepareDescription": "Let Nova prepare your real clinic workspace",
+        "realWorkspace": "Real clinic workspace",
+        "reviewBeforeStart": "Review and personalize before starting",
+        "readyForOperations": "Ready for daily operations",
+        "exploreFeatures": "EXPLORE FEATURES",
+        "sampleDescription": "Explore Nova with sample data",
+        "sampleAccess": "Sample clinic access",
+        "guidedWalkthrough": "Guided product walkthrough",
+        "realClinicSeparate": "Your real clinic is prepared separately",
+        "preparingSampleClinic": "Preparing your sample clinic...",
+        "sampleError": "Unable to create sample clinic. Please try again."
+      },
+      "statusBanner": {
+        "commercialTrialEnded": "Commercial Trial Ended",
+        "trialEndedMessage": "Your clinic data is safely stored. Choose a subscription plan to continue using Nova.",
+        "commercialTrial": "Commercial Trial",
+        "sampleClinic": "Sample Clinic",
+        "sampleAccessEndsIn": "Sample access ends in:",
+        "commercialTrialEndsIn": "Commercial trial ends in:",
+        "extendSampleAccess": "Extend Sample Access",
+        "choosePlan": "Choose Plan",
+        "readyToStart": "Ready to Start",
+        "expired": "Expired"
+      },
+      "flow": {
+        "saveProgressError": "Failed to save preparation progress. Please try again.",
+        "refreshProgressError": "Failed to refresh preparation progress. Please try again.",
+        "exitTitle": "Exit Preparation?",
+        "exitMessage": "You can continue reviewing and personalizing your clinic later from the dashboard.",
+        "treatmentsDescription": "Review your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue preparing your clinic.",
+        "operatingHoursDescription": "Review your clinic operating hours in the full management screen. After setting your hours, return here to continue preparing your clinic.",
+        "roomsDescription": "Review your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue preparing your clinic.",
+        "staffDescription": "Review staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue preparing your clinic.",
+        "inventoryTitle": "Inventory Readiness",
+        "inventoryDescription": "Review your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue preparing your clinic.",
+        "subscriptionTitle": "Subscription Options",
+        "subscriptionDescription": "Review subscription options. Your commercial trial starts after your clinic is Ready to Start.",
+        "reviewSubscription": "Review Subscription",
+        "loadingPreparation": "Loading clinic preparation...",
+        "loadPreparationFailed": "Unable to load clinic preparation",
+        "noPreparationSteps": "No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.",
+        "prepareYourClinic": "Prepare Your Clinic",
+        "readyToStart": "Ready to Start",
+        "backToPreparation": "Back to Preparation",
+        "clinicPreparation": "Clinic Preparation"
+      },
+      "stepLabels": {
+        "clinicProfile": "Clinic Profile",
+        "operatingHours": "Operating Hours",
+        "roomsAndTherapyBeds": "Rooms & Therapy Beds",
+        "staffAndRoles": "Staff & Roles",
+        "inventoryReadiness": "Inventory Readiness",
+        "billingPreferences": "Billing Preferences",
+        "paymentMethods": "Payment Methods",
+        "subscriptionOptions": "Subscription Options",
+        "readyToStart": "Ready to Start",
+        "treatmentsAndTherapies": "Treatments & Therapies"
+      },
+      "stepDetail": {
+        "readyToStartChecklistMessage": "Ready to Start Checklist - This step confirms your clinic is ready to start. Finish the previous preparation steps first."
+      },
+      "readyToStart": {
+        "agreementRequiredTitle": "Agreement Required",
+        "agreementRequiredMessage": "Please agree to the terms and conditions to proceed.",
+        "notReadyTitle": "Clinic Not Ready Yet",
+        "notReadyMessage": "Please finish the previous preparation steps before starting.",
+        "successMessage": "Your clinic is ready to start using Nova.",
+        "errorMessage": "Failed to mark clinic as ready. Please try again.",
+        "title": "Ready to Start",
+        "preparedCount": "Nova has prepared {{completed}} of {{total}} clinic readiness steps",
+        "checklistTitle": "Clinic Readiness Checklist",
+        "confirmAccuracy": "I confirm that all information is accurate and I am ready to start accepting patients",
+        "info": "Once you start, your clinic workspace is ready for appointments, patients, and daily operations.",
+        "successTitle": "Congratulations!",
+        "goToDashboard": "Go to Dashboard"
+      }
+    }
   }
 }

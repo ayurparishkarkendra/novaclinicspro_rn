@@ -7,6 +7,7 @@ import { axiosClient } from '../../../../core/api/axiosClient';
 import {
   ClinicOwnerRegistrationRequest,
   ClinicOwnerRegistrationResponse,
+  RegistrationStatusResponse,
 } from '../models/registration.dtos';
 
 export const registerClinicOwnerApi = async (
@@ -19,8 +20,10 @@ export const registerClinicOwnerApi = async (
   return response.data;
 };
 
-export const getRegistrationStatusApi = async (userId: string): Promise<any> => {
-  const response = await axiosClient.get(
+export const getRegistrationStatusApi = async (
+  userId: string
+): Promise<RegistrationStatusResponse> => {
+  const response = await axiosClient.get<RegistrationStatusResponse>(
     `/api/v1/auth/registration-status/${userId}`
   );
   return response.data;
