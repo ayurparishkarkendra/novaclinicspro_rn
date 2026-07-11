@@ -13,7 +13,7 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import TreatmentOrdersScreen from '../../../app/clinic-admin/treatment-sheets/orders.tsx';
+import TreatmentOrdersScreen from '../../../app/clinic-admin/treatment-sheets/orders';
 import { axiosClient } from '../../../core/api/axiosClient';
 
 jest.mock('../../../features/auth/presentation/hooks/useAuth', () => ({
