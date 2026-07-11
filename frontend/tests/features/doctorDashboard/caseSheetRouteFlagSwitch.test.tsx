@@ -3,32 +3,24 @@ import { render } from '@testing-library/react-native';
 import fs from 'fs';
 import path from 'path';
 import { useLocalSearchParams } from 'expo-router';
-import { useFeatures } from '../../../core/hooks/useFeatures';
 
 /**
- * R3B · T-B.3 — Verification for the flag-gated Case Sheet standalone route
- * switch (ADR-R3B-04's "canonical editor switch"). The two route files
- * (`.../casesheets/[casesheetId]/edit.tsx`, `.../casesheets/new.tsx`) render
- * the OLD screens unchanged when `isClinicalSpineV1Enabled` is OFF, and the
- * NEW `CasesheetStandaloneScreen` (T-B.2) when ON — `CasesheetEditScreen`/
- * `CreateCasesheetScreen`/`CasesheetForm.tsx` are not deleted or modified.
+ * Phase 4 (R4) · T-E.3b — the Case Sheet standalone routes
+ * (`.../casesheets/[casesheetId]/edit.tsx`, `.../casesheets/new.tsx`) now
+ * render the canonical `CasesheetStandaloneScreen` (T-B.2) UNCONDITIONALLY.
  *
- * Uses shallow component-level mocks (not full data mocks) for the four
- * screens under test — the routing branch itself is the thing under test
- * here, not each screen's own internal behavior (already covered by
- * `casesheetStandaloneScreen.test.tsx` and this task's own characterization
- * predecessors).
+ * SUPERSEDES the R3B · T-B.3 flag-switch suite this file used to contain:
+ * the `isClinicalSpineV1Enabled` OFF-path (`CasesheetEditScreen`/
+ * `CreateCasesheetScreen`/`CasesheetForm.tsx`) has been deleted per T-E.3's
+ * own parity audit finding no capability gap -- there is no flag branch
+ * left to test. The "flag OFF" tests and the "OFF-path preservation"
+ * describe block that used to live here are removed, not modified, since
+ * there is nothing left for them to prove. The MIG-1 "every known caller"
+ * sub-suite is kept verbatim -- it never depended on the flag or the old
+ * screens, only on the routes' own deep-link surface.
  */
 
 jest.mock('expo-router', () => ({ useLocalSearchParams: jest.fn() }));
-jest.mock('../../../core/hooks/useFeatures', () => ({
-  useFeatures: jest.fn(),
-  isClinicalSpineV1Enabled: (features: any) => !!features.clinical_spine_v1_enabled,
-}));
-jest.mock('../../../features/casesheets', () => ({
-  CasesheetEditScreen: () => null,
-  CreateCasesheetScreen: () => null,
-}));
 jest.mock('../../../features/casesheets/presentation/pages/CasesheetStandaloneScreen', () => ({
   CasesheetStandaloneScreen: (props: any) => {
     const { Text } = require('react-native');
@@ -38,27 +30,15 @@ jest.mock('../../../features/casesheets/presentation/pages/CasesheetStandaloneSc
 
 import EditCasesheetRoute from '../../../app/clinic-admin/clients/[clientId]/casesheets/[casesheetId]/edit';
 import NewCasesheetRoute from '../../../app/clinic-admin/clients/[clientId]/casesheets/new';
-import { CasesheetEditScreen, CreateCasesheetScreen } from '../../../features/casesheets';
 
-describe('Case Sheet standalone route flag switch (R3B · T-B.3)', () => {
+describe('Case Sheet standalone routes render the canonical core only (R4 · T-E.3b)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('edit.tsx', () => {
-    beforeEach(() => {
+    it('renders CasesheetStandaloneScreen with clientId/casesheetId from route params', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1', casesheetId: 'casesheet-1' });
-    });
-
-    it('flag OFF: renders the original CasesheetEditScreen unchanged', () => {
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: false });
-      const { UNSAFE_getByType, queryByTestId } = render(<EditCasesheetRoute />);
-      expect(UNSAFE_getByType(CasesheetEditScreen as any)).toBeTruthy();
-      expect(queryByTestId('standalone-screen-props')).toBeNull();
-    });
-
-    it('flag ON: renders CasesheetStandaloneScreen with clientId/casesheetId from route params', () => {
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<EditCasesheetRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props).toEqual({ clientId: 'client-1', casesheetId: 'casesheet-1' });
@@ -66,29 +46,19 @@ describe('Case Sheet standalone route flag switch (R3B · T-B.3)', () => {
   });
 
   describe('new.tsx', () => {
-    it('flag OFF: renders the original CreateCasesheetScreen unchanged', () => {
-      (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1' });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: false });
-      const { UNSAFE_getByType, queryByTestId } = render(<NewCasesheetRoute />);
-      expect(UNSAFE_getByType(CreateCasesheetScreen as any)).toBeTruthy();
-      expect(queryByTestId('standalone-screen-props')).toBeNull();
-    });
-
-    it('flag ON: renders CasesheetStandaloneScreen with clientId + optional appointmentId/episodeId from route params', () => {
+    it('renders CasesheetStandaloneScreen with clientId + optional appointmentId/episodeId from route params', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         clientId: 'client-1',
         appointmentId: 'appointment-1',
         episodeId: 'episode-1',
       });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<NewCasesheetRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props).toEqual({ clientId: 'client-1', appointmentId: 'appointment-1', episodeId: 'episode-1' });
     });
 
-    it('flag ON: works with only clientId present — no dangling failure for the CasesheetsListScreen "Add Casesheet" caller, which passes no appointmentId/episodeId', () => {
+    it('works with only clientId present — no dangling failure for the CasesheetsListScreen "Add Casesheet" caller, which passes no appointmentId/episodeId', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1' });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<NewCasesheetRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props.clientId).toBe('client-1');
@@ -113,7 +83,7 @@ describe('Case Sheet standalone route flag switch (R3B · T-B.3)', () => {
       'utf8',
     );
 
-    it('AppointmentDetailScreen (T-0.4\'s own finding) still routes to casesheets/new — automatically covered by the route-level gate, no caller change needed', () => {
+    it('AppointmentDetailScreen (T-0.4\'s own finding) still routes to casesheets/new — automatically covered by the route, no caller change needed', () => {
       expect(appointmentDetailScreen).toContain('casesheets/new?appointmentId=');
     });
 
@@ -130,8 +100,8 @@ describe('Case Sheet standalone route flag switch (R3B · T-B.3)', () => {
     });
   });
 
-  describe('OFF-path preservation: CasesheetEditScreen/CreateCasesheetScreen/CasesheetForm are NOT deleted or modified by this task', () => {
-    it('the two route files still import the original screens (not deleted)', () => {
+  describe('no old-editor fallback remains', () => {
+    it('the two route files no longer import CasesheetEditScreen/CreateCasesheetScreen', () => {
       const editRoute = fs.readFileSync(
         path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/casesheets/[casesheetId]/edit.tsx'),
         'utf8',
@@ -140,18 +110,10 @@ describe('Case Sheet standalone route flag switch (R3B · T-B.3)', () => {
         path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/casesheets/new.tsx'),
         'utf8',
       );
-      expect(editRoute).toContain("import { CasesheetEditScreen } from '../../../../../../features/casesheets'");
-      expect(newRoute).toContain("import { CreateCasesheetScreen } from '../../../../../features/casesheets'");
-    });
-
-    it('CasesheetForm.tsx (the OFF-path field-editing implementation) still exists, still exports EXTENSION_TEMPLATES with all 4 templates, untouched', () => {
-      const casesheetForm = fs.readFileSync(
-        path.resolve(__dirname, '../../../features/casesheets/presentation/components/CasesheetForm.tsx'),
-        'utf8',
-      );
-      ['vitals', 'prakriti', 'nadi_pariksha', 'custom'].forEach((id) => {
-        expect(casesheetForm).toContain(`id: '${id}'`);
-      });
+      expect(editRoute).not.toMatch(/import\s*\{[^}]*CasesheetEditScreen/);
+      expect(newRoute).not.toMatch(/import\s*\{[^}]*CreateCasesheetScreen/);
+      expect(editRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
+      expect(newRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
     });
   });
 });

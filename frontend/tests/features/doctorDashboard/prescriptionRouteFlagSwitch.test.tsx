@@ -3,28 +3,25 @@ import { render } from '@testing-library/react-native';
 import fs from 'fs';
 import path from 'path';
 import { useLocalSearchParams } from 'expo-router';
-import { useFeatures } from '../../../core/hooks/useFeatures';
 
 /**
- * R3B · T-B.6 — Verification for the flag-gated Prescription standalone
- * route switch (ADR-R3B-04's "canonical editor switch"), identical pattern
- * to `caseSheetRouteFlagSwitch.test.tsx` (T-B.3). The two route files
+ * Phase 4 (R4) · T-E.3b — the Prescription standalone routes
  * (`.../prescriptions/[prescriptionId]/edit.tsx`, `.../prescriptions/new.tsx`)
- * render the OLD screens unchanged when `isClinicalSpineV1Enabled` is OFF,
- * and the NEW `PrescriptionStandaloneScreen` (T-B.5) when ON —
- * `PrescriptionEditScreen`/`CreatePrescriptionScreen`/`PrescriptionForm.tsx`
- * are not deleted or modified.
+ * now render the canonical `PrescriptionStandaloneScreen` (T-B.5)
+ * UNCONDITIONALLY.
+ *
+ * SUPERSEDES the R3B · T-B.6 flag-switch suite this file used to contain:
+ * the `isClinicalSpineV1Enabled` OFF-path (`PrescriptionEditScreen`/
+ * `CreatePrescriptionScreen`/`PrescriptionForm.tsx`) has been deleted per
+ * T-E.3's own parity audit finding no capability gap -- there is no flag
+ * branch left to test. The "flag OFF" tests and the "OFF-path preservation"
+ * describe block that used to live here are removed, not modified, since
+ * there is nothing left for them to prove. The MIG-1 "every known caller"
+ * sub-suite is kept verbatim -- it never depended on the flag or the old
+ * screens, only on the routes' own deep-link surface.
  */
 
 jest.mock('expo-router', () => ({ useLocalSearchParams: jest.fn() }));
-jest.mock('../../../core/hooks/useFeatures', () => ({
-  useFeatures: jest.fn(),
-  isClinicalSpineV1Enabled: (features: any) => !!features.clinical_spine_v1_enabled,
-}));
-jest.mock('../../../features/prescriptions', () => ({
-  PrescriptionEditScreen: () => null,
-  CreatePrescriptionScreen: () => null,
-}));
 jest.mock('../../../features/prescriptions/presentation/pages/PrescriptionStandaloneScreen', () => ({
   PrescriptionStandaloneScreen: (props: any) => {
     const { Text } = require('react-native');
@@ -34,27 +31,15 @@ jest.mock('../../../features/prescriptions/presentation/pages/PrescriptionStanda
 
 import EditPrescriptionRoute from '../../../app/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit';
 import NewPrescriptionRoute from '../../../app/clinic-admin/clients/[clientId]/prescriptions/new';
-import { PrescriptionEditScreen, CreatePrescriptionScreen } from '../../../features/prescriptions';
 
-describe('Prescription standalone route flag switch (R3B · T-B.6)', () => {
+describe('Prescription standalone routes render the canonical core only (R4 · T-E.3b)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('edit.tsx', () => {
-    beforeEach(() => {
+    it('renders PrescriptionStandaloneScreen with clientId/prescriptionId from route params', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1', prescriptionId: 'rx-1' });
-    });
-
-    it('flag OFF: renders the original PrescriptionEditScreen unchanged', () => {
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: false });
-      const { UNSAFE_getByType, queryByTestId } = render(<EditPrescriptionRoute />);
-      expect(UNSAFE_getByType(PrescriptionEditScreen as any)).toBeTruthy();
-      expect(queryByTestId('standalone-screen-props')).toBeNull();
-    });
-
-    it('flag ON: renders PrescriptionStandaloneScreen with clientId/prescriptionId from route params', () => {
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<EditPrescriptionRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props).toEqual({ clientId: 'client-1', prescriptionId: 'rx-1' });
@@ -62,25 +47,15 @@ describe('Prescription standalone route flag switch (R3B · T-B.6)', () => {
   });
 
   describe('new.tsx', () => {
-    it('flag OFF: renders the original CreatePrescriptionScreen unchanged', () => {
-      (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1' });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: false });
-      const { UNSAFE_getByType, queryByTestId } = render(<NewPrescriptionRoute />);
-      expect(UNSAFE_getByType(CreatePrescriptionScreen as any)).toBeTruthy();
-      expect(queryByTestId('standalone-screen-props')).toBeNull();
-    });
-
-    it('flag ON: renders PrescriptionStandaloneScreen with clientId + optional appointmentId from route params', () => {
+    it('renders PrescriptionStandaloneScreen with clientId + optional appointmentId from route params', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1', appointmentId: 'appointment-1' });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<NewPrescriptionRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props).toEqual({ clientId: 'client-1', appointmentId: 'appointment-1' });
     });
 
-    it('flag ON: works with only clientId present — no dangling failure for the PrescriptionsListScreen "Add Prescription" caller, which passes no appointmentId', () => {
+    it('works with only clientId present — no dangling failure for the PrescriptionsListScreen "Add Prescription" caller, which passes no appointmentId', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ clientId: 'client-1' });
-      (useFeatures as jest.Mock).mockReturnValue({ clinical_spine_v1_enabled: true });
       const { getByTestId } = render(<NewPrescriptionRoute />);
       const props = JSON.parse(getByTestId('standalone-screen-props').props.children);
       expect(props.clientId).toBe('client-1');
@@ -105,7 +80,7 @@ describe('Prescription standalone route flag switch (R3B · T-B.6)', () => {
       'utf8',
     );
 
-    it('AppointmentDetailScreen still routes to prescriptions/new — automatically covered by the route-level gate, no caller change needed', () => {
+    it('AppointmentDetailScreen still routes to prescriptions/new — automatically covered by the route, no caller change needed', () => {
       expect(appointmentDetailScreen).toContain('prescriptions/new?appointmentId=');
     });
 
@@ -124,8 +99,8 @@ describe('Prescription standalone route flag switch (R3B · T-B.6)', () => {
     });
   });
 
-  describe('OFF-path preservation: PrescriptionEditScreen/CreatePrescriptionScreen/PrescriptionForm are NOT deleted or modified by this task', () => {
-    it('the two route files still import the original screens (not deleted)', () => {
+  describe('no old-editor fallback remains', () => {
+    it('the two route files no longer import PrescriptionEditScreen/CreatePrescriptionScreen', () => {
       const editRoute = fs.readFileSync(
         path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/prescriptions/[prescriptionId]/edit.tsx'),
         'utf8',
@@ -134,17 +109,10 @@ describe('Prescription standalone route flag switch (R3B · T-B.6)', () => {
         path.resolve(__dirname, '../../../app/clinic-admin/clients/[clientId]/prescriptions/new.tsx'),
         'utf8',
       );
-      expect(editRoute).toContain("import { PrescriptionEditScreen } from '../../../../../../features/prescriptions'");
-      expect(newRoute).toContain("import { CreatePrescriptionScreen } from '../../../../../features/prescriptions'");
-    });
-
-    it('PrescriptionForm.tsx (the OFF-path field-editing implementation) still exists, still exports its own medication/advice fields, untouched', () => {
-      const prescriptionForm = fs.readFileSync(
-        path.resolve(__dirname, '../../../features/prescriptions/presentation/components/PrescriptionForm.tsx'),
-        'utf8',
-      );
-      expect(prescriptionForm).toContain('next_visit_days');
-      expect(prescriptionForm).toContain('med.name.trim() && med.dosage.trim()');
+      expect(editRoute).not.toMatch(/import\s*\{[^}]*PrescriptionEditScreen/);
+      expect(newRoute).not.toMatch(/import\s*\{[^}]*CreatePrescriptionScreen/);
+      expect(editRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
+      expect(newRoute).not.toMatch(/isClinicalSpineV1Enabled\(/);
     });
   });
 });

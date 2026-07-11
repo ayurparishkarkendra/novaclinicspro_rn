@@ -68,8 +68,11 @@ import { validateAppointmentTime, formatValidationMessage, ValidationResult } fr
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { useFeatures } from '../../../../core/hooks/useFeatures';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
-import { useQuery } from '@tanstack/react-query';
-import { axiosClient } from '../../../../core/api/axiosClient';
+import { useCurrentTenantQuery } from '../../../tenants/data/repositories/tenants.repository.impl';
+import {
+  useOrderingDoctorQuery,
+  useTreatmentSheetPrefillQuery,
+} from '../../data/repositories/orderingDoctor.repository.impl';
 
 // ============================================
 // TYPES
@@ -704,15 +707,7 @@ export const CreateAppointmentScreen: React.FC = () => {
   const features = useFeatures();
   
   // FALLBACK: If JWT doesn't have features yet, check tenant clinic_type directly
-  // Use inline query to avoid org admin permission issues
-  const { data: tenant } = useQuery({
-    queryKey: ['tenant', tenantId],
-    queryFn: async () => {
-      const response = await axiosClient.get(`/api/v1/tenants/${tenantId}`);
-      return response.data;
-    },
-    enabled: !!tenantId,
-  });
+  const { data: tenant } = useCurrentTenantQuery(tenantId);
   
   const tenantClinicType = tenant?.clinic_type?.toLowerCase();
   const effectiveClinicType = tenantClinicType || features.clinic_type || 'general';
@@ -808,204 +803,56 @@ export const CreateAppointmentScreen: React.FC = () => {
   const [therapyForm, setTherapyForm] = useState<TherapyFormState>(createFreshTherapyForm());
   const [multiDayForm, setMultiDayForm] = useState<MultiDayFormState>(createFreshMultiDayForm());
 
-  // Fetch doctor_id from client's active treatment sheet, casesheet, or episode
-  useEffect(() => {
-    if (!selectedClientId || !tenantId || appointmentType !== 'MULTI') return;
-    
-    const fetchDoctorFromClientRecords = async () => {
-      try {
-        console.log('[CreateAppointmentScreen] Fetching doctor for client:', selectedClientId);
-        
-        // Step 1: Check for active treatment sheet
-        try {
-          const tsResponse = await axiosClient.get(
-            `/api/v1/clinic/${tenantId}/treatment-sheets`,
-            { params: { client_id: selectedClientId, status: 'IN_PROGRESS', limit: 1 } }
-          );
-          
-          const treatmentSheet = tsResponse.data?.items?.[0];
-          if (treatmentSheet?.recorded_by_staff_id) {
-            const doctorId = treatmentSheet.recorded_by_staff_id;
-            console.log('[CreateAppointmentScreen] Found doctor from active treatment sheet (recorded_by_staff_id):', doctorId);
-            setMultiDayForm(prev => ({
-              ...prev,
-              selectedDoctorId: doctorId,
-            }));
-            return;
-          }
-        } catch (err) {
-          console.log('[CreateAppointmentScreen] No active treatment sheet found');
-        }
-        
-        // Step 2: Check for active episode
-        try {
-          const episodeResponse = await axiosClient.get(
-            `/api/v1/clinic/${tenantId}/episodes`,
-            { params: { client_id: selectedClientId, status: 'active', limit: 1 } }
-          );
-          
-          if (episodeResponse.data?.episodes?.[0]?.doctor_id) {
-            const doctorId = episodeResponse.data.episodes[0].doctor_id;
-            console.log('[CreateAppointmentScreen] Found doctor from active episode:', doctorId);
-            setMultiDayForm(prev => ({
-              ...prev,
-              selectedDoctorId: doctorId,
-            }));
-            return;
-          }
-        } catch (err) {
-          console.log('[CreateAppointmentScreen] No active episode found');
-        }
-        
-        // Step 3: Check for latest casesheet
-        try {
-          const casesheetResponse = await axiosClient.get(
-            `/api/v1/clinic/${tenantId}/casesheets`,
-            { params: { client_id: selectedClientId, limit: 1 } }
-          );
-          
-          const casesheet = casesheetResponse.data?.casesheets?.[0];
-          if (casesheet?.recorded_by_staff_id) {
-            const doctorId = casesheet.recorded_by_staff_id;
-            console.log('[CreateAppointmentScreen] Found doctor from latest casesheet (recorded_by_staff_id):', doctorId);
-            setMultiDayForm(prev => ({
-              ...prev,
-              selectedDoctorId: doctorId,
-            }));
-            return;
-          }
-        } catch (err) {
-          console.log('[CreateAppointmentScreen] No casesheet found');
-        }
-        
-        console.warn('[CreateAppointmentScreen] No doctor_id found in treatment sheet, episode, or casesheet for client:', selectedClientId);
-      } catch (error) {
-        console.error('[CreateAppointmentScreen] Error fetching doctor from client records:', error);
-      }
-    };
-    
-    fetchDoctorFromClientRecords();
-  }, [selectedClientId, tenantId, appointmentType]);
+  // Resolve doctor_id from client's active treatment sheet, episode, or
+  // casesheet (T-G.2: moved behind useOrderingDoctorQuery -- repository ->
+  // datasource -> axiosClient -- same fallback order/fields as before).
+  const orderingDoctorQuery = useOrderingDoctorQuery(tenantId, selectedClientId, appointmentType === 'MULTI');
 
-  // Pre-fill form when coming from treatment sheet
+  useEffect(() => {
+    if (orderingDoctorQuery.data) {
+      setMultiDayForm(prev => ({
+        ...prev,
+        selectedDoctorId: orderingDoctorQuery.data as string,
+      }));
+    }
+  }, [orderingDoctorQuery.data]);
+
+  // Pre-fill form when coming from treatment sheet (T-G.2: moved behind
+  // useTreatmentSheetPrefillQuery -- same treatment sheet -> episode ->
+  // client waterfall as before).
   useEffect(() => {
     if (params.treatmentSheetId && params.tab === 'MULTI') {
-      console.log('[CreateAppointmentScreen] Pre-fill triggered:', {
-        treatmentSheetId: params.treatmentSheetId,
-        tab: params.tab,
-        treatmentId: params.treatmentId,
-        treatmentName: params.treatmentName,
-      });
-      
-      // Switch to MULTI tab
       setAppointmentType('MULTI');
-      
-      // Fetch treatment sheet details to get client_id and other info
-      const fetchTreatmentSheetDetails = async () => {
-        try {
-          const response = await axiosClient.get(
-            `/api/v1/clinic/${tenantId}/treatment-sheets/${params.treatmentSheetId}`
-          );
-          const treatmentSheet = response.data;
-          
-          console.log('[CreateAppointmentScreen] Treatment sheet fetched:', {
-            id: treatmentSheet.id,
-            duration_days: treatmentSheet.duration_days,
-            episode_id: treatmentSheet.episode_id,
-            doctor_id: treatmentSheet.doctor_id,
-            full_response: treatmentSheet,
-          });
-          
-          // Pre-fill doctor from treatment sheet
-          if (treatmentSheet.doctor_id) {
-            setMultiDayForm(prev => ({
-              ...prev,
-              selectedDoctorId: treatmentSheet.doctor_id,
-            }));
-            console.log('[CreateAppointmentScreen] Doctor pre-filled from treatment sheet:', treatmentSheet.doctor_id);
-          } else {
-            console.warn('[CreateAppointmentScreen] No doctor_id found in treatment sheet!');
-          }
-          
-          // Fetch episode details to get client_id and treatment_id
-          if (treatmentSheet.episode_id) {
-            const episodeResponse = await axiosClient.get(
-              `/api/v1/clinic/${tenantId}/episodes/${treatmentSheet.episode_id}`
-            );
-            const episode = episodeResponse.data;
-            
-            console.log('[CreateAppointmentScreen] Episode fetched:', {
-              client_id: episode.client_id,
-              treatment_id: episode.treatment_id,
-              doctor_id: episode.doctor_id,
-            });
-            
-            // Pre-fill doctor from episode if not already set from treatment sheet
-            if (episode.doctor_id && !multiDayForm.selectedDoctorId) {
-              setMultiDayForm(prev => ({
-                ...prev,
-                selectedDoctorId: episode.doctor_id,
-              }));
-              console.log('[CreateAppointmentScreen] Doctor pre-filled from episode:', episode.doctor_id);
-            }
-            
-            // Pre-fill client
-            if (episode.client_id) {
-              setSelectedClientId(episode.client_id);
-              // Fetch client details for display
-              const clientResponse = await axiosClient.get(
-                `/api/v1/clinic/${tenantId}/clients/${episode.client_id}`
-              );
-              const client = clientResponse.data;
-              setSelectedClientInfo({
-                name: client.name || client.full_name || 'Unknown',
-                phone: client.phone || '',
-              });
-              
-              console.log('[CreateAppointmentScreen] Client info set:', {
-                name: client.name || client.full_name,
-                phone: client.phone,
-              });
-            }
-            
-            // Pre-fill treatment from params or episode
-            const treatmentIdToUse = params.treatmentId || episode.treatment_id;
-            
-            if (treatmentIdToUse) {
-              setMultiDayForm(prev => ({
-                ...prev,
-                selectedTreatmentId: treatmentIdToUse,
-              }));
-              
-              console.log('[CreateAppointmentScreen] Treatment pre-filled:', {
-                treatmentId: treatmentIdToUse,
-                treatmentName: params.treatmentName || episode.title,
-              });
-            }
-          }
-          
-          // Pre-fill number of sessions (duration)
-          const sessions = treatmentSheet.duration_days || (params.durationDays ? parseInt(params.durationDays, 10) : 0);
-          if (sessions > 0) {
-            console.log('[CreateAppointmentScreen] Setting numberOfSessions:', sessions);
-            setMultiDayForm(prev => {
-              const updated = {
-                ...prev,
-                numberOfSessions: sessions,
-              };
-              console.log('[CreateAppointmentScreen] MultiDayForm updated:', updated);
-              return updated;
-            });
-          }
-          
-        } catch (error) {
-          console.error('[CreateAppointmentScreen] Failed to fetch treatment sheet details:', error);
-        }
-      };
-      
-      fetchTreatmentSheetDetails();
     }
-  }, [params.treatmentSheetId, params.tab, params.treatmentId, params.treatmentName, tenantId]);
+  }, [params.treatmentSheetId, params.tab]);
+
+  const treatmentSheetPrefillQuery = useTreatmentSheetPrefillQuery(
+    tenantId,
+    params.treatmentSheetId,
+    !!(params.treatmentSheetId && params.tab === 'MULTI'),
+    params.treatmentId,
+    params.durationDays
+  );
+
+  useEffect(() => {
+    const prefill = treatmentSheetPrefillQuery.data;
+    if (!prefill) return;
+
+    if (prefill.selectedDoctorId || prefill.treatmentId || prefill.numberOfSessions) {
+      setMultiDayForm(prev => ({
+        ...prev,
+        ...(prefill.selectedDoctorId ? { selectedDoctorId: prefill.selectedDoctorId } : {}),
+        ...(prefill.treatmentId ? { selectedTreatmentId: prefill.treatmentId } : {}),
+        ...(prefill.numberOfSessions ? { numberOfSessions: prefill.numberOfSessions } : {}),
+      }));
+    }
+    if (prefill.clientId) {
+      setSelectedClientId(prefill.clientId);
+    }
+    if (prefill.clientInfo) {
+      setSelectedClientInfo(prefill.clientInfo);
+    }
+  }, [treatmentSheetPrefillQuery.data]);
 
   // Handler for appointment type change - FORCE RESET forms to prevent leakage
   const handleAppointmentTypeChange = useCallback((type: AppointmentType) => {

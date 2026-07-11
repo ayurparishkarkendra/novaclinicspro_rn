@@ -26,6 +26,13 @@ import {
   scheduleRowApi,
   bulkScheduleRowsApi,
   cancelTreatmentOrderApi,
+  placeTreatmentOrderOnHoldApi,
+  extendTreatmentOrderHoldApi,
+  releaseTreatmentSheetApi,
+  addClinicalReviewNoteApi,
+  recordClinicalReviewOutcomeApi,
+  ClinicalReviewNoteResponse,
+  ClinicalReviewOutcome,
 } from '../datasources/treatmentOrders.api';
 import {
   TreatmentOrderResponse,
@@ -404,6 +411,85 @@ export const useCancelTreatmentOrderMutation = (tenantId: string) => {
     onSuccess: (data) => {
       queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
       removeOrderFromCachedWorklists(queryClient, tenantId, data.id);
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
+    },
+  });
+};
+
+// Phase 4 (R4) · T-D.1 (ADR-R4-01) — Scheduling On Hold.
+export const usePlaceTreatmentOrderOnHoldMutation = (tenantId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TreatmentOrderResponse,
+    Error,
+    { sheetId: string; version: number; hold_expires_at: string; hold_notes?: string }
+  >({
+    mutationFn: ({ sheetId, version, hold_expires_at, hold_notes }) =>
+      placeTreatmentOrderOnHoldApi(sheetId, version, { hold_expires_at, hold_notes }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
+    },
+  });
+};
+
+export const useExtendTreatmentOrderHoldMutation = (tenantId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TreatmentOrderResponse,
+    Error,
+    { sheetId: string; version: number; hold_expires_at: string }
+  >({
+    mutationFn: ({ sheetId, version, hold_expires_at }) =>
+      extendTreatmentOrderHoldApi(sheetId, version, hold_expires_at),
+    onSuccess: (data) => {
+      queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
+    },
+  });
+};
+
+// Phase 4 (R4) · T-E.5 (ADR-R4-06) — Release Treatment Sheet (Doctor-only,
+// whole-sheet, no per-row/partial release).
+export const useReleaseTreatmentSheetMutation = (tenantId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<TreatmentOrderResponse, Error, { sheetId: string; version: number }>({
+    mutationFn: ({ sheetId, version }) => releaseTreatmentSheetApi(sheetId, version),
+    onSuccess: (data) => {
+      queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
+      invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
+    },
+  });
+};
+
+// Phase 4 (R4) · T-D.4/T-E.6 (ADR-R4-07) — Clinical Review note (append-only
+// documentation, outcome always NULL). Does not mutate the sheet itself (no
+// version bump on the backend), so no order-detail cache update is needed
+// beyond the note's own response -- the caller refetches the order
+// separately if it wants a fresh lifecycle_status read.
+export const useAddClinicalReviewNoteMutation = () => {
+  return useMutation<ClinicalReviewNoteResponse, Error, { sheetId: string; notesJson: Record<string, unknown> }>({
+    mutationFn: ({ sheetId, notesJson }) => addClinicalReviewNoteApi(sheetId, notesJson),
+  });
+};
+
+// Phase 4 (R4) · T-D.5/T-E.6 (ADR-R4-07) — Clinical Review outcome (the
+// DECISION, distinct from the note above).
+export const useRecordClinicalReviewOutcomeMutation = (tenantId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TreatmentOrderResponse,
+    Error,
+    { sheetId: string; version: number; outcome: ClinicalReviewOutcome; notesJson?: Record<string, unknown> }
+  >({
+    mutationFn: ({ sheetId, version, outcome, notesJson }) =>
+      recordClinicalReviewOutcomeApi(sheetId, version, outcome, notesJson),
+    onSuccess: (data) => {
+      queryClient.setQueryData(treatmentOrderKeys.detail(data.id), data);
       invalidateTreatmentOrderSurfaces(queryClient, tenantId, data.id);
     },
   });

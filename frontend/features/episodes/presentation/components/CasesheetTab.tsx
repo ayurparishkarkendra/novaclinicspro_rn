@@ -1,30 +1,29 @@
 /**
  * CasesheetTab
  *
- * Embeds CasesheetForm directly inline:
- *  - DRAFT status → editable form with Save button (saves in-place, no navigation)
- *  - FINAL / SIGNED → read-only form (isEditable=false)
- *  - No casesheet → empty state with "Add Casesheet" button
+ * Phase 4 (R4) · T-F.2a (ADR-R4-05) — read-only summary only. Case Sheet
+ * editing has exactly one owner: CaseSheetModule / CasesheetStandaloneScreen
+ * (the canonical core). This tab used to embed CasesheetForm and call
+ * useUpdateCasesheetMutation directly, making it a second live Case Sheet
+ * writer; both are removed. "Edit" now navigates to the canonical route
+ * instead of saving in place.
  *
  * The accordion header shows title + status chip + chevron.
  * Open by default.
  */
 
-import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { CasesheetResponse } from '../../../casesheets/data/models/casesheets.dtos';
-import { useUpdateCasesheetMutation } from '../../../casesheets/data/repositories/casesheets.repository.impl';
-import { CasesheetForm, CasesheetFormData } from '../../../casesheets/presentation/components/CasesheetForm';
 import {
   SectionSkeleton,
   useCtaStyles,
   StatusChip,
   cardStyles,
 } from './EpisodeWorkspaceShared';
-import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +34,9 @@ interface CasesheetTabProps {
   isLoading: boolean;
   canCreate: boolean;
   onCreateCasesheet: () => void;
-  onCasesheetSaved?: () => void;
+  /** Phase 4 (R4) · T-F.2a — navigates to the canonical Case Sheet edit
+   * route; this tab no longer saves anything itself. */
+  onEditCasesheet: () => void;
 }
 
 // ─── CasesheetTab ─────────────────────────────────────────────────────────────
@@ -47,32 +48,14 @@ export const CasesheetTab: React.FC<CasesheetTabProps> = ({
   isLoading,
   canCreate,
   onCreateCasesheet,
-  onCasesheetSaved,
+  onEditCasesheet,
 }) => {
   const { colors, spacing, typography } = useClinicTheme();
   const { t } = useTranslation();
   const cta = useCtaStyles();
-  const { currentUser } = useAuth();
-  const tenantId = currentUser?.tenantId ?? '';
 
   // Accordion open by default
   const [expanded, setExpanded] = useState(true);
-
-  const updateMutation = useUpdateCasesheetMutation(tenantId, casesheetId ?? '');
-
-  const isDraft = casesheet?.status === 'DRAFT';
-  const isEditable = isDraft;
-
-  const handleSave = useCallback(async (data: CasesheetFormData) => {
-    try {
-      await updateMutation.mutateAsync({ data_json: data });
-      Alert.alert('Saved', 'Casesheet updated successfully.');
-      onCasesheetSaved?.();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error ?? err?.response?.data?.detail ?? err?.message ?? 'Failed to save.';
-      Alert.alert('Error', String(msg));
-    }
-  }, [updateMutation, onCasesheetSaved]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
@@ -109,7 +92,7 @@ export const CasesheetTab: React.FC<CasesheetTabProps> = ({
     );
   }
 
-  // ── Casesheet exists ──────────────────────────────────────────────────────
+  // ── Casesheet exists — read-only summary ─────────────────────────────────
 
   const status = casesheet?.status ?? 'DRAFT';
   const statusColor = status === 'DRAFT'
@@ -118,18 +101,8 @@ export const CasesheetTab: React.FC<CasesheetTabProps> = ({
     ? colors.feedback.info
     : colors.feedback.success;
 
-  // Build initialData for CasesheetForm from the loaded casesheet
-  const initialData: CasesheetFormData | undefined = casesheet
-    ? {
-        basic: {
-          chief_complaint: casesheet.chief_complaint ?? '',
-          provisional_diagnosis: casesheet.provisional_diagnosis ?? '',
-          final_diagnosis: casesheet.final_diagnosis ?? '',
-          ...casesheet.data_json?.basic,
-        },
-        extensions: casesheet.data_json?.extensions ?? [],
-      }
-    : undefined;
+  const chiefComplaint = casesheet?.chief_complaint?.trim();
+  const diagnosis = (casesheet?.final_diagnosis || casesheet?.provisional_diagnosis)?.trim();
 
   return (
     <View style={{ paddingBottom: spacing.md }}>
@@ -172,7 +145,7 @@ export const CasesheetTab: React.FC<CasesheetTabProps> = ({
         />
       </TouchableOpacity>
 
-      {/* Accordion body — CasesheetForm */}
+      {/* Accordion body — read-only summary, no embedded editor */}
       {expanded && (
         <View
           style={[
@@ -183,24 +156,56 @@ export const CasesheetTab: React.FC<CasesheetTabProps> = ({
               borderBottomLeftRadius: spacing.sm,
               borderBottomRightRadius: spacing.sm,
               marginHorizontal: spacing.md,
+              padding: spacing.md,
+              gap: spacing.sm,
             },
           ]}
         >
           {!casesheet ? (
             <SectionSkeleton />
           ) : (
-            <CasesheetForm
-              key={casesheetId ?? 'cs'}
-              initialData={initialData}
-              onSubmit={handleSave}
-              onCancel={() => setExpanded(false)}
-              isLoading={updateMutation.isPending}
-              isEditable={isEditable}
-              submitLabel={t('episodeWorkspace.casesheet.save')}
-            />
+            <>
+              <SummaryField
+                label={t('episodeWorkspace.casesheet.chiefComplaint')}
+                value={chiefComplaint}
+                noContentLabel={t('episodeWorkspace.casesheet.noContent')}
+              />
+              <SummaryField
+                label={t('episodeWorkspace.casesheet.diagnosis')}
+                value={diagnosis}
+                noContentLabel={t('episodeWorkspace.casesheet.noContent')}
+              />
+              {canCreate && (
+                <TouchableOpacity
+                  style={[cta.primaryCta, { backgroundColor: colors.primary.default, alignSelf: 'flex-start', marginTop: spacing.xs }]}
+                  onPress={onEditCasesheet}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('episodeWorkspace.casesheet.editCasesheet')}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.primary.onPrimary} />
+                  <Text style={[cta.primaryCtaText, { color: colors.primary.onPrimary }]}>
+                    {t('episodeWorkspace.casesheet.editCasesheet')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       )}
+    </View>
+  );
+};
+
+// ─── SummaryField ─────────────────────────────────────────────────────────────
+
+const SummaryField: React.FC<{ label: string; value?: string; noContentLabel: string }> = ({ label, value, noContentLabel }) => {
+  const { colors, spacing, typography } = useClinicTheme();
+  return (
+    <View style={{ gap: 2 }}>
+      <Text style={[typography.caption, { color: colors.text.secondary, fontWeight: '600' }]}>{label}</Text>
+      <Text style={[typography.body2, { color: value ? colors.text.primary : colors.text.disabled }]}>
+        {value || noContentLabel}
+      </Text>
     </View>
   );
 };

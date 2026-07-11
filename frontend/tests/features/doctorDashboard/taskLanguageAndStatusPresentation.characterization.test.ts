@@ -54,6 +54,21 @@ import path from 'path';
  * same `getPrimaryOrderStatusLabel`/`getPrimaryOrderStatusColor` T-D.1
  * built (and corrected) for `TreatmentSheetInfoCard.tsx`.
  *
+ * UPDATE (Phase 4 · R4 · T-E.1, resolution): `getPrimaryOrderStatusLabel`/
+ * `getPrimaryOrderStatusColor` no longer derive anything themselves — R3B's
+ * own frontend re-derivation (including the "Needs Re-scheduling" drift
+ * case) is superseded by the backend's single resolved
+ * `lifecycle_status_label`/`lifecycle_status` (ADR-R4-02, T-C.2). Two
+ * further, previously-undiscovered duplicate lifecycle-display sites were
+ * found by this task's own audit and re-pointed the same way:
+ * `TreatmentLifecycleActions.tsx`'s `OrderStateAction` (a state-derived
+ * action-button label) and `app/doctor.tsx`'s "Needs Documentation" widget
+ * pill (`getPendingDocumentationStatusLabel`, its own independent raw-state
+ * branching). `TreatmentPlansTab.tsx`'s status chip was also re-pointed once
+ * an order exists (its `sheet.status`-based fallback before any order
+ * exists is a distinct, legitimate documentation-status display, not part
+ * of this violation).
+ *
  * FRESHNESS BASELINE (T-0.5's third responsibility): the existing
  * `isFreshnessV1Enabled` two-branch suite (`freshnessFeatureFlag.test.tsx`,
  * `consultationSaveFreshness.characterization.test.tsx`,
@@ -127,18 +142,14 @@ describe('Multi-status violations (R3B · T-0.5, baseline for FR-D2) — ORIGINA
     expect(dtosSource).toContain('export const getSchedulingStatusLabel');
   });
 
-  it('getPrimaryOrderStatusLabel: while ORDERED with a scheduling_status present, shows the more precise scheduling label, not the generic order-state label', () => {
+  it('T-E.1 RESOLUTION (supersedes the two tests below it in git history): getPrimaryOrderStatusLabel/Color no longer re-derive a status from state/scheduling_status at all — they read the backend\'s own resolved lifecycle_status_label/lifecycle_status (T-C.2) verbatim. The frontend "Needs Re-scheduling" drift case T-D.1 added is gone from this file entirely — that computation is now the backend resolver\'s sole job (its own needs_scheduling status covers the same signal from its own inputs; nothing is silently dropped, only the computation moved server-side). Branch-level behavior is exercised by treatmentOrderPrimaryStatus.test.ts.', () => {
     const dtosSource = read('../../../features/treatmentSheets/data/models/treatmentOrders.dtos.ts');
-    // Structural check that the resolution rule exists as designed — the
-    // actual branch logic is exercised by treatmentOrderPrimaryStatus.test.ts.
     expect(dtosSource).toContain('export const getPrimaryOrderStatusLabel');
-    expect(dtosSource).toMatch(/order\.is_order && order\.state === 'ORDERED' && order\.scheduling_status/);
-  });
-
-  it('T-D.1 (second pass): getPrimaryOrderStatusLabel preserves the "needs re-scheduling" drift signal orders.tsx\'s own showSchedChip logic already caught — collapsing to one status does not mean discarding information', () => {
-    const dtosSource = read('../../../features/treatmentSheets/data/models/treatmentOrders.dtos.ts');
-    expect(dtosSource).toContain("'Needs Re-scheduling'");
-    expect(dtosSource).toMatch(/order\.is_order && order\.state !== 'ORDERED' && order\.scheduling_status === 'PARTIALLY_SCHEDULED'/);
+    expect(dtosSource).toContain('export const getPrimaryOrderStatusColor');
+    expect(dtosSource).not.toMatch(/order\.is_order && order\.state === 'ORDERED' && order\.scheduling_status/);
+    expect(dtosSource).not.toContain("'Needs Re-scheduling'");
+    expect(dtosSource).not.toMatch(/order\.is_order && order\.state !== 'ORDERED' && order\.scheduling_status === 'PARTIALLY_SCHEDULED'/);
+    expect(dtosSource).toMatch(/order\.lifecycle_status_label/);
   });
 
   it('T-D.2 RESOLUTION: orders.tsx no longer renders a state pill AND a separate scheduling-status pill side-by-side — exactly one primary status pill per card, via the same shared resolution T-D.1 built', () => {

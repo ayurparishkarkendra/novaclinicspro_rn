@@ -76,6 +76,24 @@ import { CasesheetForm, CasesheetFormData } from '../../../features/casesheets/p
  * still activates only `prakriti`/`nadi_pariksha` with `allowAddRemove=false`
  * — reproducing T-0.2's original workspace behavior bit-for-bit. Every other
  * describe block's assertions are unchanged in substance.
+ *
+ * UPDATE (Phase 4 · R4 · T-E.3b): `CasesheetEditScreen.tsx`/
+ * `CreateCasesheetScreen.tsx` — the OLD standalone screens this file's own
+ * "Standalone screen behavior NOT present in the workspace module" describe
+ * block used to characterize — are DELETED (T-E.3's own parity audit found
+ * no capability gap; their host-level behavior, e.g. the status/role
+ * edit-gate and the real-clinic_type fix, already lives in
+ * `CasesheetStandaloneScreen.tsx`, covered by `casesheetStandaloneScreen.
+ * test.tsx`). That describe block is REMOVED, not modified — there is no
+ * file left for it to inspect. `CasesheetForm.tsx` itself is NOT deleted
+ * (it remains the live field-editing implementation embedded directly by
+ * `CasesheetTab.tsx`, confirmed still mounted in `EpisodeWorkspaceScreen.tsx`
+ * — an explicit, standing user directive not to touch `CasesheetTab.tsx`/
+ * `CasesheetForm.tsx` predates this task, see
+ * `casesheetTabLiveAdminEditingGap.characterization.test.tsx`). Every other
+ * describe block in this file (base field parity, extension system parity,
+ * the render-based `CasesheetForm` behavioral baseline) is unchanged --
+ * their subject files all still exist.
  */
 
 const read = (relativePath: string) => fs.readFileSync(path.resolve(__dirname, relativePath), 'utf8');
@@ -143,32 +161,13 @@ describe('Case Sheet dual-implementation characterization (R3B · T-0.2, baselin
     });
   });
 
-  describe('Standalone screen behavior NOT present in the workspace module (host-level concerns, not core-editing concerns)', () => {
-    const editScreen = read('../../../features/casesheets/presentation/pages/CasesheetEditScreen.tsx');
-    const createScreen = read('../../../features/casesheets/presentation/pages/CreateCasesheetScreen.tsx');
-    const workspaceModule = read('../../../features/episodes/presentation/components/ConsultationSections/CaseSheetModule.tsx');
-
-    it('CasesheetEditScreen enforces a status/role edit-gate: DRAFT always editable, SIGNED only by DOCTOR role, FINAL never', () => {
-      expect(editScreen).toContain("const canEdit = isEditable(casesheet.status) || (casesheet.status === 'SIGNED' && isDoctor);");
-    });
-
-    it('CaseSheetModule has no equivalent status/role gate (confirms this is a host-level concern to carry into the standalone wrapper, T-B.2/T-B.3, not the canonical core)', () => {
-      expect(workspaceModule).not.toMatch(/isEditable\(|isDoctor|casesheet\.status/);
-    });
-
-    it('CreateCasesheetScreen hardcodes clinic_type: \'ayurveda\' on create — a pre-existing bug, logged as Engineering Debt, not fixed by this task', () => {
-      expect(createScreen).toContain("clinic_type: 'ayurveda', // Default clinic type, can be made configurable");
-    });
-
-    it('CaseSheetModule, by contrast, correctly uses the real clinic\'s type', () => {
-      expect(workspaceModule).toContain('clinic_type: features.clinic_type as any');
-    });
-
-    it('both implementations already enforce "one casesheet per episode" — confirmed equivalent, not a gap', () => {
-      expect(createScreen).toContain('episodeDetailsForGuard?.documents?.casesheet?.exists');
-      expect(workspaceModule).toContain('casesheetIdRef');
-    });
-  });
+  // Phase 4 (R4) · T-E.3b: the "Standalone screen behavior NOT present in
+  // the workspace module" describe block (CasesheetEditScreen's status/role
+  // edit-gate, CreateCasesheetScreen's clinic_type bug, the one-casesheet-
+  // per-episode guard) is REMOVED, not modified -- both files it read are
+  // deleted. That behavior now lives in CasesheetStandaloneScreen.tsx,
+  // covered by casesheetStandaloneScreen.test.tsx (its own "submits using
+  // the REAL clinic type" and "redirects to the existing casesheet" tests).
 
   describe('Standalone CasesheetForm: real render-based behavioral baseline (zero prior test coverage before this task)', () => {
     const buildFormTree = (props?: Partial<React.ComponentProps<typeof CasesheetForm>>) => {

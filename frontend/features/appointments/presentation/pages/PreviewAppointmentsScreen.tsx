@@ -58,7 +58,6 @@ import {
 } from '../../domain/helpers';
 import { validateAppointmentTime, formatValidationMessage, ValidationResult } from '../../utils/appointmentValidation';
 import { buildInitialEffectiveTimes } from '../../utils/previewEffectiveTimes';
-import { getAvailableSlotsApi } from '../../data/datasources/appointments.api';
 // Import centralized date/time utils
 import {
   formatDate,

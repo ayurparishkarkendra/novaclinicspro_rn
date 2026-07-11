@@ -28,6 +28,8 @@ import { typography } from '../../../core/theme/typography';
 import {
   useTreatmentOrdersQuery,
   useCancelTreatmentOrderMutation,
+  usePlaceTreatmentOrderOnHoldMutation,
+  useExtendTreatmentOrderHoldMutation,
 } from '../../../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import {
   TreatmentOrderResponse,
@@ -65,6 +67,14 @@ const DECLINE_REASONS: { code: string; label: string }[] = [
   { code: 'other', label: 'Other' },
 ];
 
+// Phase 4 (R4) · T-D.1 — hold-duration presets (days from now).
+const HOLD_DURATION_PRESETS: { days: number; label: string }[] = [
+  { days: 3, label: '3 days' },
+  { days: 7, label: '1 week' },
+  { days: 14, label: '2 weeks' },
+  { days: 30, label: '1 month' },
+];
+
 const STATE_FILTERS: { label: string; value: TreatmentOrderState | undefined }[] = [
   { label: 'All', value: undefined },
   { label: 'Ordered', value: 'ORDERED' },
@@ -84,6 +94,7 @@ interface OrderCardProps {
   onViewSheet: (order: TreatmentOrderResponse) => void;
   onSendSchedule: (order: TreatmentOrderResponse) => void;
   onPatientDeclined: (order: TreatmentOrderResponse) => void;
+  onHold: (order: TreatmentOrderResponse) => void;
   isCancelling: boolean;
 }
 
@@ -94,6 +105,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onViewSheet,
   onSendSchedule,
   onPatientDeclined,
+  onHold,
   isCancelling,
 }) => {
   // R3B · T-D.2 (FR-D2) — exactly one primary status pill, via the same
@@ -131,6 +143,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
     order.state === 'ORDERED' ||
     order.scheduling_status === 'PENDING_SCHEDULING' ||
     order.scheduling_status === 'PARTIALLY_SCHEDULED';
+  // Phase 4 (R4) · T-D.1 (ADR-R4-01) — On Hold is only valid while
+  // state==='ORDERED' (matches the backend's own place_on_hold guard);
+  // does not change `state`, so Schedule/Decline stay available too.
+  const isOnHold = order.scheduling_status === 'ON_HOLD';
+  const canPlaceOnHold = order.state === 'ORDERED' && !isOnHold;
 
   return (
     <TouchableOpacity
@@ -181,6 +198,24 @@ const OrderCard: React.FC<OrderCardProps> = ({
         )}
       </View>
 
+      {/* Phase 4 (R4) · T-D.1 — On-Hold fact, shown directly from raw fields
+          (not a derived status label — re-pointing the main pill to the
+          backend resolver is T-E.1's own scope, not duplicated here). */}
+      {isOnHold && (
+        <View style={styles.metaRow}>
+          <Ionicons name="pause-circle-outline" size={13} color={colors.warning?.main ?? colors.text.secondary} />
+          <Text style={styles.cardMeta}>
+            On hold{order.hold_expires_at ? ` until ${formatShortDate(order.hold_expires_at)}` : ''}
+          </Text>
+          {order.hold_notes ? (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.cardMeta} numberOfLines={1}>{order.hold_notes}</Text>
+            </>
+          ) : null}
+        </View>
+      )}
+
       {/* Progress bar — only when partially/fully scheduled */}
       {order.planned_sessions != null && order.planned_sessions > 0 && order.scheduled_count > 0 && (
         <View style={styles.progressRow}>
@@ -230,6 +265,18 @@ const OrderCard: React.FC<OrderCardProps> = ({
             <Text style={styles.scheduleBtnText}>Send Schedule</Text>
           </TouchableOpacity>
         )}
+        {/* Phase 4 (R4) · T-D.1 — Scheduling On Hold action, added to the
+            existing scheduling worklist screen (no new scheduling screen). */}
+        {(canPlaceOnHold || isOnHold) && (
+          <TouchableOpacity
+            style={styles.holdBtn}
+            onPress={() => onHold(order)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="pause-outline" size={14} color={colors.text.secondary} />
+            <Text style={styles.holdBtnText}>{isOnHold ? 'Extend Hold' : 'On Hold'}</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.viewBtn}
           onPress={() => onViewSheet(order)}
@@ -260,6 +307,14 @@ export default function TreatmentOrdersScreen() {
   const [declineReasonCode, setDeclineReasonCode] = useState<string | null>(null);
   const [declineReasonText, setDeclineReasonText] = useState('');
   const cancelOrderMutation = useCancelTreatmentOrderMutation(tenantId);
+
+  // Phase 4 (R4) · T-D.1 — Scheduling On Hold flow (place or extend, same modal).
+  const [holdOrder, setHoldOrder] = useState<TreatmentOrderResponse | null>(null);
+  const [holdDurationDays, setHoldDurationDays] = useState<number>(HOLD_DURATION_PRESETS[0].days);
+  const [holdNotesText, setHoldNotesText] = useState('');
+  const [isSubmittingHold, setIsSubmittingHold] = useState(false);
+  const placeOnHoldMutation = usePlaceTreatmentOrderOnHoldMutation(tenantId);
+  const extendHoldMutation = useExtendTreatmentOrderHoldMutation(tenantId);
 
   const {
     data,
@@ -349,6 +404,50 @@ export default function TreatmentOrdersScreen() {
     }
   }, [declineOrder, declineReasonCode, declineReasonText, cancelOrderMutation]);
 
+  // Phase 4 (R4) · T-D.1 — open the hold modal (works for both the initial
+  // "On Hold" action and "Extend Hold" on an already-held order).
+  const handleHold = useCallback((order: TreatmentOrderResponse) => {
+    setHoldDurationDays(HOLD_DURATION_PRESETS[0].days);
+    setHoldNotesText(order.hold_notes ?? '');
+    setHoldOrder(order);
+  }, []);
+
+  const closeHoldModal = useCallback(() => {
+    setHoldOrder(null);
+    setHoldNotesText('');
+  }, []);
+
+  const confirmHold = useCallback(async () => {
+    if (!holdOrder) return;
+    const order = holdOrder;
+    const holdExpiresAt = new Date(Date.now() + holdDurationDays * 24 * 60 * 60 * 1000).toISOString();
+    setIsSubmittingHold(true);
+    try {
+      if (order.scheduling_status === 'ON_HOLD') {
+        await extendHoldMutation.mutateAsync({
+          sheetId: order.id,
+          version: order.version,
+          hold_expires_at: holdExpiresAt,
+        });
+        Alert.alert('Hold extended', 'The scheduling hold has been extended.');
+      } else {
+        await placeOnHoldMutation.mutateAsync({
+          sheetId: order.id,
+          version: order.version,
+          hold_expires_at: holdExpiresAt,
+          hold_notes: holdNotesText.trim() || undefined,
+        });
+        Alert.alert('Placed on hold', 'Scheduling has been paused for this treatment plan.');
+      }
+      setHoldOrder(null);
+      setHoldNotesText('');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'Failed to update the hold.');
+    } finally {
+      setIsSubmittingHold(false);
+    }
+  }, [holdOrder, holdDurationDays, holdNotesText, placeOnHoldMutation, extendHoldMutation]);
+
   const renderEmpty = () => {
     if (isLoading) return null;
     return (
@@ -427,6 +526,7 @@ export default function TreatmentOrdersScreen() {
               onViewSheet={handleViewSheet}
               onSendSchedule={handleSendSchedule}
               onPatientDeclined={handlePatientDeclined}
+              onHold={handleHold}
               isCancelling={cancellingOrderId === item.id}
             />
           )}
@@ -513,6 +613,81 @@ export default function TreatmentOrdersScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.modalConfirmText}>Confirm Decline</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    {/* Phase 4 (R4) · T-D.1 (ADR-R4-01) — Scheduling On Hold / Extend Hold.
+        Same modal for both actions; confirmHold decides which mutation to
+        call based on the order's current scheduling_status. */}
+    <Modal
+      visible={!!holdOrder}
+      transparent
+      animationType="fade"
+      onRequestClose={closeHoldModal}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>
+            {holdOrder?.scheduling_status === 'ON_HOLD' ? 'Extend Hold' : 'Place On Hold'}
+          </Text>
+          <Text style={styles.modalSubtitle}>
+            {holdOrder?.scheduling_status === 'ON_HOLD'
+              ? 'Extend the scheduling pause for this treatment plan.'
+              : 'Pause scheduling for this treatment plan temporarily. Admin can still Schedule or record a Decline at any time before the hold expires.'}
+          </Text>
+
+          {HOLD_DURATION_PRESETS.map((preset) => {
+            const selected = holdDurationDays === preset.days;
+            return (
+              <TouchableOpacity
+                key={preset.days}
+                style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                onPress={() => setHoldDurationDays(preset.days)}
+                activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <Ionicons
+                  name={selected ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={selected ? colors.primary.main : colors.text.secondary}
+                />
+                <Text style={styles.reasonLabel}>{preset.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {holdOrder?.scheduling_status !== 'ON_HOLD' && (
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Optional notes (e.g. why the hold was placed)"
+              placeholderTextColor={colors.text.disabled}
+              value={holdNotesText}
+              onChangeText={setHoldNotesText}
+              multiline
+            />
+          )}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={closeHoldModal} activeOpacity={0.7}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalConfirmBtn, isSubmittingHold && styles.disabledBtn]}
+              onPress={confirmHold}
+              disabled={isSubmittingHold}
+              activeOpacity={0.7}
+            >
+              {isSubmittingHold ? (
+                <ActivityIndicator size="small" color={colors.common.white} />
+              ) : (
+                <Text style={styles.modalConfirmText}>
+                  {holdOrder?.scheduling_status === 'ON_HOLD' ? 'Extend Hold' : 'Confirm Hold'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -626,6 +801,18 @@ const styles = StyleSheet.create({
   },
   declineBtnText: { ...typography.caption, color: colors.error.main, fontWeight: '600' },
   disabledBtn: { opacity: 0.55 },
+  holdBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.text.secondary + '12',
+    borderColor: colors.text.secondary + '35',
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+  },
+  holdBtnText: { ...typography.caption, color: colors.text.secondary, fontWeight: '600' },
   sendScheduleBtn: {
     flexDirection: 'row',
     alignItems: 'center',

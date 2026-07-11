@@ -55,28 +55,18 @@ import {
 } from '../features/doctorDashboard';
 import { usePendingDocumentationQuery } from '../features/treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import {
-  getOrderStateColor,
-  getOrderStateLabel,
-  type TreatmentOrderResponse,
+  getLifecycleStatusColor,
+  getLifecycleStatusLabel,
 } from '../features/treatmentSheets/data/models/treatmentOrders.dtos';
 import {
   CaseResolverState,
   startConsultationWithGuard,
 } from '../features/doctorDashboard/application/caseResolver';
 
-const getPendingDocumentationStatusLabel = (order: TreatmentOrderResponse): string => {
-  if (
-    order.documentation_status === 'DRAFT' &&
-    order.state === 'SCHEDULED' &&
-    order.scheduling_status === 'FULLY_SCHEDULED'
-  ) {
-    return 'Waiting for Treatment Plan Completion';
-  }
-  if (order.state === 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
-    return 'Partially Scheduled';
-  }
-  return getOrderStateLabel(order.state);
-};
+// Phase 4 (R4) · T-E.1 (ADR-R4-02) — re-pointed to the backend's own
+// lifecycle_status_label/lifecycle_status (T-C.2); this widget's own
+// getPendingDocumentationStatusLabel (raw state/scheduling_status/
+// documentation_status branching) is superseded, not recreated elsewhere.
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -680,9 +670,9 @@ export default function DoctorDashboard() {
                         ? `${order.planned_sessions}-day plan`
                         : 'Treatment Plan'}
                     </Text>
-                    <View style={[pendingDocStyles.statePill, { backgroundColor: getOrderStateColor(order.state) + '18' }]}>
-                      <Text style={[pendingDocStyles.stateText, { color: getOrderStateColor(order.state) }]}>
-                        {getPendingDocumentationStatusLabel(order)}
+                    <View style={[pendingDocStyles.statePill, { backgroundColor: getLifecycleStatusColor(order.lifecycle_status, order.lifecycle_status_unresolved) + '18' }]}>
+                      <Text style={[pendingDocStyles.stateText, { color: getLifecycleStatusColor(order.lifecycle_status, order.lifecycle_status_unresolved) }]}>
+                        {getLifecycleStatusLabel(order.lifecycle_status_label, order.lifecycle_status_unresolved)}
                       </Text>
                     </View>
                   </View>

@@ -116,6 +116,14 @@ export const EpisodeWorkspaceScreen: React.FC<EpisodeWorkspaceScreenProps> = ({
     }
   }, [router, resolvedClientId, episodeId, episodeDetails]);
 
+  // Phase 4 (R4) · T-F.2a (ADR-R4-05) — Edit routes to the canonical Case
+  // Sheet owner (CasesheetStandaloneScreen); CasesheetTab no longer saves
+  // in place.
+  const handleEditCasesheet = useCallback(() => {
+    if (!casesheetId) return;
+    router.push(`/clinic-admin/clients/${resolvedClientId}/casesheets/${casesheetId}/edit` as any);
+  }, [router, resolvedClientId, casesheetId]);
+
   const handleOpenSheet = useCallback(
     (id: string) => {
       router.push(`/clinic-admin/treatment-sheets/${id}` as any);
@@ -284,7 +292,7 @@ export const EpisodeWorkspaceScreen: React.FC<EpisodeWorkspaceScreenProps> = ({
               isLoading={isCasesheetLoading}
               canCreate={config.canEditNotes}
               onCreateCasesheet={handleCreateCasesheet}
-              onCasesheetSaved={refetchEpisode}
+              onEditCasesheet={handleEditCasesheet}
             />
           )}
 

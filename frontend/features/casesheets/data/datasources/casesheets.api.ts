@@ -34,6 +34,32 @@ export const listCasesheetsApi = async (
 };
 
 /**
+ * Phase 4 · T-G.2 (clean-architecture boundary restoration) -- extracted
+ * VERBATIM from a pre-existing inline axiosClient call in
+ * CreateAppointmentScreen.tsx's ordering-doctor waterfall, preserved
+ * exactly (not fixed) because T-G is architecture-only and must not change
+ * behavior.
+ *
+ * KNOWN BUG, confirmed during this audit, NOT fixed here: this URL does not
+ * match any route in casesheets_router.py -- the real list-by-client route
+ * is GET /clinic/{tenant_id}/clients/{client_id}/casesheets (listCasesheetsApi
+ * above). This call 404s every time and is expected to be caught by the
+ * caller, exactly as it already was before this extraction. Flagged as a
+ * follow-up bug-fix candidate, not resolved under this task's no-behavior-
+ * change scope.
+ * GET /api/v1/clinic/{tenant_id}/casesheets?client_id=...&limit=... (no matching route -- always 404s)
+ */
+export const getLatestCasesheetForClientLegacyApi = async (
+  tenantId: string,
+  clientId: string
+): Promise<{ recorded_by_staff_id?: string } | undefined> => {
+  const response = await axiosClient.get(`/api/v1/clinic/${tenantId}/casesheets`, {
+    params: { client_id: clientId, limit: 1 },
+  });
+  return response.data?.casesheets?.[0];
+};
+
+/**
  * Get a single casesheet by ID
  * GET /api/v1/clinic/{tenant_id}/casesheets/{casesheet_id}
  */

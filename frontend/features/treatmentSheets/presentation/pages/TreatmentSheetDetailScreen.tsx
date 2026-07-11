@@ -24,7 +24,11 @@ import { PauseSeriesDTO } from '../../data/models/lifecycle.dtos';
 import {
   useSendToSchedulingMutation,
   useTreatmentOrderQuery,
+  useReleaseTreatmentSheetMutation,
+  useAddClinicalReviewNoteMutation,
+  useRecordClinicalReviewOutcomeMutation,
 } from '../../data/repositories/treatmentOrders.repository.impl';
+import { ClinicalReviewOutcome } from '../../data/datasources/treatmentOrders.api';
 import { CancelSeriesDialog } from '../components/CancelSeriesDialog';
 import { PatientScheduleModal } from '../components/PatientScheduleModal';
 import { PauseSeriesDialog } from '../components/PauseSeriesDialog';
@@ -43,6 +47,11 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const treatmentSheetId = params.treatmentSheetId || '';
   const tenantId = currentUser?.tenantId || '';
+  // Phase 4 (R4) · T-E.4 (ADR-R4-06) — row-content editing is DOCTOR-only
+  // (Admin reaches this same canonical screen via orders.tsx's "View Sheet"
+  // for scheduling operations only; Therapist never reaches it). Mirrors
+  // CasesheetStandaloneScreen.tsx's own isDoctor pattern.
+  const isDoctor = currentUser?.roles?.includes('DOCTOR') || false;
   const [page, setPage] = useState(1);
   const [showPauseDialog, setShowPauseDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -65,6 +74,9 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     enabled: !!treatmentSheetId && !!tenantId,
   });
   const sendToScheduling = useSendToSchedulingMutation(tenantId);
+  const releaseMutation = useReleaseTreatmentSheetMutation(tenantId);
+  const addClinicalReviewNoteMutation = useAddClinicalReviewNoteMutation();
+  const recordClinicalReviewOutcomeMutation = useRecordClinicalReviewOutcomeMutation(tenantId);
   const orderVersion = treatmentOrder?.version ?? 1;
   const headerData = useTreatmentSheetHeaderData(tenantId, treatmentSheet?.episode_id);
   const rows = useTreatmentSheetRows({ tenantId, treatmentSheetId, treatmentSheet, refetch });
@@ -185,10 +197,48 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
     cancelMutation.mutate({ reason });
   }, [cancelMutation]);
 
+  // Phase 4 (R4) · T-E.5 (ADR-R4-06) — Release Treatment Sheet: whole-sheet,
+  // Doctor-only. Version conflicts surface via the mutation's own onError.
+  const handleRelease = useCallback(() => {
+    releaseMutation.mutate(
+      { sheetId: treatmentSheetId, version: orderVersion },
+      {
+        onError: (err: any) =>
+          Alert.alert('Error', err?.response?.data?.detail?.message || err.message || 'Failed to release treatment sheet.'),
+      }
+    );
+  }, [releaseMutation, treatmentSheetId, orderVersion]);
+
+  // Phase 4 (R4) · T-E.6 (ADR-R4-07) — Clinical Review note: documentation
+  // only, never mutates the sheet's version.
+  const handleAddClinicalReviewNote = useCallback((notesJson: Record<string, unknown>) => {
+    addClinicalReviewNoteMutation.mutate(
+      { sheetId: treatmentSheetId, notesJson },
+      {
+        onError: (err: any) =>
+          Alert.alert('Error', err?.response?.data?.detail?.message || err.message || 'Failed to save observation.'),
+      }
+    );
+  }, [addClinicalReviewNoteMutation, treatmentSheetId]);
+
+  // Phase 4 (R4) · T-E.6 (ADR-R4-07) — Clinical Review DECISION, distinct
+  // from the note above. stop_remaining/complete move the plan to Treatment
+  // Complete; continue_unchanged/update_future_rows/extend keep it In Therapy.
+  const handleRecordClinicalReviewOutcome = useCallback((outcome: ClinicalReviewOutcome, notesJson: Record<string, unknown>) => {
+    recordClinicalReviewOutcomeMutation.mutate(
+      { sheetId: treatmentSheetId, version: orderVersion, outcome, notesJson },
+      {
+        onError: (err: any) =>
+          Alert.alert('Error', err?.response?.data?.detail?.message || err.message || 'Failed to record outcome.'),
+      }
+    );
+  }, [recordClinicalReviewOutcomeMutation, treatmentSheetId, orderVersion]);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.default }]} edges={['top']}>
       <TreatmentSheetDetailHeader
         treatmentSheet={treatmentSheet}
+        treatmentOrder={treatmentOrder}
         rowsCount={rows.rowsData.length}
         isPrinting={printMutation.isPending}
         isArchiving={archiveMutation.isPending}
@@ -199,6 +249,7 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
       <View style={styles.content}>
         <TreatmentSheetDetailContent
           treatmentSheet={treatmentSheet}
+          isDoctor={isDoctor}
           isLoading={isLoading}
           isError={isError}
           error={error}
@@ -229,6 +280,12 @@ export const TreatmentSheetDetailScreen: React.FC = () => {
           onPause={() => setShowPauseDialog(true)}
           onResume={handleResume}
           onCancel={() => setShowCancelDialog(true)}
+          onRelease={handleRelease}
+          releaseMutation={releaseMutation}
+          onAddClinicalReviewNote={handleAddClinicalReviewNote}
+          addClinicalReviewNoteMutation={addClinicalReviewNoteMutation}
+          onRecordClinicalReviewOutcome={handleRecordClinicalReviewOutcome}
+          recordClinicalReviewOutcomeMutation={recordClinicalReviewOutcomeMutation}
         />
       </View>
       <PauseSeriesDialog

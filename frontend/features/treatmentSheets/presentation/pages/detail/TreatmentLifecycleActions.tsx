@@ -5,6 +5,7 @@ import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../../core/theme/spacing';
 import {
   isDocumentationComplete,
+  TreatmentLifecycleStatus,
   TreatmentOrderResponse,
 } from '../../../data/models/treatmentOrders.dtos';
 import { UseSendToSchedulingResult } from '../../../data/repositories/treatmentOrders.repository.impl';
@@ -33,6 +34,13 @@ interface Props {
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
+  /** Phase 4 (R4) · T-E.5 (ADR-R4-06) — Release is DOCTOR-only, mirroring
+   * T-E.4's own row-editing isDoctor gate. Admin never sees this action at
+   * all (not just disabled) — the lifecycle status is already visible via
+   * TreatmentSheetInfoCard's own "Status:" row. */
+  isDoctor: boolean;
+  onRelease: () => void;
+  releaseMutation: PendingMutation;
 }
 
 export const TreatmentLifecycleActions: React.FC<Props> = ({
@@ -51,6 +59,9 @@ export const TreatmentLifecycleActions: React.FC<Props> = ({
   onPause,
   onResume,
   onCancel,
+  isDoctor,
+  onRelease,
+  releaseMutation,
 }) => {
   const theme = useClinicTheme();
   const sendStatus = sendToScheduling.status;
@@ -89,7 +100,12 @@ export const TreatmentLifecycleActions: React.FC<Props> = ({
           <Text style={[styles.lifecycleButtonText, { color: theme.colors.primary.onPrimary }]}>Send to Scheduling</Text>
         </TouchableOpacity>
       ) : (
-        <OrderStateAction order={treatmentOrder} />
+        <OrderStateAction
+          order={treatmentOrder}
+          isDoctor={isDoctor}
+          onRelease={onRelease}
+          releasePending={!!releaseMutation.isPending}
+        />
       )}
       {treatmentOrder?.state === 'SCHEDULED' && treatmentOrder.scheduling_status === 'FULLY_SCHEDULED' ? (
         <TouchableOpacity
@@ -125,25 +141,97 @@ export const TreatmentLifecycleActions: React.FC<Props> = ({
   );
 };
 
-const OrderStateAction: React.FC<{ order: TreatmentOrderResponse }> = ({ order }) => {
+/**
+ * Phase 4 (R4) · T-E.1 (ADR-R4-02) — re-pointed from raw `order.state`
+ * branching to the backend's own `lifecycle_status` (T-C.2). This is a
+ * presentation-only re-point: the exact same disabled/pressable/pill
+ * structure and copy are preserved 1:1 per lifecycle_status value — no
+ * operational control (what's tappable, what an alert says) changed, only
+ * the SIGNAL deciding which of those pre-existing branches to take.
+ */
+const ORDER_STATE_ACTION_MAP: Partial<Record<NonNullable<TreatmentLifecycleStatus>, {
+  label: string; icon: keyof typeof Ionicons.glyphMap; disabled?: boolean; terminal?: 'success' | 'error';
+}>> = {
+  needs_scheduling: { label: 'Waiting for Scheduling', icon: 'hourglass-outline', disabled: true },
+  scheduling_on_hold: { label: 'Waiting for Scheduling', icon: 'hourglass-outline', disabled: true },
+  // scheduled_awaiting_treatment_sheet / treatment_sheet_draft: handled
+  // BEFORE this map is consulted at all (RELEASABLE_LIFECYCLE_STATUSES,
+  // T-E.5) -- the old "Fill Treatment Details"/"Continue Documentation"
+  // nudge for these two statuses is replaced by the real Release action.
+  released_to_therapist: { label: 'Continue Documentation', icon: 'pencil-outline' },
+  in_therapy: { label: 'Continue Documentation', icon: 'pencil-outline' },
+  needs_clinical_review: { label: 'Continue Documentation', icon: 'pencil-outline' },
+  under_clinical_review: { label: 'Continue Documentation', icon: 'pencil-outline' },
+  treatment_complete: { label: 'View Completed Plan', icon: 'checkmark-circle', terminal: 'success' },
+  scheduling_denied: { label: 'Cancelled', icon: 'close-circle-outline', terminal: 'error' },
+};
+
+/** Phase 4 (R4) · T-E.5 (ADR-R4-06) — the two pre-release lifecycle
+ * statuses where the Doctor's own [Release Treatment Sheet] action
+ * replaces the old "Fill Treatment Details"/"Continue Documentation" nudge
+ * (that nudge is now redundant with a real action in the same slot). Rows
+ * do not need any content for release to be offered here — "empty rows do
+ * not block release" (rule 6). */
+const RELEASABLE_LIFECYCLE_STATUSES: ReadonlySet<TreatmentLifecycleStatus> = new Set([
+  'scheduled_awaiting_treatment_sheet',
+  'treatment_sheet_draft',
+]);
+
+const OrderStateAction: React.FC<{
+  order: TreatmentOrderResponse;
+  isDoctor: boolean;
+  onRelease: () => void;
+  releasePending: boolean;
+}> = ({ order, isDoctor, onRelease, releasePending }) => {
   const theme = useClinicTheme();
-  if (order.state === 'COMPLETED' || order.state === 'CANCELLED') {
-    const isComplete = order.state === 'COMPLETED';
-    const color = isComplete ? theme.colors.feedback.success : theme.colors.feedback.error;
+
+  // Admin (and any non-Doctor role) never sees this action at all -- the
+  // lifecycle status is already shown via TreatmentSheetInfoCard's own
+  // "Status:" row. Not merely disabled: not rendered.
+  if (!isDoctor) return null;
+
+  if (!order.lifecycle_status_unresolved && order.lifecycle_status && RELEASABLE_LIFECYCLE_STATUSES.has(order.lifecycle_status)) {
+    return (
+      <ActionButton
+        label="Release Treatment Sheet"
+        icon="paper-plane-outline"
+        color={theme.colors.primary.default}
+        disabled={releasePending}
+        onPress={() =>
+          Alert.alert(
+            'Release Treatment Sheet',
+            'Release this treatment sheet to the therapist? This releases the whole sheet at once and cannot be undone.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Release', onPress: onRelease },
+            ],
+          )
+        }
+      />
+    );
+  }
+
+  const entry = (!order.lifecycle_status_unresolved && order.lifecycle_status && ORDER_STATE_ACTION_MAP[order.lifecycle_status])
+    || { label: 'Status Pending Review', icon: 'help-circle-outline' as const, disabled: true };
+
+  if (entry.terminal) {
+    const color = entry.terminal === 'success' ? theme.colors.feedback.success : theme.colors.feedback.error;
     return (
       <View style={[styles.orderStatePill, { borderColor: color, backgroundColor: theme.colors.background.elevated }]}>
-        <Ionicons name={isComplete ? 'checkmark-circle' : 'close-circle-outline'} size={18} color={color} />
-        <Text style={[styles.orderStateText, { color }]}>{isComplete ? 'View Completed Plan' : 'Cancelled'}</Text>
+        <Ionicons name={entry.icon} size={18} color={color} />
+        <Text style={[styles.orderStateText, { color }]}>{entry.label}</Text>
       </View>
     );
   }
-  const label = order.state === 'ORDERED'
-    ? 'Waiting for Scheduling'
-    : order.state === 'SCHEDULED'
-    ? 'Fill Treatment Details'
-    : 'Continue Documentation';
-  const icon = order.state === 'ORDERED' ? 'hourglass-outline' : order.state === 'SCHEDULED' ? 'create-outline' : 'pencil-outline';
-  return <ActionButton label={label} icon={icon} color={theme.colors.feedback.info} disabled={order.state === 'ORDERED'} onPress={() => Alert.alert(label, 'Please fill in the treatment details for each day below.')} />;
+  return (
+    <ActionButton
+      label={entry.label}
+      icon={entry.icon}
+      color={theme.colors.feedback.info}
+      disabled={entry.disabled}
+      onPress={() => Alert.alert(entry.label, 'Please fill in the treatment details for each day below.')}
+    />
+  );
 };
 
 const Banner: React.FC<{ icon: keyof typeof Ionicons.glyphMap; tone: 'warning' | 'error'; text: string }> = ({ icon, tone, text }) => {

@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../../core/theme/spacing';
-import { isEditable, TreatmentSheetStatus } from '../../../data/models/treatmentSheets.dtos';
-import { TreatmentOrderResponse } from '../../../data/models/treatmentOrders.dtos';
+import { TreatmentLifecycleStatus, TreatmentOrderResponse } from '../../../data/models/treatmentOrders.dtos';
+import { ClinicalReviewOutcome } from '../../../data/datasources/treatmentOrders.api';
 import { EmptyTreatmentSheetState } from '../../components/EmptyTreatmentSheetState';
 import { TreatmentSheetProgress } from '../../components/TreatmentSheetProgress';
 import { UseSendToSchedulingResult } from '../../../data/repositories/treatmentOrders.repository.impl';
+import { ClinicalReviewSection } from './ClinicalReviewSection';
 import { TreatmentLifecycleActions } from './TreatmentLifecycleActions';
 import { TreatmentRowsSection } from './TreatmentRowsSection';
 import { TreatmentScheduleSummary } from './TreatmentScheduleSummary';
@@ -42,6 +43,30 @@ interface RowController {
   saveAllRows: () => void;
 }
 
+/** Phase 4 (R4) · T-F.2c (ADR-R4-03) — TreatmentScheduleSummary's own job is
+ * admin scheduling: "Schedule Appointments" before rows are scheduled,
+ * "View All Appointments" once they are. That job is only relevant during
+ * the scheduling/preparation phase, before the Doctor releases the sheet to
+ * the Therapist — once released, scheduling is settled and therapy
+ * execution is the active concern (TreatmentLifecycleActions/
+ * ClinicalReviewSection own that phase instead). Replaces the old
+ * `treatmentSheet.status === 'DRAFT'` gate (always true in practice — a
+ * backward-compat document field, never a workflow signal, ADR-R4-03) with
+ * the resolver's own lifecycle_status. */
+const SCHEDULING_PHASE_LIFECYCLE_STATUSES: ReadonlySet<TreatmentLifecycleStatus> = new Set([
+  'recommended',
+  'needs_scheduling',
+  'scheduling_on_hold',
+  'scheduled_awaiting_treatment_sheet',
+  'treatment_sheet_draft',
+]);
+
+export const isInSchedulingPhase = (order?: TreatmentOrderResponse): boolean =>
+  !!order &&
+  !order.lifecycle_status_unresolved &&
+  !!order.lifecycle_status &&
+  SCHEDULING_PHASE_LIFECYCLE_STATUSES.has(order.lifecycle_status);
+
 interface HeaderData {
   episodeData: HeaderEntity | null;
   clientData: ClientEntity | null;
@@ -50,6 +75,11 @@ interface HeaderData {
 
 interface Props {
   treatmentSheet?: TreatmentSheetResponse;
+  /** Phase 4 (R4) · T-E.4 (ADR-R4-06) — row-content editing is DOCTOR-only,
+   * never gated by treatmentSheet.status (DRAFT/FINAL/SIGNED is a backward-
+   * compat-only document field, ADR-R4-03). Admin reaches this same screen
+   * via orders.tsx's "View Sheet" for scheduling/read-only purposes only. */
+  isDoctor: boolean;
   isLoading: boolean;
   isError: boolean;
   error?: Error | null;
@@ -77,10 +107,19 @@ interface Props {
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
+  /** Phase 4 (R4) · T-E.5 (ADR-R4-06). */
+  onRelease: () => void;
+  releaseMutation: PendingMutation;
+  /** Phase 4 (R4) · T-E.6 (ADR-R4-07). */
+  onAddClinicalReviewNote: (notesJson: Record<string, unknown>) => void;
+  addClinicalReviewNoteMutation: PendingMutation;
+  onRecordClinicalReviewOutcome: (outcome: ClinicalReviewOutcome, notesJson: Record<string, unknown>) => void;
+  recordClinicalReviewOutcomeMutation: PendingMutation;
 }
 
 export const TreatmentSheetDetailContent: React.FC<Props> = ({
   treatmentSheet,
+  isDoctor,
   isLoading,
   isError,
   error,
@@ -108,6 +147,12 @@ export const TreatmentSheetDetailContent: React.FC<Props> = ({
   onPause,
   onResume,
   onCancel,
+  onRelease,
+  releaseMutation,
+  onAddClinicalReviewNote,
+  addClinicalReviewNoteMutation,
+  onRecordClinicalReviewOutcome,
+  recordClinicalReviewOutcomeMutation,
 }) => {
   const theme = useClinicTheme();
 
@@ -149,7 +194,7 @@ export const TreatmentSheetDetailContent: React.FC<Props> = ({
         showsVerticalScrollIndicator={false}
       >
         <TreatmentSheetInfoCard treatmentSheet={treatmentSheet} rowsData={rows.rowsData} treatmentOrder={treatmentOrder} {...headerData} />
-        {treatmentSheet.status === 'DRAFT' ? (
+        {isInSchedulingPhase(treatmentOrder) ? (
           <TreatmentScheduleSummary rowsData={rows.rowsData} onScheduleAppointments={onScheduleAppointments} onViewAppointments={onViewAppointments} />
         ) : null}
         {hasRows ? (
@@ -163,7 +208,7 @@ export const TreatmentSheetDetailContent: React.FC<Props> = ({
           hasBeenSavedOnce={rows.hasBeenSavedOnce}
           isSavingAll={rows.isSavingAll}
           page={page}
-          canEdit={isEditable(treatmentSheet.status as TreatmentSheetStatus)}
+          canEdit={isDoctor}
           treatmentOrder={treatmentOrder}
           onSetPage={setPage}
           onSaveAllRows={rows.saveAllRows}
@@ -189,6 +234,17 @@ export const TreatmentSheetDetailContent: React.FC<Props> = ({
           onPause={onPause}
           onResume={onResume}
           onCancel={onCancel}
+          isDoctor={isDoctor}
+          onRelease={onRelease}
+          releaseMutation={releaseMutation}
+        />
+        <ClinicalReviewSection
+          treatmentOrder={treatmentOrder}
+          isDoctor={isDoctor}
+          onAddNote={onAddClinicalReviewNote}
+          addNoteMutation={addClinicalReviewNoteMutation}
+          onRecordOutcome={onRecordClinicalReviewOutcome}
+          recordOutcomeMutation={recordClinicalReviewOutcomeMutation}
         />
       </ScrollView>
     </KeyboardAvoidingView>

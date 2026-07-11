@@ -4,10 +4,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { spacing } from '../../../../../core/theme/spacing';
 import { TreatmentSheetResponse } from '../../../data/models/treatmentSheets.dtos';
-import { TreatmentSheetStatusBadge } from '../../components/TreatmentSheetStatusBadge';
+import {
+  getLifecycleStatusColor,
+  getLifecycleStatusLabel,
+  TreatmentOrderResponse,
+} from '../../../data/models/treatmentOrders.dtos';
 
 interface Props {
   treatmentSheet?: TreatmentSheetResponse;
+  /** Phase 4 (R4) · T-F.2b (ADR-R4-03) — the header shows the resolver's own
+   * lifecycle_status_label here, never TreatmentSheet.status (DRAFT/FINAL/
+   * SIGNED is a backward-compat-only document field, never a workflow
+   * state). Optional because the order projection can still be loading when
+   * the header first mounts. */
+  treatmentOrder?: TreatmentOrderResponse;
   rowsCount: number;
   isPrinting: boolean;
   isArchiving: boolean;
@@ -18,6 +28,7 @@ interface Props {
 
 export const TreatmentSheetDetailHeader: React.FC<Props> = ({
   treatmentSheet,
+  treatmentOrder,
   rowsCount,
   isPrinting,
   isArchiving,
@@ -56,7 +67,7 @@ export const TreatmentSheetDetailHeader: React.FC<Props> = ({
       </View>
       {treatmentSheet && (
         <View style={styles.headerActions}>
-          <TreatmentSheetStatusBadge status={treatmentSheet.status} size="medium" />
+          <LifecycleStatusPill order={treatmentOrder} />
           <TouchableOpacity
             style={[styles.headerIconButton, { backgroundColor: theme.colors.background.elevated }]}
             onPress={onPrint}
@@ -77,6 +88,27 @@ export const TreatmentSheetDetailHeader: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
       )}
+    </View>
+  );
+};
+
+/** Phase 4 (R4) · T-F.2b (ADR-R4-03) — displays the resolver's own
+ * lifecycle_status_label (falling back to "Status Pending Review" for the
+ * still-open T-B.2 unresolved case, via the existing shared helper) — never
+ * TreatmentSheet.status, never a re-derivation of the resolver's own logic. */
+const LifecycleStatusPill: React.FC<{ order?: TreatmentOrderResponse }> = ({ order }) => {
+  const theme = useClinicTheme();
+  const label = getLifecycleStatusLabel(order?.lifecycle_status_label, order?.lifecycle_status_unresolved);
+  const color = getLifecycleStatusColor(order?.lifecycle_status, order?.lifecycle_status_unresolved);
+
+  return (
+    <View style={[styles.lifecyclePill, { backgroundColor: color + '20' }]}>
+      <Ionicons
+        name={order?.lifecycle_status_unresolved ? 'help-circle-outline' : 'ellipse'}
+        size={order?.lifecycle_status_unresolved ? 14 : 8}
+        color={color}
+      />
+      <Text style={[styles.lifecyclePillText, { color }]}>{label}</Text>
     </View>
   );
 };
@@ -115,5 +147,17 @@ const styles = StyleSheet.create({
     minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lifecyclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  lifecyclePillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

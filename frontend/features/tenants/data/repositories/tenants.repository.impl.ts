@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstac
 import {
   listTenantsApi,
   getTenantApi,
+  getCurrentTenantApi,
   createTenantApi,
   updateTenantApi,
   deactivateTenantApi,
@@ -52,6 +53,23 @@ export const useTenantQuery = (
     queryKey: tenantsKeys.detail(id),
     queryFn: () => getTenantApi(id),
     enabled: !!id,
+    ...options,
+  });
+};
+
+/**
+ * Hook to get the current (own) tenant's information -- tenant-scoped
+ * self-service lookup, distinct from useTenantQuery's org-admin route.
+ * Phase 4 · T-G.2 (clean-architecture boundary restoration).
+ */
+export const useCurrentTenantQuery = (
+  tenantId: string,
+  options?: Omit<UseQueryOptions<OrgTenantResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<OrgTenantResponse, Error>({
+    queryKey: ['current-tenant', tenantId],
+    queryFn: () => getCurrentTenantApi(tenantId),
+    enabled: !!tenantId,
     ...options,
   });
 };

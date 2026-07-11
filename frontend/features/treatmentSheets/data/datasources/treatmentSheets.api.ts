@@ -91,6 +91,28 @@ export const getTreatmentSheetsByEpisodeApi = async (
 };
 
 /**
+ * List treatment sheets for a client, optionally filtered by status --
+ * used to resolve the "ordering doctor" from a client's active treatment
+ * sheet (T-G.2, clean-architecture boundary restoration; extracted from an
+ * inline axiosClient call in CreateAppointmentScreen.tsx).
+ * GET /api/v1/clinic/{tenant_id}/treatment-sheets?client_id=...&status=...&limit=...
+ */
+export const listTreatmentSheetsByClientApi = async (
+  tenantId: string,
+  params: { client_id: string; status?: string; limit?: number }
+): Promise<{ items: TreatmentSheetResponse[]; total: number }> => {
+  const response = await axiosClient.get(
+    `/api/v1/clinic/${tenantId}/treatment-sheets`,
+    { params }
+  );
+  const items = response.data?.items ?? [];
+  return {
+    items,
+    total: response.data?.total ?? items.length,
+  };
+};
+
+/**
  * Transition treatment sheet status (DRAFT → FINAL → SIGNED)
  * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/status
  *

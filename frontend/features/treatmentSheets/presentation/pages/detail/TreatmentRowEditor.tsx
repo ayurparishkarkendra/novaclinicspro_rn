@@ -39,6 +39,13 @@ export const TreatmentRowEditor: React.FC<Props> = ({
     ['ORDERED', 'SCHEDULED'].includes(treatmentOrder.state) &&
     orderRow &&
     orderRow.status === 'PENDING';
+  // Phase 4 (R4) · T-E.4 (ADR-R4-06) — completed rows are permanently
+  // immutable clinical history, regardless of the sheet-level canEdit
+  // (Doctor) permission. The backend already rejects this at the API layer
+  // (SQLAlchemyTreatmentSheetRowRepository.update); this mirrors that same
+  // rule on the frontend so a completed row is never even offered as
+  // editable in the first place.
+  const rowCanEdit = canEdit && orderRow?.status !== 'COMPLETED';
 
   return (
     <View style={[styles.rowCard, { backgroundColor: theme.colors.background.default, borderColor: theme.colors.border.subtle }]}>
@@ -71,7 +78,7 @@ export const TreatmentRowEditor: React.FC<Props> = ({
               </Text>
             </TouchableOpacity>
           ) : null}
-          {canEdit ? (
+          {rowCanEdit ? (
             <>
               {!row.isEditing && hasBeenSavedOnce ? (
                 <IconButton onPress={() => onToggleEditMode(index)} icon="create-outline" color={theme.colors.primary.default} />
@@ -103,7 +110,7 @@ export const TreatmentRowEditor: React.FC<Props> = ({
           value={row.treatment_name}
           placeholder="Describe the treatment performed..."
           numberOfLines={3}
-          editable={canEdit && row.isEditing}
+          editable={rowCanEdit && row.isEditing}
           onChangeText={text => onUpdateField(index, 'treatment_name', text)}
         />
         <EditableField
@@ -111,7 +118,7 @@ export const TreatmentRowEditor: React.FC<Props> = ({
           value={row.medicines_text}
           placeholder="List medicines administered..."
           numberOfLines={2}
-          editable={canEdit && row.isEditing}
+          editable={rowCanEdit && row.isEditing}
           onChangeText={text => onUpdateField(index, 'medicines_text', text)}
         />
         <EditableField
@@ -119,7 +126,7 @@ export const TreatmentRowEditor: React.FC<Props> = ({
           value={row.instructions_text}
           placeholder="Instructions for the patient..."
           numberOfLines={2}
-          editable={canEdit && row.isEditing}
+          editable={rowCanEdit && row.isEditing}
           onChangeText={text => onUpdateField(index, 'instructions_text', text)}
         />
       </View>

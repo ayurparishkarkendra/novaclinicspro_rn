@@ -36,6 +36,26 @@ export type SchedulingStatus =
   | 'PENDING_SCHEDULING'
   | 'PARTIALLY_SCHEDULED'
   | 'FULLY_SCHEDULED'
+  /** Phase 4 (R4) · T-D.1 (ADR-R4-01) — Admin placed a temporary hold on
+   * scheduling. Does not affect `state`, which stays 'ORDERED'. */
+  | 'ON_HOLD'
+  | null;
+
+/** Phase 4 (R4) · T-C.2/T-C.4 (ADR-R4-02) — the single business lifecycle
+ * status resolved server-side. One of 11 values, or null while the still-open
+ * T-B.2 edge case (`lifecycle_status_unresolved`) applies. */
+export type TreatmentLifecycleStatus =
+  | 'recommended'
+  | 'needs_scheduling'
+  | 'scheduling_on_hold'
+  | 'scheduling_denied'
+  | 'scheduled_awaiting_treatment_sheet'
+  | 'treatment_sheet_draft'
+  | 'released_to_therapist'
+  | 'in_therapy'
+  | 'needs_clinical_review'
+  | 'under_clinical_review'
+  | 'treatment_complete'
   | null;
 
 /**
@@ -134,6 +154,23 @@ export interface TreatmentOrderResponse {
   duration_days?: number | null;
   /** Staff ID of the doctor who created/ordered the sheet */
   recorded_by_staff_id?: string | null;
+
+  // ── Phase 4 (R4) additive fields (T-C.3/T-C.4/T-D.1) ─────────────────────
+  /** Presence (not a boolean) is the release marker (ADR-R4-06). Whole-sheet only. */
+  released_at?: string | null;
+  released_by_staff_id?: string | null;
+  /** On-Hold detail (ADR-R4-01) — populated only while scheduling_status='ON_HOLD'. */
+  hold_started_at?: string | null;
+  hold_expires_at?: string | null;
+  hold_notes?: string | null;
+  /** 'planned' | 'stopped_early' — set only on a Doctor-recorded completion (ADR-R4-07). */
+  completion_reason?: string | null;
+  /** Single business status from the backend resolver (ADR-R4-02) — derived,
+   * never writable. Null + lifecycle_status_unresolved=true for the
+   * still-open T-B.2 edge case (do not guess a value client-side). */
+  lifecycle_status?: TreatmentLifecycleStatus;
+  lifecycle_status_label?: string | null;
+  lifecycle_status_unresolved?: boolean;
 }
 
 // ============================================
@@ -250,6 +287,10 @@ export const getSchedulingStatusLabel = (status: SchedulingStatus): string => {
     PENDING_SCHEDULING: 'Pending Scheduling',
     PARTIALLY_SCHEDULED: 'Partially Scheduled',
     FULLY_SCHEDULED: 'Fully Scheduled',
+    // Phase 4 (R4) · T-D.1 — required for exhaustiveness now that
+    // SchedulingStatus includes ON_HOLD; not a new status decision, only a
+    // label/color lookup entry (the primary resolver re-point is T-E.1's job).
+    ON_HOLD: 'On Hold',
   };
   return labels[status];
 };
@@ -261,81 +302,81 @@ export const getSchedulingStatusColor = (status: SchedulingStatus): string => {
     PENDING_SCHEDULING: '#EF4444',
     PARTIALLY_SCHEDULED: '#F59E0B',
     FULLY_SCHEDULED: '#10B981',
+    ON_HOLD: '#6B7280',
   };
   return map[status];
 };
 
 /**
- * R3B · T-D.1 (FR-D2) — the single primary, business-meaningful status for a
- * TreatmentOrderResponse. `state` and `scheduling_status` are two different
- * dimensions of the same order's progress, never shown together (Doc 02
- * §12's own rule: "multiple derived implementation statuses should never be
- * presented simultaneously"). Presentation-only — does not touch how either
- * underlying field is computed, stored, or derived (N-1); it only decides
- * which single, most business-meaningful label to show.
+ * Phase 4 (R4) · T-E.1 (ADR-R4-02, FR-B4) — re-pointed to the backend's own
+ * single business-lifecycle status (`lifecycle_status_label`, resolved
+ * server-side by `app/domain/treatment_plan/lifecycle_status.py`, T-C.2).
  *
- * **Corrected (T-D.1, second pass):** the first version of this function
- * assumed `scheduling_status` is only ever non-null/relevant while
- * `state === 'ORDERED'` — that does not hold. Reading the backend's own
- * `_repair_order_scheduling_states_for_tenant` (`sqlalchemy_treatment_order_
- * repository.py`) confirms it only auto-reverts `state` back to `ORDERED`
- * when `scheduling_status` drifts to `PENDING_SCHEDULING` — it does NOT
- * revert on a drift to `PARTIALLY_SCHEDULED` (e.g., planned sessions
- * increase after a plan was already fully scheduled). So a genuine, live
- * case exists where `state` has already advanced past `ORDERED` (e.g.
- * `SCHEDULED`/`IN_PROGRESS`) while `scheduling_status` is incomplete again —
- * exactly the signal `orders.tsx`'s own pre-existing `showSchedChip` logic
- * was written to surface as a second pill. Collapsing to "one status" must
- * not silently discard this — it is the single most operationally
- * important fact in that scenario (more important than either "Scheduled"
- * or "Partially Scheduled" shown alone), so it is surfaced as its own
- * explicit, task-oriented label — **"Needs Re-scheduling"** — rather than
- * either raw value. One status ≠ less information; one status = the most
- * important business status.
+ * **Superseded (not deleted) R3B logic:** this function used to re-derive a
+ * "primary status" itself from raw `state`/`scheduling_status` (including a
+ * frontend-only "Needs Re-scheduling" drift case — see git history for the
+ * full R3B/T-D.1 reasoning). That re-derivation is now the backend
+ * resolver's job; the frontend must not recreate it (constitutional
+ * governance rule: "frontend must not recreate resolver logic"). The one
+ * case genuinely lost by re-pointing — the `state` vs. `scheduling_status`
+ * "drift" the old code surfaced as "Needs Re-scheduling" — is exactly what
+ * the resolver's own `needs_scheduling` status covers from its OWN inputs;
+ * no information is silently dropped, only the computation moved server-side.
  *
- * Rule, in order (matches `orders.tsx`'s own pre-existing `showSchedChip`
- * condition exactly — `scheduling_status && scheduling_status !==
- * 'PENDING_SCHEDULING' && state !== 'ORDERED'` — rather than a broader
- * guess): only `PARTIALLY_SCHEDULED` triggers the drift label.
- * `PENDING_SCHEDULING` is deliberately excluded — the backend's own repair
- * job specifically targets and reverts *that* combination back to `ORDERED`
- * (`scheduling_status == "PENDING_SCHEDULING" and sheet.state ==
- * "SCHEDULED"`), treating it as a transient anomaly to correct, not a
- * stable state worth surfacing — unlike `PARTIALLY_SCHEDULED` drift, which
- * has no such reversion and is the case `orders.tsx`'s own logic was
- * written to catch.
- * 1. `state !== 'ORDERED'` (already past first-pass ordering) AND
- *    `scheduling_status === 'PARTIALLY_SCHEDULED'` → **"Needs
- *    Re-scheduling"** (drift case).
- * 2. `state === 'ORDERED'` AND a `scheduling_status` exists → show it
- *    (`getSchedulingStatusLabel`) — more precise than the generic "Waiting
- *    for Scheduling" state label during first-pass scheduling.
- * 3. Otherwise → the order's own `state` (`getOrderStateLabel`) — covers
- *    `DRAFT`, terminal states, and the fully-resolved case (`state`
- *    advanced with `scheduling_status` already `FULLY_SCHEDULED` — genuinely
- *    redundant with the state label, unlike the incomplete-scheduling case
- *    above).
+ * `lifecycle_status_unresolved` (the still-open T-B.2 edge case) is shown
+ * honestly as "Status Pending Review" rather than guessing at one of the 11
+ * real statuses — matching the backend's own "explicit not-yet-decided
+ * signal, never a guess" philosophy.
  */
-export const getPrimaryOrderStatusLabel = (order: Pick<TreatmentOrderResponse, 'state' | 'is_order' | 'scheduling_status'>): string => {
-  if (order.is_order && order.state !== 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
-    return 'Needs Re-scheduling';
-  }
-  if (order.is_order && order.state === 'ORDERED' && order.scheduling_status) {
-    return getSchedulingStatusLabel(order.scheduling_status);
-  }
-  return getOrderStateLabel(order.state);
+export const getPrimaryOrderStatusLabel = (
+  order: Pick<TreatmentOrderResponse, 'lifecycle_status_label' | 'lifecycle_status_unresolved'>
+): string => {
+  if (order.lifecycle_status_unresolved) return 'Status Pending Review';
+  return order.lifecycle_status_label ?? 'Status Pending Review';
 };
 
-/** Color token matching whichever value `getPrimaryOrderStatusLabel` chose — "Needs Re-scheduling" uses the same urgent/attention color as `PENDING_SCHEDULING`. */
-export const getPrimaryOrderStatusColor = (order: Pick<TreatmentOrderResponse, 'state' | 'is_order' | 'scheduling_status'>): string => {
-  if (order.is_order && order.state !== 'ORDERED' && order.scheduling_status === 'PARTIALLY_SCHEDULED') {
-    return getSchedulingStatusColor('PENDING_SCHEDULING');
-  }
-  if (order.is_order && order.state === 'ORDERED' && order.scheduling_status) {
-    return getSchedulingStatusColor(order.scheduling_status);
-  }
-  return getOrderStateColor(order.state);
+/** Human-readable label for a raw lifecycle_status value directly (no full order needed) — same fallback rule as getPrimaryOrderStatusLabel. */
+export const getLifecycleStatusLabel = (
+  lifecycleStatusLabel: string | null | undefined,
+  unresolved?: boolean
+): string => {
+  if (unresolved) return 'Status Pending Review';
+  return lifecycleStatusLabel ?? 'Status Pending Review';
 };
+
+/** Phase 4 (R4) · T-E.1 — color lookup keyed by the backend's own resolved
+ * `lifecycle_status` enum value. This does not re-derive WHICH status
+ * applies (that remains the backend resolver's sole authority) — it only
+ * assigns a display color to an already-resolved value, exactly symmetric
+ * with the backend's own label-only `STATUS_LABELS` lookup
+ * (`app/domain/treatment_plan/lifecycle_status.py`). */
+const LIFECYCLE_STATUS_COLORS: Record<NonNullable<TreatmentLifecycleStatus>, string> = {
+  recommended: '#6B7280',
+  needs_scheduling: '#EF4444',
+  scheduling_on_hold: '#6B7280',
+  scheduling_denied: '#EF4444',
+  scheduled_awaiting_treatment_sheet: '#3B82F6',
+  treatment_sheet_draft: '#3B82F6',
+  released_to_therapist: '#8B5CF6',
+  in_therapy: '#8B5CF6',
+  needs_clinical_review: '#F59E0B',
+  under_clinical_review: '#F59E0B',
+  treatment_complete: '#10B981',
+};
+
+/** Color token for a raw lifecycle_status value directly (no full order needed). */
+export const getLifecycleStatusColor = (
+  lifecycleStatus: TreatmentLifecycleStatus | null | undefined,
+  unresolved?: boolean
+): string => {
+  if (unresolved || !lifecycleStatus) return '#6B7280';
+  return LIFECYCLE_STATUS_COLORS[lifecycleStatus] ?? '#6B7280';
+};
+
+/** Color token matching `getPrimaryOrderStatusLabel`'s value — re-pointed to `lifecycle_status` (T-E.1), same rule as the label. */
+export const getPrimaryOrderStatusColor = (
+  order: Pick<TreatmentOrderResponse, 'lifecycle_status' | 'lifecycle_status_unresolved'>
+): string => getLifecycleStatusColor(order.lifecycle_status, order.lifecycle_status_unresolved);
 
 /**
  * Returns the rows from a TreatmentOrderResponse that have a scheduled_date,

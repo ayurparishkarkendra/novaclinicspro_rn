@@ -22,8 +22,8 @@ import {
   useTreatmentOrderQuery,
 } from '../../../treatmentSheets/data/repositories/treatmentOrders.repository.impl';
 import {
-  getOrderStateColor,
-  getOrderStateLabel,
+  getLifecycleStatusColor,
+  getLifecycleStatusLabel,
 } from '../../../treatmentSheets/data/models/treatmentOrders.dtos';
 import { useCreateTreatmentSheetMutation } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
 import {
@@ -206,8 +206,18 @@ const TreatmentSheetCard: React.FC<TreatmentSheetCardProps> = ({
   const orderState = treatmentOrder?.state;
   const hasOrderState = isTreatmentOrderFetched && !isTreatmentOrderError && !!treatmentOrder;
   const isSentToScheduling = !!treatmentOrder?.is_order && orderState !== 'DRAFT';
-  const displayStatusColor = orderState ? getOrderStateColor(orderState) : getStatusColor(sheet.status);
-  const displayStatusLabel = orderState ? getOrderStateLabel(orderState) : getStatusLabel(sheet.status);
+  // Phase 4 (R4) · T-E.1 (ADR-R4-02) — once an order exists, its display
+  // status is the backend's own lifecycle_status_label (T-C.2), never
+  // re-derived from raw state here. Before any order exists (no execution
+  // lifecycle has started yet), the document's own DRAFT/FINAL/SIGNED
+  // status remains a legitimate, separate fallback -- this is the
+  // documentation lifecycle, not a re-derivation of the execution one.
+  const displayStatusColor = hasOrderState
+    ? getLifecycleStatusColor(treatmentOrder?.lifecycle_status, treatmentOrder?.lifecycle_status_unresolved)
+    : getStatusColor(sheet.status);
+  const displayStatusLabel = hasOrderState
+    ? getLifecycleStatusLabel(treatmentOrder?.lifecycle_status_label, treatmentOrder?.lifecycle_status_unresolved)
+    : getStatusLabel(sheet.status);
 
   const handleSendToScheduling = () => {
     sendToScheduling.mutate({ sheetId: sheet.id, version: sheet.version ?? 1 });

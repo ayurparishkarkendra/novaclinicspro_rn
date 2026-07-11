@@ -197,3 +197,123 @@ export const cancelTreatmentOrderApi = async (
   );
   return response.data;
 };
+
+/** Phase 4 (R4) · T-D.1. Place a treatment order's Scheduling Decision on
+ * hold. hold_expires_at is an ISO datetime string. Does not change `state`. */
+export interface PlaceOnHoldPayload {
+  hold_expires_at: string;
+  hold_notes?: string;
+}
+
+/**
+ * Place a treatment order on hold (scheduling_status=ON_HOLD).
+ * POST /api/v1/treatment-sheets/{sheet_id}/hold
+ * Requires: If-Match: <version>
+ */
+export const placeTreatmentOrderOnHoldApi = async (
+  sheetId: string,
+  version: number,
+  payload: PlaceOnHoldPayload
+): Promise<TreatmentOrderResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/${sheetId}/hold`,
+    payload,
+    { headers: ifMatch(version) }
+  );
+  return response.data;
+};
+
+/**
+ * Extend an already-on-hold treatment order's hold expiry.
+ * POST /api/v1/treatment-sheets/{sheet_id}/hold/extend
+ * Requires: If-Match: <version>
+ */
+export const extendTreatmentOrderHoldApi = async (
+  sheetId: string,
+  version: number,
+  holdExpiresAt: string
+): Promise<TreatmentOrderResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/${sheetId}/hold/extend`,
+    { hold_expires_at: holdExpiresAt },
+    { headers: ifMatch(version) }
+  );
+  return response.data;
+};
+
+/**
+ * Phase 4 (R4) · T-E.5 (ADR-R4-06). Doctor releases the whole treatment
+ * sheet to the therapist. Whole-sheet only -- no per-row/partial release.
+ * POST /api/v1/treatment-sheets/{sheet_id}/release
+ * Requires: If-Match: <version>
+ */
+export const releaseTreatmentSheetApi = async (
+  sheetId: string,
+  version: number
+): Promise<TreatmentOrderResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/${sheetId}/release`,
+    {},
+    { headers: ifMatch(version) }
+  );
+  return response.data;
+};
+
+/** Phase 4 (R4) · T-D.4/T-E.6 (ADR-R4-07). One tenant_clinical_review_notes
+ * row -- `outcome: null` means the review is open ("Under Clinical Review"). */
+export interface ClinicalReviewNoteResponse {
+  id: string;
+  tenant_id: string;
+  treatment_sheet_id: string;
+  recorded_by_staff_id: string;
+  recorded_at: string;
+  notes_json: Record<string, unknown>;
+  outcome: string | null;
+  is_deleted: boolean;
+}
+
+/**
+ * Phase 4 (R4) · T-D.4 (ADR-R4-07). Append a Clinical Review note --
+ * documentation activity only, always outcome=NULL. Distinct from
+ * recordClinicalReviewOutcomeApi's own DECISION action.
+ * POST /api/v1/treatment-sheets/{sheet_id}/clinical-review-notes
+ * (no If-Match -- notes do not mutate the sheet, per T-D.4's own design)
+ */
+export const addClinicalReviewNoteApi = async (
+  sheetId: string,
+  notesJson: Record<string, unknown>
+): Promise<ClinicalReviewNoteResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/${sheetId}/clinical-review-notes`,
+    { notes_json: notesJson }
+  );
+  return response.data;
+};
+
+/** Phase 4 (R4) · T-D.5 (ADR-R4-07). The five Clinical Review outcomes. */
+export type ClinicalReviewOutcome =
+  | 'continue_unchanged'
+  | 'update_future_rows'
+  | 'extend'
+  | 'stop_remaining'
+  | 'complete';
+
+/**
+ * Phase 4 (R4) · T-D.5 (ADR-R4-07). Record a Clinical Review DECISION --
+ * distinct from addClinicalReviewNoteApi's documentation activity.
+ * POST /api/v1/treatment-sheets/{sheet_id}/clinical-review-outcome
+ * Requires: If-Match: <version>
+ */
+export const recordClinicalReviewOutcomeApi = async (
+  sheetId: string,
+  version: number,
+  outcome: ClinicalReviewOutcome,
+  notesJson: Record<string, unknown> = {}
+): Promise<TreatmentOrderResponse> => {
+  const response = await axiosClient.post(
+    `/api/v1/treatment-sheets/${sheetId}/clinical-review-outcome`,
+    { outcome, notes_json: notesJson },
+    { headers: ifMatch(version) }
+  );
+  return response.data;
+};

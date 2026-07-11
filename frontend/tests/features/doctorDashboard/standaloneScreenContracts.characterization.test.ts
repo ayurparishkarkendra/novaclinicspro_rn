@@ -25,21 +25,11 @@ describe('Standalone screen contracts (R3A · T-0.3, baseline for BC-1)', () => 
     expect(source).not.toMatch(/episodeId|visitId|WorkspaceProvider|useConsultationWorkspace/);
   });
 
-  it('CasesheetEditScreen: receives only { clientId, casesheetId }', () => {
-    const source = read('../../../features/casesheets/presentation/pages/CasesheetEditScreen.tsx');
-    expect(source).toContain("useLocalSearchParams<{ clientId: string; casesheetId: string }>()");
-    expect(source).not.toMatch(/episodeId|visitId|WorkspaceProvider|useConsultationWorkspace/);
-  });
-
-  it('CreateCasesheetScreen: receives { clientId, appointmentId?, episodeId? } and independently fetches Appointment + Episode data of its own', () => {
-    const source = read('../../../features/casesheets/presentation/pages/CreateCasesheetScreen.tsx');
-    expect(source).toContain("useLocalSearchParams<{ clientId: string; appointmentId?: string; episodeId?: string }>()");
-    // Confirms the §3.4 duplicate-context-passing finding: this screen
-    // independently re-fetches Appointment/Episode rather than receiving
-    // an already-loaded object from wherever the doctor navigated from.
-    expect(source).toContain('useAppointmentDetailQuery');
-    expect(source).toContain('useEpisodeDetailsQuery');
-  });
+  // Phase 4 (R4) · T-E.3b: CasesheetEditScreen/CreateCasesheetScreen were
+  // deleted (canonical CasesheetStandaloneScreen replaces both) -- their own
+  // contract tests are removed, not modified, since there is no file left
+  // to inspect. CasesheetStandaloneScreen's own contract is covered by
+  // casesheetStandaloneScreen.test.tsx.
 
   it('TenantInvoiceDetailScreen: receives only { invoiceId }', () => {
     const source = read('../../../features/billing/presentation/pages/TenantInvoiceDetailScreen.tsx');
