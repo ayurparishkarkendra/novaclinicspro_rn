@@ -66,3 +66,16 @@ export const deactivateTenantApi = async (id: string): Promise<OrgTenantResponse
   });
   return response.data;
 };
+
+/**
+ * Get the current tenant through the tenant-scoped self-service route.
+ * GET /api/v1/tenants/{tenant_id}
+ */
+export const getCurrentTenantApi = async (
+  tenantId: string
+): Promise<OrgTenantResponse> => {
+  const response = await axiosClient.get<OrgTenantResponse>(
+    `/api/v1/tenants/${tenantId}`
+  );
+  return response.data;
+};
