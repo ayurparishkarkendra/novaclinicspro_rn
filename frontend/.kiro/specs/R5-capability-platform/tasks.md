@@ -200,6 +200,161 @@ No other writer of `OrgSubscription.plan_code` was found — there is currently 
 - **Dependency:** T-G0.1.
 - **Rollback:** documentation-only.
 - **Risk:** low. Risk of missing a feature key — mitigated by Group F parity tests catching any gap before retirement.
+- **Status:** ✅ COMPLETE — full catalog seed inventory produced from live code/migration data (not assumed), proposed capability hierarchy drafted for review. No data seeded, no production code touched.
+  - **Files changed:** `tasks.md` (this inventory + seed plan). No production code, no migrations, no seed scripts.
+  - **Reason:** ADR-R5-07 requires the catalog to seed from actually-observed live values (a read-then-write reconciliation), and AC-2/AC-12's foundation requires the plan→capability links to reproduce today's `included_modules` per plan exactly, not an idealized or intended version of it.
+  - **Verification:** every value below was read directly from migration/seed source (not inferred) — `app/core/subscription_modules.py`, the `org_subscription_plans` seed migration (`9ad6b47e9660`), the `org_permissions.module` backfill migration (`c7911d033936`), and all six `org_templates` rows' `enabledfeatures`/`featuresettings` (`554e384715b8_0010_insert_template_data.py`, full read, all six clinic-type templates).
+
+### T-A.3 catalog seed inventory
+
+#### 1. Every current module code from `subscription_modules.py`
+
+`MODULES` dict keys (§ mechanism #1, T-A.1 — confirmed dead code, zero callers): `CORE`, `CLINICAL_DOCUMENTS`, `INVENTORY`, `STAFF_MANAGEMENT`, `REPORTS` (5 codes).
+
+#### 2. Every distinct `included_modules` value actually used by subscription plans — **three disagreeing sources found, not one**
+
+| Plan | (A) Live DB seed (`org_subscription_plans.included_modules`, migration `9ad6b47e9660`) — **the authoritative source for this seed plan, per AC-2's own parity requirement** | (B) `subscription_modules.py`'s `SUBSCRIPTION_MODULES` dict (dead code) | (C) `c7911d033936` migration's own docstring "Subscription Mapping" comment |
+|---|---|---|---|
+| FREE | `["CORE"]` | `["CORE"]` | CORE only |
+| BASIC | `["CORE", "CLINICAL_DOCUMENTS"]` | `["CORE","CLINICAL_DOCUMENTS","STAFF_MANAGEMENT"]` | CORE + CLINICAL_DOCUMENTS + STAFF_MANAGEMENT |
+| PRO | `["CORE","CLINICAL_DOCUMENTS","INVENTORY","STAFF_MANAGEMENT"]` (no REPORTS) | `["CORE","CLINICAL_DOCUMENTS","STAFF_MANAGEMENT","INVENTORY","REPORTS"]` (all 5) | BASIC + INVENTORY + REPORTS (all 5) |
+| ENTERPRISE | `["CORE","CLINICAL_DOCUMENTS","INVENTORY","STAFF_MANAGEMENT","REPORTS"]` (all 5) | all 5 | All modules |
+
+**This is a concrete, confirmed instance of exactly the drift `requirements.md` §2 finding #1-vs-#2 describes as a risk** — not hypothetical. (B) and (C) agree with each other but disagree with (A) on BASIC (missing `STAFF_MANAGEMENT`) and PRO (missing `REPORTS`). Since `PermissionSyncService` and `rbac_seed.py` (T-A.2's second-mechanism finding) both read (A) `included_modules` directly, **(A) is what actually governs live tenant entitlement today** — this is the source this seed plan reproduces, per AC-2's own instruction. (B)/(C) are recorded as the confirmed-drifted, non-authoritative alternates; they are not additional migration inputs, just evidence that mechanism #1's dict was never kept in sync.
+
+#### 3. `org_permissions.module` — actual live tagging (migration `c7911d033936`, full read)
+
+| Module | Permission codes tagged (verbatim from the migration's own `UPDATE ... WHERE code IN (...)`) | Count |
+|---|---|---|
+| `CORE` | `tenant.read/update`, `user.read/create/update/assign_role/remove_role/deactivate`, `client.read/create/update`, `appointment.read/create/update/cancel/delete`, `treatment.read/update`, `session.read/update` | 18 |
+| `CLINICAL_DOCUMENTS` | `casesheet.read/create/update/sign`, `treatment_sheet.read/create/update/sign/complete/record_materials`, `prescription.read/create/update/sign` | 13 |
+| `INVENTORY` | `inventory.read/create/update` | 3 |
+| `STAFF_MANAGEMENT` | `staff.read/create/update`, `staff_leave.read/request/approve/reject/cancel`, `staff_document.read/upload`, `staff_availability.read/update`, `staff_dashboard.view` | 11 |
+| `REPORTS` | `reports.view` | 1 |
+
+(Counts are close to but not identical to `subscription_modules.py`'s own `permissions_count` comments — e.g. it claims CORE=20/CLINICAL_DOCUMENTS=14 — another small instance of the same dead-dict drift, not re-litigated further here since the dict itself is already classified (A) retire.)
+
+**T-D.5b's own finding, reconfirmed here with the actual data:** `rbac_seed.py`'s `_seed_tenant_permissions_async` hardcodes `allowed_modules = ["CORE"]` plus `INVENTORY` only if the plan's `included_modules` contains it — **it never includes `CLINICAL_DOCUMENTS`, `STAFF_MANAGEMENT`, or `REPORTS` regardless of plan.** This means, today, tenant-creation-time RBAC seeding via this path **never grants** casesheet/treatment_sheet/prescription/staff/reports permissions to any tenant on any plan — a real, concrete behavioral divergence from `PermissionSyncService` (which does grant them per the plan's actual `included_modules`), not just a duplicated-implementation risk. This is exactly what T-D.5c's parity test must surface and either fix (post re-point) or explicitly document as an intentional divergence being corrected.
+
+#### 4. Every live key from `enabledfeatures` and `featuresettings` (all six `org_templates` rows, full read of migration `554e384715b8`)
+
+**`enabledfeatures` keys** (10 distinct, across `HEALTHCARE_CORE_V1`/`AYURVEDA_V1`/`ALLOPATHY_V1`/`DENTAL_V1`/`PHYSIO_V1`/`MULTISPECIALITY_V1`):
+
+| Key | Templates it appears in | `visibility` | `depends_on` (as declared, unenforced) | `gated_by` (as declared, unenforced) |
+|---|---|---|---|---|
+| `appointments.core` | all 6 | enabled | none | none |
+| `appointments.sessions` | ayurveda, physio | enabled | `appointments.core` | none |
+| `casesheets.core` | all 6 | enabled | none | none |
+| `prescriptions.core` | all except dental*... *(confirmed present: healthcare_core, ayurveda, allopathy, multispeciality — **absent from dental and physio**, which have no `prescriptions.core` entry at all)* | enabled | none | none |
+| `documents.core` | healthcare_core, allopathy, dental, physio, multispeciality — **absent from ayurveda** | enabled | none | none |
+| `reports.basic` | healthcare_core, allopathy, multispeciality — **absent from ayurveda, dental, physio** | enabled | none | none |
+| `financials.core` | all 6 | **disabled** in every template | none | `{type: subscription, plans: [pro, enterprise]}` (lowercase — see §11 casing finding) |
+| `therapy.core` | ayurveda, physio | enabled | `appointments.core` | none |
+| `inventory.core` | ayurveda (disabled), multispeciality (disabled) — **absent from healthcare_core, allopathy, dental, physio** | disabled where present | none | `{type: subscription, plans: [pro, enterprise]}` (ayurveda only; multispeciality's `inventory.core` entry has no `gated_by`) |
+| `dental.procedures` | dental only | enabled | `casesheets.core` | none |
+
+**`featuresettings` keys** (7 of the 10 above have a settings block; 3 never do): `appointments.core`, `documents.core`, `reports.basic`, `financials.core`, `therapy.core`, `inventory.core`, `dental.procedures`. **`appointments.sessions`, `casesheets.core`, and `prescriptions.core` never have a `featuresettings` entry in any template** — see §10 (dead keys) for why this matters concretely.
+
+#### 5. Proposed top-level capability codes
+
+| Code | Rationale | Entitlement basis |
+|---|---|---|
+| `core` | Maps 1:1 to the `CORE` subscription module and its 18 `org_permissions` codes; always entitled | All plans |
+| `clinical_documents` | Maps 1:1 to `CLINICAL_DOCUMENTS` module and its 13 codes | BASIC+ (per §2's authoritative source A) |
+| `inventory` | Maps 1:1 to `INVENTORY` module and its 3 codes, and to the `inventory.core` enabledfeatures key | PRO+ |
+| `staff_management` | Maps 1:1 to `STAFF_MANAGEMENT` module and its 11 codes | PRO+ (per source A — **not** BASIC+, contradicting the dead dict/migration-comment) |
+| `reports` | Maps 1:1 to `REPORTS` module, its 1 code, and `reports.basic` | ENTERPRISE only (per source A) |
+| `appointments` | **New — no dedicated `org_permissions` module exists; `appointment.*` codes are tagged `CORE`.** Proposed as its own top-level capability (mirrors `design.md` §18's own worked example naming, `appointments.multiday`) because `enabledfeatures` already treats it as a distinct functional category across every template | All plans (mirrors `CORE`'s scope, since the only RBAC precedent tags it `CORE`) |
+| `treatment` | **New — no dedicated module; `treatment_sheet.*` codes are tagged `CLINICAL_DOCUMENTS`, but `therapy.core`/`dental.procedures` are functionally distinct clinic-specific concepts in `enabledfeatures`.** Proposed as its own top-level capability, mirroring `design.md`'s own worked `treatment.ayurveda`/`treatment.physiotherapy`/`treatment.dental` examples | BASIC+ (mirrors `CLINICAL_DOCUMENTS`'s scope, the closest RBAC precedent) — **flagged as a judgment call, not an evidenced fact**, since no permission today is tagged specifically for therapy/dental |
+| `billing` | **New — genuinely unmapped.** `financials.core` appears in all 6 templates but has **no corresponding `org_permissions` module, no RBAC codes, and no live enforcement** (its `gated_by` is descriptive only, §11) | Proposed PRO+/ENTERPRISE per the templates' own (unenforced) `gated_by` hint — **the lowest-confidence mapping in this inventory**, since nothing today actually enforces it |
+
+#### 6. Proposed child capability codes and parent relationships
+
+| Child code | Parent | Maps to (legacy) |
+|---|---|---|
+| `core.appointments_base`, `core.clients`, `core.staff_users`, `core.treatment_records` *(optional finer split of the 18 CORE-tagged permission codes — proposed only if finer-grained toggling is ever wanted; not required for parity)* | `core` | subsets of the 18 `CORE`-tagged codes |
+| `clinical_documents.casesheets` | `clinical_documents` | `casesheet.*` (4 codes), `casesheets.core` (enabledfeatures) |
+| `clinical_documents.treatment_sheets` | `clinical_documents` | `treatment_sheet.*` (6 codes) |
+| `clinical_documents.prescriptions` | `clinical_documents` | `prescription.*` (4 codes), `prescriptions.core` (enabledfeatures) |
+| `appointments.sessions` | `appointments` | `appointments.sessions` (enabledfeatures) |
+| `appointments.multiday` | `appointments` | the `allow_multiday` featuresetting under `appointments.core` — **currently always `false` everywhere, §10** |
+| `treatment.ayurveda` | `treatment` | `therapy.core` (ayurveda template context) |
+| `treatment.physiotherapy` | `treatment` | `therapy.core` (physio template context) |
+| `treatment.dental` | `treatment` | `dental.procedures` (dental template only) |
+| `billing.invoicing` | `billing` | `financials.core` — **note: `design.md` §18 already names `billing.invoicing` as an illustrative future-extensibility example; this inventory finds it is not actually hypothetical — real template data already gates a concept matching it today, just unenforced.** |
+
+The `clinical_documents.*` three-way split above is proposed **for review, not required** — a single flat `clinical_documents` (no children) would equally reproduce today's actual entitlement behavior, since `PermissionSyncService`/`rbac_seed.py` both currently grant or withhold the whole `CLINICAL_DOCUMENTS` module as one unit, never per-sub-document. Splitting is a forward-looking judgment call about future fine-grained toggling, not something today's data requires.
+
+#### 7. Explicit dependency edges (proposed, cross-branch only — parent-as-dependency, ADR-R5-09, is separate and automatic)
+
+| Capability | Depends on | Evidence |
+|---|---|---|
+| `appointments.sessions` | `appointments` *(parent-as-dependency, automatic per ADR-R5-09 — not a separate edge)* | `enabledfeatures`' own `depends_on: ["appointments.core"]` declaration |
+| `treatment.ayurveda` / `treatment.physiotherapy` | `appointments` | `therapy.core`'s own `depends_on: ["appointments.core"]` declaration in every template that has it — this **is** a genuine cross-branch edge (treatment depends on appointments, a sibling top-level capability, not its parent) |
+| `treatment.dental` | `clinical_documents.casesheets` (or flat `clinical_documents` if not split) | `dental.procedures`' own `depends_on: ["casesheets.core"]` declaration |
+| `billing.invoicing` | none found | no `depends_on` declared for `financials.core` in any template |
+
+**Caveat, stated plainly:** every `depends_on`/`gated_by` value above is **descriptive metadata in the `enabledfeatures` JSONB today — confirmed unenforced by any backend code** (§11). These proposed edges are *informed by* that metadata as the best available evidence of intended relationships, not a claim that today's system already enforces a dependency graph. Nothing currently breaks if this evidence is wrong; the resolver (T-C.3) will be the first thing to actually enforce these edges.
+
+#### 8. Plan-to-capability mappings (reproducing source A exactly, per AC-2)
+
+| Plan | Capabilities |
+|---|---|
+| FREE | `core`, `appointments` |
+| BASIC | FREE + `clinical_documents`, `treatment` |
+| PRO | BASIC + `inventory`, `staff_management` |
+| ENTERPRISE | PRO + `reports` |
+| *(all plans, judgment call)* | `billing` — **not mapped to any plan in this table**, since no live plan-to-`financials.core` gate is actually enforced anywhere; if `design.md`/`tasks.md` want `billing` pre-entitled to PRO/ENTERPRISE to match the templates' *declared* (unenforced) intent, that is a decision for review, not reproduced from any live behavior (there is none to reproduce) |
+
+**`appointments` and `treatment` are placed above by their closest RBAC precedent** (`core`'s and `clinical_documents`' own plan scope respectively) since neither has its own dedicated entitlement mechanism today — this is the same judgment-call caveat as §5.
+
+#### 9. Template-to-capability default mappings (`org_template_capabilities`, ADR-R5-08)
+
+Derived directly from each template's `enabledfeatures[].visibility` (`enabled` → `default_enabled=true`, `disabled` → `default_enabled=false`):
+
+| Template (`clinictype`) | `default_enabled=true` | `default_enabled=false` |
+|---|---|---|
+| `HEALTHCARE_CORE_V1` (general) | `core`, `appointments`, `clinical_documents.casesheets`, `clinical_documents.prescriptions`, `reports` | `billing` |
+| `AYURVEDA_V1` | `core`, `appointments`, `appointments.sessions`, `clinical_documents.casesheets`, `clinical_documents.prescriptions`, `treatment.ayurveda` | `inventory`, `billing` |
+| `ALLOPATHY_V1` | `core`, `appointments`, `clinical_documents.casesheets`, `clinical_documents.prescriptions`, `reports` | `billing` |
+| `DENTAL_V1` | `core`, `appointments`, `clinical_documents.casesheets`, `clinical_documents.prescriptions`, `treatment.dental` | `billing` |
+| `PHYSIO_V1` | `core`, `appointments`, `appointments.sessions`, `clinical_documents.casesheets`, `treatment.physiotherapy` | `billing` |
+| `MULTISPECIALITY_V1` | `core`, `appointments`, `clinical_documents.casesheets`, `clinical_documents.prescriptions`, `reports` | `inventory`, `billing` |
+
+Note `documents.core` (present in 5 of 6 templates) has **no proposed capability mapping at all** — see §10, it is the clearest "cannot map confidently" case in this inventory.
+
+#### 10. Keys that cannot be mapped confidently (named, not glossed over)
+
+- **`documents.core`** (enabledfeatures, present in healthcare_core/allopathy/dental/physio/multispeciality, absent from ayurveda) — generic file-upload settings (`enable_uploads`, `max_file_size_mb`). **No `org_permissions` module or code corresponds to it at all.** It doesn't cleanly belong under `core` (its own settings are unrelated to any `CORE`-tagged permission), and inventing a new top-level `documents` capability for one settings block with no RBAC backing would be pure speculation. **Recommendation: do not seed a capability for this key in Group B; revisit if/when a real permission-gated document-management feature exists.** Left explicitly unmapped rather than forced into a guess.
+- **`appointments.sessions`'s and `casesheets.core`'s/`prescriptions.core`'s missing `featuresettings`** — not a mapping failure exactly, but see §11's dead-key finding: these keys exist in `enabledfeatures` but were never given a matching `featuresettings` entry in any template, so any capability-level "settings" concept for them has nothing to seed from.
+
+#### 11. Duplicates, aliases, dead keys, and conflicting semantics
+
+- **Naming-convention alias, not a conflict:** `enabledfeatures` uses plural, `.core`-suffixed keys (`casesheets.core`, `prescriptions.core`, `appointments.core`) while `org_permissions.code` uses singular, verb-suffixed codes (`casesheet.read`, `prescription.sign`, `appointment.create`). Same underlying concepts, two independently-evolved naming conventions — the proposed capability `code`s (§5/§6) intentionally use neither verbatim, to avoid inheriting either legacy convention as the new permanent contract (FR-K1 immutability makes this a one-time decision worth getting right).
+- **Confirmed dead/never-populated settings:** `appointments.sessions` has **no `featuresettings` entry in any of the six templates** — meaning `org_tenants_service.get_tenant_features`'s `sessions_settings = feature_settings.get("appointments.sessions", {})` is **always `{}`** today, so `enable_treatment_sheets`/`enable_sheet_sync` in the `GET /tenants/{id}/features` response are **always `False`, for every tenant, via this legacy path**, regardless of clinic type. Independently, `appointments.core`'s own `featuresettings.settings.allow_multiday` is hardcoded `false` in the one template that defines it (`HEALTHCARE_CORE_V1`) and **no child template ever overrides it** — so `allow_multiday` is also always `False` via this same legacy path today. **This is stated as a confirmed code-level fact about this specific legacy mechanism, not a claim about whether multi-day appointments work at all in the product** — this inventory did not trace whether some other, newer mechanism (e.g. a per-tenant override elsewhere) supplies `allow_multiday`/treatment-sheet-enablement in practice; only that `get_tenant_features`'s own template-derived path cannot produce `true` for either flag today.
+- **Confirmed unenforced field:** `gated_by` (on `financials.core` and `inventory.core` entries) is **never read by any backend code** — `grep -rln "gated_by" app/application/ app/api/ app/domain/` finds it only in `app/api/v1/schemas/template.py` as a passthrough Pydantic field, never evaluated for an actual entitlement decision. It is descriptive/UI-hint metadata today, not a live gate — recorded so the seed plan's use of it (§5/§8, as the *only* evidence for `billing`'s proposed plan mapping) is understood as inference from intent, not reproduction of enforced behavior.
+- **Confirmed casing inconsistency:** `gated_by.plans` uses lowercase plan codes (`"pro"`, `"enterprise"`) while `included_modules`/`subscription_modules.py`/`org_subscription_plans.code` all use uppercase (`"PRO"`, `"ENTERPRISE"`). Never caused a live bug only because `gated_by` is never actually read — recorded as a latent inconsistency, not a live one.
+- **No duplicate/conflicting capability-shaped keys were found across `enabledfeatures` vs `featuresettings` themselves** beyond the naming-alias point above — every key that appears in `featuresettings` also appears in `enabledfeatures` (a subset relationship, not two competing lists).
+
+#### 12. Evidence the proposed seed reproduces current behavior
+
+- **Plan→capability (§8) reproduces `org_subscription_plans.included_modules` exactly** (source A, §2) — verified module-for-module: FREE→`core`; BASIC→`core`+`clinical_documents`; PRO→+`inventory`+`staff_management`; ENTERPRISE→+`reports`. This is the literal parity baseline AC-2 requires, and Group F's own parity tests (T-F.1) will re-verify it against live tenant data before any retirement.
+- **Template→capability defaults (§9) reproduce each template's own `enabledfeatures[].visibility`** field verbatim (enabled→true, disabled→false) — no reinterpretation.
+- **`org_permissions.module` counts (§3) are quoted verbatim from the `c7911d033936` migration's own `UPDATE ... WHERE code IN (...)` lists**, not estimated.
+- **Where evidence was insufficient to reproduce behavior with confidence** (`documents.core`, `billing`'s plan mapping, the proposed dependency edges), this inventory says so explicitly (§7, §8, §10) rather than presenting a guess as a fact — consistent with this document series' own "verify, don't assume" discipline.
+
+#### 13. Separation of concerns — capability identity vs. settings/configuration vs. RBAC permission grouping vs. onboarding-readiness projections
+
+Four genuinely distinct things this inventory touched, kept explicitly separate (conflating any two would recreate a §2-style hidden mechanism):
+
+1. **Capability identity** (this inventory's own proposal, §5/§6) — the `Capability.code`/hierarchy itself: *does this feature exist, at what level of granularity.* Platform-owned, migration-only (Area K).
+2. **Settings/configuration** (`featuresettings`'s `settings` blocks — `slot_duration_minutes`, `default_session_length_minutes`, `track_tooth_chart`, etc.) — **not** part of the Capability model at all. These are feature-internal configuration values, orthogonal to whether the capability is available/enabled. R5 does not migrate or own these; they remain wherever they live today (`OrgTemplate.featuresettings` or a future dedicated settings store) — a capability being enabled says nothing about what its settings are.
+3. **RBAC permission grouping** (`org_permissions.module`/`.category`) — *who is allowed to act*, composed with but never merged into capability (Area F, FR-F1). §3's module tagging informs which `org_permissions` codes a capability's entitlement should logically align with, but the capability catalog does not store or duplicate permission codes.
+4. **Onboarding-readiness projections** (`tenant_features`/`TenantFeature`, T-A.1's mechanism #7, and `OrgSetupProgress`) — *did the setup wizard mark this step/feature as configured*, a historical, onboarding-scoped fact, never a capability-availability answer. Confirmed in T-A.1 to have zero overlap with any mechanism this inventory touches, and excluded from this catalog seed entirely, consistent with T-A.1's binding boundary.
+
+  - **Architecture deviations discovered:** none in the R5 design itself — all findings are further evidence of the *current-state* diffuseness `requirements.md` §2 already frames as the problem, now with concrete data rather than description.
+  - **Unexpected findings:** (1) a third, previously-uncited disagreeing source for plan→module mapping (the `c7911d033936` migration's own docstring, agreeing with the dead dict, disagreeing with the actual live seed); (2) `rbac_seed.py`'s hardcoded CORE/INVENTORY-only behavior means it **never** grants `CLINICAL_DOCUMENTS`/`STAFF_MANAGEMENT`/`REPORTS` permissions regardless of plan — a real behavioral gap from `PermissionSyncService`, not just a duplicated-implementation risk, reinforcing T-D.5c's necessity; (3) two confirmed dead/never-true settings paths (`appointments.sessions` featuresettings, `allow_multiday`); (4) `gated_by` is entirely unenforced platform-wide; (5) `design.md` §18's illustrative `billing.invoicing` example turns out to already have real (if unenforced) template data behind it today, not purely hypothetical.
+  - **Recommendation for T-A.4 approval:** ready for approval as drafted. Three items need an explicit decision (not decided here): (a) whether to seed `billing`/`treatment`/`appointments` as new top-level capabilities now (this inventory's proposal) or defer them to a later phase since none has direct RBAC-permission backing today; (b) whether `documents.core` is deliberately left unmapped (this inventory's recommendation) or reconsidered; (c) whether the `clinical_documents.*` three-way child split (§6) is adopted now or deferred as a flat `clinical_documents` capability, since today's data doesn't require the split.
 
 **T-A.4 — ⛔ Ownership gate approval (EG-6)** · (doc) · deps: T-A.1, T-A.2, T-A.3 · realizes: `requirements.md` EG-6, AC-11
 - **Purpose:** The hard gate — record explicit approval before any schema work.
