@@ -61,7 +61,7 @@ Do not merge into `test` or `dev` during R0.
 
 | Gate | Status | Evidence | Unresolved Blocker | Owner / Next Action |
 |---|---|---|---|---|
-| R1 - Canonical Specs in Git | PARTIAL | `git check-ignore -v frontend/docs/Onboarding/progressive-experience/requirements.md` reports the narrow `.gitignore` unignore rule. `git ls-files frontend/docs/Onboarding/progressive-experience` is empty before staging, so canonical docs are visible to Git but not yet committed. `.kiro` remains ignored. | Canonical docs must be staged, committed, and pushed on the frontend recovery branch. | Codex/user: commit reviewed docs only. |
+| R1 - Canonical Specs in Git | PASS | `git check-ignore -v frontend/docs/Onboarding/progressive-experience/requirements.md` reports the narrow `.gitignore` unignore rule. `git ls-files frontend/docs/Onboarding/progressive-experience` lists the nine canonical docs. `.kiro` remains ignored via `.gitignore:240:.kiro/`. Documentation commit `4cc02477` was pushed to `origin/feature/progressive-experience-recovery`. | None. | Keep canonical docs in `frontend/docs/Onboarding/progressive-experience/`; treat `.kiro` as a workspace mirror only. |
 | R2 - Clean Paired Branches | PASS | Frontend branch `feature/progressive-experience-recovery` created from `45c13b04` and pushed. Backend branch `feature/progressive-experience-recovery` created from `9dba7d1` and pushed. Backend worktree is clean. Frontend worktree contains only reviewed docs and `.gitignore` changes for R0. | None for branch creation. | Codex/user: keep branch pair clean; do not reuse `origin/feature/progressive-experience-phase-1`. |
 | R3 - Backend Onboarding Idempotency Verification | BLOCKED | `app/api/v1/routers/onboarding_router.py` step endpoint accepts `tenant_id`, `step_code`, request body, user context, and service, but no `Request` or `Header` dependency for `Idempotency-Key`. `app/application/services/onboarding_service.py::submit_step` receives no idempotency key and always proceeds to handlers plus `_mark_step_completed`. Search found `Idempotency-Key` only in CORS and unrelated idempotency comments, not onboarding step handling. | Backend onboarding step idempotency is not implemented for the required retry/cache/locking semantics. | Backend owner: implement or explicitly accept risk. |
 | R4 - Tenant Resolution Verification | PARTIAL | Frontend sends `X-Tenant-ID` fallback in onboarding status and step submit APIs. Backend `/auth/me` response includes `tenant_id` when present. Backend `get_tenant_user_context_from_jwt` requires `app_metadata.tenant_id`; onboarding route also checks user tenant against route tenant in service. | Staging verification is still required for provisional onboarding tenants, active tenants, tenant switching, `X-Tenant-ID` compatibility, and cross-tenant rejection. | Backend/frontend owners: run staging checklist below. |
@@ -162,16 +162,15 @@ No product test result is claimed as passing except `git diff --check`.
 Recovery Checkpoint: NO-GO
 ```
 
-The checkpoint remains NO-GO because R3, R5, and R6 are blocked, and R1 remains incomplete until documentation is committed and pushed.
+The checkpoint remains NO-GO because R3, R5, and R6 are blocked.
 
 ## 10. Minimum Remaining Actions For GO
 
-1. Commit and push the canonical Progressive Experience docs on the frontend recovery branch.
-2. Implement backend onboarding idempotency or provide verified existing implementation evidence.
-3. Verify tenant resolution in staging using the checklist above.
-4. Complete Hindi Progressive Experience translations or formally defer with a named owner and approved release gate.
-5. Install/use the correct frontend/backend toolchains and rerun all focused verification commands successfully.
-6. Update this checkpoint to PASS for all mandatory gates before starting Progressive Experience Phase 1.
+1. Implement backend onboarding idempotency or provide verified existing implementation evidence.
+2. Verify tenant resolution in staging using the checklist above.
+3. Complete Hindi Progressive Experience translations or formally defer with a named owner and approved release gate.
+4. Install/use the correct frontend/backend toolchains and rerun all focused verification commands successfully.
+5. Update this checkpoint to PASS for all mandatory gates before starting Progressive Experience Phase 1.
 
 ## 11. Next Authorized Work
 
