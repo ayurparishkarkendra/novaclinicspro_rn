@@ -241,4 +241,8 @@ frontend/ios/
 frontend/.metro-cache/
 *.md
 frontend/docs/
+!frontend/docs/
+!frontend/docs/Onboarding/
+!frontend/docs/Onboarding/progressive-experience/
+!frontend/docs/Onboarding/progressive-experience/**
 .emergent/
