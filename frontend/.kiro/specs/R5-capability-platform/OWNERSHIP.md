@@ -1,6 +1,6 @@
 # R5 — Capability Platform Ownership Table (T-A.1)
 
-**Status:** T-A.1 approved (with mechanism #7 amendment). T-A.2's audit is approved and its two required design corrections (§9.0/ADR-R5-03 three-tier resolver; `rbac_seed.py` added to reconciliation scope) are applied in `design.md`/`tasks.md` — see §4/§5 below. T-A.3 still pending. T-A.4 (the joint ownership gate) remains pending until T-A.3 is also reviewed and approved.
+**Status:** T-A.1 approved (with mechanism #7 amendment). T-A.2 approved (with the two required design corrections applied). **T-A.3 approved** (catalog seed inventory, `tasks.md`). T-A.4 (the joint ownership/architecture gate) is being verified now — see `tasks.md`'s T-A.4 entry for the cross-document consistency check.
 **Realizes:** `requirements.md` OW-1/OW-4, FR-G1 · `design.md` §5.
 **Method:** every row below was verified directly against the live code on `feature/r5-capability-platform` (backend), not assumed from `design.md`'s own text — `design.md` §5/§2 was written before this audit and is largely confirmed accurate below, with corrections noted.
 **Mechanism count: seven**, not six — `tenant_features`/`TenantFeature` (mechanism #7) was discovered during this audit and is not part of `requirements.md` §2's original inventory. It is fully classified in §3 below, not left as a standalone finding outside the classification table.
