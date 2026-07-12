@@ -40,9 +40,9 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
   - Do not reuse stale `origin/feature/progressive-experience-phase-1`.
 
 - [ ] R0.4 Verify backend idempotency status
-  - Current status: `UNVERIFIED_IN_DEV`.
-  - Backend onboarding idempotency could not be verified from the audited `origin/dev` code and requires explicit confirmation or implementation.
-  - Do not implement in this documentation task.
+  - Current status: `VERIFIED_IN_DEV`.
+  - Backend recovery commits `c5082fb`, `f145dbf`, and `a2a818b` implement Platform Foundation idempotency, onboarding step submission integration, migration `20260712_000001`, and focused tests.
+  - Remaining verification: `alembic current` against a configured database and staging same-key replay/tenant-isolation checks.
 
 - [ ] R0.5 Define tenant-resolution staging checks
   - Cover `/auth/me`, onboarding/provisional tenants, live tenants, tenant switching, `X-Tenant-ID` compatibility, and cross-tenant submission safety.

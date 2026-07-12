@@ -11,7 +11,7 @@ This checkpoint must close before further Progressive Experience implementation.
 Frontend recovery worktree:
 
 ```text
-/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery
+/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery-codex
 ```
 
 Frontend branch:
@@ -44,14 +44,20 @@ Backend `origin/dev` base:
 9dba7d1 Implement R4 treatment state ownership backend
 ```
 
+Backend recovery branch current pushed head:
+
+```text
+a2a818b Integrate onboarding submission with platform idempotency
+```
+
 ## 2.1 Worktree Ownership
 
 | Agent | Repository | Worktree | Branch | Purpose |
 |---|---|---|---|---|
-| Codex | Frontend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery` | `feature/progressive-experience-recovery` | Onboarding recovery |
+| Codex | Frontend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery-codex` | `feature/progressive-experience-recovery` | Onboarding recovery documentation |
 | Codex | Backend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro-api-progressive-recovery` | `feature/progressive-experience-recovery` | Onboarding recovery |
 
-No other agent worktree was modified. Doctor Module work remains out of scope.
+The previous frontend recovery folder at `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery` is now on `merge-progressive-phase0-into-test` at `e8fb29aa` and is treated as owned by another workflow. It was not switched or modified. No other agent worktree was modified. Doctor Module work remains out of scope.
 
 ## 3. Branch Decision
 
@@ -72,27 +78,27 @@ Do not merge into `test` or `dev` during R0.
 |---|---|---|---|---|
 | R1 - Canonical Specs in Git | PASS | `git check-ignore -v frontend/docs/Onboarding/progressive-experience/requirements.md` reports the narrow `.gitignore` unignore rule. `git ls-files frontend/docs/Onboarding/progressive-experience` lists the nine canonical docs. `.kiro` remains ignored via `.gitignore:240:.kiro/`. Documentation commit `4cc02477` was pushed to `origin/feature/progressive-experience-recovery`. | None. | Keep canonical docs in `frontend/docs/Onboarding/progressive-experience/`; treat `.kiro` as a workspace mirror only. |
 | R2 - Clean Paired Branches | PASS | Frontend branch `feature/progressive-experience-recovery` created from `45c13b04` and pushed. Backend branch `feature/progressive-experience-recovery` created from `9dba7d1` and pushed. Backend worktree is clean. Frontend worktree contains only reviewed docs and `.gitignore` changes for R0. | None for branch creation. | Codex/user: keep branch pair clean; do not reuse `origin/feature/progressive-experience-phase-1`. |
-| R3 - Backend Onboarding Idempotency Verification | BLOCKED | `platform-idempotency-assessment.md` confirms no reusable platform request-idempotency capability exists today. `app/api/v1/routers/onboarding_router.py` step endpoint accepts `tenant_id`, `step_code`, request body, user context, and service, but no `Request` or `Header` dependency for `Idempotency-Key`. `app/application/services/onboarding_service.py::submit_step` receives no idempotency key and always proceeds to handlers plus `_mark_step_completed`. | Backend onboarding step idempotency is not implemented for the required retry/cache/locking semantics. | Recommended owner: `PLATFORM_FOUNDATION`; onboarding should consume the reusable contract once available. |
+| R3 - Backend Onboarding Idempotency Verification | PASS_IN_DEV | Backend commits `c5082fb`, `f145dbf`, and `a2a818b` implement Platform Foundation request idempotency, migration `20260712_000001`, onboarding step submission integration, and focused tests. Focused tests: `12 passed`; full backend suite: `316 passed`; `git diff --check` passed; `alembic heads` reports `20260712_000001 (head)`. | `alembic current` was not verified because local database `novaclinics_test` does not exist; staging retry verification still required after deployment. | Backend/platform owner: verify migration/current against a configured database and run staging same-key replay checks. |
 | R4 - Tenant Resolution Verification | PARTIAL | Frontend sends `X-Tenant-ID` fallback in onboarding status and step submit APIs. Backend `/auth/me` response includes `tenant_id` when present. Backend route authorization resolves membership from the path `tenant_id`; onboarding service also checks user tenant against route tenant. | Staging verification is still required for provisional onboarding tenants, active tenants, tenant switching, multi-clinic users, `X-Tenant-ID` disagreement behavior, and cross-tenant rejection. | Backend/frontend owners: run staging checklist below. |
-| R5 - Hindi Localization Completion Decision | BLOCKED | Comparison of `onboarding.progressiveExperience` in `en-US.json` and `hi-IN.json` shows every audited key is an `ENGLISH_PLACEHOLDER`. | Hindi localization remains incomplete. | Product/localization owner: formally complete Hindi translations in Progressive Experience Phase 1 readiness, or defer with named owner and acceptance date. Current R0 decision: formally defer, not complete. |
-| R6 - Focused Verification | BLOCKED | `git diff --check` passed for frontend and backend. Frontend `node_modules` is missing; `npm test -- --runInBand` failed with `jest: command not found`; `npm run typecheck` failed because no `typecheck` script exists. Backend has `pyproject.toml`, `requirements.txt`, and `alembic.ini`, but no local `venv`; `./venv/bin/alembic heads`, `./venv/bin/alembic current`, and `./venv/bin/pytest -q` failed because those binaries do not exist. | Local verification toolchain is incomplete/unavailable in the clean worktrees. | Environment owner: install/use project dependencies and Python tooling, then rerun verification. |
+| R5 - Hindi Localization Completion Decision | FORMALLY_DEFERRED | Comparison of `onboarding.progressiveExperience` in `en-US.json` and `hi-IN.json` shows every audited key is an `ENGLISH_PLACEHOLDER`. | Hindi localization remains incomplete and must be completed or explicitly accepted again before user-facing Hindi launch. | Product/localization owner: complete Hindi translations in Progressive Experience Phase 1 readiness, or maintain a named deferral owner and acceptance date. |
+| R6 - Focused Verification | PARTIAL | Backend verification now passes in `.venv-idempotency`: focused tests `12 passed`, full tests `316 passed`, `git diff --check` passed, `alembic heads` passed. Frontend `node_modules` remains missing from prior audit; frontend tests were not restored in this task. | `alembic current` blocked by missing local database `novaclinics_test`; frontend dependencies/tests still not restored. | Environment owner: verify Alembic current against a configured database and restore frontend dependency/test tooling. |
 
 ## 5. Backend Idempotency Evidence
 
-Conclusion:
+Conclusion after backend recovery implementation:
 
 ```text
-IMPLEMENTATION_REQUIRED
+VERIFIED_IN_DEV
 ```
 
 | Concern | Evidence | Status |
 |---|---|---|
-| Header read | `submit_step_data` in `app/api/v1/routers/onboarding_router.py` does not accept a `Request`, `Header`, or `idempotency_key` parameter. | FAIL |
-| Scope | No onboarding idempotency key is read, so no tenant/user/action/payload scope can be applied. Tenant access check exists separately in `OnboardingService.submit_step`. | FAIL |
-| Duplicate prevention | `OnboardingService.submit_step` runs handlers and `_mark_step_completed` without key lookup or duplicate suppression. | FAIL |
-| Same-response retry | No persistence/cache of the first response was found for onboarding step submission. | FAIL |
-| Concurrent duplicate handling | No lock/unique constraint path for onboarding step idempotency was found. | FAIL |
-| Tests | Search found no backend onboarding idempotency tests for `Idempotency-Key`. | FAIL |
+| Header read | `submit_step_data` accepts optional `Idempotency-Key` via FastAPI `Header`. Missing key preserves legacy behavior; present empty key returns platform validation error. | PASS_IN_DEV |
+| Scope | Platform scope includes route tenant, authenticated actor, onboarding step operation, and idempotency key. Request fingerprint includes tenant, step code, and request body. | PASS_IN_DEV |
+| Duplicate prevention | `PlatformIdempotencyService` atomically claims a scoped key through `platform_idempotency_records` unique scope/key storage. | PASS_IN_DEV |
+| Same-response retry | Completed same-key/same-payload requests replay the stored response body. | PASS_IN_DEV |
+| Concurrent duplicate handling | Concurrent same-scope/same-key in-progress requests receive conflict and do not execute duplicate domain side effects in focused tests. | PASS_IN_DEV |
+| Tests | `tests/test_platform_idempotency_service.py` and `tests/test_onboarding_idempotency_integration.py` cover first request, replay, conflict, concurrency, tenant/actor/operation/step isolation, retryable failure, missing-key compatibility, and cross-tenant rejection. | PASS_IN_DEV |
 
 Recommended owner:
 
@@ -170,11 +176,20 @@ Full script result: every audited `onboarding.progressiveExperience` leaf key re
 | Frontend | `npm test -- --runInBand` | Failed: `jest: command not found`. | ENVIRONMENT_FAILURE |
 | Frontend | `npm run typecheck` | Failed: package has no `typecheck` script; npm log write to the home npm cache also failed. | ENVIRONMENT_FAILURE |
 | Backend | `git diff --check` | Passed with no output. | PASS |
-| Backend | `./venv/bin/alembic heads` | Failed: `./venv/bin/alembic` does not exist. | ENVIRONMENT_FAILURE |
-| Backend | `./venv/bin/alembic current` | Failed: `./venv/bin/alembic` does not exist. | ENVIRONMENT_FAILURE |
-| Backend | `./venv/bin/pytest -q` | Failed: `./venv/bin/pytest` does not exist. | ENVIRONMENT_FAILURE |
+| Backend | `.venv-idempotency/bin/pytest -q tests/test_platform_idempotency_service.py tests/test_onboarding_idempotency_integration.py` | `12 passed`. | PASS |
+| Backend | `.venv-idempotency/bin/pytest -q` | `316 passed`. | PASS |
+| Backend | `.venv-idempotency/bin/alembic heads` | `20260712_000001 (head)`. | PASS |
+| Backend | `.venv-idempotency/bin/alembic current` | Failed because local database `novaclinics_test` does not exist; no database was created or altered. | ENVIRONMENT_BLOCKER |
 
-No product test result is claimed as passing except `git diff --check`.
+Backend product verification now claims the focused and full pytest results above. Frontend product tests are still not claimed as passing.
+
+## 8.1 Backend Recovery Commits
+
+| Commit | Message | Scope |
+|---|---|---|
+| `c5082fb` | `Define reusable request idempotency architecture` | Backend ADR for platform ownership and replay contract. |
+| `f145dbf` | `Implement platform request idempotency foundation` | Platform service, SQLAlchemy model/repository/dependency, migration `20260712_000001`, Alembic model metadata. |
+| `a2a818b` | `Integrate onboarding submission with platform idempotency` | Onboarding step submission consumer and focused idempotency/onboarding tests. |
 
 ## 9. Go / No-Go Decision
 
@@ -182,14 +197,14 @@ No product test result is claimed as passing except `git diff --check`.
 Recovery Checkpoint: NO-GO
 ```
 
-The checkpoint remains NO-GO because R3, R5, and R6 are blocked.
+The checkpoint remains NO-GO because mandatory recovery validation is not fully closed: `alembic current` has not been verified against a configured database, tenant-resolution/staging replay checks have not run, frontend dependency/test tooling is still unavailable, and Hindi localization remains formally deferred rather than complete.
 
 ## 10. Minimum Remaining Actions For GO
 
-1. Implement backend onboarding idempotency or provide verified existing implementation evidence.
-2. Verify tenant resolution in staging using the checklist above.
-3. Complete Hindi Progressive Experience translations or formally defer with a named owner and approved release gate.
-4. Install/use the correct frontend/backend toolchains and rerun all focused verification commands successfully.
+1. Verify `alembic current` against a configured local or staging database without touching unknown shared data.
+2. Verify tenant resolution and onboarding same-key replay in staging using the checklist above.
+3. Restore frontend dependencies/tests and rerun focused frontend verification.
+4. Complete Hindi Progressive Experience translations or maintain a named, approved deferral before any user-facing Hindi launch.
 5. Update this checkpoint to PASS for all mandatory gates before starting Progressive Experience Phase 1.
 
 ## 11. Next Authorized Work

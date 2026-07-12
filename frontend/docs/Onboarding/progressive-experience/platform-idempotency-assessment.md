@@ -4,16 +4,18 @@ Date: 2026-07-12
 
 ## 1. Purpose
 
-This assessment records the Progressive Experience Recovery Checkpoint R0 audit for onboarding backend idempotency, tenant resolution, staging verification, and local tooling readiness. It is documentation only. It does not authorize idempotency implementation or Progressive Experience Phase 1 work.
+This assessment records the Progressive Experience Recovery Checkpoint R0 audit and the subsequent backend platform-idempotency implementation for onboarding step submission. It does not authorize Progressive Experience Phase 1 work.
 
 ## 2. Dedicated Worktree Baselines
 
 | Repository | Worktree | Branch | HEAD | Status |
 |---|---|---|---|---|
-| Frontend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery` | `feature/progressive-experience-recovery` | `0079f631` | Clean at audit start |
-| Backend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro-api-progressive-recovery` | `feature/progressive-experience-recovery` | `9dba7d1` | Clean at audit start |
+| Frontend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery-codex` | `feature/progressive-experience-recovery` | `248b3410` | Clean at documentation update start |
+| Backend | `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro-api-progressive-recovery` | `feature/progressive-experience-recovery` | `a2a818b` | Backend idempotency commits pushed |
 
 The dirty frontend main root at `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn` was not used for this audit.
+
+The previous frontend recovery folder at `/Users/ayurparishkar/Projects/NovaClinics/novaclinicspro_rn-progressive-recovery` is now on `merge-progressive-phase0-into-test` at `e8fb29aa` and is treated as owned by another workflow. It was not switched, staged, reset, cleaned, stashed, or modified during this update.
 
 ## 3. Existing Reusable Platform Capabilities
 
@@ -57,11 +59,23 @@ Conclusion: the repository has useful patterns, but no reusable platform idempot
 | Cross-tenant key reuse | No key is read, scoped, or stored. | High. Cannot enforce tenant-scoped key isolation. |
 | Same tenant and key used for a different onboarding step | No key is read, scoped, or stored. | High. Cannot detect misuse or return conflict. |
 
-Backend idempotency classification:
+Backend idempotency classification after recovery implementation:
 
 ```text
-IMPLEMENTATION_REQUIRED
+VERIFIED_IN_DEV
 ```
+
+Implementation evidence:
+
+- ADR: backend `docs/adr/ADR-PF-001-reusable-request-idempotency.md`, commit `c5082fb`.
+- Platform foundation and migration: commit `f145dbf`.
+- Onboarding integration and focused tests: commit `a2a818b`.
+- Migration revision: `20260712_000001`.
+- Focused tests: `12 passed` for `tests/test_platform_idempotency_service.py` and `tests/test_onboarding_idempotency_integration.py`.
+- Full backend suite: `316 passed`.
+- `git diff --check`: passed.
+- `alembic heads`: `20260712_000001 (head)`.
+- `alembic current`: blocked by missing local database `novaclinics_test`; no database was created or altered for this verification.
 
 ## 6. Idempotency Ownership Recommendation
 
@@ -88,6 +102,8 @@ Minimum contract:
 - never share replay data across tenants.
 
 Migration impact: new platform storage and endpoint integration are required. Onboarding should consume this once available rather than building a parallel "Super Onboarding Engine." If delivery pressure requires onboarding-first implementation, design it as the first platform consumer, not as an onboarding-only permanent mechanism.
+
+Implementation status: completed in backend recovery branch as Platform Foundation, not as an onboarding-specific duplicate-request store. Onboarding step submission is the first consumer and remains legacy-compatible when `Idempotency-Key` is omitted. When the header is present, the backend validates non-empty keys, fingerprints tenant/step/request payload, scopes by route tenant, authenticated actor, onboarding step operation, and key, replays completed same-payload results, rejects same-key/different-payload conflicts, rejects concurrent in-progress duplicates, and allows same-key/same-payload retry after retryable operation failure.
 
 ## 7. Tenant Resolution Flow
 
@@ -122,7 +138,7 @@ Migration impact: new platform storage and endpoint integration are required. On
 2. Existing active clinic: sign in, verify `/auth/me.tenant_id`, active status, and onboarding/dashboard route selection.
 3. User with access to multiple clinics: verify owned clinic list, selected clinic, query key isolation, and no stale onboarding status after switching.
 4. Tenant switching: switch from Tenant A to Tenant B and verify all onboarding status/submission calls use Tenant B.
-5. Onboarding submission retry: after platform idempotency exists, submit the same step twice with the same `Idempotency-Key`; verify one side effect and same response.
+5. Onboarding submission retry: after backend recovery branch is deployed to staging, submit the same step twice with the same `Idempotency-Key`; verify one side effect and same response.
 6. Deliberate cross-tenant request: authenticate as Tenant A, call Tenant B route and/or header, verify rejection unless org-admin.
 7. Expired or invalid tenant membership: deactivate membership, refresh token/session, verify onboarding route rejection.
 8. `X-Tenant-ID` disagreement with authenticated context: send URL Tenant A with header Tenant B and verify backend behavior is explicit and documented.
@@ -139,19 +155,21 @@ No staging success is claimed by this document.
 | Frontend tests | `npm test -- --runInBand` | Failed: `jest: command not found`. | MISSING_DEPENDENCY |
 | Frontend typecheck | `npm run typecheck` | Failed: package has no `typecheck` script; npm log write also blocked under home npm logs. | ENVIRONMENT_FAILURE |
 | Backend project root | `pwd`, `ls`, `find .. -maxdepth 2 ...` | `pyproject.toml`, `requirements.txt`, and `alembic.ini` confirmed. | PASS |
-| Backend virtualenv | `test -d venv ...`; `find . -maxdepth 2 .../bin/*` | No local `venv`, `pytest`, or `alembic` found. | MISSING_DEPENDENCY |
-| Backend Alembic | `./venv/bin/alembic heads`; `./venv/bin/alembic current` | Failed: no such file `./venv/bin/alembic`. | MISSING_DEPENDENCY |
-| Backend tests | `./venv/bin/pytest -q` | Failed: no such file `./venv/bin/pytest`. | MISSING_DEPENDENCY |
+| Backend virtualenv | `python3 -m venv .venv-idempotency`; `.venv-idempotency/bin/pip install -r requirements.txt` | Isolated backend verification environment created in the backend recovery worktree; pinned requirements installed. | PASS |
+| Backend focused tests | `DATABASE_URL=... REDIS_URL=... JWT_SECRET_KEY=... .venv-idempotency/bin/pytest -q tests/test_platform_idempotency_service.py tests/test_onboarding_idempotency_integration.py` | `12 passed`; covers first request, same-key/same-payload replay, same-key/different-payload conflict, concurrent duplicate protection, tenant/actor/operation/step isolation, failure retry behavior, missing-key compatibility, and cross-tenant rejection. | PASS |
+| Backend full tests | `DATABASE_URL=... REDIS_URL=... JWT_SECRET_KEY=... .venv-idempotency/bin/pytest -q` | `316 passed`; warnings were pre-existing dependency/deprecation/coverage parse warnings. | PASS |
+| Backend Alembic heads | `DATABASE_URL=... REDIS_URL=... JWT_SECRET_KEY=... .venv-idempotency/bin/alembic heads` | `20260712_000001 (head)`. | PASS |
+| Backend Alembic current | `DATABASE_URL=... REDIS_URL=... JWT_SECRET_KEY=... .venv-idempotency/bin/alembic current` | Failed with `asyncpg.exceptions.InvalidCatalogNameError: database "novaclinics_test" does not exist`; no unknown shared database was created or altered. | ENVIRONMENT_BLOCKER |
 
-Dependency installation was not attempted because network access is restricted and this task is a verification/documentation checkpoint.
+Frontend dependencies were not installed in this documentation update. Frontend verification therefore remains blocked by the prior missing `node_modules` / `jest` environment state.
 
 ## 11. Recovery Checkpoint Impact
 
-R3 remains blocked because backend onboarding idempotency is not implemented and no reusable platform capability exists yet.
+R3 is code-verified in dev after backend commits `c5082fb`, `f145dbf`, and `a2a818b`.
 
 R4 remains partial because important tenant paths are code-verified, but staging still must verify provisional/onboarding tenants, active tenants, tenant switching, and `X-Tenant-ID` disagreement behavior.
 
-R6 remains blocked because local frontend and backend verification tooling is not installed in the dedicated worktrees.
+R6 remains partial: backend focused and full tests now pass in an isolated virtualenv, but frontend test tooling is still unavailable and `alembic current` was not verified against a configured local database.
 
 The checkpoint decision remains:
 
