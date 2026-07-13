@@ -18,6 +18,7 @@ import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BackHandler } from 'react-native';
 import { SetupWizardFlow } from '../../features/onboarding/presentation/pages/SetupWizardFlow';
+import * as wizardStore from '../../features/onboarding/presentation/stores/wizard.store';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -88,7 +89,15 @@ jest.mock('../../features/onboarding/presentation/pages/steps/PaymentSetupScreen
   PaymentSetupScreen: () => null,
 }));
 jest.mock('../../features/onboarding/presentation/pages/steps/GoLiveScreen', () => ({
-  GoLiveScreen: () => null,
+  GoLiveScreen: ({ onComplete }: { onComplete: () => void }) => {
+    const React = require('react');
+    const { Text, TouchableOpacity } = require('react-native');
+    return (
+      <TouchableOpacity onPress={onComplete}>
+        <Text>Complete Go Live</Text>
+      </TouchableOpacity>
+    );
+  },
 }));
 jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   submitStepDataApi: jest.fn(),
@@ -474,6 +483,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
   });
 
   it('uses Android hardware back to move to the previous step without exiting', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
     let hardwareBackHandler: (() => boolean) | undefined;
     const addEventListenerSpy = jest
       .spyOn(BackHandler, 'addEventListener')
@@ -503,6 +515,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     const consumed = hardwareBackHandler?.();
 
     expect(consumed).toBe(true);
+    expect(syncSpy).toHaveBeenCalled();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
 
@@ -511,6 +524,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     });
 
     addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
   });
 
   it('consumes Android hardware back on the first step without navigation', async () => {
@@ -542,5 +556,30 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     expect(mockRouterReplace).not.toHaveBeenCalled();
 
     addEventListenerSpy.mockRestore();
+  });
+
+  it('clears onboarding drafts when go-live completes', async () => {
+    const resetSpy = jest
+      .spyOn(wizardStore, 'resetWizardDraftStorage')
+      .mockResolvedValue(undefined);
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['go_live_checklist'], ['go_live_checklist']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Complete Go Live')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Complete Go Live'));
+
+    expect(resetSpy).toHaveBeenCalled();
+    expect(mockRouterReplace).toHaveBeenCalledWith('/clinic-admin?tenantId=test-tenant-456');
+
+    resetSpy.mockRestore();
   });
 });

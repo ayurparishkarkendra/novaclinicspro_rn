@@ -18,7 +18,12 @@ import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
 import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
-import { hydrateWizardDraftFromStorage, syncWizardDraftToStorage, useWizardStore } from '../stores/wizard.store';
+import {
+  hydrateWizardDraftFromStorage,
+  resetWizardDraftStorage,
+  syncWizardDraftToStorage,
+  useWizardStore,
+} from '../stores/wizard.store';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface Step {
@@ -390,9 +395,11 @@ export function SetupWizardFlow() {
     }
   };
 
-  const handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(async () => {
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
+
+    await syncWizardDraftToStorage();
 
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
@@ -402,7 +409,7 @@ export function SetupWizardFlow() {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (currentStepIndex > 0) {
-        handlePrevious();
+        void handlePrevious();
       }
 
       return true;
@@ -648,7 +655,10 @@ export function SetupWizardFlow() {
         return (
           <GoLiveScreen
             tenantId={tenantId || ''}
-            onComplete={() => router.replace(`/clinic-admin?tenantId=${tenantId}`)}
+            onComplete={() => {
+              void resetWizardDraftStorage();
+              router.replace(`/clinic-admin?tenantId=${tenantId}`);
+            }}
             completedSteps={statusData?.completed_steps || 0}
             totalSteps={statusData?.total_steps || 0}
             allSteps={steps}

@@ -463,7 +463,7 @@ The current Task 13 guarantees remain unchanged:
 
 Do not reopen Task Group 13 for this follow-up.
 
-- [ ] 14. Wizard Draft Step Screen Integration
+- [x] 14. Wizard Draft Step Screen Integration
   - This item was outside the earlier production-hardening checkpoint and is now authorized as a separate Progressive Experience implementation group.
 
   ## Objective
@@ -516,50 +516,50 @@ Do not reopen Task Group 13 for this follow-up.
   - `frontend/features/onboarding/presentation/pages/steps/PaymentSetupScreen.tsx`
   - `frontend/tests/onboarding/SetupWizardFlow.test.tsx`
   - `frontend/tests/onboarding/wizard.store.test.ts`
-  - `frontend/core/localization/locales/en-US.json`
-  - `frontend/core/localization/locales/hi-IN.json`
+  - `frontend/core/localization/translations/en-US.json`
+  - `frontend/core/localization/translations/hi-IN.json`
 
   ## Tasks
 
-  - [ ] 14.1 Inventory current step-screen draft behavior
+  - [x] 14.1 Inventory current step-screen draft behavior
     - Confirm which required screens already call `useWizardStore` and which do not.
     - Record existing submit handlers, restore paths, and server-data fetch behavior.
     - Confirm no screen treats a local draft as completion state.
 
-  - [ ] 14.2 Add a reusable presentation helper for step drafts if it reduces duplication
+  - [x] 14.2 Add a reusable presentation helper for step drafts if it reduces duplication
     - Prefer a small hook/helper only if it removes repeated debounce/restore/clear logic.
     - Keep it in the onboarding presentation boundary.
     - Do not move API or React Query behavior into the store.
 
-  - [ ] 14.3 Integrate draft save/restore in required step screens
+  - [x] 14.3 Integrate draft save/restore in required step screens
     - Cover `ClinicProfileScreen`, `OperatingHoursScreen`, `TreatmentRoomsScreen`, `StaffSetupScreen`, `BillingSetupScreen`, and `PaymentSetupScreen`.
     - Save current form state through `setStepDraft(stepCode, currentFormState)` with approximately 500 ms debounce.
     - Restore drafts only when server-side data for that step is absent or stale.
     - Do not restore drafts for completed server steps unless a future conflict-resolution group explicitly authorizes it.
 
-  - [ ] 14.4 Clear drafts after successful submission
+  - [x] 14.4 Clear drafts after successful submission
     - After each step's successful submit, call `clearStepDraft(stepCode)` and persist the resulting store state.
     - Preserve current `onSuccess` and wizard navigation behavior.
     - Do not mark a step complete locally.
 
-  - [ ] 14.5 Add restored-draft inline indicator
+  - [x] 14.5 Add restored-draft inline indicator
     - Add localized copy for "Restored unsaved changes" in English and Hindi.
     - Use `useClinicTheme()` values only.
     - Indicator is non-dismissible and clears when the user edits the form or submits.
     - Include accessibility state/role only where appropriate for the existing UI pattern.
 
-  - [ ] 14.6 Save current draft before Android back previous-step navigation
+  - [x] 14.6 Save current draft before Android back previous-step navigation
     - Ensure the registered current-step save handler or equivalent draft sync runs before `handlePrevious` changes step.
     - Preserve the existing guarantee that Android hardware back never exits the wizard.
 
-  - [ ] 14.7 Focused tests
+  - [x] 14.7 Focused tests
     - Unit/integration tests for draft restore and clear-on-submit for representative screens.
     - Verify restored indicator behavior.
     - Verify a completed backend step is not overridden by a local draft.
     - Verify Android back saves/syncs current draft before moving to the previous step.
     - Keep existing Task 13 store tests passing.
 
-  - [ ] 14.8 Documentation and stop gate
+  - [x] 14.8 Documentation and stop gate
     - Update Task Group 14 evidence and verification commands in this file.
     - Run `git diff --check`, focused onboarding tests, and TypeScript verification for touched files where applicable.
     - Commit and push only reviewed files.
@@ -632,6 +632,19 @@ Do not reopen Task Group 13 for this follow-up.
   ## Stop Gate
 
   After implementation: focused verification, canonical docs update, commit, push, architectural review, and no automatic continuation.
+
+  ## Completion Evidence
+
+  - Reused the Task Group 13 v1 `wizard.store.ts` schema, tenant/user scoped hydration, persistence, migration, cleanup, and expiry behavior.
+  - Added `clearStepDraftAndSync(stepCode)` to clear only the completed step draft and immediately persist the updated store.
+  - Added `RestoredDraftIndicator` as a localized, theme-based presentation component.
+  - Integrated draft save/restore/clear behavior in `ClinicProfileScreen`, `OperatingHoursScreen`, `TreatmentRoomsScreen`, `StaffSetupScreen`, `BillingSetupScreen`, and `PaymentSetupScreen`.
+  - Updated `SetupWizardFlow` so Android previous-step navigation awaits draft storage sync before changing steps and go-live completion clears all wizard drafts.
+  - Added English and Hindi restored-draft keys in the actual translation files under `frontend/core/localization/translations/`.
+  - Focused verification passed:
+    - `git diff --check`
+    - `npx jest tests/onboarding/wizard.store.test.ts tests/onboarding/SetupWizardFlow.test.tsx tests/onboarding/PaymentSetupScreen.draft.test.tsx --runInBand`
+  - TypeScript verification was executed with `npx tsc --noEmit`; Task Group 14 touched onboarding files had no reported TypeScript errors after filtering, while the full command still reports unrelated baseline failures in existing non-Task-14 files.
 
 ---
 

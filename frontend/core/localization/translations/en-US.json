@@ -603,6 +603,9 @@
         "readyToStart": "Ready to Start",
         "expired": "Expired"
       },
+      "drafts": {
+        "restored": "Unsaved changes restored"
+      },
       "flow": {
         "saveProgressError": "Failed to save preparation progress. Please try again.",
         "refreshProgressError": "Failed to refresh preparation progress. Please try again.",

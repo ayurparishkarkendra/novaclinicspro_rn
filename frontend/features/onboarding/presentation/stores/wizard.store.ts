@@ -561,6 +561,11 @@ export async function resetWizardDraftStorage(): Promise<void> {
   }
 }
 
+export async function clearStepDraftAndSync(stepCode: string): Promise<void> {
+  useWizardStore.getState().clearStepDraft(stepCode);
+  await syncWizardDraftToStorage();
+}
+
 export async function clearWizardDraftStorageForIdentity(identity: {
   tenantId?: string | null;
   userId?: string | null;

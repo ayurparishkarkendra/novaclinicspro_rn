@@ -26,6 +26,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
 import {
+  clearStepDraftAndSync,
   clearWizardDraftStorageForIdentity,
   hydrateWizardDraftFromStorage,
   MAX_DRAFT_SIZE_KB,
@@ -274,5 +275,31 @@ describe('wizard.store draft persistence', () => {
 
     expect(useWizardStore.getState().stepDrafts).toEqual({});
     expect(mockStorage.has(keyFor('tenant-a'))).toBe(false);
+  });
+
+  it('clearStepDraftAndSync clears only the requested step draft', async () => {
+    useWizardStore.getState().setStepDraft('payment_setup', { payment_methods: ['cash'] });
+    useWizardStore.getState().setStepDraft('financials_and_tax', {
+      tax_enabled: true,
+      tax_rate: 18,
+      invoice_prefix: 'INV',
+    });
+
+    await clearStepDraftAndSync('payment_setup');
+
+    expect(useWizardStore.getState().getStepData('payment_setup')).toBeUndefined();
+    expect(useWizardStore.getState().getStepData('financials_and_tax')).toEqual({
+      tax_enabled: true,
+      tax_rate: 18,
+      invoice_prefix: 'INV',
+    });
+
+    const stored = JSON.parse(mockStorage.get(keyFor('tenant-a')) || '{}');
+    expect(stored.stepDrafts.payment_setup).toBeUndefined();
+    expect(stored.stepDrafts.financials_and_tax.data).toEqual({
+      tax_enabled: true,
+      tax_rate: 18,
+      invoice_prefix: 'INV',
+    });
   });
 });
