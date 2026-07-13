@@ -733,6 +733,17 @@ Four genuinely distinct things this inventory touched, kept explicitly separate 
 - **Rollback:** downgrade.
 - **Risk:** low (proven pattern).
 
+**Status: ✅ COMPLETE**
+- **Files changed:** `app/infrastructure/db/migrations/versions/20260713_100000_r5_capability_permissions.py` (backend, new migration, revises `20260713_090000`).
+- **What it does:** Seeds `capability.view` and `capability.manage` into `org_permissions` (module `'capability'`, a bespoke domain-tag following R4's own `'treatment_sheet'`/`'treatment_order'` precedent rather than the five legacy subscription-modules) and assigns both to `CLINIC_ADMIN`/`CLINIC_OWNER` via `org_role_permissions`, mirroring R4's `treatment_sheet.release` seeding pattern (migration `20260711_120000`) exactly. Composition only per FR-F1 — the migration does not reference `org_capabilities`/`org_capability_dependencies`/`org_subscription_plan_capabilities`/`tenant_capabilities` in any way.
+- **Verification (against the real configured Supabase database, per the established strict protocol):** pre-flight `alembic current` confirmed head at `20260713_090000` (matching this migration's `down_revision`, no drift); `alembic upgrade head` applied cleanly; post-upgrade query confirmed both permissions present (`is_active=true`, `module='capability'`) and both role-assignment rows present for `CLINIC_ADMIN`/`CLINIC_OWNER`; `alembic downgrade -1` verified clean (both permission rows and both role-assignment rows removed, head reverted to `20260713_090000`); re-ran `alembic upgrade head` to leave the database at the correct final head `20260713_100000`. Standard checks also passed: `git diff --check` clean, full `app.main` import clean, no duplicate Alembic revision IDs (86 total migrations, single head), full test regression 430 passed / 0 failed.
+- **Architecture deviations:** none.
+- **Unexpected findings:** none.
+- **Engineering debt introduced:** none.
+- **Commit:** `cba4fb0` ("T-D.1: Seed capability.view / capability.manage RBAC permissions"), pushed to `feature/r5-capability-platform` on the backend repo (`b538834..cba4fb0`).
+- **Working tree:** backend R5 worktree clean after commit/push. Onboarding worktrees/branches (`feature/progressive-experience-recovery`, `merge-progressive-phase0-into-test`, `novaclinicspro_rn-progressive-recovery`, `novaclinicspro_rn-progressive-recovery-codex`, `novaclinicspro-api-progressive-recovery`) untouched.
+- **Recommendation:** T-D.1's dependency listed for T-C.5 (`deps: T-C.4c, T-D.1`) is now satisfied. Proceed to T-C.5 next, pending explicit review/approval of this report.
+
 **T-D.2a — `CapabilityAdminService` write path (Area J: OCC/idempotency/audit/transactional)** · (be) · deps: T-C.4b, T-D.1 · realizes: `requirements.md` FR-B3, FR-E3, FR-J1-4, AC-18, AC-SEC-4, NFR-7; `design.md` §9.3
 - **Purpose:** The one tenant-capability write path as a service — no HTTP concern yet, so its concurrency/dependency logic is testable in isolation.
 - **Do:** `CapabilityAdminService.enable/disable_capability(...expected_version)` per §9.3: FOR-UPDATE lock, OCC via `version` (`CapabilityVersionConflictError`), idempotent no-op, enable-only-if-`effective_available` (no independent re-derivation, FR-C3), disable-rejected-if-blocking-dependents (named), audit (actor/source/timestamp), transactional validate+write, returns re-resolved map + new version. Never writes `org_permissions`/`tenant_permissions`.
