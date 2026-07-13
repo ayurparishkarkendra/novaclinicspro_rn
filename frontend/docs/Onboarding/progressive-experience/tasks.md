@@ -200,19 +200,53 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
     - **Validates: Requirements 10 AC-3**
 
 - [ ] 11. Tenant resolution and backend idempotency — verification tasks
+  - Status: Implementation complete. Automated verification complete. Awaiting staging verification.
+
+  | Acceptance Item | Planned | Already Implemented | Verified | Remaining |
+  |---|---|---|---|---|
+  | Authenticated tenant resolution | Verify `/auth/me` and tenant context for onboarding and live tenants. | `/auth/me` exposes `tenant_id`; frontend maps it to `tenantId`; backend path-tenant authorization resolves membership through `get_tenant_user_context` / `require_permission`. | VERIFIED_IN_CODE. Staging NOT_EXECUTED. | Staging verification for provisional and active tenants. |
+  | Authoritative route tenant | Onboarding commands use explicit tenant route context. | Backend `submit_step_data` uses path `tenant_id` as idempotency scope tenant and service command tenant. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging route/JWT/header behavior. |
+  | Tenant isolation | Same idempotency key must not replay across tenants. | Platform scope includes tenant, actor, operation, and key; table unique constraint is `uq_tenant_idempotency_scope_key`. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging replay check across tenants. |
+  | Same key in different tenants | Same key may execute independently in different tenant scopes. | `PlatformIdempotencyService` and onboarding integration scope keys by tenant. | VERIFIED_IN_TEST. | Staging same-key cross-tenant confirmation. |
+  | Operation isolation | Same key may execute independently for different operations. | Platform scope includes operation. | VERIFIED_IN_TEST. | None for implementation; staging confirmation before promotion. |
+  | Onboarding step isolation | Same key may execute independently for different onboarding steps. | Operation identity is `onboarding.step_submit:{step_code}`. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | None for implementation; staging confirmation before promotion. |
+  | Replay protection | Same key and same payload replay returns cached completed response without duplicate domain execution. | Platform service stores completed response body and onboarding route rehydrates `StepSubmissionResponse`. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging same-key replay. |
+  | Same key with different payload | Reusing a key with a different payload must conflict. | Request fingerprint includes route tenant, step code, and request body. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | None for implementation; staging confirmation before promotion. |
+  | Concurrent duplicate request | Concurrent duplicate must not execute duplicate side effects. | Platform claim is atomic via unique scoped record; in-progress duplicate returns conflict. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging/load-style retry check if feasible. |
+  | Retry after timeout / retryable failure | Same key and same payload can retry after retryable failure. | Service marks transient failures as `FAILED_RETRYABLE` and can reclaim the same scoped key/fingerprint. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging retry-after-timeout scenario. |
+  | Missing-key compatibility | Existing clients without key preserve legacy behavior. | Onboarding route bypasses platform idempotency when `Idempotency-Key` is absent. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | None. |
+  | `X-Tenant-ID` behavior | Verify JWT tenant or fallback header behavior. | Frontend retains `X-Tenant-ID` with `// TODO: Req 11`; backend onboarding route uses path tenant and does not trust the header for idempotency scope. | VERIFIED_IN_CODE and frontend API test; staging NOT_EXECUTED. | Staging mismatch/fallback verification before removing fallback. |
+  | Cross-tenant rejection | Non-org-admin submitting another tenant's route must be rejected. | Onboarding service rejects non-org-admin when user tenant differs from route tenant; idempotency record remains scoped to route tenant. | VERIFIED_IN_CODE and VERIFIED_IN_TEST. | Staging cross-tenant rejection and replay attempt. |
+
+  - [x] 11.0 Reconcile existing backend implementation and automated tests
+    - Backend implementation evidence:
+      `docs/adr/ADR-PF-001-reusable-request-idempotency.md`,
+      `app/application/platform/idempotency_service.py`,
+      `app/infrastructure/repositories/platform_idempotency_repository.py`,
+      `app/infrastructure/db/models/platform_idempotency_record.py`,
+      migration `20260712_000001_platform_idempotency_records.py`,
+      `tenant_idempotency_records`, and
+      `app/api/v1/routers/onboarding_router.py`.
+    - Focused backend verification passed:
+      `DATABASE_URL=postgresql+asyncpg:///novaclinics_test REDIS_URL=redis://localhost:6379/0 JWT_SECRET_KEY=test-secret .venv-idempotency/bin/pytest -q tests/test_platform_idempotency_service.py tests/test_onboarding_idempotency_integration.py`
+      reported 12 passed tests.
+    - Frontend API verification passed:
+      `npm test -- --runInBand tests/onboarding/onboarding.api.test.ts`
+      reported 1 passed suite and 2 passed tests for `Idempotency-Key` and `X-Tenant-ID` header behavior.
+
   - [ ] 11.1 Verify tenant resolution on staging
     - Inspect the JWT returned by `/auth/me` for both a PROVISIONAL tenant and a live tenant on the staging environment
     - Confirm `tenant_id` is present and non-null in both cases, OR confirm the `X-Tenant-ID` header fallback in `onboarding.api.ts` is working correctly on staging
     - If the backend fix (Req 11) has NOT been deployed: ensure `onboarding.api.ts` retains the `'X-Tenant-ID': tenantId` header and `console.warn` fallback with a `// TODO: Req 11` comment
     - If the backend fix HAS been deployed: remove the `X-Tenant-ID` workaround header from `onboarding.api.ts` and the `console.warn` fallback from `ChoiceScreen.tsx` (Req 11 AC-2, AC-3)
-    - Record verification outcome as a comment in `onboarding.api.ts` and tick the corresponding item in the release checklist in `design.md`
+    - Record verification outcome in this task group before integration into `test`
     - _Requirements: 11 AC-1, 11 AC-2, 11 AC-3, 11 AC-4_
 
   - [ ] 11.2 Verify backend idempotency on staging
     - Send two identical `POST /api/v1/onboarding/{tenantId}/steps/{stepCode}` requests with the same `Idempotency-Key` UUID to the staging environment
     - Confirm: (a) the second response returns the cached result without creating a duplicate record; (b) the onboarding status query after both requests shows the step completed exactly once
-    - If the backend does not yet honour the header, record this as a P0 open item in the release checklist and block the release until confirmed
-    - Tick the idempotency item in the release checklist in `design.md`
+    - Include same-key replay, retry after timeout, `X-Tenant-ID` mismatch, revoked membership, and cross-tenant replay attempt cases
+    - If the backend does not yet honour the header in staging, record this as a P0 open item and block integration/promotion until confirmed
     - _Requirements: 12 AC-6_
 
 - [ ] 12. Final checkpoint — all Progressive Experience production-hardening checkpoint blockers complete
