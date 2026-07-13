@@ -155,7 +155,7 @@ Per required review: the zero-reachability finding for `SubscriptionService` (`a
 
 ---
 
-## 7. Real-data finding — inactive `FREE` plan causes existing `FREE`-plan tenants to resolve to `minimum_fallback`, not their actual plan (found 2026-07-13, deployment checkpoint before T-C.5)
+## 7. Real-data finding — inactive `FREE` plan causes existing `FREE`-plan tenants to resolve to `minimum_fallback`, not their actual plan (found 2026-07-13, deployment checkpoint before T-C.5; **resolved same day**, see §7.1)
 
 **Not a bug in this correction or in T-C.4d — surfaced by seeding real data into the previously-empty Supabase catalogue and exercising `CapabilityResolutionService.resolve_for_tenant` against a genuine, existing tenant, per the explicitly-requested pre-T-C.5 deployment checkpoint.** Recorded here rather than silently patched, since it touches already-approved T-C.2 behavior and the correct fix depends on a product/billing judgment call this document does not have the authority to make unilaterally.
 
@@ -165,12 +165,22 @@ Per required review: the zero-reachability finding for `SubscriptionService` (`a
 
 **Why this is subtle, not immediately obvious:** `MINIMUM_FALLBACK_PLAN_CODE` (T-C.2) is itself `"FREE"` — so a `FREE`-plan tenant hitting Tier 3 happens to resolve to the *same plan code* it should have gotten from Tier 2, **by coincidence**, not by design. The `source` field (`minimum_fallback` vs `active_subscription`/`legacy_tenant_projection`) is the only externally-visible difference — silently wrong provenance, not (for `FREE` tenants specifically) silently wrong entitlement. A `BASIC`/`PRO`/`ENTERPRISE` tenant whose plan row were ever deactivated the same way would NOT have this coincidental safety net and would visibly lose real entitlement.
 
-**Open question, not resolved here — two candidate readings of `is_active`, genuinely different intents:**
-1. **Tier 2's current behavior is correct as designed:** `is_active=False` legitimately means "not a real, currently-honored plan" — a tenant assigned to a deactivated plan *should* fall to the floor, and `FREE` being deactivated on this environment is itself the real state platform engineering intended (e.g., FREE signups were deliberately closed and existing FREE tenants are meant to be prompted to upgrade). If so, this is a genuine, live-relevant capability-entitlement effect the R5 platform is *correctly surfacing* for the first time — not a resolver bug.
-2. **Tier 2's current behavior is too strict:** `is_active` (per its own schema comment, `org_subscription_plans.is_active`: *"Whether this plan is currently available for new subscriptions"*) is about closing a plan to **new** signups, not about revoking entitlement from **existing** subscribers already on it — in which case Tier 2 should trust an existing tenant's legacy plan code regardless of `is_active`, and only `is_active` gate *new* subscription creation (a `SubscriptionService`/checkout-layer concern, N-2, out of R5's own scope). Under this reading, the resolver conflates two different questions and needs a design correction.
-
-**This document takes no position between (1) and (2)** — verifying the actual product intent behind `FREE.is_active=False` on this specific environment (deliberate closure vs. accidental/experimental) requires information (product/billing decision history) not available to this audit. Recorded as an open finding requiring an explicit decision before any further Group C/D work relies on `ActivePlanResolver`'s Tier 2 behavior for a plan with mixed `is_active` state across its tenant base.
+**Two candidate readings of `is_active` were identified, genuinely different intents:**
+1. `is_active=False` legitimately means "not a real, currently-honored plan" — a tenant assigned to a deactivated plan *should* fall to the floor.
+2. `is_active` (per its own schema comment, `org_subscription_plans.is_active`: *"Whether this plan is currently available for new subscriptions"*) is about closing a plan to **new** signups, not about revoking entitlement from **existing** subscribers already on it.
 
 **Not engineering debt in the R5-introduced-bug sense — a real-world data/design question R5's own resolver was the first mechanism ever built capable of surfacing it.** `PermissionSyncService` (the pre-R5 mechanism) does not check `is_active` at all in its own plan lookup (confirmed, T-A.1 §2.2) — meaning this exact scenario has been silently latent in the pre-R5 system too, just never visible, since nothing checked it. Flagged here as a genuine platform-maturity finding, not a regression this phase caused.
 
-**No code changed as a result of this finding.** `ActivePlanResolver`/`CapabilityResolutionService` remain exactly as approved in T-C.2/T-C.4b/T-C.4d.
+### 7.1 Resolution (approved 2026-07-13, same day as the finding)
+
+**Reading (2) is the approved semantic rule, binding going forward:**
+
+> `OrgSubscriptionPlan.is_active` means "available for new subscription selection, checkout, or upgrade." It does not mean "existing tenant assignments or active subscriptions referencing this plan are invalid."
+
+**Fix applied to `ActivePlanResolver` (`active_plan_resolver.py`), Tier 2 only:** the plan-lookup query's `is_active == True` filter was removed — Tier 2 now validates the legacy `OrgTenant.subscription_plan` code by **plan existence only** (a real, present `OrgSubscriptionPlan` row with that code), never by whether the row is still open for new sales. Tier 1 required **no code change** — it was already correct (it never queries `OrgSubscriptionPlan` at all; an active/trial `OrgSubscription`'s own `plan_code` is authoritative regardless of the referenced plan's `is_active` value). Tier 3 (`minimum_fallback`) is now reached only when no matching plan row exists at all (a genuinely unknown/retired/typo'd code) — not merely when the matching plan has been closed to new signups.
+
+**Verified against the real Supabase tenant that surfaced the finding:** re-resolving the same tenant (`org_tenants.subscription_plan='FREE'`, `org_subscription_plans.FREE.is_active=False`) now returns `plan_code=FREE, source=legacy_tenant_projection, is_minimum_fallback=false, warning=None` — no longer `minimum_fallback`. `capability_active_plan_resolution_source_count` observability (T-C.4d) confirmed reporting the corrected source. No Supabase plan data was touched — `FREE.is_active` remains `False`; the fix is entirely in how Tier 2 interprets it, not in the data itself. Row counts on all R5/tenant/plan tables confirmed unchanged before and after the fix (read-only verification).
+
+**No plan-selection, checkout, or capability-entitlement behavior changed.** `SubscriptionService`/`SubscriptionCheckoutService` (the actual checkout-layer consumers of `is_active`) are untouched — confirmed by `git diff --stat` showing zero changes outside `active_plan_resolver.py` and its own tests. `capability_resolver.py` (the pure domain resolver) also untouched.
+
+Full technical detail (compiled-query regression test, the 5 new/updated test scenarios, real-Supabase re-verification) in `tasks.md`'s dedicated correction entry.
