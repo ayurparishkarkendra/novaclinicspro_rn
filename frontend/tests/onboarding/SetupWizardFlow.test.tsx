@@ -16,7 +16,7 @@
 import React from 'react';
 import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BackHandler } from 'react-native';
+import { AppState, BackHandler } from 'react-native';
 import { SetupWizardFlow } from '../../features/onboarding/presentation/pages/SetupWizardFlow';
 import * as wizardStore from '../../features/onboarding/presentation/stores/wizard.store';
 
@@ -69,9 +69,15 @@ jest.mock('../../core/theme/useClinicTheme', () => ({
   }),
 }));
 
+const mockAuthState = {
+  currentUser: { tenantId: 'test-tenant-456' },
+  isAuthenticated: false,
+};
+
 jest.mock('../../features/auth/presentation/hooks/useAuth', () => ({
   useAuth: () => ({
-    currentUser: { tenantId: 'test-tenant-456' },
+    currentUser: mockAuthState.currentUser,
+    isAuthenticated: mockAuthState.isAuthenticated,
   }),
 }));
 
@@ -192,6 +198,9 @@ const renderFlow = () => {
 describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState.currentUser = { tenantId: 'test-tenant-456' };
+    mockAuthState.isAuthenticated = false;
+    wizardStore.useWizardStore.getState().reset();
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
@@ -581,5 +590,247 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     expect(mockRouterReplace).toHaveBeenCalledWith('/clinic-admin?tenantId=test-tenant-456');
 
     resetSpy.mockRestore();
+  });
+
+  it('persists dirty wizard drafts when the app moves to background', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'operating_hours']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      wizardStore.useWizardStore.getState().setStepDraft('clinic_profile', { name: 'Nova Clinic' });
+      appStateHandler?.('background');
+    });
+
+    await waitFor(() => {
+      expect(syncSpy).toHaveBeenCalledTimes(1);
+    });
+
+    addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
+  });
+
+  it('skips background persistence when the wizard draft store is clean', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+    });
+
+    expect(syncSpy).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
+  });
+
+  it('hydrates drafts and refreshes backend status when returning active', async () => {
+    mockAuthState.isAuthenticated = true;
+    const hydrateSpy = jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile']) });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    mockRefetch.mockClear();
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(hydrateSpy).toHaveBeenCalled();
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    expect(hydrateSpy.mock.invocationCallOrder[0]).toBeLessThan(mockRefetch.mock.invocationCallOrder[0]);
+
+    addEventListenerSpy.mockRestore();
+    hydrateSpy.mockRestore();
+  });
+
+  it('does not refetch on foreground when authentication is missing', async () => {
+    mockAuthState.isAuthenticated = false;
+    const hydrateSpy = jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    mockRefetch.mockClear();
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(hydrateSpy).toHaveBeenCalled();
+    });
+    expect(mockRefetch).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+    hydrateSpy.mockRestore();
+  });
+
+  it('shows a localized notice when backend visible steps change after foreground refresh', async () => {
+    mockAuthState.isAuthenticated = true;
+    jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile', 'operating_hours']) });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(getByText('Your onboarding progress has been updated.')).toBeTruthy();
+    });
+
+    addEventListenerSpy.mockRestore();
+    jest.restoreAllMocks();
+  });
+
+  it('does not show a notice when backend visible steps are unchanged after foreground refresh', async () => {
+    mockAuthState.isAuthenticated = true;
+    jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile']) });
+
+    const { queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    expect(queryByText('Your onboarding progress has been updated.')).toBeNull();
+
+    addEventListenerSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 });

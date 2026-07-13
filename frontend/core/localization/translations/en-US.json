@@ -624,6 +624,7 @@
         "loadPreparationFailed": "Unable to load clinic preparation",
         "noPreparationSteps": "No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.",
         "prepareYourClinic": "Prepare Your Clinic",
+        "progressUpdatedNotice": "Your onboarding progress has been updated.",
         "readyToStart": "Ready to Start",
         "backToPreparation": "Back to Preparation",
         "clinicPreparation": "Clinic Preparation"

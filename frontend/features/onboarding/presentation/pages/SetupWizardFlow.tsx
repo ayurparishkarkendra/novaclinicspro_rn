@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler, AppState, AppStateStatus } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +32,9 @@ interface Step {
   status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
   order: number;
 }
+
+const getVisibleStepSignature = (visibleSteps?: string[] | null) =>
+  visibleSteps && visibleSteps.length > 0 ? visibleSteps.join('|') : null;
 
 const createSubmissionId = () => {
   const cryptoRandomUUID = globalThis.crypto?.randomUUID;
@@ -64,9 +67,13 @@ export function SetupWizardFlow() {
   const [isSettingUpSubscription, setIsSettingUpSubscription] = useState(false);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanInfo[]>([]);
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState('BASIC');
+  const [showProgressUpdatedNotice, setShowProgressUpdatedNotice] = useState(false);
   const currentStepSaveHandlerRef = useRef<(() => Promise<void>) | null>(null);
   const submissionIdRef = useRef<string | null>(null);
   const isSubmittingRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const backgroundStepSignatureRef = useRef<string | null>(null);
+  const latestVisibleStepsSignatureRef = useRef<string | null>(null);
   const currentStep = steps[currentStepIndex];
   const submitMutation = useSubmitStepMutation(tenantId, currentStep?.code || '');
   const isNextPending = isHandlingNext || submitMutation.isPending;
@@ -131,6 +138,7 @@ export function SetupWizardFlow() {
 
       // Use visible_steps array from backend
       if (statusData.visible_steps && statusData.visible_steps.length > 0) {
+        latestVisibleStepsSignatureRef.current = getVisibleStepSignature(statusData.visible_steps);
         const stepsArray = statusData.visible_steps.map((stepCode, index) => {
           // Get actual status from per_step_validation if available
           const stepValidation = statusData.per_step_validation?.[stepCode];
@@ -190,6 +198,61 @@ export function SetupWizardFlow() {
       console.log('[SetupWizardFlow] No status data available');
     }
   }, [statusData, hasManuallyNavigated, tenantId, t]);
+
+  useEffect(() => {
+    setShowProgressUpdatedNotice(false);
+  }, [currentStepIndex]);
+
+  const persistDraftOnLifecyclePause = useCallback(async () => {
+    backgroundStepSignatureRef.current = latestVisibleStepsSignatureRef.current;
+
+    if (!useWizardStore.getState().isDirty) {
+      return;
+    }
+
+    await syncWizardDraftToStorage();
+  }, []);
+
+  const hydrateDraftAndRefreshStatus = useCallback(async () => {
+    await hydrateWizardDraftFromStorage();
+
+    if (!tenantId || !isAuthenticated) {
+      return;
+    }
+
+    const previousSignature = backgroundStepSignatureRef.current;
+    const result = await refetch();
+    const refreshedStatus = (result as { data?: typeof statusData })?.data;
+    const refreshedSignature = getVisibleStepSignature(
+      refreshedStatus?.visible_steps ?? statusData?.visible_steps
+    );
+
+    latestVisibleStepsSignatureRef.current = refreshedSignature;
+    setShowProgressUpdatedNotice(
+      Boolean(previousSignature && refreshedSignature && previousSignature !== refreshedSignature)
+    );
+  }, [tenantId, isAuthenticated, refetch, statusData]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const previousAppState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (nextAppState === 'inactive' || nextAppState === 'background') {
+        void persistDraftOnLifecyclePause();
+        return;
+      }
+
+      if (
+        nextAppState === 'active' &&
+        (previousAppState === 'inactive' || previousAppState === 'background')
+      ) {
+        void hydrateDraftAndRefreshStatus();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [hydrateDraftAndRefreshStatus, persistDraftOnLifecyclePause]);
 
   const handleNext = async () => {
     if (isSubmittingRef.current || isNextPending) {
@@ -426,6 +489,7 @@ export function SetupWizardFlow() {
   }, []);
 
   const handleExit = () => {
+    setShowProgressUpdatedNotice(false);
     Alert.alert(
       t('onboarding.progressiveExperience.flow.exitTitle'),
       t('onboarding.progressiveExperience.flow.exitMessage'),
@@ -746,6 +810,37 @@ export function SetupWizardFlow() {
       {/* Stepper */}
       <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />
 
+      {showProgressUpdatedNotice && (
+        <View
+          accessibilityRole="text"
+          style={[
+            styles.progressUpdatedNotice,
+            {
+              backgroundColor: theme.colors.feedback.warningLight,
+              borderColor: theme.colors.feedback.warning,
+              marginHorizontal: theme.spacing.lg,
+              marginTop: theme.spacing.md,
+              padding: theme.spacing.md,
+              borderRadius: theme.spacing.sm,
+            },
+          ]}
+        >
+          <Ionicons name="information-circle" size={20} color={theme.colors.feedback.warning} />
+          <Text
+            style={[
+              theme.typography.body2,
+              {
+                color: theme.colors.text.primary,
+                marginLeft: theme.spacing.sm,
+                flex: 1,
+              },
+            ]}
+          >
+            {t('onboarding.progressiveExperience.flow.progressUpdatedNotice')}
+          </Text>
+        </View>
+      )}
+
       {/* Step Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ flexGrow: 1 }}>
         {renderStepContent()}
@@ -832,5 +927,10 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     // Styles set inline with theme
+  },
+  progressUpdatedNotice: {
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

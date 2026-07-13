@@ -438,6 +438,7 @@ export async function syncWizardDraftToStorage(): Promise<void> {
 
     if (sizeKB <= MAX_DRAFT_SIZE_KB) {
       await AsyncStorage.setItem(identity.storageKey, serialized);
+      useWizardStore.getState().markClean();
       return;
     }
 
@@ -462,6 +463,7 @@ export async function syncWizardDraftToStorage(): Promise<void> {
     }
 
     await AsyncStorage.setItem(identity.storageKey, compressedSerialized);
+    useWizardStore.getState().markClean();
   } catch (error) {
     emitWizardDraftEvent('onboarding_storage_sync_failed', {
       reason: 'storage_write_failed',

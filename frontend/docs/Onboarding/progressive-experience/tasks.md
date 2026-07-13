@@ -720,7 +720,7 @@ Task Group 15 selects Requirement 9 because Task Group 14 has completed per-step
 | Backend `updated_at` contract | Frontend DTO has `updated_at`, but backend/staging guarantee is not verified. | BLOCKED_BY_DEPENDENCY for conflict-resolution work. |
 | End-to-end release verification | Requires staging URL, credentials, safe tenants, and physical-device/network checks. | STAGING_ONLY, not an implementation group. |
 
-- [ ] 15. App Lifecycle Draft Sync and Foreground Status Refresh
+- [x] 15. App Lifecycle Draft Sync and Foreground Status Refresh
 
   ## Objective
 
@@ -794,34 +794,34 @@ Task Group 15 selects Requirement 9 because Task Group 14 has completed per-step
 
   ## Work Breakdown
 
-  - [ ] 15.1 Inventory lifecycle baseline
+  - [x] 15.1 Inventory lifecycle baseline
     - Confirm current `SetupWizardFlow` mount hydration, draft sync subscription, Android back sync, and status `refetch` behavior.
     - Record the active step-list comparison source (`visible_steps` or derived step code list).
 
-  - [ ] 15.2 Add AppState lifecycle orchestration in `SetupWizardFlow`
+  - [x] 15.2 Add AppState lifecycle orchestration in `SetupWizardFlow`
     - Register and clean up a React Native `AppState` listener while the wizard is mounted.
     - On transition to background/inactive, ensure current draft state has been pushed into the v1 draft store through Task 14 screen integration, then call `syncWizardDraftToStorage()`.
     - Do not submit any backend mutation from the lifecycle handler.
 
-  - [ ] 15.3 Hydrate and refetch on foreground resume
+  - [x] 15.3 Hydrate and refetch on foreground resume
     - On transition to active, call `hydrateWizardDraftFromStorage()`.
     - Then call onboarding status `refetch()` when `tenantId` and authentication state are valid.
     - Preserve the existing focus-effect guard so logout/unauthenticated transitions do not fire authenticated requests.
 
-  - [ ] 15.4 Show updated-steps notice when server step list changes
+  - [x] 15.4 Show updated-steps notice when server step list changes
     - Compare the step-code signature before backgrounding with the post-refetch `visible_steps` signature.
     - If the list changed, show a non-blocking localized inline notice that setup steps were updated.
     - Use `useClinicTheme()` values only.
     - Notice clears when the user changes steps, exits, or the wizard receives another unchanged active-state refetch.
 
-  - [ ] 15.5 Focused tests
+  - [x] 15.5 Focused tests
     - Verify background transition calls `syncWizardDraftToStorage()`.
     - Verify active transition calls `hydrateWizardDraftFromStorage()` and then `refetch()`.
     - Verify no active refetch occurs when unauthenticated or tenant ID is absent.
     - Verify the updated-steps notice appears when `visible_steps` changes after foreground refetch.
     - Verify the notice does not appear when the step list is unchanged.
 
-  - [ ] 15.6 Documentation and stop gate
+  - [x] 15.6 Documentation and stop gate
     - Update Task Group 15 evidence and verification commands in this file.
     - Run `git diff --check`, focused lifecycle tests, and TypeScript verification for touched files where applicable.
     - Commit and push only reviewed files.
@@ -876,6 +876,20 @@ Task Group 15 selects Requirement 9 because Task Group 14 has completed per-step
   ## Stop Gate
 
   After implementation: focused verification, canonical docs update, commit, push, architectural review, and no automatic continuation.
+
+  ## Completion Evidence
+
+  - Added `AppState` lifecycle orchestration in `SetupWizardFlow`.
+  - Background/inactive transitions record the current `visible_steps` signature and call `syncWizardDraftToStorage()` only when the existing wizard store is dirty.
+  - Foreground active transitions call `hydrateWizardDraftFromStorage()` and then guarded onboarding status `refetch()` when tenant/auth state is valid.
+  - Added a localized, theme-based inline notice for changed server-visible step lists after foreground refresh.
+  - Kept backend onboarding status authoritative; lifecycle handlers do not submit step data, complete onboarding, transition demo/live state, mutate subscriptions, poll, or schedule background work.
+  - Updated `syncWizardDraftToStorage()` to mark the existing wizard store clean after successful raw or compressed persistence.
+  - Added English and Hindi `progressUpdatedNotice` localization keys.
+  - Focused verification passed:
+    - `git diff --check`
+    - `npx jest tests/onboarding/SetupWizardFlow.test.tsx tests/onboarding/wizard.store.test.ts --runInBand`
+  - TypeScript verification was executed with `npx tsc --noEmit --pretty false`; the command still reports existing baseline failures outside Task Group 15 touched files, including existing onboarding demo-status usecase DTO mismatches.
 
 ---
 

@@ -467,6 +467,7 @@
         "loadPreparationFailed": "क्लिनिक तैयारी लोड नहीं हो सकी",
         "noPreparationSteps": "कोई तैयारी चरण नहीं मिला। हो सकता है Nova ने अभी आपके क्लिनिक प्रकार के लिए तैयारी चरण जनरेट न किए हों।",
         "prepareYourClinic": "अपना क्लिनिक तैयार करें",
+        "progressUpdatedNotice": "आपकी ऑनबोर्डिंग प्रगति अपडेट कर दी गई है।",
         "readyToStart": "शुरू करने के लिए तैयार",
         "backToPreparation": "तैयारी पर वापस जाएं",
         "clinicPreparation": "क्लिनिक तैयारी"
