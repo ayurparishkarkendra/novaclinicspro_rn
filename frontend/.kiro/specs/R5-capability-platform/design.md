@@ -183,6 +183,18 @@ TenantCapability   (TENANT-SCOPED; the only tenant-owned table in this model)
 
 **Scope ownership (FR-F4, NFR-6), enforced structurally by the schema above:** `Capability`, `CapabilityDependency`, and `SubscriptionPlanCapability` carry **no `tenant_id`** — they are platform-global, mutated only by migration/seeding, and there is **no tenant-scoped write path to any of them** (§11 exposes only a *read* of the catalog; §9.3's write path touches only `TenantCapability`). `TenantCapability` is the sole tenant-owned table and every query against it filters `tenant_id`. This makes "a tenant admin edits the catalog/graph/plan-entitlement" not merely forbidden by policy but **absent by construction** — there is no endpoint and no service method that writes those tables outside migration.
 
+**Physical table naming (schema naming alignment correction, 2026-07-13, migration `20260713_090000`):** the class names above (`Capability`, `CapabilityDependency`, `SubscriptionPlanCapability`, `TenantCapability`) are unchanged, but the *physical* table names they map to were corrected post-implementation to follow NovaClinicsPro's existing ownership-oriented naming convention — **platform/organization-owned tables use the `org_` prefix; tenant-owned tables use the `tenant_` prefix**:
+
+| Class | Physical table (as originally shipped, T-B.1a/b/c) | Physical table (corrected, `20260713_090000`) |
+|---|---|---|
+| `Capability` | `capabilities` | `org_capabilities` |
+| `CapabilityDependency` | `capability_dependencies` | `org_capability_dependencies` |
+| `SubscriptionPlanCapability` | `subscription_plan_capabilities` | `org_subscription_plan_capabilities` |
+| `TenantCapability` | `tenant_capabilities` | `tenant_capabilities` (already correct) |
+| `OrgTemplateCapability` | `org_template_capabilities` | `org_template_capabilities` (already correct) |
+
+This is a schema naming correction, not a conceptual architecture change — the domain model, resolver contract, ownership boundaries, and every ADR above are unaffected. Capability machine codes (`appointments`, `treatment`, `billing`, `clinical_documents`, etc., `tasks.md`'s T-A.3 inventory) are untouched by this correction — they are business vocabulary, not physical table names. See `OWNERSHIP.md` for the full correction record and `tasks.md`'s dedicated completion report.
+
 ---
 
 ## 5. Ownership Table (OW-1, OW-4 — the required deliverable)

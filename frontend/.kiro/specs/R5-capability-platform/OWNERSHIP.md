@@ -124,3 +124,31 @@ Per required review: the zero-reachability finding for `SubscriptionService` (`a
 - **Impact:** a database whose `tenant_casesheet_templates` data matches whatever state produced this conflict cannot cleanly `alembic upgrade head` through `d8f3a9b2c1e4` either. Scope of affected environments not determined here (only `novaclinics_e2e`'s clone was tried) — this is a narrower, environment/data-dependent finding, not established as universal the way §5.1 is.
 - **Verification impact for T-B.1c specifically:** since neither a from-empty replay (§5.1) nor an `novaclinics_e2e`-clone replay (this finding) reached a state with real `org_tenants`/`org_subscription_plans`/`tenant_staff` tables cleanly, T-B.1c was verified instead against **minimal synthetic stand-in tables** (`org_tenants`/`org_subscription_plans`/`tenant_staff`, each reduced to just `id uuid PRIMARY KEY`) created directly in the throwaway database — sufficient to genuinely exercise this migration's own FK/constraint DDL against real Postgres, but **not** a full-chain or full-schema replay. Stated explicitly here and in T-B.1c's own completion report so this methodology substitution is never mistaken for a complete-schema verification.
 - **Required resolution point:** same as §5.1 — before R7 production-hardening exit, and preferably before R5's own Group Z migration verification. Both §5.1 and §5.2 should be triaged together at that point, since both block a genuinely clean from-scratch environment provisioning story, even though they are different bugs.
+
+---
+
+## 6. Schema naming alignment correction (2026-07-13, migration `20260713_090000`)
+
+**Finding:** T-B.1a/b/c's originally-shipped physical table names (`capabilities`, `capability_dependencies`, `subscription_plan_capabilities`) did not follow NovaClinicsPro's existing ownership-oriented naming convention, discovered post-implementation (after T-C.4c) against the project's configured Supabase database.
+
+**Naming rule (binding, recorded here for the first time as an explicit rule — not previously stated anywhere in `requirements.md`/`design.md`):**
+
+> Platform/organization-owned capability catalog and entitlement tables use the `org_` prefix. Tenant-owned capability preference tables use the `tenant_` prefix.
+
+**Correction applied:**
+
+| Table (as originally shipped) | Table (corrected) | Disposition |
+|---|---|---|
+| `capabilities` | `org_capabilities` | Renamed, `20260713_090000` |
+| `capability_dependencies` | `org_capability_dependencies` | Renamed, `20260713_090000` |
+| `subscription_plan_capabilities` | `org_subscription_plan_capabilities` | Renamed, `20260713_090000` |
+| `tenant_capabilities` | `tenant_capabilities` | Already correct — not touched |
+| `org_template_capabilities` | `org_template_capabilities` | Already correct — not touched |
+
+**Method:** one new forward-only, additive Alembic migration (`down_revision='20260712_150000'`) — `ALTER TABLE ... RENAME TO` for each of the three tables, plus `ALTER TABLE ... RENAME CONSTRAINT`/`ALTER INDEX ... RENAME` for every constraint and index on those three tables whose name embedded the old table name (full list in the migration's own upgrade/downgrade bodies). No data was dropped, re-created, or re-seeded. The three already-applied original migrations (T-B.1a/b/c) were **not** edited, deleted, or replaced — this is a corrective migration on top of them, mirroring the exact discipline already established for the §5.1/§5.2 historical-defect findings (never rewrite a deployed migration).
+
+**Verified against the actual configured Supabase database** (`aws-1-ap-south-1.pooler.supabase.com`, masked), not a local/synthetic substitute — no throwaway database, no clone, no `alembic stamp` was used for this verification, per explicit instruction. Full detail in `tasks.md`'s dedicated completion report for this correction. Headline results: single Alembic head throughout (`20260712_150000` → `20260713_090000`); all three renamed tables' row counts unchanged (0 → 0 — this specific Supabase environment had the R5 schema applied but had never been seeded, an honestly-reported unexpected finding, not glossed over); every FK from the two untouched tables (`tenant_capabilities`, `org_template_capabilities`) automatically re-pointed to the renamed `org_capabilities` by Postgres's own rename semantics, confirmed by direct `pg_constraint` inspection; `validate_capability_graph_from_db`, `CapabilityCatalogProvider.get_snapshot`, and the pure resolver all ran successfully end-to-end against the real renamed schema (trivially, over an empty catalog).
+
+**No conceptual architecture changed.** ORM class names (`Capability`, `CapabilityDependency`, `SubscriptionPlanCapability`, `TenantCapability`, `OrgTemplateCapability`) are unchanged — only their `__tablename__` values. Capability machine codes (`appointments`, `treatment`, `billing`, `clinical_documents`, etc.) are unchanged — they are business vocabulary, never physical table names, and were not touched by this correction.
+
+**Engineering debt:** none introduced. The two pre-existing migration-chain defects (§5.1, §5.2) are unrelated to this correction and remain open, unchanged.
