@@ -170,8 +170,12 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
     - After a step submission succeeds, verify that a subsequent render of `SetupWizardFlow` using the refetched query shows the updated `per_step_validation[stepCode].status`
     - _Requirements: 27 AC-1, 27 AC-6_
 
-- [ ] 9. Checkpoint — submission ordering and invalidation complete
-  - Ensure all tests pass, ask the user if questions arise.
+- [x] 9. Checkpoint — submission ordering and invalidation complete
+  - Focused submission and invalidation verification passed:
+    `npm test -- --runInBand tests/onboarding/SetupWizardFlow.test.tsx tests/onboarding/onboarding.repository.test.tsx tests/onboarding/onboarding.api.test.ts`
+    reported 3 passed suites and 16 passed tests.
+  - Verified coverage includes duplicate submission lock, `Idempotency-Key` forwarding, stale callback guards, submit -> refetch -> advance ordering, and `onboardingKeys.status(tenantId)` invalidation.
+  - Jest open-handle behavior remains baseline test-environment debt after the pass summary.
 
 - [x] 10. Implement Android hardware back button intercept in `SetupWizardFlow`
   - [x] 10.1 Register `BackHandler` listener on mount
