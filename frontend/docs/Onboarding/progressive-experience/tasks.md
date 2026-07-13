@@ -105,8 +105,12 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
   - Run the full onboarding test suite (`npm test -- --config=tests/onboarding/jest.config.js`) — all pre-existing tests must still pass
   - _Requirements: 3 AC-1, 3 AC-2_
 
-- [ ] 5. Checkpoint — alias routing complete
-  - Ensure all tests pass, ask the user if questions arise.
+- [x] 5. Checkpoint — alias routing complete
+  - Focused alias-routing verification passed:
+    `npm test -- --runInBand tests/onboarding/StepDetailScreen.test.tsx tests/onboarding/SetupWizardFlow.test.tsx`
+    reported 2 passed suites and 17 passed tests.
+  - `TreatmentsAndTherapiesScreen.tsx` remains absent.
+  - Release-level frontend Jest/TypeScript baseline debt remains tracked in the recovery checkpoint and does not block implementation sequencing.
 
 - [x] 6. Implement duplicate submission lock and `submissionId` guard in `SetupWizardFlow`
   - [x] 6.1 Add `isPending` CTA lock and loading spinner
