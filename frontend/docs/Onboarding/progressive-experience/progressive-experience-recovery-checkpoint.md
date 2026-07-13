@@ -1,6 +1,6 @@
 # Progressive Experience Recovery Checkpoint
 
-Execution date: 2026-07-12
+Execution date: 2026-07-13
 
 ## 1. Purpose
 
@@ -78,10 +78,10 @@ Do not merge into `test` or `dev` during R0.
 |---|---|---|---|---|
 | R1 - Canonical Specs in Git | PASS | `git check-ignore -v frontend/docs/Onboarding/progressive-experience/requirements.md` reports the narrow `.gitignore` unignore rule. `git ls-files frontend/docs/Onboarding/progressive-experience` lists the nine canonical docs. `.kiro` remains ignored via `.gitignore:240:.kiro/`. Documentation commit `4cc02477` was pushed to `origin/feature/progressive-experience-recovery`. | None. | Keep canonical docs in `frontend/docs/Onboarding/progressive-experience/`; treat `.kiro` as a workspace mirror only. |
 | R2 - Clean Paired Branches | PASS | Frontend branch `feature/progressive-experience-recovery` created from `45c13b04` and pushed. Backend branch `feature/progressive-experience-recovery` created from `9dba7d1` and pushed. Backend worktree is clean. Frontend worktree contains only reviewed docs and `.gitignore` changes for R0. | None for branch creation. | Codex/user: keep branch pair clean; do not reuse `origin/feature/progressive-experience-phase-1`. |
-| R3 - Backend Onboarding Idempotency Verification | PASS_IN_DEV | Backend commits `c5082fb`, `f145dbf`, and `a2a818b` implement Platform Foundation request idempotency, migration `20260712_000001`, onboarding step submission integration, and focused tests. Focused tests: `12 passed`; full backend suite: `316 passed`; `git diff --check` passed; `alembic heads` reports `20260712_000001 (head)`. | `alembic current` was not verified because local database `novaclinics_test` does not exist; staging retry verification still required after deployment. | Backend/platform owner: verify migration/current against a configured database and run staging same-key replay checks. |
-| R4 - Tenant Resolution Verification | PARTIAL | Frontend sends `X-Tenant-ID` fallback in onboarding status and step submit APIs. Backend `/auth/me` response includes `tenant_id` when present. Backend route authorization resolves membership from the path `tenant_id`; onboarding service also checks user tenant against route tenant. | Staging verification is still required for provisional onboarding tenants, active tenants, tenant switching, multi-clinic users, `X-Tenant-ID` disagreement behavior, and cross-tenant rejection. | Backend/frontend owners: run staging checklist below. |
+| R3 - Backend Onboarding Idempotency Verification | PASS_IN_DEV | Backend commits `c5082fb`, `f145dbf`, and `a2a818b` implement Platform Foundation request idempotency, migration `20260712_000001`, onboarding step submission integration, and focused tests. Full backend suite: `316 passed`; `git diff --check` passed; `alembic heads` reports `20260712_000001 (head)`. | Local database migration verification is blocked by a pre-existing older migration failure before the idempotency migration: `1d51109d8e2d_add_staff_bank_details_table.py` attempts to drop missing index `idx_tenant_rules_org_rule`. Staging retry verification still required after deployment. | Backend/platform owner: fix or bypass the historical migration-chain issue in an appropriate database environment, then verify `alembic current` at `20260712_000001` and run staging same-key replay checks. |
+| R4 - Tenant Resolution Verification | PARTIAL | Frontend sends route tenant and `X-Tenant-ID` fallback in onboarding status and step submit APIs. Backend `/auth/me` response maps `tenant_id` to frontend `tenantId`. Backend route authorization resolves membership from the path `tenant_id`; onboarding service also checks user tenant against route tenant. Backend tests verify duplicate replay, same-key conflict, tenant/step isolation, missing-key compatibility, and cross-tenant rejection in code. | Staging verification was not executed in this thread for provisional tenants, active tenants, multi-clinic users, tenant switching, retry after timeout, duplicate retry, `X-Tenant-ID` mismatch, or cross-tenant rejection. | Backend/frontend owners: run staging checklist below with real credentials and deployed backend. |
 | R5 - Hindi Localization Completion Decision | FORMALLY_DEFERRED | Comparison of `onboarding.progressiveExperience` in `en-US.json` and `hi-IN.json` shows every audited key is an `ENGLISH_PLACEHOLDER`. | Hindi localization remains incomplete and must be completed or explicitly accepted again before user-facing Hindi launch. | Product/localization owner: complete Hindi translations in Progressive Experience Phase 1 readiness, or maintain a named deferral owner and acceptance date. |
-| R6 - Focused Verification | PARTIAL | Backend verification now passes in `.venv-idempotency`: focused tests `12 passed`, full tests `316 passed`, `git diff --check` passed, `alembic heads` passed. Frontend `node_modules` remains missing from prior audit; frontend tests were not restored in this task. | `alembic current` blocked by missing local database `novaclinics_test`; frontend dependencies/tests still not restored. | Environment owner: verify Alembic current against a configured database and restore frontend dependency/test tooling. |
+| R6 - Focused Verification | PARTIAL | Backend verification passes in `.venv-idempotency`: full tests `316 passed`, `git diff --check` passed, `alembic heads` passed. Frontend `git diff --check` passed. The frontend package root is `frontend/`; `packageManager` is Yarn 1; no TypeScript verification script exists in `frontend/package.json`. | Frontend dependencies are missing and `yarn install --frozen-lockfile` was rejected by the approval system, so `npm test -- --runInBand` fails with `jest: command not found`. Backend `alembic upgrade head` fails in historical migration `1d51109d8e2d` before the idempotency migration, so `alembic current` cannot verify the final revision. | Environment owner: allow dependency install or pre-provision `frontend/node_modules`, and fix/provide a migratable local/staging database state. |
 
 ## 5. Backend Idempotency Evidence
 
@@ -114,12 +114,25 @@ Rationale: the backend contains request correlation, CORS header allowance, even
 |---|---|---|
 | `/auth/me` | `CurrentUserResponse` includes `tenant_id`; handler returns `user.tenant_id` and tenant status/name when present. | VERIFIED_IN_CODE |
 | Current tenant/session resolution | Frontend auth entity maps `/auth/me` `tenant_id` to `tenantId`; auth hooks refresh session after demo/sample clinic creation to pick up tenant metadata. | VERIFIED_IN_CODE |
-| Onboarding/provisional tenant behavior | Frontend has explicit `X-Tenant-ID` workaround and warning for missing JWT `tenant_id`; backend JWT dependency still requires tenant ID unless org-admin bypass applies. | REQUIRES_STAGING |
-| Live tenant behavior | Code supports tenant ID in JWT and route tenant IDs. | REQUIRES_STAGING |
-| `X-Tenant-ID` compatibility | Frontend sends header, but backend onboarding route does not directly read it in the route signature inspected. Compatibility requires staging/API verification. | GAP |
-| Tenant switching | Auth store has selected clinic/effective tenant logic, but R0 did not verify end-to-end tenant switching. | REQUIRES_STAGING |
+| Onboarding/provisional tenant behavior | Frontend has explicit `X-Tenant-ID` workaround and warning for missing JWT `tenant_id`; backend path-tenant dependency does not rely on the header and requires tenant membership unless org-admin bypass applies. | VERIFIED_IN_CODE; NOT_EXECUTED_IN_STAGING |
+| Live tenant behavior | Code supports tenant ID in `/auth/me`, route tenant IDs, and path-tenant membership resolution. | VERIFIED_IN_CODE; NOT_EXECUTED_IN_STAGING |
+| `X-Tenant-ID` compatibility | Frontend sends header, but backend onboarding route does not directly read it in the route signature inspected; backend uses path tenant. | VERIFIED_IN_CODE_AS_IGNORED_BY_ONBOARDING; NOT_EXECUTED_IN_STAGING |
+| Tenant switching | Frontend auth maps `owned_clinics` and onboarding calls accept an explicit `tenantId`; end-to-end selected/effective tenant switching was not executed. | VERIFIED_IN_CODE_PARTIAL; NOT_EXECUTED_IN_STAGING |
 | Cross-tenant submission safety | `OnboardingService.submit_step` rejects non-org-admin users when `user_context.tenant_id != tenant_id`. | VERIFIED_IN_CODE |
-| Multi-tenant ownership | Frontend auth maps `owned_clinics`, but selected/effective tenant switching was not executed end-to-end. | UNKNOWN |
+| Multi-tenant ownership | Frontend auth maps `owned_clinics`, `hasMultipleClinics`, and `getPrimaryClinic`; selected/effective tenant switching was not executed end-to-end. | VERIFIED_IN_CODE_PARTIAL; NOT_EXECUTED_IN_STAGING |
+
+### Tenant Verification Matrix
+
+| Case | Code evidence | Staging evidence | Status |
+|---|---|---|---|
+| Onboarding tenant | `/auth/me` maps `tenant_id`; onboarding status/submit calls use explicit path `tenantId`; backend path-tenant dependency checks membership. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Active tenant | Same path-tenant membership and `/auth/me` tenant mapping support active tenants. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Multi-clinic user | Frontend maps `owned_clinics`; helper functions identify multiple clinics and primary clinic. | Not executed. | VERIFIED_IN_CODE_PARTIAL; NOT_EXECUTED |
+| Tenant switching | Onboarding APIs take explicit `tenantId`; query/cache behavior was not exercised. | Not executed. | VERIFIED_IN_CODE_PARTIAL; NOT_EXECUTED |
+| Retry after timeout | Platform idempotency allows same-key/same-payload retry after `FAILED_RETRYABLE`; covered by backend unit tests. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Duplicate retry | Onboarding integration test verifies same key and same payload replays without a second domain call. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| `X-Tenant-ID` mismatch | Backend onboarding route ignores `X-Tenant-ID` and uses path tenant plus authenticated membership context. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Cross-tenant request rejection | `OnboardingService.submit_step` rejects non-org-admin mismatched tenant; integration test covers rejection. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
 
 ### Staging Checklist
 
@@ -140,7 +153,7 @@ Outcome:
 FORMALLY_DEFERRED
 ```
 
-Reason: every audited `onboarding.progressiveExperience` key in `hi-IN.json` currently equals the English value. This checkpoint does not implement product localization; it records the blocker.
+Reason: all 77 audited `onboarding.progressiveExperience` leaf keys in `hi-IN.json` currently equal the English value. This is not a small translation remainder, so translation quality cannot be guaranteed inside this recovery verification task. The status is an explicit formal deferral, not an ambiguous pass.
 
 Owner: Product/localization owner.
 
@@ -166,20 +179,22 @@ Sample comparison evidence:
 | `stepLabels.readyToStart` | Ready to Start | Ready to Start | ENGLISH_PLACEHOLDER |
 | `readyToStart.confirmAccuracy` | I confirm that all information is accurate and I am ready to start accepting patients | I confirm that all information is accurate and I am ready to start accepting patients | ENGLISH_PLACEHOLDER |
 
-Full script result: every audited `onboarding.progressiveExperience` leaf key returned `ENGLISH_PLACEHOLDER`.
+Full script result: `total=77`, `englishPlaceholders=77`, `missing=0`.
 
 ## 8. Verification Results
 
 | Area | Command | Result | Classification |
 |---|---|---|---|
 | Frontend | `git diff --check` | Passed with no output. | PASS |
-| Frontend | `npm test -- --runInBand` | Failed: `jest: command not found`. | ENVIRONMENT_FAILURE |
-| Frontend | `npm run typecheck` | Failed: package has no `typecheck` script; npm log write to the home npm cache also failed. | ENVIRONMENT_FAILURE |
+| Frontend | `yarn install --frozen-lockfile` | Not run: approval system rejected the dependency-install escalation request. | ENVIRONMENT_BLOCKER |
+| Frontend | `npm test -- --runInBand` | Failed: `jest: command not found` because `frontend/node_modules` is missing. | ENVIRONMENT_FAILURE |
+| Frontend | TypeScript verification discovery | `frontend/package.json` has no `typecheck` or `tsc` script; no command was invented. | NOT_AVAILABLE |
 | Backend | `git diff --check` | Passed with no output. | PASS |
-| Backend | `.venv-idempotency/bin/pytest -q tests/test_platform_idempotency_service.py tests/test_onboarding_idempotency_integration.py` | `12 passed`. | PASS |
 | Backend | `.venv-idempotency/bin/pytest -q` | `316 passed`. | PASS |
 | Backend | `.venv-idempotency/bin/alembic heads` | `20260712_000001 (head)`. | PASS |
-| Backend | `.venv-idempotency/bin/alembic current` | Failed because local database `novaclinics_test` does not exist; no database was created or altered. | ENVIRONMENT_BLOCKER |
+| Backend | `createdb novaclinics_test` | Succeeded; created only the local development database requested for verification. | PASS |
+| Backend | `.venv-idempotency/bin/alembic upgrade head` | Failed before idempotency migration in historical migration `1d51109d8e2d_add_staff_bank_details_table.py`: missing index `idx_tenant_rules_org_rule`. | MIGRATION_CHAIN_BLOCKER |
+| Backend | `.venv-idempotency/bin/alembic current` after failed upgrade | Connected successfully but reported no current revision because the upgrade failed before a revision was recorded. | BLOCKED |
 
 Backend product verification now claims the focused and full pytest results above. Frontend product tests are still not claimed as passing.
 
@@ -197,13 +212,13 @@ Backend product verification now claims the focused and full pytest results abov
 Recovery Checkpoint: NO-GO
 ```
 
-The checkpoint remains NO-GO because mandatory recovery validation is not fully closed: `alembic current` has not been verified against a configured database, tenant-resolution/staging replay checks have not run, frontend dependency/test tooling is still unavailable, and Hindi localization remains formally deferred rather than complete.
+The checkpoint remains NO-GO because mandatory recovery validation is not fully closed: frontend dependency/test tooling could not be restored, the local database migration chain fails before reaching the idempotency migration, tenant-resolution/staging replay checks were not executed, and Hindi localization remains formally deferred rather than complete.
 
 ## 10. Minimum Remaining Actions For GO
 
-1. Verify `alembic current` against a configured local or staging database without touching unknown shared data.
-2. Verify tenant resolution and onboarding same-key replay in staging using the checklist above.
-3. Restore frontend dependencies/tests and rerun focused frontend verification.
+1. Restore frontend dependencies in the dedicated recovery worktree and rerun `npm test -- --runInBand`.
+2. Resolve or provide an appropriate database state for historical migration `1d51109d8e2d_add_staff_bank_details_table.py`, then rerun `alembic upgrade head` and verify `alembic current` reaches `20260712_000001`.
+3. Verify tenant resolution and onboarding same-key replay in staging using the checklist above.
 4. Complete Hindi Progressive Experience translations or maintain a named, approved deferral before any user-facing Hindi launch.
 5. Update this checkpoint to PASS for all mandatory gates before starting Progressive Experience Phase 1.
 
