@@ -11,10 +11,11 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import { useDemoStatusQuery, useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { DemoStatusBanner } from '../components/DemoStatusBanner';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
@@ -87,6 +88,13 @@ export function SetupWizardFlow() {
   const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
+  const { data: demoStatusData } = useDemoStatusQuery(tenantId, {
+    enabled: !!tenantId && currentUser?.applicationStatus === 'onboarding',
+    retry: false,
+  });
+  const readyToStartStep = statusData?.per_step_validation?.go_live_checklist;
+  const readyToStartStepIndex = steps.findIndex(step => step.code === 'go_live_checklist');
+  const canOpenReadyToStartChecklist = readyToStartStepIndex >= 0 && readyToStartStep?.actionable === true;
 
   useEffect(() => {
     if (tenantId) {
@@ -505,6 +513,36 @@ export function SetupWizardFlow() {
     );
   };
 
+  const navigateToStep = useCallback((stepCode: string) => {
+    const stepIndex = steps.findIndex(step => step.code === stepCode);
+    if (stepIndex < 0) {
+      return false;
+    }
+
+    setHasManuallyNavigated(true);
+    setShowProgressUpdatedNotice(false);
+    setCurrentStepIndex(stepIndex);
+    return true;
+  }, [steps]);
+
+  const handleContinueSetupFromBanner = useCallback(() => {
+    const targetStep = statusData?.next_recommended_step;
+    if (targetStep && navigateToStep(targetStep)) {
+      return;
+    }
+
+    const firstActionableStep = steps.find(step => step.status !== 'completed' && step.status !== 'blocked');
+    if (firstActionableStep) {
+      navigateToStep(firstActionableStep.code);
+    }
+  }, [navigateToStep, statusData?.next_recommended_step, steps]);
+
+  const handleReadyToStartFromBanner = useCallback(() => {
+    if (canOpenReadyToStartChecklist) {
+      navigateToStep('go_live_checklist');
+    }
+  }, [canOpenReadyToStartChecklist, navigateToStep]);
+
   const renderStepContent = () => {
     if (steps.length === 0) return null;
 
@@ -822,6 +860,21 @@ export function SetupWizardFlow() {
       <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />
 
       <OfflineBanner isOffline={isOffline} />
+
+      {demoStatusData && (
+        <View style={{ marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md }}>
+          <DemoStatusBanner
+            demoExpiresAt={demoStatusData.demo_expires_at}
+            trialExpiresAt={demoStatusData.trial_expires_at}
+            isDemoExpired={demoStatusData.is_demo_expired}
+            isTrialExpired={demoStatusData.is_trial_expired}
+            onExtendDemo={handleContinueSetupFromBanner}
+            onTransitionToLive={handleReadyToStartFromBanner}
+            isExtendDisabled={isNextPending}
+            isTransitionDisabled={isNextPending || !canOpenReadyToStartChecklist}
+          />
+        </View>
+      )}
 
       {showProgressUpdatedNotice && (
         <View

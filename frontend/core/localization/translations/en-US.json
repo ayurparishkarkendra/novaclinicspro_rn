@@ -592,14 +592,14 @@
         "sampleError": "Unable to create sample clinic. Please try again."
       },
       "statusBanner": {
-        "commercialTrialEnded": "Commercial Trial Ended",
-        "trialEndedMessage": "Your clinic data is safely stored. Choose a subscription plan to continue using Nova.",
+        "commercialTrialEnded": "Access Paused",
+        "trialEndedMessage": "Your clinic data is safely stored. Review subscription options to continue using Nova.",
         "commercialTrial": "Commercial Trial",
-        "sampleClinic": "Sample Clinic",
-        "sampleAccessEndsIn": "Sample access ends in:",
+        "sampleClinic": "Clinic Preparation",
+        "sampleAccessEndsIn": "Preparation access ends in:",
         "commercialTrialEndsIn": "Commercial trial ends in:",
-        "extendSampleAccess": "Extend Sample Access",
-        "choosePlan": "Choose Plan",
+        "extendSampleAccess": "Continue Setup",
+        "choosePlan": "Review Subscription",
         "readyToStart": "Ready to Start",
         "expired": "Expired"
       },

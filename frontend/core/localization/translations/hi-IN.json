@@ -435,14 +435,14 @@
         "sampleError": "सैंपल क्लिनिक बनाया नहीं जा सका। कृपया पुनः प्रयास करें।"
       },
       "statusBanner": {
-        "commercialTrialEnded": "कमर्शियल ट्रायल समाप्त हो गया",
-        "trialEndedMessage": "आपके क्लिनिक का डेटा सुरक्षित रखा गया है। Nova का उपयोग जारी रखने के लिए कोई सब्सक्रिप्शन प्लान चुनें।",
+        "commercialTrialEnded": "एक्सेस रुका हुआ है",
+        "trialEndedMessage": "आपके क्लिनिक का डेटा सुरक्षित रखा गया है। Nova का उपयोग जारी रखने के लिए सब्सक्रिप्शन विकल्पों की समीक्षा करें।",
         "commercialTrial": "कमर्शियल ट्रायल",
-        "sampleClinic": "सैंपल क्लिनिक",
-        "sampleAccessEndsIn": "सैंपल एक्सेस समाप्त होगा:",
+        "sampleClinic": "क्लिनिक तैयारी",
+        "sampleAccessEndsIn": "तैयारी एक्सेस समाप्त होगा:",
         "commercialTrialEndsIn": "कमर्शियल ट्रायल समाप्त होगा:",
-        "extendSampleAccess": "सैंपल एक्सेस बढ़ाएं",
-        "choosePlan": "प्लान चुनें",
+        "extendSampleAccess": "सेटअप जारी रखें",
+        "choosePlan": "सब्सक्रिप्शन की समीक्षा करें",
         "readyToStart": "शुरू करने के लिए तैयार",
         "expired": "समाप्त"
       },

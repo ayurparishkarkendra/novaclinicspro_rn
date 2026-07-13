@@ -79,7 +79,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 const mockAuthState = {
-  currentUser: { tenantId: 'test-tenant-456' },
+  currentUser: { tenantId: 'test-tenant-456', applicationStatus: 'onboarding' },
   isAuthenticated: false,
 };
 
@@ -109,7 +109,7 @@ jest.mock('../../features/onboarding/presentation/pages/steps/GoLiveScreen', () 
     const { Text, TouchableOpacity } = require('react-native');
     return (
       <TouchableOpacity onPress={onComplete}>
-        <Text>Complete Go Live</Text>
+        <Text>Complete Ready to Start</Text>
       </TouchableOpacity>
     );
   },
@@ -122,8 +122,10 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
 const mockRefetch = jest.fn();
 const mockMutateAsync = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
+const mockUseDemoStatusQuery = jest.fn();
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: any[]) => mockUseOnboardingStatusQuery(...args),
+  useDemoStatusQuery: (...args: any[]) => mockUseDemoStatusQuery(...args),
   useSubmitStepMutation: () => ({
     mutateAsync: (...args: any[]) => mockMutateAsync(...args),
     isPending: false,
@@ -153,9 +155,25 @@ const buildStatus = (visible_steps: string[] | null) => ({
   actionable_steps: visible_steps ?? [],
 });
 
+type StepValidationMock = {
+  step_code: string;
+  status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
+  is_complete: boolean;
+  is_valid: boolean;
+  issues: any[];
+  blocked_reason: string | null;
+  action_url_template: string | null;
+  entity_type: string | null;
+  icon: string | null;
+  category: string | null;
+  visible: boolean;
+  actionable: boolean;
+};
+
 const buildValidation = (
   visibleSteps: string[],
-  completedStepCodes: string[] = []
+  completedStepCodes: string[] = [],
+  overrides: Record<string, Partial<StepValidationMock>> = {}
 ) => Object.fromEntries(
   visibleSteps.map(stepCode => [
     stepCode,
@@ -172,21 +190,37 @@ const buildValidation = (
       category: null,
       visible: true,
       actionable: true,
+      ...overrides[stepCode],
     },
   ])
 );
 
 const buildStatusWithSteps = (
   visibleSteps: string[],
-  completedStepCodes: string[] = []
+  completedStepCodes: string[] = [],
+  validationOverrides: Record<string, Partial<StepValidationMock>> = {}
 ) => ({
   ...buildStatus(visibleSteps),
   total_steps: visibleSteps.length,
   completed_steps: completedStepCodes.length,
   pending_steps: visibleSteps.length - completedStepCodes.length,
-  per_step_validation: buildValidation(visibleSteps, completedStepCodes),
+  per_step_validation: buildValidation(visibleSteps, completedStepCodes, validationOverrides),
   visible_steps: visibleSteps,
   actionable_steps: visibleSteps,
+});
+
+const buildDemoStatus = () => ({
+  demo_tenant_id: 'test-tenant-456',
+  display_name: 'Clinic Preparation',
+  status: 'TRIAL',
+  demo_expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+  trial_expires_at: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+  demo_time_remaining_seconds: 5 * 24 * 60 * 60,
+  trial_time_remaining_seconds: 25 * 24 * 60 * 60,
+  is_demo_expired: false,
+  is_trial_expired: false,
+  demo_url: '',
+  created_at: new Date().toISOString(),
 });
 
 const renderFlow = () => {
@@ -209,13 +243,18 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     jest.clearAllMocks();
     mockNetInfoState.isConnected = true;
     mockNetInfoState.isInternetReachable = true;
-    mockAuthState.currentUser = { tenantId: 'test-tenant-456' };
+    mockAuthState.currentUser = { tenantId: 'test-tenant-456', applicationStatus: 'onboarding' };
     mockAuthState.isAuthenticated = false;
     wizardStore.useWizardStore.getState().reset();
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
     mockMutateAsync.mockResolvedValue({});
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -485,6 +524,94 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
+  it('routes the banner continue setup action to the backend recommended step', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: {
+        ...buildStatusWithSteps(['clinic_profile', 'operating_hours', 'go_live_checklist']),
+        next_recommended_step: 'operating_hours',
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Clinic Preparation')).toBeTruthy();
+      expect(queryByText(/Demo/i)).toBeNull();
+      expect(queryByText(/Go Live/i)).toBeNull();
+    });
+
+    fireEvent.press(getByText('Continue Setup'));
+
+    await waitFor(() => {
+      expect(getByText('Operating Hours')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes the banner Ready to Start action to the existing checklist step', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'go_live_checklist']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Ready to Start')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Ready to Start'));
+
+    await waitFor(() => {
+      expect(getByText('Complete Ready to Start')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('disables the banner Ready to Start action when backend readiness is not actionable', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(
+        ['clinic_profile', 'go_live_checklist'],
+        [],
+        { go_live_checklist: { actionable: false } }
+      ),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Ready to Start')).toHaveProp('accessibilityState', { disabled: true });
+    });
+
+    fireEvent.press(getByLabelText('Ready to Start'));
+
+    expect(queryByText('Complete Ready to Start')).toBeNull();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
   it('submits an external step only once during rapid Next taps and sends the idempotency key', async () => {
     let resolveSubmit: (() => void) | undefined;
     mockMutateAsync.mockImplementation(() => new Promise<void>(resolve => {
@@ -671,7 +798,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     addEventListenerSpy.mockRestore();
   });
 
-  it('clears onboarding drafts when go-live completes', async () => {
+  it('clears onboarding drafts when Ready to Start completes', async () => {
     const resetSpy = jest
       .spyOn(wizardStore, 'resetWizardDraftStorage')
       .mockResolvedValue(undefined);
@@ -685,10 +812,10 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     const { getByText } = renderFlow();
 
     await waitFor(() => {
-      expect(getByText('Complete Go Live')).toBeTruthy();
+      expect(getByText('Complete Ready to Start')).toBeTruthy();
     });
 
-    fireEvent.press(getByText('Complete Go Live'));
+    fireEvent.press(getByText('Complete Ready to Start'));
 
     expect(resetSpy).toHaveBeenCalled();
     expect(mockRouterReplace).toHaveBeenCalledWith('/clinic-admin?tenantId=test-tenant-456');
