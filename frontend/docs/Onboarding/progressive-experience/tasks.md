@@ -893,6 +893,259 @@ Task Group 15 selects Requirement 9 because Task Group 14 has completed per-step
 
 ---
 
+### Progressive Experience Planning Reconciliation - TG16
+
+Outcome:
+
+```text
+TASK_GROUP_16_READY
+```
+
+TG16 selects offline connectivity visibility and submit gating because Task Groups 13-15 now preserve local drafts across editing, navigation, and app lifecycle transitions. The next smallest dependency-safe increment is to prevent users from submitting while the device is known offline and to make that state visible. Pending mutation persistence, retry/flush, and dead-letter handling remain broader follow-up work because they require a new queue store, network replay policy, structured analytics, and error-recovery decisions.
+
+#### Refreshed Requirements Coverage Matrix
+
+| Requirement | Current Task Group | Implementation Status | Implementation Evidence | Test Evidence | Design Section | Remaining Gap | Blocking Dependency |
+|---|---|---|---|---|---|---|---|
+| Req 1 - StepDetailScreen alias routing | 1, 2, 5 | COMPLETE | Shared aliases and redirect routing exist. | Focused alias tests. | 1.1, Property 5. | Active-template drift audit before release if backend templates change. | None. |
+| Req 2 - SetupWizardFlow alias routing | 1, 3, 5 | COMPLETE | Shared aliases render Treatments redirect card. | `SetupWizardFlow` alias tests. | 1.2, Property 5. | None for current alias list. | None. |
+| Req 3 - Delete unused Treatments screen | 4, 5 | COMPLETE | Dead screen remains absent. | Existing imports/tests do not require it. | 1.3. | None. | None. |
+| Req 4 - Backend template alias audit | 1, 5 | PARTIALLY_IMPLEMENTED | Shared alias list records audited service aliases. | Alias tests cover known aliases. | 1.1, 1.2. | Re-run active-template audit before release. | Backend template inventory access. |
+| Req 5 - WizardDraftStore schema/persistence | 13, 15 | COMPLETE | Versioned tenant/user-scoped draft store, migration, expiry, compression, clean-state marking. | `wizard.store.test.ts`. | Deferred data models, Req 22 rules. | Future Journey Versioning identity review only. | None for current schema. |
+| Req 6 - WizardDraftStore step-screen integration | 14, 15 | COMPLETE | Required step screens save/restore/clear drafts; lifecycle uses existing store. | Task 14 focused tests plus TG15 lifecycle tests. | Deferred components, dependency rules. | No implementation gap. | Release verification. |
+| Req 7 - OfflineBanner | 16 | NOT_STARTED | No `OfflineBanner.tsx`; no NetInfo usage; NetInfo package absent. | No offline banner tests yet. | Deferred components, testing strategy. | Add NetInfo dependency, banner component, wizard wiring. | TG16 implementation. |
+| Req 8 - Offline CTA gating and mutation flush | 16 plus future | NOT_STARTED | No PendingMutationStore, retry queue, or offline gating. Platform idempotency exists for replay once requests reach backend. | No offline CTA/flush tests yet. | Deferred data flows, Core axios retry deferred. | TG16 covers visibility/gating only; queue/flush/retry/dead-letter remain future. | Offline queue/error/analytics design. |
+| Req 9 - App lifecycle background/foreground | 15 | COMPLETE | AppState background sync, foreground hydrate/refetch, changed-step notice. | `SetupWizardFlow` lifecycle tests. | Deferred data flows activated by TG15. | No polling or conflict-resolution expansion. | None. |
+| Req 10 - Android back button intercept | 10, 14 | COMPLETE | Hardware back persists drafts and navigates previous/consumes first step. | `SetupWizardFlow` back tests. | Property 4. | None. | None. |
+| Req 11 - Tenant identity fix | 11 | STAGING_ONLY | Code and automated checks verified; fallback remains. | Backend focused tests. | Backend dependencies for E2E. | Provisional/live/multi-clinic staging. | Staging access. |
+| Req 12 - Idempotency keys | 6, 11 | PARTIALLY_IMPLEMENTED | Frontend keys and backend Platform Foundation idempotency implemented. | Backend idempotency tests pass in dev. | Backend dependencies for E2E. | Staging same-key replay and tenant replay checks. | Staging deployment/access. |
+| Req 13 - Demo/live transition hooks | Future | PARTIALLY_IMPLEMENTED | `DemoStatusBanner`, repository transition hook, demo-status query exist. | `DemoStatusBanner.test.tsx`. | Query invalidation AC 27. | Wizard wiring, pending states, commercial policy. | Trial/subscription policy clarification. |
+| Req 14 - Theme compliance | Cross-cutting | PARTIALLY_IMPLEMENTED | Completed new UI uses `useClinicTheme()` where touched. | Focused tests for touched UI. | Theme Compliance. | Existing legacy hardcoded values remain. | Per-task review. |
+| Req 15 - Test coverage | Cross-cutting | PARTIALLY_IMPLEMENTED | Focused tests exist for completed groups. | TG15 focused tests pass; baseline full suite debt remains. | Testing Strategy. | Offline, conflict, payment, analytics, and E2E coverage. | Future task implementation and baseline debt. |
+| Req 16 - Draft conflict modal | Future | NOT_STARTED | No conflict modal. | None. | Deferred components, Req 29. | Compare local draft timestamps to server timestamps and resolve choice. | Req 29 backend contract and TG15 foreground flow. |
+| Req 17 - Multi-device validation | Future | NOT_STARTED | Server refetch updates steps; no multi-device conflict flow. | None. | Deferred data flows. | Clear drafts on server-completed steps and integration test. | Req 29/conflict design. |
+| Req 18 - Pending payment recovery | Future | NOT_STARTED | Subscription step and APIs exist, but no pending-verification API wrapper/banner. | None. | Backend dependencies, subscription flows. | Endpoint/scope decision and recovery UX. | Subscription/payment decision. |
+| Req 19 - Storage security audit | 13 partial | PARTIALLY_IMPLEMENTED | Draft storage reviewed for current fields. | Draft tests. | Deferred security notes. | Project-level storage classification and SecureStore decision. | Security owner review. |
+| Req 20 - Error message centralisation | Future | NOT_STARTED | Generic error helpers exist; onboarding catch paths still surface raw messages. | None. | Deferred Error Handling. | Define onboarding error mapper and localized keys. | Error-boundary design. |
+| Req 21 - Zero hardcoded design values | Cross-cutting | PARTIALLY_IMPLEMENTED | Recent UI changes use theme tokens. | Focused UI tests. | Theme Compliance. | Legacy screens still need touch-scope cleanup. | Per-task review. |
+| Req 22 - Zustand architecture | 13-15 | PARTIALLY_IMPLEMENTED | Wizard store follows synchronous actions plus standalone async helpers. | `wizard.store.test.ts`. | Dependency Rules. | Future stores, especially PendingMutationStore. | Future store design review. |
+| Req 23 - Hook/service architecture | Cross-cutting | PARTIALLY_IMPLEMENTED | Repository hooks and datasource boundaries exist. | Focused repository/API tests. | Dependency Rules. | Legacy direct datasource calls in some screens remain. | Per-task review. |
+| Req 24 - Internationalisation coverage | R0, 14, 15 | PARTIALLY_IMPLEMENTED | English/Hindi Progressive Experience keys updated for touched UI. | Key parity checks from R0; focused UI text assertions. | Localization governance. | New TG16 strings need EN/HI keys and review. | TG16 implementation. |
+| Req 25 - Accessibility | Cross-cutting | PARTIALLY_IMPLEMENTED | Recent notices and disabled buttons include accessible state/roles where touched. | Focused UI tests. | Accessibility ACs. | Offline banner alert/live region and CTA disabled state tests. | TG16 implementation. |
+| Req 26 - Duplicate submission locking | 6, 7, 9, 13-15 | PARTIALLY_IMPLEMENTED | Next submit lock and stale callback guard exist. | Rapid-tap and ordering tests. | Properties 1-3. | Demo/live pending button states remain. | Demo/live task. |
+| Req 27 - Query invalidation | 8, 9, 13-15 | PARTIALLY_IMPLEMENTED | Submit/complete invalidation and foreground refetch exist. | Focused tests. | Query invalidation rules. | Demo extend/transition invalidation and session refresh remain. | Demo/live task. |
+| Req 28 - Analytics/audit events | Future | PARTIALLY_IMPLEMENTED | Draft storage failure/expiry currently logs via console path. | Store tests cover behavior, not structured analytics. | Deferred analytics. | Analytics provider/stub and full event list. | Telemetry decision. |
+| Req 29 - Backend `updated_at` contract | Future | OPEN_DECISION | Frontend DTO includes `updated_at`; backend/staging guarantee not verified here. | None. | 1.4 deferred DTO, backend dependencies. | Backend contract and conservative fallback. | Backend contract decision. |
+| Req 30 - Tenant-scoped storage | 13-15 partial | PARTIALLY_IMPLEMENTED | Wizard drafts are tenant/user scoped and cleaned on logout. | Draft isolation tests. | Recovery tenant checklist. | PendingMutationStore isolation not implemented. | Future pending mutation design. |
+| Req 31 - Draft expiry | 13 partial | PARTIALLY_IMPLEMENTED | Expiry constant and hydration discard exist. | `wizard.store.test.ts`. | Deferred data models. | Remote-config override and structured analytics. | Remote config/analytics decision. |
+| Req 32 - End-to-end release verification | 11, 12 | STAGING_ONLY | Release checklist tracks runs A-D and staging gates. | Not executed. | E2E Manual Verification. | Runs A-D plus tenant/replay sign-off. | Staging/device access. |
+
+#### Candidate Area Review
+
+| Candidate | Requirements | Design Ready? | Dependencies Ready? | Existing Assets | Main Risk | Decision |
+|---|---|---|---|---|---|---|
+| Offline connectivity banner and submit gating | Req 7, Req 8 AC1-2 partial, Req 14, Req 15 AC1-2, Req 24, Req 25 AC1/AC4, Req 26 | Yes for banner/gating only. | Yes. Draft recovery, lifecycle sync, submit locks, and backend idempotency are complete. | `SetupWizardFlow`, theme/i18n, `SetupWizardFlow.test.tsx`. | Scope creep into queue/flush/retry. | READY |
+| Pending mutation persistence | Req 8 AC6-11, Req 30 | Partial. | No. Requires queue ownership, tenant cleanup, dead-letter UX. | Wizard store pattern, platform idempotency. | Frontend queue becoming domain truth. | BLOCKED_BY_DEPENDENCY |
+| Offline retry/flush | Req 8 AC2-5, AC8-11 | No. | No. Needs PendingMutationStore, retry policy, error mapper, analytics. | Platform idempotency protects replay after request reaches backend. | Hidden background sync/offline engine. | NEEDS_DESIGN_CLARIFICATION |
+| Axios retry recovery | Req 8 AC3-4, Req 28 | No. | No. Cross-feature axios behavior requires platform/network decision. | `axiosClient`. | Retrying unsafe operations globally. | NEEDS_DESIGN_CLARIFICATION |
+| Centralized onboarding errors | Req 20, Req 24 | Partial. | No. Needs mapper boundary and string catalog. | `core/utils/errorHandler.ts`, `useApiErrorHandler`. | Inconsistent mapping across screens. | NEEDS_DESIGN_CLARIFICATION |
+| Draft conflict handling | Req 16, Req 17, Req 29 | Partial. | No. TG15 is complete, but backend timestamp contract remains open. | Wizard drafts, foreground refetch, `updated_at` DTO field. | Incorrect overwrite/conflict decisions. | BLOCKED_BY_DEPENDENCY |
+| Journey Versioning | Req 5 follow-up, ownership docs | No. | No. | Draft schema version note. | Confusing draft schema with journey version. | NEEDS_DESIGN_CLARIFICATION |
+| Journey Cards | Uncovered accepted requirement | No. | No. | None verified. | Inventing architecture outside docs. | NEEDS_DESIGN_CLARIFICATION |
+| Capability-driven visibility | Ownership map | No. | No. | Capability ownership guidance only. | Frontend owning capability truth. | NEEDS_DESIGN_CLARIFICATION |
+| Readiness providers | Readiness ownership | No. | No. | Server readiness status. | Frontend owning readiness policy. | NEEDS_DESIGN_CLARIFICATION |
+| Workspace preparation | Workspace ownership | No. | No. | Existing external management routes. | Crossing workspace lifecycle boundary. | NEEDS_DESIGN_CLARIFICATION |
+| Ready-to-Start UX | Req 13, Req 18, Req 26, Req 27 | Partial. | No. | `GoLiveScreen`, complete mutation. | Subscription/readiness policy ambiguity. | NEEDS_DESIGN_CLARIFICATION |
+| Commercial trial start / subscription conversion | Req 13, Req 18, Req 27 | Partial. | No. | `DemoStatusBanner`, transition hook, subscription step. | Commercial policy not fully specified. | NEEDS_DESIGN_CLARIFICATION |
+| Informational dunning | Uncovered accepted requirement | No. | No. | None verified. | Inventing billing policy. | NEEDS_DESIGN_CLARIFICATION |
+| Progressive branding | Uncovered accepted requirement | No. | No. | Existing localized copy. | Cosmetic scope without accepted criteria. | NEEDS_DESIGN_CLARIFICATION |
+| Progressive financial configuration | Req 18, billing/payment steps | Partial. | No. | Billing/payment step screens. | Payment/security decisions. | NEEDS_DESIGN_CLARIFICATION |
+| Bring Your Clinic | Ownership map only | No. | No. | Choice/application flows exist. | Undefined scope. | NEEDS_DESIGN_CLARIFICATION |
+| Clinic Contact Details refinement | Existing clinic profile | No. | No. | `ClinicProfileScreen`. | No accepted next behavior. | NEEDS_DESIGN_CLARIFICATION |
+| Analytics/observability | Req 28 | No. | No. | Console event paths. | Provider/stub decision. | NEEDS_DESIGN_CLARIFICATION |
+| Backend `updated_at` contract | Req 29 | Partial. | No. | Frontend DTO field. | Backend/staging guarantee missing. | BLOCKED_BY_DEPENDENCY |
+| Staging tenant/replay verification | Req 11, Req 12, Req 32 | Yes as checklist. | No environment. | Recovery checkpoint. | Claiming unexecuted staging success. | STAGING_ONLY |
+
+#### Offline Sequencing Decision
+
+Offline behavior is now the correct next area only for a bounded visibility/gating increment. Req 7 mandates an offline banner, and Req 8 AC1 requires disabling submit CTAs while offline. The design does not yet define network-state ownership for a durable mutation queue, and no `PendingMutationStore` exists. Backend platform idempotency makes replay safer once a request reaches the server, but it does not by itself define local offline queue semantics. TG16 must therefore stop at network-state detection, banner visibility, and submit/complete gating; mutation queueing, retry flush, and dead-letter UX remain future work.
+
+#### Task Group 16 - Offline Connectivity Banner and Submit Gating
+
+- [ ] 16. Offline Connectivity Banner and Submit Gating
+
+  ## Objective
+
+  Make offline state visible in the onboarding wizard and prevent known-offline submit actions from dispatching backend mutations.
+
+  ## User Value
+
+  A clinic admin on an unreliable connection can see why onboarding cannot submit right now, keep editing safely through existing draft persistence, and avoid failed or misleading submit attempts while offline.
+
+  ## Requirement Traceability
+
+  - Requirement 7 AC1-6.
+  - Requirement 8 AC1 and the online re-enable portion of AC2.
+  - Requirement 14 AC1-2.
+  - Requirement 15 AC1-2.
+  - Requirement 24 AC1-4.
+  - Requirement 25 AC1 and AC4.
+  - Requirement 26 AC1 and AC4 for preserving submit disabled/loading behavior.
+
+  ## Design Traceability
+
+  - `design.md` Deferred Components: `OfflineBanner.tsx`.
+  - `design.md` Layer Map: presentation components own UI state, repositories own server mutations.
+  - `design.md` Dependency Rules: presentation may orchestrate hooks/components; no direct API calls.
+  - `design.md` Theme Compliance.
+  - `design.md` Testing Strategy: offline banner and CTA disabled coverage.
+
+  ## Ownership
+
+  - Owning layer: frontend onboarding presentation.
+  - Collaborators: React Native NetInfo, `SetupWizardFlow`, existing submit/complete pending-state logic, localization, theme.
+  - Owns: network-state display, offline CTA disabled state, and accessible user feedback.
+  - Must not own: mutation execution, server completion truth, readiness, subscription policy, retry scheduling, background sync, or queued mutation replay.
+
+  ## Dependencies
+
+  Implementation dependencies:
+
+  - Recovery Checkpoint R0 complete.
+  - Task Groups 13-15 complete.
+  - Platform idempotency implemented in backend dev branch.
+  - Existing draft persistence and lifecycle sync protect local edits while offline.
+
+  Staging dependencies:
+
+  - None for implementation.
+  - Physical/emulated offline validation remains part of release verification.
+
+  Release dependencies:
+
+  - Task 11 staging tenant/replay checks remain open.
+  - Baseline frontend Jest/TypeScript debt remains an integration blocker.
+  - Req 32 Run D remains required before production promotion.
+
+  ## Existing Assets to Reuse
+
+  - `frontend/features/onboarding/presentation/pages/SetupWizardFlow.tsx`
+  - `frontend/features/onboarding/presentation/components/RestoredDraftIndicator.tsx` as a local theme/i18n/accessibility pattern.
+  - `frontend/tests/onboarding/SetupWizardFlow.test.tsx`
+  - `frontend/core/localization/translations/en-US.json`
+  - `frontend/core/localization/translations/hi-IN.json`
+  - Existing `isNextPending`, `isHandlingNext`, `submitMutation.isPending`, and `accessibilityState` patterns.
+
+  Backend files: not expected.
+
+  ## Work Breakdown
+
+  - [ ] 16.1 Confirm NetInfo dependency approach
+    - Add `@react-native-community/netinfo` using the repository package manager only if it remains absent.
+    - Do not add a custom network service or global offline engine.
+
+  - [ ] 16.2 Add `OfflineBanner`
+    - Create `frontend/features/onboarding/presentation/components/OfflineBanner.tsx`.
+    - Use NetInfo connectivity state.
+    - Render nothing when online or unknown.
+    - Render a non-blocking themed alert when offline.
+
+  - [ ] 16.3 Wire offline state into `SetupWizardFlow`
+    - Render `OfflineBanner` near existing wizard notices.
+    - Disable `Next`, `Previous` only if needed to preserve submit safety, and `Ready to Start`/complete actions that would dispatch backend mutations while offline.
+    - Preserve existing pending-state spinner and stale-submission guards.
+    - Do not enqueue or replay mutations.
+
+  - [ ] 16.4 Localize and preserve accessibility
+    - Add English and Hindi keys for banner copy and any offline-disabled label if needed.
+    - Set banner `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`.
+    - Ensure disabled CTAs set `accessibilityState={{ disabled: true }}`.
+
+  - [ ] 16.5 Focused tests
+    - Mock NetInfo online/offline states.
+    - Verify banner renders offline and not online.
+    - Verify `Next`/submit CTA is disabled offline and enabled online.
+    - Verify pressing disabled submit does not call mutation.
+    - Verify pending submit behavior still disables and shows spinner.
+
+  - [ ] 16.6 Documentation and stop gate
+    - Update this task with completion evidence.
+    - Run `git diff --check`, focused onboarding tests, and TypeScript verification for touched files if practical.
+    - Commit, push, and stop for architectural review before Task Group 17.
+
+  ## Acceptance Criteria
+
+  - Offline state displays a localized, non-blocking `OfflineBanner`.
+  - Online or unknown network state does not render the banner.
+  - Known-offline state disables submit/complete CTAs that would dispatch backend mutations.
+  - Existing draft editing, draft persistence, lifecycle sync, and status display continue to work while offline.
+  - No pending mutation queue, retry scheduler, background service, polling, or backend endpoint is introduced.
+  - No hardcoded user-facing text is added.
+  - New UI uses `useClinicTheme()` tokens only.
+
+  ## Likely Files
+
+  - `frontend/package.json`
+  - `frontend/yarn.lock`
+  - `frontend/features/onboarding/presentation/components/OfflineBanner.tsx`
+  - `frontend/features/onboarding/presentation/pages/SetupWizardFlow.tsx`
+  - `frontend/tests/onboarding/SetupWizardFlow.test.tsx`
+  - `frontend/core/localization/translations/en-US.json`
+  - `frontend/core/localization/translations/hi-IN.json`
+
+  Backend files: not expected.
+
+  ## Tests
+
+  - Offline banner visible when NetInfo reports disconnected.
+  - Offline banner hidden when NetInfo reports connected.
+  - `Next`/submit CTA disabled while offline.
+  - Offline submit press does not dispatch `useSubmitStepMutation`.
+  - Online submit behavior remains unchanged.
+  - Existing Task Groups 13-15 focused tests remain in scope if touched.
+
+  ## Localization
+
+  - Add English and Hindi keys for offline banner copy.
+  - No hardcoded user-visible strings.
+  - Preserve key parity and interpolation parity.
+
+  ## Migration Fixtures
+
+  - Demo/provisional tenant with draft edits while offline.
+  - Live tenant with draft edits while offline.
+  - Tenant switching must not affect existing draft storage behavior.
+  - No database migration.
+
+  ## Non-Goals
+
+  - PendingMutationStore.
+  - Offline mutation queue.
+  - Retry flush.
+  - Axios retry interceptor.
+  - Dead-letter handling.
+  - Analytics events.
+  - Draft conflict modal.
+  - Backend `updated_at` contract.
+  - Journey Versioning.
+  - Payment recovery.
+  - Subscription/demo policy changes.
+  - Background sync, polling, timers, push notifications, or websocket refresh.
+
+  ## Preserved Follow-Ups
+
+  - Draft schema version is not Journey Version.
+  - Future Journey Versioning must review draft identity.
+  - Foreground refresh must not evolve into polling.
+  - Lifecycle listeners must remain singular and scoped.
+  - Drafts must never become completion truth.
+
+  ## Stop Gate
+
+  After implementation: focused verification, canonical docs update, commit, push, architectural review, and no automatic continuation to Task Group 17.
+
+---
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
@@ -921,13 +1174,15 @@ Multi-agent rule: one agent = one branch = one clean clone or worktree. Claude's
     { "id": 6, "tasks": ["10.4", "11.1", "11.2"] },
     { "id": 7, "tasks": ["13"] },
     { "id": 8, "tasks": ["14"] },
-    { "id": 9, "tasks": ["15"] }
+    { "id": 9, "tasks": ["15"] },
+    { "id": 10, "tasks": ["16"] }
   ],
   "notes": [
     "11.2 depends on 6.3: backend idempotency verification requires the Idempotency-Key header implementation (6.3) to be complete and deployed to staging before the staging verification in 11.2 can be executed.",
     "13 depends on Recovery Checkpoint R0, completed production-hardening implementation groups 1 through 10, Task 11.0 automated verification, Requirements 5/22/23/30, and the deferred design sections now activated for Progressive Experience Phase 1.",
     "14 depends on Task Group 13's v1 draft store and activates Requirement 6 step-screen integration. Task 11 staging checks remain release blockers only and do not block Task 14 implementation.",
-    "15 depends on Task Group 14's active step-screen draft integration and activates Requirement 9 app lifecycle sync. Task 11 staging checks remain release blockers only and do not block Task 15 implementation."
+    "15 depends on Task Group 14's active step-screen draft integration and activates Requirement 9 app lifecycle sync. Task 11 staging checks remain release blockers only and do not block Task 15 implementation.",
+    "16 depends on Task Group 15's lifecycle-safe draft recovery and activates the bounded Req 7 plus Req 8 AC1 offline visibility/gating increment. Pending mutation queue, retry flush, and dead-letter handling require future design and are not part of Task Group 16."
   ]
 }
 ```
