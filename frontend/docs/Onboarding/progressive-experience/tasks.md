@@ -648,6 +648,237 @@ Do not reopen Task Group 13 for this follow-up.
 
 ---
 
+### Progressive Experience Planning Reconciliation — Task Group 15
+
+Outcome:
+
+```text
+TASK_GROUP_15_READY
+```
+
+Task Group 15 selects Requirement 9 because Task Group 14 has completed per-step draft integration, giving `SetupWizardFlow` a reliable in-memory draft state to flush when the app backgrounds. This is the smallest dependency-correct increment after draft persistence: it improves real user data safety, uses existing React Native `AppState`, does not require new platform work, and does not require reopening completed routing, idempotency, tenant, or draft-store architecture.
+
+#### Updated Requirements Coverage Matrix
+
+| Requirement | Current Task Group | Implementation Status | Repository Evidence | Remaining Gap |
+|---|---|---|---|---|
+| Req 1 - StepDetailScreen alias routing | 1, 2, 5 | COMPLETE | `stepAliases.ts`, `StepDetailScreen.tsx`, `StepDetailScreen.test.tsx`. | Active-template drift audit before release if templates change. |
+| Req 2 - SetupWizardFlow alias routing | 1, 3, 5 | COMPLETE | `SetupWizardFlow.tsx`, `SetupWizardFlow.test.tsx`. | None for current alias list. |
+| Req 3 - Delete unused Treatments screen | 4, 5 | COMPLETE | `TreatmentsAndTherapiesScreen.tsx` remains absent. | None. |
+| Req 4 - Backend template alias audit | 1, 5 | PARTIALLY_IMPLEMENTED | Shared alias constant records audited service aliases. | Re-run active-template audit before release if backend templates change. |
+| Req 5 - WizardDraftStore schema/persistence | 13 | COMPLETE | `wizard.store.ts`, `wizard.store.test.ts`, Task 13 evidence. | Future Journey Versioning key review only. |
+| Req 6 - WizardDraftStore step-screen integration | 14 | COMPLETE | Task 14 commit `0ffb72e6`; required step screens save/restore/clear local drafts. | No implementation gap; release still depends on integrated verification. |
+| Req 7 - OfflineBanner | Future | NOT_STARTED | No `OfflineBanner.tsx`; no NetInfo usage; `@react-native-community/netinfo` is not declared in `frontend/package.json`. | Add dependency and component in a later offline-specific group. |
+| Req 8 - Offline CTA gating and mutation flush | Future | NOT_STARTED | No `PendingMutationStore`; no retry queue; no NetInfo integration. | Requires offline architecture, pending mutation storage, retry/error decisions. |
+| Req 9 - App lifecycle background/foreground | 15 | PARTIALLY_IMPLEMENTED | `SetupWizardFlow` hydrates drafts on mount; Task 14 saves active form drafts. | Add `AppState` background sync, foreground hydrate/refetch, and updated-steps notice. |
+| Req 10 - Android back button intercept | 10, 14 | COMPLETE | `SetupWizardFlow` consumes hardware back; Task 14 awaits draft storage sync before previous-step navigation. | None for current scope. |
+| Req 11 - Tenant identity fix | 11 | STAGING_ONLY | Code and automated tests verified; staging checklist remains open. | Provisional/live/multi-clinic staging verification. |
+| Req 12 - Idempotency keys | 6, 11 | PARTIALLY_IMPLEMENTED | Frontend step submit key; backend platform idempotency and focused tests. | Staging same-key replay and tenant replay checks. |
+| Req 13 - Demo/live transition hooks | Future | PARTIALLY_IMPLEMENTED | `DemoStatusBanner.tsx`, `DemoStatusBanner.test.tsx`, demo/live repository hooks exist. | `SetupWizardFlow` wiring, loading/error states, navigation contract. |
+| Req 14 - Theme compliance | Cross-cutting | PARTIALLY_IMPLEMENTED | Completed groups use theme where touched; hardcoded baseline values remain in older screens. | Grep/review for every new UI group. |
+| Req 15 - Test coverage | Cross-cutting | PARTIALLY_IMPLEMENTED | Focused tests exist for Groups 1-10, 13, and 14. | Req 7-9, 13, 16, 18, 20, 28, E2E coverage remains. |
+| Req 16 - Draft conflict modal | Future | NOT_STARTED | No `DraftConflictModal`; no conflict UI. | Depends on Req 9 foreground resume and Req 29 contract/fallback decision. |
+| Req 17 - Multi-device validation | Future | NOT_STARTED | No multi-device conflict flow. | Depends on conflict design and reliable status timestamp handling. |
+| Req 18 - Pending payment recovery | Future | NOT_STARTED | No pending-verification API wrapper or recovery banner. | Requires subscription/payment scope decision. |
+| Req 19 - Storage security audit | 13 partial | PARTIALLY_IMPLEMENTED | Draft storage data safety assessed in Task 13. | Full AsyncStorage vs SecureStore audit remains. |
+| Req 20 - Error message centralisation | Future | NOT_STARTED | `core/hooks/useApiErrorHandler.ts` exists, but onboarding screens still show raw `error.message` in catch paths. | Define onboarding error mapper boundary and localization keys. |
+| Req 21 - Zero hardcoded design values | Cross-cutting | PARTIALLY_IMPLEMENTED | New Task 14 indicator uses theme values. | Existing onboarding screens still need per-task grep/backfill where touched. |
+| Req 22 - Zustand architecture | 13, 14 | PARTIALLY_IMPLEMENTED | Wizard store uses synchronous actions plus standalone storage helpers; Task 14 added store helper only. | Audit remains for future stores such as pending mutations. |
+| Req 23 - Hook/service architecture | Cross-cutting | PARTIALLY_IMPLEMENTED | Repository hooks and datasource boundaries exist. | Review required for each new task; several legacy screens still call datasources directly. |
+| Req 24 - Internationalisation coverage | R0, 14 | PARTIALLY_IMPLEMENTED | Hindi Progressive Experience keys completed; Task 14 added English/Hindi restored-draft key. | New user-visible strings need English/Hindi keys. |
+| Req 25 - Accessibility | Cross-cutting | PARTIALLY_IMPLEMENTED | Existing CTA disabled states and Task 14 indicator accessibility role. | Offline/conflict/payment banners need explicit accessibility coverage. |
+| Req 26 - Duplicate submission locking | 6, 7, 9, 13 partial | PARTIALLY_IMPLEMENTED | Step submission lock, stale callback guard, and submit/refetch ordering tests exist. | Demo/live transition pending states remain. |
+| Req 27 - Query invalidation | 8, 9, 13 partial | PARTIALLY_IMPLEMENTED | Submit and complete setup invalidation hooks exist. | Demo extend/transition invalidation and session refresh remain. |
+| Req 28 - Analytics/audit events | Future | PARTIALLY_IMPLEMENTED | Draft storage failure/expiry uses console event path. | Structured analytics utility/provider and full event list remain. |
+| Req 29 - Backend `updated_at` contract | Future | OPEN_DECISION | Frontend DTO includes `updated_at`; backend/staging contract not verified here. | Backend contract and conservative conflict fallback design. |
+| Req 30 - Tenant-scoped storage | 13, 14 partial | PARTIALLY_IMPLEMENTED | Wizard draft storage is tenant/user scoped; Task 14 does not introduce mutation storage. | PendingMutationStore isolation and full logout integration remain. |
+| Req 31 - Draft expiry | 13 partial | PARTIALLY_IMPLEMENTED | `DRAFT_EXPIRY_DAYS`, hydration expiry, and focused tests exist. | Remote-config override and structured analytics remain. |
+| Req 32 - End-to-end release verification | 11, 12 | STAGING_ONLY | Release checklist and recovery checkpoint track staging gates. | Runs A-D and staging tenant/replay sign-off remain blocked by environment/access. |
+
+#### Candidate Area Review
+
+| Candidate Area | Readiness | Decision |
+|---|---|---|
+| App lifecycle draft/status sync | Requirements are explicit in Req 9; Task 14 completed current draft persistence; uses existing `AppState`, `hydrateWizardDraftFromStorage`, `syncWizardDraftToStorage`, and `refetch`. | SELECTED for Task Group 15. |
+| OfflineBanner | Req 7 is explicit, but NetInfo is not declared and Req 8 would still be needed for CTA gating. | BLOCKED_BY_DEPENDENCY for now; better after lifecycle sync or an offline dependency/install group. |
+| Pending mutation handling | Req 8 is broad and introduces a new store, retry/dead-letter logic, analytics, and tenant isolation obligations. | BLOCKED_BY_DEPENDENCY on OfflineBanner, analytics/error decisions, and architecture review. |
+| Error recovery / centralised onboarding errors | Req 20 is valuable, but design does not yet identify the onboarding mapper boundary or exact integration pattern. | NEEDS_DESIGN_CLARIFICATION. |
+| Analytics/audit events | Req 28 lacks an approved telemetry provider; existing analytics feature is reporting-oriented, not an event emitter. | NEEDS_DESIGN_CLARIFICATION. |
+| Draft conflict modal | Depends on foreground resume behavior and Req 29 timestamp contract/fallback. | BLOCKED_BY_DEPENDENCY until Task 15 and Req 29 decision. |
+| Journey Cards | Not represented by an accepted concrete requirement or design in the current canonical docs. | NEEDS_DESIGN_CLARIFICATION. |
+| Journey Versioning | Preserved as a Task 13 follow-up, but no requirement/design group is accepted yet. | NEEDS_DESIGN_CLARIFICATION. |
+| Capability-driven visibility | Ownership map identifies Capability ownership, but current tasks do not define an implementable capability visibility increment. | NEEDS_DESIGN_CLARIFICATION. |
+| Workspace preparation | Ownership is Workspace, but no next implementable design slice is present in these docs. | NEEDS_DESIGN_CLARIFICATION. |
+| Readiness providers | Backend/readiness ownership is not decomposed into a frontend-safe task group here. | NEEDS_DESIGN_CLARIFICATION. |
+| Ready-to-Start experience | `GoLiveScreen` exists and uses server step status; remaining gaps overlap demo/live and completion lifecycle. | BLOCKED_BY_DEPENDENCY on trial/subscription policy decisions. |
+| Trial lifecycle UX | `DemoStatusBanner` exists, but SetupWizardFlow wiring and commercial policy are incomplete. | NEEDS_DESIGN_CLARIFICATION before implementation. |
+| Commercial trial conversion | Existing repository hooks exist, but subscription/commercial policy is not fully specified for the next slice. | NEEDS_DESIGN_CLARIFICATION. |
+| Informational dunning | No accepted requirement/design currently defines dunning behavior. | NEEDS_DESIGN_CLARIFICATION. |
+| Billing preparation / progressive financial setup | Billing and payment step screens exist; pending payment recovery and subscription verification remain underspecified. | NEEDS_DESIGN_CLARIFICATION. |
+| Clinic identity refinements | Clinic profile screen exists and drafts are integrated; no accepted next refinements are specified. | NEEDS_DESIGN_CLARIFICATION. |
+| Clinic contact improvements | Covered only by existing clinic profile behavior; no standalone accepted task is defined. | NEEDS_DESIGN_CLARIFICATION. |
+| Backend `updated_at` contract | Frontend DTO has `updated_at`, but backend/staging guarantee is not verified. | BLOCKED_BY_DEPENDENCY for conflict-resolution work. |
+| End-to-end release verification | Requires staging URL, credentials, safe tenants, and physical-device/network checks. | STAGING_ONLY, not an implementation group. |
+
+- [ ] 15. App Lifecycle Draft Sync and Foreground Status Refresh
+
+  ## Objective
+
+  Preserve in-progress onboarding work across app background/foreground transitions by flushing current draft state to persistent storage when the app backgrounds, hydrating drafts when the app returns active, refetching authoritative onboarding status, and showing a localized inline notice when the server-visible step list changed while the app was away.
+
+  ## User Value
+
+  A clinic admin can switch apps, answer a call, or briefly lose focus mid-form without losing local edits or unknowingly continuing from a stale step list after returning.
+
+  ## Requirement Traceability
+
+  - Requirement 9 AC-1 through AC-3.
+  - Requirement 6 AC-5, because lifecycle hydration must reuse the existing draft hydration contract.
+  - Requirement 10 AC-1, because background and hardware-back persistence should remain consistent.
+  - Requirement 14 AC-2 and Requirement 21 AC-1 for theme-compliant inline notice styling.
+  - Requirement 15 AC-3 and AC-4 for focused lifecycle tests.
+  - Requirement 22 AC-4 and AC-5 for wizard-store subscription/use boundaries.
+  - Requirement 23 AC-4 for presentation orchestration.
+  - Requirement 24 AC-1, AC-2, AC-4 for any new user-visible copy.
+  - Requirement 25 AC-4 for non-blocking notice accessibility where appropriate.
+
+  ## Design Traceability
+
+  - `design.md` deferred AppState lifecycle handling.
+  - `design.md` dependency rules for presentation orchestration and store side effects.
+  - `tasks.md` Task Group 13 store contract.
+  - `tasks.md` Task Group 14 screen-level draft integration.
+
+  ## Ownership
+
+  - Owning layer: frontend onboarding presentation layer.
+  - Collaborating module: existing onboarding wizard store at `frontend/features/onboarding/presentation/stores/wizard.store.ts`.
+  - `SetupWizardFlow` may orchestrate lifecycle events, draft hydration/sync, and onboarding status refetch.
+  - Backend status remains authoritative for step completion and readiness.
+  - Must not create a new store, own readiness policy, own subscription policy, or introduce conflict-resolution behavior.
+
+  ## Dependencies
+
+  Implementation dependencies:
+
+  - Recovery Checkpoint R0: complete.
+  - Task Groups 1-10: complete.
+  - Task 11.0 implementation and automated verification: complete.
+  - Task Group 13: complete.
+  - Task Group 14: complete.
+
+  Staging dependencies:
+
+  - None for implementation.
+  - Existing Task 11.1 and 11.2 staging checks remain required before integration/promotion.
+
+  Release dependencies:
+
+  - Baseline frontend Jest/TypeScript debt remains a release/integration blocker.
+  - Staging tenant/replay verification remains a production promotion blocker.
+
+  ## Existing Components to Reuse
+
+  - `frontend/features/onboarding/presentation/pages/SetupWizardFlow.tsx`
+  - `frontend/features/onboarding/presentation/stores/wizard.store.ts`
+  - `hydrateWizardDraftFromStorage()`
+  - `syncWizardDraftToStorage()`
+  - `useWizardStore`
+  - `useOnboardingStatusQuery`
+  - `frontend/tests/onboarding/SetupWizardFlow.test.tsx`
+  - `frontend/tests/onboarding/wizard.store.test.ts`
+  - `frontend/core/localization/translations/en-US.json`
+  - `frontend/core/localization/translations/hi-IN.json`
+
+  Backend files: not expected.
+
+  ## Work Breakdown
+
+  - [ ] 15.1 Inventory lifecycle baseline
+    - Confirm current `SetupWizardFlow` mount hydration, draft sync subscription, Android back sync, and status `refetch` behavior.
+    - Record the active step-list comparison source (`visible_steps` or derived step code list).
+
+  - [ ] 15.2 Add AppState lifecycle orchestration in `SetupWizardFlow`
+    - Register and clean up a React Native `AppState` listener while the wizard is mounted.
+    - On transition to background/inactive, ensure current draft state has been pushed into the v1 draft store through Task 14 screen integration, then call `syncWizardDraftToStorage()`.
+    - Do not submit any backend mutation from the lifecycle handler.
+
+  - [ ] 15.3 Hydrate and refetch on foreground resume
+    - On transition to active, call `hydrateWizardDraftFromStorage()`.
+    - Then call onboarding status `refetch()` when `tenantId` and authentication state are valid.
+    - Preserve the existing focus-effect guard so logout/unauthenticated transitions do not fire authenticated requests.
+
+  - [ ] 15.4 Show updated-steps notice when server step list changes
+    - Compare the step-code signature before backgrounding with the post-refetch `visible_steps` signature.
+    - If the list changed, show a non-blocking localized inline notice that setup steps were updated.
+    - Use `useClinicTheme()` values only.
+    - Notice clears when the user changes steps, exits, or the wizard receives another unchanged active-state refetch.
+
+  - [ ] 15.5 Focused tests
+    - Verify background transition calls `syncWizardDraftToStorage()`.
+    - Verify active transition calls `hydrateWizardDraftFromStorage()` and then `refetch()`.
+    - Verify no active refetch occurs when unauthenticated or tenant ID is absent.
+    - Verify the updated-steps notice appears when `visible_steps` changes after foreground refetch.
+    - Verify the notice does not appear when the step list is unchanged.
+
+  - [ ] 15.6 Documentation and stop gate
+    - Update Task Group 15 evidence and verification commands in this file.
+    - Run `git diff --check`, focused lifecycle tests, and TypeScript verification for touched files where applicable.
+    - Commit and push only reviewed files.
+    - Stop for architectural review before offline, pending mutation, or conflict-resolution work.
+
+  ## Acceptance Criteria
+
+  - Background/inactive app transitions persist current onboarding drafts through the existing wizard draft storage.
+  - Foreground active transitions hydrate local drafts and refetch authoritative onboarding status in that order.
+  - Lifecycle handlers do not submit step data, complete onboarding, transition demo/live status, or mutate subscription state.
+  - A localized, theme-compliant inline notice appears only when the server-visible step list changed while the app was away.
+  - Backend status remains the only completion/readiness truth.
+  - Lifecycle listeners are removed on unmount.
+
+  ## Localization
+
+  - No hardcoded user-facing strings.
+  - Add English and Hindi keys for the updated-steps notice.
+  - Preserve interpolation parity if interpolation is introduced.
+
+  ## Tests
+
+  - Focused `SetupWizardFlow` lifecycle tests for background sync, foreground hydrate/refetch, unchanged step list, changed step list, and unauthenticated/tenant-missing guards.
+  - Existing Task Group 13 and Task Group 14 draft tests remain in scope if touched.
+  - TypeScript verification for touched files if available.
+
+  ## Migration Fixtures
+
+  Reuse the migration-fixture concepts for:
+
+  - onboarding/provisional tenant with a tenant ID or safe fallback identity;
+  - live tenant with tenant-scoped draft keys;
+  - tenant switching without draft leakage;
+  - Hindi localization key parity for the new notice.
+
+  No database migration is authorized.
+
+  ## Non-Goals
+
+  - Offline banner.
+  - NetInfo dependency installation.
+  - Pending mutation queue.
+  - Axios retry interceptor.
+  - Draft conflict modal.
+  - Multi-device conflict resolution.
+  - Backend `updated_at` contract.
+  - Analytics beyond existing console fallback paths.
+  - Payment recovery.
+  - Subscription/demo transition policy.
+  - Journey Versioning or journey-aware draft keys.
+
+  ## Stop Gate
+
+  After implementation: focused verification, canonical docs update, commit, push, architectural review, and no automatic continuation.
+
+---
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
@@ -675,12 +906,14 @@ Multi-agent rule: one agent = one branch = one clean clone or worktree. Claude's
     { "id": 5, "tasks": ["10.2", "10.3"] },
     { "id": 6, "tasks": ["10.4", "11.1", "11.2"] },
     { "id": 7, "tasks": ["13"] },
-    { "id": 8, "tasks": ["14"] }
+    { "id": 8, "tasks": ["14"] },
+    { "id": 9, "tasks": ["15"] }
   ],
   "notes": [
     "11.2 depends on 6.3: backend idempotency verification requires the Idempotency-Key header implementation (6.3) to be complete and deployed to staging before the staging verification in 11.2 can be executed.",
     "13 depends on Recovery Checkpoint R0, completed production-hardening implementation groups 1 through 10, Task 11.0 automated verification, Requirements 5/22/23/30, and the deferred design sections now activated for Progressive Experience Phase 1.",
-    "14 depends on Task Group 13's v1 draft store and activates Requirement 6 step-screen integration. Task 11 staging checks remain release blockers only and do not block Task 14 implementation."
+    "14 depends on Task Group 13's v1 draft store and activates Requirement 6 step-screen integration. Task 11 staging checks remain release blockers only and do not block Task 14 implementation.",
+    "15 depends on Task Group 14's active step-screen draft integration and activates Requirement 9 app lifecycle sync. Task 11 staging checks remain release blockers only and do not block Task 15 implementation."
   ]
 }
 ```
