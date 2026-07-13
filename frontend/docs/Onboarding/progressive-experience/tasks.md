@@ -2,7 +2,7 @@
 
 ## Overview
 
-Seven absolute release blockers, in delivery order. Each task maps directly to a design section in `design.md` and specific acceptance criteria in `requirements.md`. No deferred items (WizardDraftStore, OfflineBanner, PendingMutationStore, Axios retry, conflict resolution, analytics, i18n, accessibility, payment recovery) are included.
+Seven absolute release blockers, in delivery order. Each task maps directly to a design section in `design.md` and specific acceptance criteria in `requirements.md`. Deferred items (WizardDraftStore, OfflineBanner, PendingMutationStore, Axios retry, conflict resolution, analytics, i18n, accessibility, payment recovery) were excluded from the earlier production-hardening checkpoint. After Recovery Checkpoint R0 and completed production-hardening implementation groups, WizardDraftStore is now authorized only as the separate Progressive Experience implementation group defined below.
 
 Language: **TypeScript / React Native (Expo)**
 
@@ -253,6 +253,125 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
   - Ensure all tests pass, ask the user if questions arise.
   - Confirm the release checklist in `design.md` is fully signed off: all 7 blockers verified, tenant resolution confirmed, idempotency confirmed.
 
+### Progressive Experience Phase 1
+
+- [ ] 13. Wizard Draft Persistence Hardening
+  - Decision: `REQUIREMENT_5_IS_NEXT`
+  - Objective: preserve incomplete onboarding form input across navigation and app restarts without allowing local draft state to become onboarding completion truth or leak across tenants/users.
+  - Requirement trace: Requirement 5 AC-1 through AC-12; supporting architecture rules in Requirements 22, 23, 30, and 31; deferred design sections `Deferred Components (Post-Release)`, `Deferred Data Models (Post-Release)`, `Dependency Rules (Req 22, 23)`, `Deferred Data Flows (Post-Release)`, and `Deferred Tests (Post-Release)`.
+  - Ownership boundary:
+    - Frontend owns local unsaved draft state, persistence of incomplete form input, hydration, validation, migration, corrupt-data recovery, and safe discard/reset.
+    - Frontend does not own backend completion truth, onboarding readiness, lifecycle state, activation eligibility, subscription truth, or server-side synchronization.
+    - Draft persistence must never make a step appear complete unless backend onboarding status confirms completion.
+  - Existing implementation findings:
+    - Reuse and evolve `frontend/features/onboarding/presentation/stores/wizard.store.ts`; do not create a parallel draft store.
+    - Current store persists `wizardData` under global key `wizard-storage` with `version: 0`; it is not tenant-scoped, has no exported `syncWizardDraftToStorage` / `hydrateWizardDraftFromStorage`, no unified `DraftEntry`, no migration function, no compression path, and no explicit corrupt-data recovery contract.
+    - Current step screens use `useWizardStore` for temporary UI draft data; `ClinicProfileScreen` also calls `useWizardStore.getState()` directly and should be aligned with Requirement 22/23 where touched.
+    - Existing test coverage: `frontend/tests/onboarding/wizard.store.test.ts` covers in-memory tenant switching only; persisted tenant/user isolation, schema migration, corrupt storage, compression, and reset storage removal are missing.
+    - Backend impact: `UNKNOWN`; Requirement 5 is local draft persistence only and does not require backend schema or API changes.
+
+  | Requirement 5 Item | Design Support | Existing Code | Gap | Dependency |
+  |---|---|---|---|---|
+  | Unified `DraftEntry` with `data`, `createdAt`, `lastSavedAt` | Deferred data models mention `DraftEntry`; Requirements 5 and 31 define fields. | `wizardData` stores raw per-step data only. | Add unified draft entry model. | None. |
+  | Zustand state slice with synchronous actions only | Dependency rules and Requirement 22. | `useWizardStore` has synchronous actions, but custom persistence wrapper performs async side effects. | Separate synchronous slice from exported async storage functions. | Preserve existing callers or migrate them intentionally. |
+  | `immer` and `subscribeWithSelector` middleware | Requirement 22; design says match auth-store conventions. | Store uses plain Zustand; package has Zustand, but `immer` is not a declared direct dependency. | Add/confirm dependency and middleware application. | Package dependency decision for `immer`. |
+  | Tenant/user-scoped AsyncStorage key | Requirement 5 AC-4 and Requirement 30. | Global key `wizard-storage`; in-memory tenant reset only. | Implement `@novaclinics/{tenantId}/wizard_draft_v1` and fallback `@novaclinics/user_{userId}/wizard_draft_v1`. | Auth store tenant/user access. |
+  | Safe hydration | Requirement 5 AC-5 and AC-6. | Custom middleware hydrates automatically and logs warning on error. | Add explicit `hydrateWizardDraftFromStorage()` with parse validation, migration, corrupt-entry removal, and no throw. | None. |
+  | Storage sync | Requirement 5 AC-4, AC-7, AC-8. | Custom middleware persists on every set with no size/compression contract. | Add explicit `syncWizardDraftToStorage()` with size guard, compression, and recoverable errors. | `lz-string` dependency; telemetry path. |
+  | Migration `v0 -> v1` | Requirement 5 AC-12. | Persisted payload writes `{ state, version: 0 }`. | Add `migrateDraft()` and `DraftMigrationError`; migrate split/raw legacy payloads where possible. | Existing global key compatibility decision. |
+  | Selectors | Requirement 5 AC-9 and AC-10. | `getStepData` action exists; no pure selectors. | Export pure `selectStepDraft(stepCode)` and `selectStepDraftLastSavedAt(stepCode)`. | None. |
+  | Reset removes persisted entry | Requirement 5 AC-11 and Requirement 30. | `resetWizard()` resets memory only. | Remove tenant/user-scoped persisted entry during reset/exported cleanup path. | Auth store identity available at reset time. |
+  | Draft expiry | Requirement 31. | None. | Add per-step expiry during hydration only if included in this group. | Remote config override is `OPEN_DECISION`; no verified remote config path in current audit. |
+  | Telemetry for storage failure/expiry | Requirement 5 AC-7/AC-8 and Requirement 31 AC-3. | No verified onboarding telemetry utility; analytics feature is reporting UI/API, not an event emitter. | `OPEN_DECISION`: either add a minimal approved event utility or record console-only fallback before implementation. | Requirement 28 architecture decision. |
+
+  - [ ] 13.1 Inventory and compatibility plan
+    - Document the current persisted payload shape for `wizard-storage` (`{ state: { tenantId, wizardData }, version: 0 }`) and any observed test fixtures.
+    - Decide whether implementation must migrate the global legacy key, ignore it, or safely discard it after tenant-scoped storage is introduced.
+    - Confirm whether `financials_and_tax` and `payment_setup` draft data are safe for AsyncStorage under Requirement 19; exclude sensitive fields if needed.
+    - Resolve `OPEN_DECISION` items for telemetry and draft expiry remote-config override before code changes.
+    - _Requirements: 5 AC-4, 5 AC-5, 5 AC-7, 5 AC-8, 5 AC-12, 19 AC-3, 31 AC-4_
+
+  - [ ] 13.2 Refactor existing wizard store schema
+    - Evolve `frontend/features/onboarding/presentation/stores/wizard.store.ts` into the Requirement 5 draft schema without creating a second store.
+    - Add `version`, `stepDrafts`, `setStepDraft`, `clearStepDraft`, and `reset` using unified `DraftEntry`.
+    - Preserve existing callers through intentional adapter methods only where needed during migration; avoid dead duplicate state.
+    - Apply Zustand `immer` and `subscribeWithSelector` middleware per Requirement 22.
+    - _Requirements: 5 AC-1, 5 AC-2, 5 AC-3, 22 AC-1, 22 AC-2_
+
+  - [ ] 13.3 Add scoped storage identity and explicit persistence functions
+    - Export `syncWizardDraftToStorage()` and `hydrateWizardDraftFromStorage()` as standalone async functions.
+    - Use tenant-scoped key `@novaclinics/{tenantId}/wizard_draft_v1`; fall back to `@novaclinics/user_{userId}/wizard_draft_v1` with `console.warn` when tenant ID is unavailable.
+    - Keep storage reads/writes out of Zustand synchronous actions.
+    - _Requirements: 5 AC-4, 22 AC-2, 30 AC-1, 30 AC-4_
+
+  - [ ] 13.4 Add safe hydration, migration, and corrupt-data handling
+    - Validate parsed persisted data before restoring to memory.
+    - Export `migrateDraft(fromVersion, toVersion, payload)` and `DraftMigrationError`.
+    - Implement `v0 -> v1` migration for legacy split/raw draft payloads where data can be safely mapped.
+    - Discard unsupported versions or corrupt payloads without throwing, log the error/warning, and remove the bad persisted entry.
+    - _Requirements: 5 AC-5, 5 AC-6, 5 AC-12_
+
+  - [ ] 13.5 Add size guard, compression, and recoverable sync errors
+    - Define `MAX_DRAFT_SIZE_KB`.
+    - Before persistence, compute serialized payload size.
+    - Use `lz-string` `compressToUTF16` / `decompressFromUTF16` for oversized payloads.
+    - If compressed payload is still too large or storage fails, log recoverably and emit the approved storage-failure event path.
+    - _Requirements: 5 AC-7, 5 AC-8_
+
+  - [ ] 13.6 Add tenant/user isolation and reset behavior
+    - Ensure hydrate reads only the active tenant/user scoped key.
+    - Ensure `reset()` clears memory and removes only the active scoped persisted entry.
+    - Add logout/tenant-switch cleanup only if it can be done within existing auth/onboarding boundaries without changing lifecycle truth.
+    - _Requirements: 5 AC-11, 30 AC-1, 30 AC-2, 30 AC-3, 30 AC-5, 30 AC-7_
+
+  - [ ] 13.7 Add focused tests
+    - Store schema: `setStepDraft` preserves `createdAt` and updates `lastSavedAt`.
+    - Persistence round trip: `syncWizardDraftToStorage()` -> `reset()` -> `hydrateWizardDraftFromStorage()` restores the original valid `stepDrafts`.
+    - Tenant isolation: tenant A drafts never hydrate under tenant B; fallback user key is isolated.
+    - Corrupt storage: hydration logs/removes corrupt entry and leaves empty drafts without throwing.
+    - Migration: supported `v0 -> v1` payload migrates to unified `DraftEntry`; unsupported versions discard safely.
+    - Size/compression: oversized payload uses compression; still-oversized payload skips write and reports approved failure event.
+    - Reset/logout: scoped storage entry is removed without touching other tenants.
+    - _Requirements: 5 AC-3 through AC-12, 15 AC-3, 15 AC-4, 30 AC-5, 30 AC-7_
+
+  - [ ] 13.8 Documentation and stop gate
+    - Update this task group with implementation evidence, focused verification commands, and any resolved `OPEN_DECISION` outcomes.
+    - Run `git diff --check`, focused `wizard.store` tests, and TypeScript verification for modified files if available.
+    - Commit and push only reviewed files.
+    - Stop for architectural review before beginning Requirement 6 step-screen integration.
+
+  - Acceptance criteria:
+    - Incomplete per-step drafts survive app restart for the same tenant/user.
+    - Drafts do not hydrate across tenants, users, logout, or tenant switching.
+    - Hydration never crashes on corrupt, unsupported, or oversized stored data.
+    - Draft metadata is co-located with draft data and uses Unix millisecond timestamps.
+    - Local draft state remains temporary input recovery only and does not mark onboarding steps complete.
+    - Focused tests cover persistence, migration, corruption recovery, tenant/user isolation, and reset cleanup.
+
+  - Likely frontend files:
+    - `frontend/features/onboarding/presentation/stores/wizard.store.ts`
+    - `frontend/tests/onboarding/wizard.store.test.ts`
+    - `frontend/features/onboarding/presentation/pages/SetupWizardFlow.tsx`
+    - `frontend/features/onboarding/presentation/pages/steps/ClinicProfileScreen.tsx`
+    - `frontend/features/onboarding/presentation/pages/steps/BillingSetupScreen.tsx`
+    - `frontend/features/onboarding/presentation/pages/steps/PaymentSetupScreen.tsx`
+    - `frontend/package.json`
+    - `frontend/package-lock.json`
+    - `frontend/yarn.lock`
+
+  - Likely backend files:
+    - `UNKNOWN`
+
+  - Non-goals:
+    - Offline mutation queue.
+    - `PendingMutationStore`.
+    - Backend draft synchronization.
+    - Backend completion/readiness/lifecycle changes.
+    - Activation eligibility or subscription policy changes.
+    - Conflict resolution modal and `updated_at` backend contract.
+    - Broad wizard rewrite.
+    - Staging tenant/idempotency verification from Task 11.
+
 ---
 
 ## Notes
@@ -261,7 +380,7 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).
 - The `submissionId` guard (task 6.2) and the `Idempotency-Key` (task 11.2) are complementary layers: `submissionId` prevents frontend double-dispatch; `Idempotency-Key` prevents backend duplicate records if a network retry reaches the server.
-- No deferred items are in scope: WizardDraftStore, OfflineBanner, PendingMutationStore, Axios retry interceptor, conflict resolution modal, analytics, i18n, accessibility enhancements, payment recovery.
+- WizardDraftStore was excluded from the earlier production-hardening checkpoint. It is now authorized as Task Group 13 only after recovery and prior completed implementation groups. Other deferred items remain out of scope until a later canonical task group authorizes them: OfflineBanner, PendingMutationStore, Axios retry interceptor, conflict resolution modal, analytics beyond the approved draft-storage event path, i18n additions beyond user-visible strings introduced by an authorized task, accessibility enhancements beyond touched controls, and payment recovery.
 
 ## Git Delivery Strategy
 
@@ -280,10 +399,12 @@ Multi-agent rule: one agent = one branch = one clean clone or worktree. Claude's
     { "id": 3, "tasks": ["6.3", "7.1", "8.2"] },
     { "id": 4, "tasks": ["7.2", "10.1"] },
     { "id": 5, "tasks": ["10.2", "10.3"] },
-    { "id": 6, "tasks": ["10.4", "11.1", "11.2"] }
+    { "id": 6, "tasks": ["10.4", "11.1", "11.2"] },
+    { "id": 7, "tasks": ["13"] }
   ],
   "notes": [
-    "11.2 depends on 6.3: backend idempotency verification requires the Idempotency-Key header implementation (6.3) to be complete and deployed to staging before the staging verification in 11.2 can be executed."
+    "11.2 depends on 6.3: backend idempotency verification requires the Idempotency-Key header implementation (6.3) to be complete and deployed to staging before the staging verification in 11.2 can be executed.",
+    "13 depends on Recovery Checkpoint R0, completed production-hardening implementation groups 1 through 10, Task 11.0 automated verification, Requirements 5/22/23/30, and the deferred design sections now activated for Progressive Experience Phase 1."
   ]
 }
 ```
