@@ -227,3 +227,90 @@ The checkpoint remains NO-GO because mandatory recovery validation is not fully 
 Progressive Experience Phase 1 is not authorized.
 
 No Doctor Module changes are authorized.
+
+## 12. Final Verification Update - 2026-07-13
+
+This section supersedes earlier interim environment findings in this checkpoint.
+
+### Database Naming
+
+Backend idempotency persistence now complies with the Nova table naming rule:
+
+- table: `tenant_idempotency_records`;
+- unique constraint: `uq_tenant_idempotency_scope_key`;
+- check constraint: `ck_tenant_idempotency_status`;
+- indexes: `idx_tenant_idempotency_lookup`, `idx_tenant_idempotency_expires_at`;
+- migration: unpublished revision `20260712_000001` was updated directly because backend commit `a2a818b` is contained only in `origin/feature/progressive-experience-recovery`, not `test` or `dev`.
+
+### Migration Chain
+
+The approved historical migration repair in `1d51109d8e2d_add_staff_bank_details_table.py` adds SQLAlchemy inspection guards for fresh-build-only legacy artifacts:
+
+- `tenant_appointment_rules` table/index cleanup is skipped when the legacy table is absent;
+- `tenant_inventory_alerts` cleanup is skipped when the legacy table is absent.
+
+Fresh local rebuild still does not reach head. After dropping and recreating only the confirmed local `novaclinics_test` database, `alembic upgrade head` now fails later in the same historical revision on absent `tenant_inventory_batches`:
+
+```text
+relation "tenant_inventory_batches" does not exist
+```
+
+No staging, production, Supabase, or shared database was modified.
+
+### Backend Verification
+
+| Command | Result |
+|---|---|
+| `git diff --check` | PASS |
+| `.venv-idempotency/bin/pytest -q tests/test_platform_idempotency_service.py tests/test_onboarding_idempotency_integration.py` | `12 passed` |
+| `.venv-idempotency/bin/pytest -q` | `316 passed, 18 warnings` |
+| `.venv-idempotency/bin/alembic heads` | `20260712_000001 (head)` |
+| `.venv-idempotency/bin/alembic upgrade head` against fresh local `novaclinics_test` | FAILS in historical revision `1d51109d8e2d` on absent `tenant_inventory_batches` |
+| `.venv-idempotency/bin/alembic current` | NOT VERIFIED at head because fresh upgrade is blocked before `20260712_000001` |
+
+### Frontend Verification
+
+| Command | Result |
+|---|---|
+| `yarn install --frozen-lockfile` | PASS |
+| `git diff --check` | PASS |
+| `yarn test --runInBand` | FAIL: 8 failed suites, 65 passed suites; 21 failed tests, 584 passed tests |
+| `yarn test --runInBand tests/onboarding` | FAIL: 2 failed suites, 8 passed suites; 1 failed test, 64 passed tests; Jest open-handle hang stopped after failure summary |
+| `./node_modules/.bin/tsc --noEmit` | FAIL: existing app-wide TypeScript errors, including onboarding demo-status and payment setup type errors |
+
+Frontend failure classification: pre-existing verification debt. The current recovery edits touched only Hindi localization in frontend code and canonical docs, not the failing doctor, therapist, staff dashboard, or onboarding component/test logic.
+
+### Tenant and Replay Matrix
+
+| Case | Automated/local evidence | Staging evidence | Status |
+|---|---|---|---|
+| Authorized onboarding tenant | Onboarding integration tests submit with matching path tenant and user tenant. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Active tenant | Same path-tenant authorization code path applies. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Same-key replay | Focused tests verify same key and same payload replay without a second domain call. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Same key in different tenants | Focused tests verify tenant-scoped independent execution. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| `X-Tenant-ID` mismatch | Backend onboarding route uses path tenant plus membership context, not the header. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Cross-tenant rejection | Focused integration test verifies non-org-admin tenant mismatch rejection. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Different onboarding steps same key | Focused tests verify operation/step scoping. | Not executed. | VERIFIED_IN_CODE; NOT_EXECUTED |
+| Multi-clinic membership authorization | Code maps owned clinics and route membership context; no end-to-end selected-tenant staging run. | Not executed. | VERIFIED_IN_CODE_PARTIAL; NOT_EXECUTED |
+
+### Localization
+
+Hindi Progressive Experience localization is complete.
+
+- `onboarding.progressiveExperience` key parity: `77` Hindi keys, `77` English keys.
+- Missing keys: none.
+- Extra keys: none.
+- Interpolation variables preserved: `{{completed}}`, `{{total}}`, `{{durationDays}}`.
+
+### Final Decision
+
+```text
+Progressive Experience Recovery Checkpoint: NO-GO
+```
+
+Remaining blockers:
+
+1. Fresh local Alembic upgrade is still blocked in historical revision `1d51109d8e2d` before idempotency migration `20260712_000001`.
+2. Frontend full and focused onboarding Jest verification fails.
+3. Frontend TypeScript verification fails.
+4. Staging-only tenant/replay checks remain `NOT_EXECUTED`.

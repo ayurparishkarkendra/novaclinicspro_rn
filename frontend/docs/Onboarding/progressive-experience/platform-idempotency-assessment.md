@@ -185,3 +185,48 @@ Progressive Experience Recovery Checkpoint: NO-GO
 4. Should `X-Tenant-ID` be removed from onboarding clients once staging confirms JWT metadata reliability, or should the backend formalize it as a supported fallback?
 5. What is the canonical tenant-selection UX for owners with multiple clinics?
 6. Which package manager should be authoritative for the frontend worktree, given both `package-lock.json` and `yarn.lock` exist but `packageManager` names Yarn 1?
+
+## 13. Final Verification Update - 2026-07-13
+
+Database naming correction:
+
+- Final idempotency table name: `tenant_idempotency_records`.
+- Unique constraint: `uq_tenant_idempotency_scope_key`.
+- Check constraint: `ck_tenant_idempotency_status`.
+- Indexes: `idx_tenant_idempotency_lookup`, `idx_tenant_idempotency_expires_at`.
+- Rationale: records are scoped by authoritative tenant, authenticated actor, operation, and idempotency key. The table therefore uses the required `tenant_` prefix while Platform Foundation remains the owning capability.
+- Shared branch check: commit `a2a818b` was contained only in `origin/feature/progressive-experience-recovery`, not `test` or `dev`, so unpublished migration `20260712_000001` was updated directly.
+
+Backend verification:
+
+- `git diff --check`: PASS.
+- Focused backend tests: `12 passed` for `tests/test_platform_idempotency_service.py` and `tests/test_onboarding_idempotency_integration.py`.
+- Full backend suite: `316 passed, 18 warnings`.
+- `alembic heads`: `20260712_000001 (head)`.
+- Fresh local DB target confirmed as local PostgreSQL database `novaclinics_test`.
+- Fresh `alembic upgrade head`: still BLOCKED in historical revision `1d51109d8e2d_add_staff_bank_details_table.py`, now at absent `tenant_inventory_batches` after targeted guards for absent `tenant_appointment_rules` and `tenant_inventory_alerts`.
+- `alembic current`: not verified at head because the fresh upgrade did not reach `20260712_000001`.
+
+Frontend verification:
+
+- Package root: `frontend/`.
+- Package manager: `yarn@1.22.22`.
+- `yarn install --frozen-lockfile`: PASS.
+- `git diff --check`: PASS.
+- `yarn test --runInBand`: FAIL, with unrelated existing dashboard/staff/therapist failures plus onboarding failures in `StepCard` opacity expectation and `wizard.store` AsyncStorage mock setup.
+- Focused onboarding tests: `8 passed, 2 failed` suites; `64 passed, 1 failed` tests before Jest open-handle hang was stopped.
+- TypeScript: `./node_modules/.bin/tsc --noEmit` FAILS with existing app-wide type errors, including onboarding demo-status and payment setup errors.
+
+Localization:
+
+- Hindi Progressive Experience localization is complete in `hi-IN.json`.
+- Key parity check: `hi progressive keys 77`, `en progressive keys 77`, `missing []`, `extra []`.
+- Interpolation variables `{{completed}}`, `{{total}}`, and `{{durationDays}}` were preserved.
+
+Checkpoint impact:
+
+```text
+Progressive Experience Recovery Checkpoint: NO-GO
+```
+
+Remaining blockers are the unresolved fresh database migration chain, failing frontend focused/full verification, failing TypeScript verification, and staging-only tenant/replay checks that remain `NOT_EXECUTED`.

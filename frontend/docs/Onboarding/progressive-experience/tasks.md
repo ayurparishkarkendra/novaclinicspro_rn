@@ -47,13 +47,14 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
 - [ ] R0.5 Define tenant-resolution staging checks
   - Cover `/auth/me`, onboarding/provisional tenants, live tenants, tenant switching, `X-Tenant-ID` compatibility, and cross-tenant submission safety.
 
-- [ ] R0.6 Complete or formally defer Hindi localization
-  - Do not claim localization is complete while English placeholder text remains in `hi-IN.json`.
-  - If deferred, record owner, Progressive Experience phase, and acceptance condition.
+- [x] R0.6 Complete or formally defer Hindi localization
+  - Hindi Progressive Experience localization is complete in `hi-IN.json`.
+  - Key parity check confirms 77 Hindi keys and 77 English keys with no missing or extra keys.
+  - Interpolation variables are preserved.
 
-- [ ] R0.7 Issue GO/NO-GO report
+- [x] R0.7 Issue GO/NO-GO report
   - The current checkpoint status is `NO-GO`.
-  - Next onboarding implementation is blocked until Recovery Checkpoint status becomes GO.
+  - Next onboarding implementation is blocked until fresh database migration verification, frontend Jest/TypeScript verification, and staging-only tenant/replay checks pass.
 
 - [x] 1. Create shared `SERVICE_CATALOGUE_ALIASES` constant
   - Create `frontend/features/onboarding/constants/stepAliases.ts`
