@@ -18,7 +18,7 @@ import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
 import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
-import { useWizardStore } from '../stores/wizard.store';
+import { hydrateWizardDraftFromStorage, syncWizardDraftToStorage, useWizardStore } from '../stores/wizard.store';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 
 interface Step {
@@ -76,6 +76,31 @@ export function SetupWizardFlow() {
       setWizardTenantId(tenantId);
     }
   }, [tenantId, setWizardTenantId]);
+
+  useEffect(() => {
+    void hydrateWizardDraftFromStorage();
+
+    let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = useWizardStore.subscribe(
+      state => state.stepDrafts,
+      () => {
+        if (syncTimeout) {
+          clearTimeout(syncTimeout);
+        }
+
+        syncTimeout = setTimeout(() => {
+          void syncWizardDraftToStorage();
+        }, 500);
+      }
+    );
+
+    return () => {
+      if (syncTimeout) {
+        clearTimeout(syncTimeout);
+      }
+      unsubscribe();
+    };
+  }, []);
 
   // Refetch status when screen comes into focus (after navigating back from
   // external screens). refetch() bypasses the query's `enabled` guard and

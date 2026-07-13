@@ -255,8 +255,9 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
 
 ### Progressive Experience Phase 1
 
-- [ ] 13. Wizard Draft Persistence Hardening
+- [x] 13. Wizard Draft Persistence Hardening
   - Decision: `REQUIREMENT_5_IS_NEXT`
+  - Status: Implementation complete. Focused verification complete. Ready for architectural review.
   - Objective: preserve incomplete onboarding form input across navigation and app restarts without allowing local draft state to become onboarding completion truth or leak across tenants/users.
   - Requirement trace: Requirement 5 AC-1 through AC-12; supporting architecture rules in Requirements 22, 23, 30, and 31; deferred design sections `Deferred Components (Post-Release)`, `Deferred Data Models (Post-Release)`, `Dependency Rules (Req 22, 23)`, `Deferred Data Flows (Post-Release)`, and `Deferred Tests (Post-Release)`.
   - Ownership boundary:
@@ -284,47 +285,53 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
   | Draft expiry | Requirement 31. | None. | Add per-step expiry during hydration only if included in this group. | Remote config override is `OPEN_DECISION`; no verified remote config path in current audit. |
   | Telemetry for storage failure/expiry | Requirement 5 AC-7/AC-8 and Requirement 31 AC-3. | No verified onboarding telemetry utility; analytics feature is reporting UI/API, not an event emitter. | `OPEN_DECISION`: either add a minimal approved event utility or record console-only fallback before implementation. | Requirement 28 architecture decision. |
 
-  - [ ] 13.1 Inventory and compatibility plan
+  - [x] 13.1 Inventory and compatibility plan
     - Document the current persisted payload shape for `wizard-storage` (`{ state: { tenantId, wizardData }, version: 0 }`) and any observed test fixtures.
     - Decide whether implementation must migrate the global legacy key, ignore it, or safely discard it after tenant-scoped storage is introduced.
     - Confirm whether `financials_and_tax` and `payment_setup` draft data are safe for AsyncStorage under Requirement 19; exclude sensitive fields if needed.
     - Resolve `OPEN_DECISION` items for telemetry and draft expiry remote-config override before code changes.
+    - Outcome: legacy `wizard-storage` v0 payloads are migrated only when identity validation is safe; scoped v1 keys are tenant/user/version based. No card/token data is stored by `financials_and_tax` or `payment_setup`; stored values remain local form settings. Telemetry uses the existing console event pattern because no dedicated onboarding event emitter exists. Draft expiry uses the documented default constant; no verified remote-config provider exists in the current codebase.
     - _Requirements: 5 AC-4, 5 AC-5, 5 AC-7, 5 AC-8, 5 AC-12, 19 AC-3, 31 AC-4_
 
-  - [ ] 13.2 Refactor existing wizard store schema
+  - [x] 13.2 Refactor existing wizard store schema
     - Evolve `frontend/features/onboarding/presentation/stores/wizard.store.ts` into the Requirement 5 draft schema without creating a second store.
     - Add `version`, `stepDrafts`, `setStepDraft`, `clearStepDraft`, and `reset` using unified `DraftEntry`.
     - Preserve existing callers through intentional adapter methods only where needed during migration; avoid dead duplicate state.
     - Apply Zustand `immer` and `subscribeWithSelector` middleware per Requirement 22.
+    - Outcome: the existing `useWizardStore` now owns a v1 `stepDrafts` schema, keeps adapter methods for existing step screens, and uses `subscribeWithSelector` plus an Immer-backed state updater.
     - _Requirements: 5 AC-1, 5 AC-2, 5 AC-3, 22 AC-1, 22 AC-2_
 
-  - [ ] 13.3 Add scoped storage identity and explicit persistence functions
+  - [x] 13.3 Add scoped storage identity and explicit persistence functions
     - Export `syncWizardDraftToStorage()` and `hydrateWizardDraftFromStorage()` as standalone async functions.
     - Use tenant-scoped key `@novaclinics/{tenantId}/wizard_draft_v1`; fall back to `@novaclinics/user_{userId}/wizard_draft_v1` with `console.warn` when tenant ID is unavailable.
     - Keep storage reads/writes out of Zustand synchronous actions.
+    - Outcome: storage is scoped by tenant, user, and schema version. `SetupWizardFlow` hydrates drafts on mount and debounces explicit storage sync from the existing store.
     - _Requirements: 5 AC-4, 22 AC-2, 30 AC-1, 30 AC-4_
 
-  - [ ] 13.4 Add safe hydration, migration, and corrupt-data handling
+  - [x] 13.4 Add safe hydration, migration, and corrupt-data handling
     - Validate parsed persisted data before restoring to memory.
     - Export `migrateDraft(fromVersion, toVersion, payload)` and `DraftMigrationError`.
     - Implement `v0 -> v1` migration for legacy split/raw draft payloads where data can be safely mapped.
     - Discard unsupported versions or corrupt payloads without throwing, log the error/warning, and remove the bad persisted entry.
+    - Outcome: corrupt and incompatible scoped drafts are removed without crashing onboarding. Legacy v0 raw/split payloads migrate to unified `DraftEntry` where safe.
     - _Requirements: 5 AC-5, 5 AC-6, 5 AC-12_
 
-  - [ ] 13.5 Add size guard, compression, and recoverable sync errors
+  - [x] 13.5 Add size guard, compression, and recoverable sync errors
     - Define `MAX_DRAFT_SIZE_KB`.
     - Before persistence, compute serialized payload size.
     - Use `lz-string` `compressToUTF16` / `decompressFromUTF16` for oversized payloads.
     - If compressed payload is still too large or storage fails, log recoverably and emit the approved storage-failure event path.
+    - Outcome: `immer` and `lz-string` are declared package dependencies. Oversized payloads are compressed; still-oversized or failed writes log and emit the console event path without throwing.
     - _Requirements: 5 AC-7, 5 AC-8_
 
-  - [ ] 13.6 Add tenant/user isolation and reset behavior
+  - [x] 13.6 Add tenant/user isolation and reset behavior
     - Ensure hydrate reads only the active tenant/user scoped key.
     - Ensure `reset()` clears memory and removes only the active scoped persisted entry.
     - Add logout/tenant-switch cleanup only if it can be done within existing auth/onboarding boundaries without changing lifecycle truth.
+    - Outcome: hydrate validates tenant/user identity, tenant changes reset in-memory drafts, `resetWizardDraftStorage()` removes current scoped storage, and auth logout calls `clearWizardDraftStorageForIdentity()` before clearing local session.
     - _Requirements: 5 AC-11, 30 AC-1, 30 AC-2, 30 AC-3, 30 AC-5, 30 AC-7_
 
-  - [ ] 13.7 Add focused tests
+  - [x] 13.7 Add focused tests
     - Store schema: `setStepDraft` preserves `createdAt` and updates `lastSavedAt`.
     - Persistence round trip: `syncWizardDraftToStorage()` -> `reset()` -> `hydrateWizardDraftFromStorage()` restores the original valid `stepDrafts`.
     - Tenant isolation: tenant A drafts never hydrate under tenant B; fallback user key is isolated.
@@ -332,13 +339,18 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
     - Migration: supported `v0 -> v1` payload migrates to unified `DraftEntry`; unsupported versions discard safely.
     - Size/compression: oversized payload uses compression; still-oversized payload skips write and reports approved failure event.
     - Reset/logout: scoped storage entry is removed without touching other tenants.
+    - Outcome: `frontend/tests/onboarding/wizard.store.test.ts` covers 12 focused draft persistence, migration, isolation, compression, and cleanup scenarios.
     - _Requirements: 5 AC-3 through AC-12, 15 AC-3, 15 AC-4, 30 AC-5, 30 AC-7_
 
-  - [ ] 13.8 Documentation and stop gate
+  - [x] 13.8 Documentation and stop gate
     - Update this task group with implementation evidence, focused verification commands, and any resolved `OPEN_DECISION` outcomes.
     - Run `git diff --check`, focused `wizard.store` tests, and TypeScript verification for modified files if available.
     - Commit and push only reviewed files.
     - Stop for architectural review before beginning Requirement 6 step-screen integration.
+    - Verification:
+      - `npm test -- --runInBand tests/onboarding/wizard.store.test.ts` passed: 1 suite, 12 tests.
+      - `npm test -- --runInBand tests/onboarding/SetupWizardFlow.test.tsx tests/onboarding/wizard.store.test.ts` passed: 2 suites, 25 tests.
+      - `./node_modules/.bin/tsc --noEmit --pretty false` still fails on existing baseline app-wide TypeScript debt; no Task Group 13 touched-file TypeScript errors remain.
 
   - Acceptance criteria:
     - Incomplete per-step drafts survive app restart for the same tenant/user.
