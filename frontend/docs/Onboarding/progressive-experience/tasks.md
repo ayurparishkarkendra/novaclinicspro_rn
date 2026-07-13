@@ -23,29 +23,31 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
 
 ## Tasks
 
-### Recovery Checkpoint R0
+### Recovery Checkpoint R0: COMPLETE
 
-- [ ] R0.1 Move/copy accepted specs to tracked canonical location
+- [x] R0.1 Move/copy accepted specs to tracked canonical location
   - Canonical path: `frontend/docs/Onboarding/progressive-experience/`
   - `.kiro` must not remain the sole source of truth.
   - Do not mark complete until the docs are committed or otherwise traceable in Git.
 
-- [ ] R0.2 Update references
+- [x] R0.2 Update references
   - Requirements, design, tasks, reconciliation, and recovery checkpoint must point to the canonical tracked docs path.
   - Kiro copies must be treated as workspace mirrors.
 
-- [ ] R0.3 Verify clean paired branch baselines
+- [x] R0.3 Verify clean paired branch baselines
   - Frontend and backend must start from latest `origin/dev`.
   - Use `feature/progressive-experience-recovery` in both repositories.
   - Do not reuse stale `origin/feature/progressive-experience-phase-1`.
 
-- [ ] R0.4 Verify backend idempotency status
+- [x] R0.4 Verify backend idempotency status
   - Current status: `VERIFIED_IN_DEV`.
-  - Backend recovery commits `c5082fb`, `f145dbf`, and `a2a818b` implement Platform Foundation idempotency, onboarding step submission integration, migration `20260712_000001`, and focused tests.
-  - Remaining verification: `alembic current` against a configured database and staging same-key replay/tenant-isolation checks.
+  - Backend recovery commits `c5082fb`, `f145dbf`, `a2a818b`, `bc6d446`, and `a82103d` implement Platform Foundation idempotency, onboarding step submission integration, migration `20260712_000001`, approved tenant-scoped persistence naming, fresh database migration-chain repair, and focused tests.
+  - Fresh local `novaclinics_test` rebuild reaches `20260712_000001 (head)`.
+  - Staging same-key replay/tenant-isolation checks remain release blockers, not implementation-readiness blockers.
 
-- [ ] R0.5 Define tenant-resolution staging checks
+- [x] R0.5 Define tenant-resolution staging checks
   - Cover `/auth/me`, onboarding/provisional tenants, live tenants, tenant switching, `X-Tenant-ID` compatibility, and cross-tenant submission safety.
+  - Staging execution is blocked until staging URL, credentials, and safe tenants are provided.
 
 - [x] R0.6 Complete or formally defer Hindi localization
   - Hindi Progressive Experience localization is complete in `hi-IN.json`.
@@ -53,8 +55,10 @@ Legacy "release gate" = Progressive Experience production-hardening checkpoint
   - Interpolation variables are preserved.
 
 - [x] R0.7 Issue GO/NO-GO report
-  - The current checkpoint status is `NO-GO`.
-  - Next onboarding implementation is blocked until fresh database migration verification, frontend Jest/TypeScript verification, and staging-only tenant/replay checks pass.
+  - Recovery / implementation readiness: `GO`.
+  - Production promotion readiness: `NO-GO`.
+  - Baseline frontend Jest/TypeScript failures and staging-only tenant/replay checks remain tracked release blockers.
+  - Next authorized work: execute the first incomplete task group in this file.
 
 - [x] 1. Create shared `SERVICE_CATALOGUE_ALIASES` constant
   - Create `frontend/features/onboarding/constants/stepAliases.ts`
