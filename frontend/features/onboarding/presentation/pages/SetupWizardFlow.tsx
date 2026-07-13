@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler, AppState, AppStateStatus } from 'react-native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import { useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
@@ -52,6 +54,7 @@ const createSubmissionId = () => {
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
   const { t } = useTranslation();
+  const netInfo = useNetInfo();
   const router = useRouter();
   const { tenantId: tenantIdParam } = useLocalSearchParams<{ tenantId: string }>();
   const { currentUser, isAuthenticated } = useAuth();
@@ -76,7 +79,9 @@ export function SetupWizardFlow() {
   const latestVisibleStepsSignatureRef = useRef<string | null>(null);
   const currentStep = steps[currentStepIndex];
   const submitMutation = useSubmitStepMutation(tenantId, currentStep?.code || '');
+  const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
   const isNextPending = isHandlingNext || submitMutation.isPending;
+  const isNextDisabled = isNextPending || isOffline;
 
   // Fetch onboarding status - only if tenantId is available
   const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
@@ -255,7 +260,7 @@ export function SetupWizardFlow() {
   }, [hydrateDraftAndRefreshStatus, persistDraftOnLifecyclePause]);
 
   const handleNext = async () => {
-    if (isSubmittingRef.current || isNextPending) {
+    if (isSubmittingRef.current || isNextPending || isOffline) {
       return;
     }
 
@@ -369,7 +374,7 @@ export function SetupWizardFlow() {
   }, [currentStep?.code, subscriptionPlans.length]);
 
   const handleSetupSubscriptionPayment = async () => {
-    if (!tenantId || isSettingUpSubscription) {
+    if (!tenantId || isSettingUpSubscription || isOffline) {
       return;
     }
 
@@ -698,10 +703,16 @@ export function SetupWizardFlow() {
                   padding: theme.spacing.md,
                   borderRadius: theme.spacing.sm,
                   alignItems: 'center',
-                  opacity: isSettingUpSubscription ? 0.7 : 1,
+                  opacity: isSettingUpSubscription || isOffline ? 0.7 : 1,
                 },
               ]}
-              disabled={isSettingUpSubscription}
+              disabled={isSettingUpSubscription || isOffline}
+              accessibilityState={{ disabled: isSettingUpSubscription || isOffline }}
+              accessibilityLabel={
+                isOffline
+                  ? t('onboarding.progressiveExperience.offline.submitDisabled')
+                  : t('onboarding.progressiveExperience.flow.reviewSubscription')
+              }
               onPress={handleSetupSubscriptionPayment}
             >
               {isSettingUpSubscription ? (
@@ -810,6 +821,8 @@ export function SetupWizardFlow() {
       {/* Stepper */}
       <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />
 
+      <OfflineBanner isOffline={isOffline} />
+
       {showProgressUpdatedNotice && (
         <View
           accessibilityRole="text"
@@ -882,13 +895,20 @@ export function SetupWizardFlow() {
               borderRadius: theme.spacing.sm,
               flexDirection: 'row',
               alignItems: 'center',
-              opacity: isNextPending ? 0.7 : 1,
-              cursor: isNextPending ? ('not-allowed' as any) : ('pointer' as any),
+              opacity: isNextDisabled ? 0.7 : 1,
+              cursor: isNextDisabled ? ('not-allowed' as any) : ('pointer' as any),
             },
           ]}
           onPress={handleNext}
-          disabled={isNextPending}
-          accessibilityState={{ disabled: isNextPending }}
+          disabled={isNextDisabled}
+          accessibilityState={{ disabled: isNextDisabled }}
+          accessibilityLabel={
+            isOffline
+              ? t('onboarding.progressiveExperience.offline.submitDisabled')
+              : currentStepIndex === steps.length - 1
+                ? t('onboarding.progressiveExperience.flow.readyToStart')
+                : t('common.next')
+          }
         >
           {isNextPending ? (
             <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />

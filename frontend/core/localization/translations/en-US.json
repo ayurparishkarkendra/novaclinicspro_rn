@@ -606,6 +606,11 @@
       "drafts": {
         "restored": "Unsaved changes restored"
       },
+      "offline": {
+        "title": "You're offline",
+        "message": "Changes are saved locally. Connect to the internet to submit this step.",
+        "submitDisabled": "Connect to the internet to submit this step"
+      },
       "flow": {
         "saveProgressError": "Failed to save preparation progress. Please try again.",
         "refreshProgressError": "Failed to refresh preparation progress. Please try again.",

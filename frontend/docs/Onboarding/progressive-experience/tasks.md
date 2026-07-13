@@ -972,7 +972,7 @@ Offline behavior is now the correct next area only for a bounded visibility/gati
 
 #### Task Group 16 - Offline Connectivity Banner and Submit Gating
 
-- [ ] 16. Offline Connectivity Banner and Submit Gating
+- [x] 16. Offline Connectivity Banner and Submit Gating
 
   ## Objective
 
@@ -1040,38 +1040,44 @@ Offline behavior is now the correct next area only for a bounded visibility/gati
 
   ## Work Breakdown
 
-  - [ ] 16.1 Confirm NetInfo dependency approach
+  - [x] 16.1 Confirm NetInfo dependency approach
     - Add `@react-native-community/netinfo` using the repository package manager only if it remains absent.
     - Do not add a custom network service or global offline engine.
+    - Completion evidence: repository had no existing NetInfo dependency or onboarding connectivity abstraction; `@react-native-community/netinfo` was added with Yarn only.
 
-  - [ ] 16.2 Add `OfflineBanner`
+  - [x] 16.2 Add `OfflineBanner`
     - Create `frontend/features/onboarding/presentation/components/OfflineBanner.tsx`.
     - Use NetInfo connectivity state.
     - Render nothing when online or unknown.
     - Render a non-blocking themed alert when offline.
+    - Completion evidence: `OfflineBanner` renders a localized, themed alert only when `isOffline` is true.
 
-  - [ ] 16.3 Wire offline state into `SetupWizardFlow`
+  - [x] 16.3 Wire offline state into `SetupWizardFlow`
     - Render `OfflineBanner` near existing wizard notices.
     - Disable `Next`, `Previous` only if needed to preserve submit safety, and `Ready to Start`/complete actions that would dispatch backend mutations while offline.
     - Preserve existing pending-state spinner and stale-submission guards.
     - Do not enqueue or replay mutations.
+    - Completion evidence: `SetupWizardFlow` gates backend mutation CTAs when NetInfo reports known offline, preserves editing/navigation, and does not add queue/retry/replay behavior.
 
-  - [ ] 16.4 Localize and preserve accessibility
+  - [x] 16.4 Localize and preserve accessibility
     - Add English and Hindi keys for banner copy and any offline-disabled label if needed.
     - Set banner `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`.
     - Ensure disabled CTAs set `accessibilityState={{ disabled: true }}`.
+    - Completion evidence: English and Hindi offline keys were added; banner and disabled CTA accessibility states are covered in focused tests.
 
-  - [ ] 16.5 Focused tests
+  - [x] 16.5 Focused tests
     - Mock NetInfo online/offline states.
     - Verify banner renders offline and not online.
     - Verify `Next`/submit CTA is disabled offline and enabled online.
     - Verify pressing disabled submit does not call mutation.
     - Verify pending submit behavior still disables and shows spinner.
+    - Completion evidence: `npx jest tests/onboarding/SetupWizardFlow.test.tsx tests/onboarding/wizard.store.test.ts --runInBand --silent` passed with 2 suites and 37 tests.
 
-  - [ ] 16.6 Documentation and stop gate
+  - [x] 16.6 Documentation and stop gate
     - Update this task with completion evidence.
     - Run `git diff --check`, focused onboarding tests, and TypeScript verification for touched files if practical.
     - Commit, push, and stop for architectural review before Task Group 17.
+    - Completion evidence: `git diff --check` passed. `npx tsc --noEmit --pretty false` was executed; it remains blocked by baseline TypeScript errors outside Task Group 16 touched files, with no errors reported for `OfflineBanner`, `SetupWizardFlow`, localization files, or package metadata.
 
   ## Acceptance Criteria
 

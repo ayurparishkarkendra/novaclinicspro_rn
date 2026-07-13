@@ -69,6 +69,15 @@ jest.mock('../../core/theme/useClinicTheme', () => ({
   }),
 }));
 
+const mockNetInfoState = {
+  isConnected: true as boolean | null,
+  isInternetReachable: true as boolean | null,
+};
+
+jest.mock('@react-native-community/netinfo', () => ({
+  useNetInfo: () => mockNetInfoState,
+}));
+
 const mockAuthState = {
   currentUser: { tenantId: 'test-tenant-456' },
   isAuthenticated: false,
@@ -198,6 +207,8 @@ const renderFlow = () => {
 describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNetInfoState.isConnected = true;
+    mockNetInfoState.isInternetReachable = true;
     mockAuthState.currentUser = { tenantId: 'test-tenant-456' };
     mockAuthState.isAuthenticated = false;
     wizardStore.useWizardStore.getState().reset();
@@ -379,6 +390,99 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
 
       unmount();
     }
+  });
+
+  it('shows the offline banner and keeps step content visible when NetInfo reports offline', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText("You're offline")).toBeTruthy();
+      expect(getByText('Changes are saved locally. Connect to the internet to submit this step.')).toBeTruthy();
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+  });
+
+  it('does not render the offline banner when NetInfo reports online', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByText, getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    expect(queryByText("You're offline")).toBeNull();
+  });
+
+  it('disables submit while offline and re-enables it when connectivity returns', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText, rerender } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Connect to the internet to submit this step')).toHaveProp(
+        'accessibilityState',
+        { disabled: true }
+      );
+    });
+
+    mockNetInfoState.isConnected = true;
+    mockNetInfoState.isInternetReachable = true;
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })}
+      >
+        <SetupWizardFlow />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(getByLabelText('Ready to Start')).toHaveProp('accessibilityState', { disabled: false });
+    });
+  });
+
+  it('does not dispatch submit mutation when offline submit is pressed', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Connect to the internet to submit this step')).toBeTruthy();
+    });
+
+    fireEvent.press(getByLabelText('Connect to the internet to submit this step'));
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('submits an external step only once during rapid Next taps and sends the idempotency key', async () => {
