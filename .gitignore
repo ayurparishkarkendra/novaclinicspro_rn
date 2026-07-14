@@ -242,3 +242,13 @@ frontend/.metro-cache/
 *.md
 frontend/docs/
 .emergent/
+
+# R8 discovery (spec/r8-guided-clinical-workspace) — the two discovery
+# deliverables must be version-controlled. Narrow exception to the global
+# `*.md` + `frontend/docs/` ignores above, mirroring the backend's
+# RH-001/RH-002 repository-hygiene precedent (docs excluded by a broad
+# pattern were invisible to version control; narrow, explicit allowlist).
+!frontend/docs/
+frontend/docs/*
+!frontend/docs/R8-guided-clinical-workspace/
+!frontend/docs/R8-guided-clinical-workspace/*.md
