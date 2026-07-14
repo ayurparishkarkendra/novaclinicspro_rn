@@ -1090,18 +1090,51 @@ A dedicated review confirming Group D's own closure conditions, requested explic
   - **No architecture deviations** from `design.md` itself — the deviation found is in the *current-implementation-state* (the `org_template_capabilities` seeding gap), not in the R5 design.
   - **Engineering debt:** none newly introduced by this task; the pre-existing seeding gap this task surfaced is now tracked (both in this report and via the structural test) rather than being new debt created here.
 
-**T-F.2a — Backend mechanism retirement (FR-G1)** · (be) · deps: T-F.1 · realizes: `requirements.md` FR-G1, FR-G3, BC-1/2/3, §16 State 1; `design.md` §5, §14
-- **Purpose:** Retire/demote the *backend* mechanisms so no old backend mechanism remains an independent writer.
-- **Do:** Per T-A.1's classifications: (A) retire the dead `subscription_modules.py` (confirmed no callers); (B) demote `included_modules`/`enabledfeatures`/`featuresettings`/`OrgTenant.subscription_plan` to read-only compatibility (per T-A.2's sync-vs-projection decision); re-point `get_tenant_features` internals to the resolver (shape-verified, BC-1). Frontend consumers handled in T-F.2b; compat-ledger in T-F.2c.
-- **Files expected to change:** removal of `subscription_modules.py` (or callers), demotion edits, `get_tenant_features` re-point.
-- **Verification:** grep proof — no backend code writes any demoted mechanism as an independent source; `get_tenant_features` shape unchanged (BC-1); backend regression green.
-- **Acceptance:** AC-1 (backend), AC-15 (backend writers), BC-1.
+**Group F sequencing amendment (2026-07-14, per required review of T-F.1's finding):** T-F.1 found `org_template_capabilities` (mechanisms #4/#5/#6's new-side replacement) has zero rows and no seeding code path — re-pointing those consumers now would replace working legacy behavior with empty output, not prove parity. The original single T-F.2a is split into three: **T-F.2a** (narrowed to the mechanisms whose parity is *already* proven — #1/#2/#3 only), **T-F.2b** (new — the required prerequisite: seed `org_template_capabilities` for real and prove parity against every real template), **T-F.2c** (new — re-point the template/clinic-type mechanisms, gated on T-F.2b). The former T-F.2b (frontend consumer migration) and T-F.2c (compatibility cleanup + State 1 exit) are renumbered T-F.2d and T-F.2e respectively, content otherwise unchanged except T-F.2e's dependency list.
+
+**T-F.2a — Backend mechanism retirement: proven mechanisms only (FR-G1)** · (be) · deps: T-F.1 · realizes: `requirements.md` FR-G1, FR-G3, BC-1/2/3, §16 State 1; `design.md` §5, §14
+- **Purpose:** Retire/demote only the backend mechanisms whose parity T-F.1 already proved, so no old backend mechanism remains an independent writer *for those specifically* — deliberately excludes mechanisms #4/#5/#6 (see the sequencing amendment above).
+- **Do:** Per T-A.1's classifications, restricted to mechanisms #1/#2/#3: (A) retire the dead `subscription_modules.py` (confirmed no callers, T-F.1's automated test). (B) demote `included_modules`/`org_permissions.module`'s entitlement-filter interpretation to read-only compatibility (per T-A.2's findings; the RBAC-display interpretation of `org_permissions.module` is untouched, per T-A.1's own explicit split). **Explicitly out of scope for this task:** `enabledfeatures`, `featuresettings`, the clinic-type branch, and any re-point of `get_tenant_features`'s clinic-type-derived (`appointments`/`treatment_sheets`) fields — those move to T-F.2c, gated on T-F.2b. `OrgTenant.subscription_plan`'s own demotion-to-projection (T-A.2's recommendation) is a materially separate, six-live-writer-site change T-A.2 itself declined to decide ("not deciding this here") — also out of this task's scope, not silently absorbed.
+- **Files expected to change:** removal of `subscription_modules.py` (or callers).
+- **Verification:** grep proof — no backend code writes `included_modules`/the entitlement-filter interpretation of `org_permissions.module` as an independent source outside the already-flag-gated re-point (T-D.5a/T-D.5b); `subscription_modules.py` has zero remaining references (T-F.1's own test re-run); backend regression green.
+- **Acceptance:** AC-1 (backend, mechanisms #1/#2/#3 only), BC-1 (unaffected — no `get_tenant_features` change in this task).
 - **Dependency:** T-F.1 (parity must pass first, MIG-1).
 - **Rollback:** flag OFF restores old behavior; retiring the confirmed-dead file is the one non-flag step, sequenced late (§14).
-- **Risk:** high — retiring a live backend mechanism. Mitigated by T-F.0 dry-run + T-F.1 parity + flag-first rollback + retiring only confirmed-dead code outright.
+- **Risk:** medium (reduced from the original's "high" by narrowing scope to only proven-parity mechanisms) — retiring a live backend mechanism, but only where T-F.1 already proved equivalence. Mitigated by T-F.0 dry-run + T-F.1 parity + flag-first rollback + retiring only confirmed-dead code outright.
 - **Completion report (rule 8):** required.
 
-**T-F.2b — Frontend consumer migration (FR-D2)** · (fe) · deps: T-F.1 · realizes: `requirements.md` FR-D2, BC-1; `design.md` §12
+**T-F.2b — Template-capability reconciliation seed (FR-B2c, ADR-R5-08 extension)** · (be) · deps: T-F.1 · realizes: `requirements.md` FR-G2, BC-2; `design.md` §6.3, §9.4
+- **Purpose:** Close the prerequisite gap T-F.1 found — give mechanisms #4/#5/#6 a real, live `org_template_capabilities` dataset to prove parity against, before any re-pointing is attempted.
+- **Do:**
+  1. Derive `org_template_capabilities` rows from the already-approved T-A.3 mapping (§9's `enabledfeatures[].visibility`: `enabled`→`default_enabled=true`, `disabled`→`default_enabled=false`).
+  2. Preserve `enabledfeatures`/`featuresettings` themselves completely unchanged during State 1 (BC-2) — this task only populates the new table, never alters the legacy JSONB.
+  3. Seed only mappings that are confidently approved — leave ambiguous/unmapped keys unmapped (e.g. `documents.core`, already flagged at T-A.3 as deliberately unmapped; no capability invented for it).
+  4. Idempotent (`INSERT ... ON CONFLICT DO NOTHING`, matching `capability_seed.py`/`capability_template_seed.py`'s own established convention).
+  5. Run it against the real Supabase database as an explicit deployment action — not just written, actually executed, matching T-B.4/T-D.3's own seed-and-run precedent.
+  6. Prove parity for every real template (all six clinic-type templates, not a sample): legacy `enabledfeatures`, legacy `featuresettings`, clinic-type-derived behavior, and the new `org_template_capabilities` rows all agree.
+  7. Document intentional non-mappings and dead legacy keys (e.g. `documents.core`; the `appointments.sessions`/`casesheets.core`/`prescriptions.core` missing-`featuresettings` dead-key finding already recorded at T-A.3 §11).
+  8. Run `validate_capability_graph`/catalog-provider checks afterward (T-B.3's established post-seed verification).
+  **Does NOT seed `TenantCapability` rows** in this task, unless the approved template-default logic explicitly requires a separate tenant backfill — that remains T-D.3's existing `seed_template_capabilities_for_tenant` (provisioning-time) or a separately-reviewed backfill-for-existing-tenants task, mirroring how the `OrgSubscription` backfill (T-C.2b) was kept as its own separately-reviewed step rather than bundled here.
+- **Files expected to change:** a new idempotent seed module (mirrors `capability_seed.py`/`capability_template_seed.py`'s conventions), its own tests, `tasks.md` (this result record).
+- **Verification:** all six templates' derived `default_enabled` values match their own `enabledfeatures[].visibility`; re-running the seed is a no-op (idempotency); `validate_capability_graph` passes after seeding; `enabledfeatures`/`featuresettings` confirmed byte-unchanged (BC-2) via before/after read.
+- **Acceptance:** FR-G2 (the actual prerequisite T-F.1 was blocked on), BC-2.
+- **Dependency:** T-F.1 (the finding this task exists to close).
+- **Rollback:** the new table can be truncated with no data loss elsewhere (BC-2 — legacy JSONB untouched); no code outside the new seed module changes.
+- **Risk:** medium — a wrong `default_enabled` value would seed an incorrect template default. Mitigated by deriving mechanically from the already-approved T-A.3 mapping (no new judgment calls) and the required parity proof (step 6) before this task can be marked complete.
+- **Completion report (rule 8):** required — must record the per-template parity proof and confirm BC-2 held throughout.
+
+**T-F.2c — Re-point template/clinic-type mechanisms (mechanisms #4/#5/#6, FR-G1)** · (be) · deps: T-F.2b · realizes: `requirements.md` FR-G1, FR-G3, BC-1; `design.md` §5, §14
+- **Purpose:** Now that T-F.2b has proven real parity, re-point the mechanisms T-F.2a explicitly excluded: `get_tenant_features`'s clinic-type-derived fields, and any other live template-derived feature reader T-A.1 identified for mechanisms #4/#5/#6.
+- **Do:** Enumerate every live reader of `enabledfeatures`/`featuresettings`/the clinic-type branch that T-A.1's ownership table identified (`get_tenant_features`, and any template-derived feature reader whose disposition T-A.1 recorded as re-pointable, excluding `tenant_features`/mechanism #7 which stays classified (C) and out of scope). Re-point each to read through the resolver/capability model instead, using T-F.2b's now-real seed data. `get_tenant_features`'s response shape must stay byte-identical (BC-1) — only the internal data source changes.
+- **Files expected to change:** `get_tenant_features` internals, any other enumerated reader, tests/snapshots.
+- **Verification:** grep proof — no remaining live read of `enabledfeatures`/`featuresettings`/the clinic-type branch outside the now-demoted compatibility layer; `get_tenant_features` shape unchanged (BC-1) for a representative real tenant sample (mirrors T-F.0's own dry-run methodology); backend regression green.
+- **Acceptance:** AC-1 (backend, mechanisms #4/#5/#6), BC-1.
+- **Dependency:** T-F.2b (parity must be proven against real seed data first).
+- **Rollback:** flag OFF restores old behavior (ADR-R5-04).
+- **Risk:** high — re-pointing a live, tenant-facing response shape. Mitigated by T-F.2b's own real-data parity proof being a hard precondition, plus BC-1 shape verification.
+- **Completion report (rule 8):** required.
+
+**T-F.2d — Frontend consumer migration (FR-D2)** · (fe) · deps: T-F.1 · realizes: `requirements.md` FR-D2, BC-1; `design.md` §12
 - **Purpose:** Re-point every existing frontend ad hoc clinic-type/subscription gate to the resolver via `<CapabilityGate>`/`useCapabilities()` — the "consumers migrated" half of Area G, sequenced (not assumed at design approval).
 - **Do:** Enumerate existing ad hoc frontend gates (clinic-type checks, subscription-plan checks); re-point each to `<CapabilityGate code>`/`useCapabilities()`. No behavior change for the tenant (the resolver returns the same availability the ad hoc check did — validated against T-F.1 parity).
 - **Files expected to change:** the enumerated frontend gate call sites, tests/snapshots.
@@ -1112,13 +1145,13 @@ A dedicated review confirming Group D's own closure conditions, requested explic
 - **Risk:** medium — a re-pointed gate hides/shows a feature differently. Mitigated by per-screen parity checks against T-F.1.
 - **Completion report (rule 8):** required.
 
-**T-F.2c — Compatibility cleanup + State 1 exit verification (AC-15, §16 State 1)** · (be+fe) · deps: T-F.2a, T-F.2b · realizes: `requirements.md` FR-G1, BC-4, AC-15, §16 State 1; `design.md` §5, §16
+**T-F.2e — Compatibility cleanup + State 1 exit verification (AC-15, §16 State 1)** · (be+fe) · deps: T-F.2a, T-F.2c, T-F.2d · realizes: `requirements.md` FR-G1, BC-4, AC-15, §16 State 1; `design.md` §5, §16
 - **Purpose:** Close Group F — record each surviving read-only compatibility reader's owner/removal-criterion/deadline (the State 2 ledger) and verify State 1 exit.
 - **Do:** For every mechanism classified (B), record in a deprecation ledger its owner, removal criterion, and deadline (the input to State 2 / flag removal). Confirm exactly **one authoritative write path** remains across backend + frontend (AC-15). Remove any now-dead compat shims that no reader needs.
 - **Files expected to change:** a deprecation ledger doc; removal of any now-unreferenced compat shim.
 - **Verification:** State 1 metric (§16) = 1 authoritative writer, backend + frontend; every (B) mechanism has an owner/criterion/deadline recorded; no orphaned compat shim remains.
 - **Acceptance:** AC-1, AC-15, §16 State 1 exit; State 2 ledger seeded.
-- **Dependency:** T-F.2a, T-F.2b.
+- **Dependency:** T-F.2a, T-F.2c, T-F.2d.
 - **Rollback:** documentation + dead-shim removal; flag OFF still restores old behavior.
 - **Risk:** low-medium — mis-recording a deadline. Mitigated by the T-Z.2 closure review re-checking the ledger.
 - **Completion report (rule 8):** required.
@@ -1161,5 +1194,5 @@ A dedicated review confirming Group D's own closure conditions, requested explic
 | C | T-C.1, T-C.2, T-C.2b, T-C.3, T-C.4a, T-C.4b, T-C.4c, T-C.4d, T-C.5 | ADR-R5-04, FR-A3a-c, FR-C1..C4, FR-D1, FR-E1/E2/E4, FR-H1/H4, NFR-3/5/8, §16a, AC-3/5/6/20, AC-SEC-1/5 — T-C.2 amended migration-aware (3-tier `source`), T-C.2b added (subscription reconciliation/backfill, separately reviewed) per T-A.2 finding |
 | D | T-D.1, T-D.2a, T-D.2b, T-D.3, T-D.4, T-D.5a, T-D.5b, T-D.5c | FR-F2/F3/F5, FR-B3, FR-J1-5, FR-B2a-d/B4, FR-I1-6, FR-H2, NFR-6/7, AC-16/17/18, AC-SEC-1..4 — T-D.5 split into 5a (runtime re-sync), 5b (creation-time seeding, `rbac_seed.py`), 5c (parity test) per T-A.2 finding of a second, undocumented entitlement-filtering engine |
 | E | T-E.1, T-E.2, T-E.3, T-E.4 | FR-H2/H3, N-6/N-7, §20, BO-3, AC-12/21 |
-| F | T-F.0 (⛔ dry-run gate), T-F.1, T-F.2a, T-F.2b, T-F.2c | NFR-2/4, FR-G1/G2/G3, FR-D2, BC-1..4, §16 State 1, AC-1/15 |
+| F | T-F.0 (⛔ dry-run gate), T-F.1, T-F.2a, T-F.2b, T-F.2c, T-F.2d, T-F.2e | NFR-2/4, FR-G1/G2/G3, FR-D2, BC-1..4, §16 State 1, AC-1/15 — T-F.2a split into 2a (proven mechanisms #1/#2/#3 only), 2b (new — template-capability reconciliation seed), 2c (new — re-point mechanisms #4/#5/#6, gated on 2b); former 2b/2c (frontend migration, compat cleanup) renumbered 2d/2e, per T-F.1's finding that `org_template_capabilities` had no seed data |
 | Z | T-Z.1, T-Z.2 | §15/§16/§19/§20, AC-8/13/14/SEC-1..5/15, State 2 |
