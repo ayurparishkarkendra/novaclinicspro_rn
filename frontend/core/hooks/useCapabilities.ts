@@ -20,6 +20,14 @@
  * surfaces a `'conflict'` status (a "please review" state, design.md §12),
  * never auto-retries. No WebSockets/push (N-6) — other open sessions still
  * only see the change on their own next fetch.
+ *
+ * `useCapabilityCatalog()` (added T-E.3) — the platform-global catalog
+ * (`GET /capabilities/catalog`, design.md §11), the source of `display_order`
+ * and `parent_code` hierarchy neither `useCapabilities()` nor
+ * `CapabilityState` itself carries (that endpoint is tenant-scoped
+ * entitlement/enablement state, not catalog structure) — needed by any
+ * screen that must render capabilities in deterministic, hierarchical
+ * order (e.g. T-E.3's admin list).
  */
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -40,6 +48,10 @@ export interface CapabilityState {
   blocked_reason_label: string | null;
   unmet_dependencies: string[];
   source: 'template_default' | 'admin_override';
+  /** Current TenantCapability.version (0 when no row exists yet, T-D.2a's
+   * OCC convention) — supply this as `useToggleCapability().toggle`'s own
+   * `version` arg for a correct `If-Match` on the first toggle attempt. */
+  version: number;
 }
 
 export interface TenantCapabilitiesResponse {
@@ -218,4 +230,41 @@ export function useToggleCapability(): UseToggleCapabilityResult {
   );
 
   return { toggle, status, errorMessage, rejection, currentVersion, reset };
+}
+
+/** T-E.3 — one entry from `GET /capabilities/catalog` (platform-global,
+ * not tenant-scoped, no entitlement filtering). Deliberately carries no
+ * `mid_rollout`/flag field — the backend's own NFR-6(c) no-leakage
+ * guarantee (structural on that endpoint's own response schema). */
+export interface CapabilityCatalogEntry {
+  code: string;
+  name: string;
+  description: string;
+  parent_code: string | null;
+  category: string | null;
+  display_order: number;
+  lifecycle_state: string;
+}
+
+export interface CapabilityCatalogResponse {
+  capabilities: CapabilityCatalogEntry[];
+}
+
+const getCapabilityCatalogApi = async (): Promise<CapabilityCatalogResponse> => {
+  const response = await axiosClient.get('/api/v1/capabilities/catalog');
+  return response.data;
+};
+
+/** Platform-global, not tenant-scoped — `staleTime: Infinity` for the same
+ * "fetch at most once per session" reason as `useCapabilities()` (the
+ * catalog only changes on a migration/deploy, design.md §16). */
+export function useCapabilityCatalog(
+  options?: Omit<UseQueryOptions<CapabilityCatalogResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<CapabilityCatalogResponse, Error>({
+    queryKey: [...capabilitiesKeys.all, 'catalog'],
+    queryFn: getCapabilityCatalogApi,
+    staleTime: Infinity,
+    ...options,
+  });
 }
