@@ -242,3 +242,16 @@ frontend/.metro-cache/
 *.md
 frontend/docs/
 .emergent/
+
+# Exception: track only the R5 Capability Platform spec phase directory
+# (requirements.md/design.md/tasks.md + any later OWNERSHIP.md/MIGRATION-PLAN.md/
+# ARCHITECTURE-REVIEW.md/CLOSURE-NOTES.md living alongside them). All other
+# .kiro content (other spec phases, frontend/docs/) remains ignored — each
+# level below is re-ignored via a wildcard before the next level is opened,
+# so only the one named path is ever un-ignored.
+!frontend/.kiro/
+frontend/.kiro/*
+!frontend/.kiro/specs/
+frontend/.kiro/specs/*
+!frontend/.kiro/specs/R5-capability-platform/
+!frontend/.kiro/specs/R5-capability-platform/**

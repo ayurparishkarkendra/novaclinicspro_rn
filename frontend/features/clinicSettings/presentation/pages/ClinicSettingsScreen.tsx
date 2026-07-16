@@ -68,6 +68,14 @@ const SETTINGS_ITEMS: SettingItem[] = [
     route: '/clinic-admin/settings/templates',
     color: '#EC4899',
   },
+  {
+    key: 'capabilities',
+    title: 'Capabilities',
+    description: 'Enable or disable clinic capabilities',
+    icon: 'apps-outline',
+    route: '/clinic-admin/settings/capabilities',
+    color: '#0EA5E9',
+  },
 ];
 
 export const ClinicSettingsScreen: React.FC = () => {
