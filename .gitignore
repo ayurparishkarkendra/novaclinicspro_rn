@@ -240,6 +240,7 @@ frontend/ios/
 .kiro/
 frontend/.metro-cache/
 *.md
+!CLAUDE.md
 frontend/docs/
 .emergent/
 
