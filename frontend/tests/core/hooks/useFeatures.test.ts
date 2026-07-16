@@ -1,10 +1,20 @@
 /**
  * Phase 1 · T-E.3 — Behavior-unchanged verification for `clinic_type`
  * single-sourcing (T-E.1, ADR-P1-05). Confirms: (1) the accepted values are
- * identical to the pre-T-E.1 duplicated literals, (2) every branching
- * function (`isTherapyClinic`, `isAyurvedaClinic`, `isPhysioClinic`, and the
- * feature-gate helpers built on them) is untouched (FR-D2), and (3) the
- * private `normalizeClinicType` fallback behavior is intact.
+ * identical to the pre-T-E.1 duplicated literals, (2) `isTherapyClinic`/
+ * `isAyurvedaClinic`/`isPhysioClinic` themselves are untouched and still
+ * used correctly for specialty-specific behavior, and (3) the private
+ * `normalizeClinicType` fallback behavior is intact.
+ *
+ * **Release 5 · T-F.2d (design.md §12, requirements.md N-10, FR-D2
+ * narrowed):** `hasMultiDayAppointments`/`hasTreatmentSheets` are NO LONGER
+ * gated by `isTherapyClinic` — `allow_multiday`/`enable_treatment_sheets`
+ * are capability-platform-derived as of T-F.2c and already correct
+ * per-tenant, so the redundant frontend re-derivation was removed. Their
+ * tests below prove the NEW behavior (trust the field directly), a
+ * deliberate change from this file's own prior "unchanged" claim.
+ * `hasGenderMatching` is untouched (deferred configuration, N-10) — its
+ * test proves that explicitly, unchanged from before this task.
  *
  * `normalizeClinicType`/`normalizeFeatures`/`isTherapyClinicType` are
  * module-private (not exported) — exporting them purely for testability
@@ -76,38 +86,47 @@ describe('branching unchanged (FR-D2): isAyurvedaClinic / isPhysioClinic / isThe
   });
 });
 
-describe('branching unchanged (FR-D2): feature-gate helpers built on isTherapyClinic', () => {
-  it('hasMultiDayAppointments requires both a therapy clinic AND allow_multiday=true', () => {
-    expect(
-      hasMultiDayAppointments(makeFeatures({ clinic_type: 'ayurveda', appointments: { allow_multiday: true, enable_gender_matching: false } }))
-    ).toBe(true);
-    expect(
-      hasMultiDayAppointments(makeFeatures({ clinic_type: 'general', appointments: { allow_multiday: true, enable_gender_matching: false } }))
-    ).toBe(false);
-    expect(
-      hasMultiDayAppointments(makeFeatures({ clinic_type: 'ayurveda', appointments: { allow_multiday: false, enable_gender_matching: false } }))
-    ).toBe(false);
+describe('Release 5 · T-F.2c/T-F.2d: hasMultiDayAppointments/hasTreatmentSheets are capability-platform-derived, no frontend clinic-type re-derivation', () => {
+  it('hasMultiDayAppointments honors allow_multiday=true directly, regardless of clinic_type — proves the redundant isTherapyClinic gate is gone', () => {
+    for (const clinic_type of CLINIC_TYPES) {
+      expect(
+        hasMultiDayAppointments(makeFeatures({ clinic_type, appointments: { allow_multiday: true, enable_gender_matching: false } }))
+      ).toBe(true);
+    }
   });
 
-  it('hasGenderMatching requires both a therapy clinic AND enable_gender_matching=true', () => {
+  it('hasMultiDayAppointments honors allow_multiday=false — remains unavailable regardless of clinic_type', () => {
+    for (const clinic_type of CLINIC_TYPES) {
+      expect(
+        hasMultiDayAppointments(makeFeatures({ clinic_type, appointments: { allow_multiday: false, enable_gender_matching: false } }))
+      ).toBe(false);
+    }
+  });
+
+  it('hasTreatmentSheets honors enable_treatment_sheets=true directly, regardless of clinic_type', () => {
+    for (const clinic_type of CLINIC_TYPES) {
+      expect(
+        hasTreatmentSheets(makeFeatures({ clinic_type, treatment_sheets: { enable_treatment_sheets: true, enable_sheet_sync: false } }))
+      ).toBe(true);
+    }
+  });
+
+  it('hasTreatmentSheets honors enable_treatment_sheets=false — remains unavailable regardless of clinic_type', () => {
+    for (const clinic_type of CLINIC_TYPES) {
+      expect(
+        hasTreatmentSheets(makeFeatures({ clinic_type, treatment_sheets: { enable_treatment_sheets: false, enable_sheet_sync: false } }))
+      ).toBe(false);
+    }
+  });
+});
+
+describe('requirements.md N-10: hasGenderMatching is deferred configuration, untouched by T-F.2d', () => {
+  it('hasGenderMatching still requires both a therapy clinic AND enable_gender_matching=true (unchanged)', () => {
     expect(
       hasGenderMatching(makeFeatures({ clinic_type: 'physio', appointments: { allow_multiday: false, enable_gender_matching: true } }))
     ).toBe(true);
     expect(
       hasGenderMatching(makeFeatures({ clinic_type: 'dental', appointments: { allow_multiday: false, enable_gender_matching: true } }))
-    ).toBe(false);
-  });
-
-  it('hasTreatmentSheets requires both a therapy clinic AND enable_treatment_sheets=true', () => {
-    expect(
-      hasTreatmentSheets(
-        makeFeatures({ clinic_type: 'ayurveda', treatment_sheets: { enable_treatment_sheets: true, enable_sheet_sync: false } })
-      )
-    ).toBe(true);
-    expect(
-      hasTreatmentSheets(
-        makeFeatures({ clinic_type: 'multispeciality', treatment_sheets: { enable_treatment_sheets: true, enable_sheet_sync: false } })
-      )
     ).toBe(false);
   });
 });

@@ -210,16 +210,28 @@ export function isTherapyClinic(features: FeatureConfig): boolean {
   return isTherapyClinicType(features.clinic_type);
 }
 
+/**
+ * Release 5 (R5) · T-F.2d (design.md §12, requirements.md N-10, FR-D2
+ * narrowed). `allow_multiday` is capability-platform-derived as of T-F.2c
+ * (CapabilityResolutionService -> get_tenant_features) - the backend
+ * already returns `false` for every non-therapy clinic type, so this no
+ * longer needs its own `isTherapyClinic` re-derivation on top.
+ */
 export function hasMultiDayAppointments(features: FeatureConfig): boolean {
-  return isTherapyClinic(features) && features.appointments.allow_multiday;
+  return features.appointments.allow_multiday;
 }
 
 export function hasGenderMatching(features: FeatureConfig): boolean {
   return isTherapyClinic(features) && features.appointments.enable_gender_matching;
 }
 
+/**
+ * Release 5 (R5) · T-F.2d (design.md §12, requirements.md N-10, FR-D2
+ * narrowed). `enable_treatment_sheets` is capability-platform-derived as
+ * of T-F.2c, same reasoning as `hasMultiDayAppointments` above.
+ */
 export function hasTreatmentSheets(features: FeatureConfig): boolean {
-  return isTherapyClinic(features) && features.treatment_sheets.enable_treatment_sheets;
+  return features.treatment_sheets.enable_treatment_sheets;
 }
 
 /** Phase 1 · T-A.6 (ADR-P1-01, FR-A6, RB-1). */
