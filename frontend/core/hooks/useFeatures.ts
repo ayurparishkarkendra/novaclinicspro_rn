@@ -78,18 +78,26 @@ function isTherapyClinicType(clinicType: FeatureConfig['clinic_type']): boolean 
 
 function normalizeFeatures(raw?: any): FeatureConfig {
   const clinicType = normalizeClinicType(raw?.clinic_type);
+  // Release 5 (R5) · T-F.2d.1 (design.md §12, requirements.md N-10):
+  // still required below for the deferred configuration fields
+  // (enable_gender_matching, multiday_appointment_types,
+  // gender_matching_treatments, enable_sheet_sync) — do not remove.
+  // allow_multiday/enable_treatment_sheets no longer use it: both are
+  // capability-platform-derived as of T-F.2c (CapabilityResolutionService
+  // -> get_tenant_features), already correct per-tenant, so the backend
+  // response is trusted directly here rather than re-gated a third time.
   const therapyClinic = isTherapyClinicType(clinicType);
 
   return {
     clinic_type: clinicType,
     appointments: {
-      allow_multiday: therapyClinic && !!raw?.appointments?.allow_multiday,
+      allow_multiday: !!raw?.appointments?.allow_multiday,
       enable_gender_matching: therapyClinic && !!raw?.appointments?.enable_gender_matching,
       multiday_appointment_types: therapyClinic ? raw?.appointments?.multiday_appointment_types : [],
       gender_matching_treatments: therapyClinic ? raw?.appointments?.gender_matching_treatments : [],
     },
     treatment_sheets: {
-      enable_treatment_sheets: therapyClinic && !!raw?.treatment_sheets?.enable_treatment_sheets,
+      enable_treatment_sheets: !!raw?.treatment_sheets?.enable_treatment_sheets,
       enable_sheet_sync: therapyClinic && !!raw?.treatment_sheets?.enable_sheet_sync,
     },
     // Not gated by therapyClinic — this is a platform-wide rollout flag, not
