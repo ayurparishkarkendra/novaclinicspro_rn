@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreateConsultationScreen } from '../../../features/episodes/presentation/pages/CreateConsultationScreen';
 import { EpisodeWorkspaceScreen } from '../../../features/episodes/presentation/pages/EpisodeWorkspaceScreen';
-import { CompleteConsultationScreen } from '../../../features/episodes/presentation/pages/CompleteConsultationScreen';
+import { CompleteConsultationScreen, deriveSummary } from '../../../features/episodes/presentation/pages/CompleteConsultationScreen';
 import { createEpisodeApi } from '../../../features/episodes/data/datasources/episodes.api';
 import { transitionCasesheetStatusApi } from '../../../features/casesheets/data/datasources/casesheets.api';
 import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData';
@@ -230,5 +230,76 @@ describe('doctor consultation flow integration', () => {
       expect(transitionCasesheetStatusApi).toHaveBeenCalledWith('tenant-1', 'casesheet-1', { status: 'FINAL' }),
     );
     expect(router.replace).toHaveBeenCalledWith('/doctor');
+  });
+});
+
+// Characterization of `deriveSummary` (Group -1 · T-0.1, ahead of Group 0 ·
+// T-0.8 / ED-ARCH-004). `deriveSummary` is the frontend-derived clinical
+// summary this task exists to protect against accidental behavior change
+// while T-0.8 replaces it with the backend-owned contract (FR-CR-1). These
+// tests characterize CURRENT output exactly as computed today — including
+// the parts already identified as architecturally wrong (frontend deriving
+// clinical statements; absence rendered as a negative finding rather than
+// "not recorded"). Passing here does NOT endorse this behavior as correct;
+// it only proves T-0.8 changed it on purpose, not by accident.
+describe('deriveSummary — characterization only, not endorsement (pre-T-0.8 / ED-ARCH-004)', () => {
+  it('characterizes notes.status as the casesheet status when present', () => {
+    const summary = deriveSummary(workspaceData as any, 'appointment-1', false);
+    expect(summary.notes.status).toBe('DRAFT');
+  });
+
+  it('CHARACTERIZATION (absence-as-negative, not desired): notes.status falls back to the literal string "Not saved" when no casesheet status is available anywhere', () => {
+    const data = { ...workspaceData, casesheet: undefined, episodeDetails: { ...episodeDetails, documents: { ...episodeDetails.documents, casesheet: { ...episodeDetails.documents.casesheet, status: undefined } } } };
+    const summary = deriveSummary(data as any, 'appointment-1', false);
+    expect(summary.notes.status).toBe('Not saved');
+  });
+
+  it('characterizes prescription.status as the matching visit\'s prescription status', () => {
+    const summary = deriveSummary(workspaceData as any, 'appointment-1', false);
+    expect(summary.prescription.status).toBe('DRAFT');
+  });
+
+  it('CHARACTERIZATION (absence-as-negative, not desired): prescription.status falls back to the literal string "Not created" when no visit matches appointmentId', () => {
+    const summary = deriveSummary(workspaceData as any, 'no-such-appointment', false);
+    expect(summary.prescription.status).toBe('Not created');
+  });
+
+  it('CHARACTERIZATION: treatmentRecommendation reads `treatmentSheet.state` (order lifecycle), NOT `treatmentSheet.status` (document status) — today\'s fixture only has `status`, so this currently resolves to "Not sent" even though `status` is FINAL', () => {
+    const summary = deriveSummary(workspaceData as any, 'appointment-1', false);
+    expect(summary.treatmentRecommendation.status).toBe('Not sent');
+  });
+
+  it('characterizes treatmentRecommendation.status as "Sent to Admin" once `treatmentSheet.state` is any non-DRAFT string', () => {
+    const data = { ...workspaceData, treatmentSheet: { ...workspaceData.treatmentSheet, state: 'ORDERED' } };
+    const summary = deriveSummary(data as any, 'appointment-1', false);
+    expect(summary.treatmentRecommendation.status).toBe('Sent to Admin');
+  });
+
+  it('omits ayurvedicAssessment entirely when includeAyurveda is false', () => {
+    const summary = deriveSummary(workspaceData as any, 'appointment-1', false);
+    expect(summary.ayurvedicAssessment).toBeUndefined();
+  });
+
+  it('characterizes ayurvedicAssessment.status as "Recorded" only when a nadi_pariksha/prakriti extension has at least one non-empty field', () => {
+    const data = {
+      ...workspaceData,
+      casesheet: { ...workspaceData.casesheet, data_json: { extensions: [{ template_id: 'prakriti', data: { vata: 'high' } }] } },
+    };
+    const summary = deriveSummary(data as any, 'appointment-1', true);
+    expect(summary.ayurvedicAssessment?.status).toBe('Recorded');
+  });
+
+  it('CHARACTERIZATION (absence-as-negative, not desired): ayurvedicAssessment.status falls back to "Not recorded" when the extension array is empty, even though includeAyurveda is true', () => {
+    const summary = deriveSummary(workspaceData as any, 'appointment-1', true);
+    expect(summary.ayurvedicAssessment?.status).toBe('Not recorded');
+  });
+
+  it('CHARACTERIZATION (hardcoded template IDs in presentation, ED-ARCH-004 finding): only the literal ids "nadi_pariksha"/"prakriti" count toward hasAyurveda — a differently-named extension with real data is silently ignored', () => {
+    const data = {
+      ...workspaceData,
+      casesheet: { ...workspaceData.casesheet, data_json: { extensions: [{ template_id: 'vitals', data: { pulse: '72' } }] } },
+    };
+    const summary = deriveSummary(data as any, 'appointment-1', true);
+    expect(summary.ayurvedicAssessment?.status).toBe('Not recorded');
   });
 });

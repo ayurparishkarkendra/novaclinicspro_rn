@@ -176,3 +176,85 @@ describe('useClinicalTimelineData (R3B · T-C.1)', () => {
     expect(fs.existsSync(path.resolve(__dirname, '../../../features/episodes/presentation/hooks/useClinicalTimelineData.tsx'))).toBe(false);
   });
 });
+
+// Characterization of the R7 v1.1 history-hierarchy defect (Group -1 · T-0.1,
+// ahead of Group 0 · T-0.6 removal and later T-FE-C.5/C.6 replacement — see
+// R7-HISTORY-HIERARCHY-AMENDMENT.md, ED-ARCH-007, FR-HIST-1/2). These tests
+// characterize CURRENT flat-list behavior exactly as it exists today —
+// including the parts already verified as defects (therapy appointments
+// undifferentiated from consultations; session count computed from
+// "scheduled" not "completed"; the same therapy course representable twice).
+// Passing here does NOT endorse this behavior as correct; it exists so
+// T-FE-C.5/C.6 can prove the defect was corrected on purpose, not lost by
+// accident.
+describe('useClinicalTimelineData — history-hierarchy defect characterization (pre-T-0.6/ED-ARCH-007, not endorsement)', () => {
+  it('CHARACTERIZATION: a therapy appointment (appointment_type THERAPY) produces the exact same undifferentiated "visit" item shape as a doctor-consultation appointment — no encounter-type field distinguishes them', async () => {
+    (useAppointmentsListQuery as jest.Mock).mockReturnValue({
+      data: {
+        items: [
+          { id: 'consult-1', appointment_start: '2026-06-01T10:00:00Z', status: 'COMPLETED', appointment_type: 'consultation' },
+          { id: 'therapy-1', appointment_start: '2026-06-02T10:00:00Z', status: 'COMPLETED', appointment_type: 'THERAPY' },
+        ],
+      },
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useClinicalTimelineData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const visitItems = result.current.items.filter((i) => i.type === 'visit');
+    expect(visitItems).toHaveLength(2);
+    // Both items carry the identical shape/keys — `appointment_type` is never
+    // read by the adapter, so nothing downstream can tell them apart.
+    expect(Object.keys(visitItems[0]).sort()).toEqual(Object.keys(visitItems[1]).sort());
+    expect(visitItems.every((i) => i.title === 'Visit')).toBe(true);
+  });
+
+  it('CHARACTERIZATION (verified-incorrect formula, ED-ARCH-007): a row with a FUTURE, not-yet-occurred `session_date` is counted as "completed" in the Treatment Recommendation subtitle — the formula checks scheduling, not execution', async () => {
+    (useTreatmentSheetsByEpisodeQuery as jest.Mock).mockReturnValue({
+      data: {
+        treatment_sheets: [
+          {
+            id: 'sheet-1',
+            recorded_at: '2026-06-04T10:00:00Z',
+            rows: [{ session_date: '2099-01-01' }, { session_date: null }], // far-future date, never executed
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useClinicalTimelineData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const planItem = result.current.items.find((i) => i.type === 'treatment_recommendation');
+    // A session scheduled for 2099 has certainly not been completed, yet the
+    // current formula (`row.session_date` presence) reports it as 1/2 done.
+    expect(planItem?.subtitle).toBe('1/2 therapy sessions');
+  });
+
+  it('CHARACTERIZATION (double representation, ED-ARCH-007): the same therapy course appears once as a flat "visit" item (from its appointment) and again inside the Treatment Recommendation session tally, with no link/dedup between them', async () => {
+    (useAppointmentsListQuery as jest.Mock).mockReturnValue({
+      data: {
+        items: [{ id: 'therapy-1', appointment_start: '2026-06-05T10:00:00Z', status: 'COMPLETED', appointment_type: 'THERAPY' }],
+      },
+      isLoading: false,
+    });
+    (useTreatmentSheetsByEpisodeQuery as jest.Mock).mockReturnValue({
+      data: {
+        treatment_sheets: [{ id: 'sheet-1', recorded_at: '2026-06-05T10:00:00Z', rows: [{ session_date: '2026-06-05' }] }],
+      },
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useClinicalTimelineData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const types = result.current.items.map((i) => i.type);
+    // The same 2026-06-05 therapy encounter surfaces as BOTH a standalone
+    // "visit" item AND inside "treatment_recommendation"'s own tally — the
+    // adapter has no `appointment_id`↔row linkage to collapse them into one.
+    expect(types).toEqual(expect.arrayContaining(['visit', 'treatment_recommendation']));
+    expect(types.filter((t) => t === 'visit' || t === 'treatment_recommendation')).toHaveLength(2);
+  });
+});
