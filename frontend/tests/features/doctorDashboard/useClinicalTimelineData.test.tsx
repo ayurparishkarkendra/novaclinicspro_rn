@@ -89,7 +89,7 @@ describe('useClinicalTimelineData (R3B · T-C.1)', () => {
       casesheetId: 'casesheet-1',
     });
     (useTreatmentSheetsByEpisodeQuery as jest.Mock).mockReturnValue({
-      data: { treatment_sheets: [{ id: 'sheet-1', recorded_at: '2026-06-04T10:00:00Z', rows: [{ session_date: '2026-06-05' }, { session_date: null }] }] },
+      data: { treatment_sheets: [{ id: 'sheet-1', recorded_at: '2026-06-04T10:00:00Z', rows: [] }] },
       isLoading: false,
     });
 
@@ -103,9 +103,12 @@ describe('useClinicalTimelineData (R3B · T-C.1)', () => {
       'case_sheet', // 06-02
       'visit', // 06-01, oldest
     ]);
+    // T-0.6 (ED-ARCH-007): no local session-count subtitle — see
+    // useClinicalTimelineData's own file header for why.
     expect(items[0]).toEqual(
-      expect.objectContaining({ title: 'Treatment Recommendation', subtitle: '1/2 therapy sessions', route: '/clinic-admin/treatment-sheets/sheet-1' }),
+      expect.objectContaining({ title: 'Treatment Recommendation', route: '/clinic-admin/treatment-sheets/sheet-1' }),
     );
+    expect(items[0].subtitle).toBeUndefined();
     expect(items[1]).toEqual(
       expect.objectContaining({ title: 'Prescription', subtitle: '1 medication', route: '/clinic-admin/clients/client-1/prescriptions/rx-1' }),
     );
@@ -177,17 +180,19 @@ describe('useClinicalTimelineData (R3B · T-C.1)', () => {
   });
 });
 
-// Characterization of the R7 v1.1 history-hierarchy defect (Group -1 · T-0.1,
-// ahead of Group 0 · T-0.6 removal and later T-FE-C.5/C.6 replacement — see
-// R7-HISTORY-HIERARCHY-AMENDMENT.md, ED-ARCH-007, FR-HIST-1/2). These tests
-// characterize CURRENT flat-list behavior exactly as it exists today —
-// including the parts already verified as defects (therapy appointments
-// undifferentiated from consultations; session count computed from
-// "scheduled" not "completed"; the same therapy course representable twice).
-// Passing here does NOT endorse this behavior as correct; it exists so
-// T-FE-C.5/C.6 can prove the defect was corrected on purpose, not lost by
-// accident.
-describe('useClinicalTimelineData — history-hierarchy defect characterization (pre-T-0.6/ED-ARCH-007, not endorsement)', () => {
+// Characterization of the R7 v1.1 history-hierarchy defects (Group -1 ·
+// T-0.1; the false session-count formula removed by Group 0 · T-0.6; full
+// replacement still pending later T-FE-C.5/C.6 — see
+// R7-HISTORY-HIERARCHY-AMENDMENT.md, ED-ARCH-007, FR-HIST-1/2). Two of the
+// three originally-characterized defects remain open and are characterized
+// here on purpose (therapy appointments undifferentiated from
+// consultations; the same therapy course representable twice) — passing
+// does NOT endorse them as correct, it exists so T-FE-C.5/C.6 can prove
+// they were corrected on purpose, not lost by accident. The third (session
+// count computed from "scheduled" not "completed") was REMOVED, not merely
+// characterized, by T-0.6 — see the now-updated test below proving the
+// false claim no longer exists.
+describe('useClinicalTimelineData — history-hierarchy defect characterization (post-T-0.6/ED-ARCH-007)', () => {
   it('CHARACTERIZATION: a therapy appointment (appointment_type THERAPY) produces the exact same undifferentiated "visit" item shape as a doctor-consultation appointment — no encounter-type field distinguishes them', async () => {
     (useAppointmentsListQuery as jest.Mock).mockReturnValue({
       data: {
@@ -210,7 +215,7 @@ describe('useClinicalTimelineData — history-hierarchy defect characterization 
     expect(visitItems.every((i) => i.title === 'Visit')).toBe(true);
   });
 
-  it('CHARACTERIZATION (verified-incorrect formula, ED-ARCH-007): a row with a FUTURE, not-yet-occurred `session_date` is counted as "completed" in the Treatment Recommendation subtitle — the formula checks scheduling, not execution', async () => {
+  it('FIXED (T-0.6, ED-ARCH-007): a row with a FUTURE, not-yet-occurred `session_date` is no longer counted as "completed" — the local scheduling-vs-execution formula was removed, not corrected to a different formula', async () => {
     (useTreatmentSheetsByEpisodeQuery as jest.Mock).mockReturnValue({
       data: {
         treatment_sheets: [
@@ -228,9 +233,12 @@ describe('useClinicalTimelineData — history-hierarchy defect characterization 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     const planItem = result.current.items.find((i) => i.type === 'treatment_recommendation');
-    // A session scheduled for 2099 has certainly not been completed, yet the
-    // current formula (`row.session_date` presence) reports it as 1/2 done.
-    expect(planItem?.subtitle).toBe('1/2 therapy sessions');
+    // Before T-0.6, `row.session_date` presence falsely reported this as
+    // "1/2 therapy sessions" done. T-0.6 removed the local formula outright
+    // (no backend-resolved authority is reachable from this episode-scoped
+    // query) rather than inventing a second frontend formula — so no
+    // completion claim of any kind is made here now.
+    expect(planItem?.subtitle).toBeUndefined();
   });
 
   it('CHARACTERIZATION (double representation, ED-ARCH-007): the same therapy course appears once as a flat "visit" item (from its appointment) and again inside the Treatment Recommendation session tally, with no link/dedup between them', async () => {

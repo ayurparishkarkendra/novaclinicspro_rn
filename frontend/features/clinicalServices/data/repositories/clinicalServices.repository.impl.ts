@@ -12,7 +12,7 @@
  */
 
 import { useMutation, UseMutationOptions } from '@tanstack/react-query';
-import { createClinicalServiceApi } from '../datasources/clinicalServices.api';
+import { createClinicalServiceApi, listClinicalServicesByVisitApi } from '../datasources/clinicalServices.api';
 import { ClinicalServiceCreateRequest, ClinicalServiceResponse } from '../models/clinicalServices.dtos';
 
 export const clinicalServicesKeys = {
@@ -40,3 +40,21 @@ export const useCreateClinicalServiceMutation = (
     mutationFn: (payload) => createClinicalServiceApi(tenantId, payload),
     ...options,
   });
+
+/**
+ * R7 · T-0.6 (ED-ARCH-001): plain query-options factory (not a `useX` hook)
+ * so `useClinicalTimelineData`'s dynamic per-Visit `useQueries` fan-out no
+ * longer imports `listClinicalServicesByVisitApi` directly. A factory
+ * function rather than a hook because `useQueries` needs an array of plain
+ * query-config objects built per Visit — the Visit count is dynamic per
+ * render, so a real hook cannot be called once per Visit (Rules of Hooks).
+ * Same queryKey/staleTime/enabled the inline call this replaces already
+ * used — a relocation into the governed repository module, not a behavior
+ * change.
+ */
+export const clinicalServicesByVisitQueryOptions = (tenantId: string, visitId: string) => ({
+  queryKey: clinicalServicesKeys.byVisit(tenantId, visitId),
+  queryFn: () => listClinicalServicesByVisitApi(tenantId, visitId),
+  enabled: !!tenantId && !!visitId,
+  staleTime: 30 * 1000,
+});

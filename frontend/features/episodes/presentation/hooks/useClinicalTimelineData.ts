@@ -15,8 +15,9 @@
  * patient's own submitted feedback (confirmed by reading `feedback_router.py`
  * in full); deferred to a future task. Therapy Sessions/Daily Progress
  * (Doc 03 §20's own finer-grained names) are not separate top-level items —
- * they are each Treatment Sheet's own already-fetched `rows`, carried as
- * this entry's own `sessionCount`/`completedSessionCount` detail.
+ * they were originally carried as each Treatment Sheet entry's own row-
+ * derived session-count detail; T-0.6 removed that (see below) as a
+ * verified-incorrect, verified-dead local formula.
  *
  * Data sourcing — every artifact type via an existing query, except Clinical
  * Services (new frontend code wired to an existing, previously-unwired
@@ -27,16 +28,47 @@
  *  - Prescriptions: `usePrescriptionsListQuery` filtered by `episode_id`.
  *  - Case Sheet: `useEpisodeContext().casesheet` (one per episode, T-0.2).
  *  - Treatment Recommendation: `useTreatmentSheetsByEpisodeQuery`.
- *  - Clinical Services: one `listClinicalServicesByVisitApi` call per Visit
- *    above (the backend has no episode-wide query, only Visit-scoped),
- *    fanned out via `useQueries` (a dynamic-length query set — the correct
- *    primitive for a list whose size depends on how many Visits exist,
- *    unlike a fixed `useQuery` call which cannot vary hook count per render).
+ *  - Clinical Services: one `clinicalServicesByVisitQueryOptions`-built query
+ *    per Visit above (the backend has no episode-wide query, only Visit-
+ *    scoped), fanned out via `useQueries` (a dynamic-length query set — the
+ *    correct primitive for a list whose size depends on how many Visits
+ *    exist, unlike a fixed `useQuery` call which cannot vary hook count per
+ *    render).
  *
  * Navigation targets (FR-C2) point at each artifact's own existing detail/
  * reference screen (not necessarily its editor) — the same screens
  * `PrescriptionsListScreen`/`CasesheetsListScreen`'s own item-press
  * navigation already uses, not a new navigation concept.
+ *
+ * R7 · T-0.6 (ED-ARCH-001 / ED-ARCH-007): the Clinical Services fan-out
+ * imported `listClinicalServicesByVisitApi` directly from the datasource
+ * layer — repointed to `clinicalServicesByVisitQueryOptions`, a query-
+ * options factory now owned by `clinicalServices.repository.impl.ts` (see
+ * that file's own docstring for why a factory, not a hook, given the
+ * dynamic-length `useQueries` fan-out).
+ *
+ * Also removed the Treatment Recommendation subtitle's local
+ * `sessionCount`/`completedSessionCount` derivation (`row.session_date`
+ * presence treated as "completed"), verified incorrect two ways: (1) a
+ * future-scheduled row was reported as done — it checks scheduling, not
+ * execution; (2) separately verified DEAD in production — the by-episode
+ * list endpoint this hook's `treatmentSheetsQuery` calls
+ * (`GET .../treatment-sheets?episode_id=...`,
+ * `SQLAlchemyTreatmentSheetRepository._to_dict`, backend) always returns
+ * `rows: []` server-side for this specific listing (never row-populated),
+ * so the formula never produced a truthy count here to begin with — this
+ * change is a no-op on current observable output. A genuine backend-
+ * resolved completed-session count exists (`TreatmentOrderResponse
+ * .completed_count`, `SQLAlchemyTreatmentOrderRepository._sheet_to_dict`)
+ * but only via the per-order detail/worklist endpoints, which are not
+ * episode-scoped — reaching it here is out of T-0.6's declared change
+ * surface. Per T-0.6, omitting the subtitle is preferred over inventing a
+ * second frontend formula or a false count; the corrected value returns
+ * with the R7 hierarchical history backend contract
+ * (T-BE-A.5/T-FE-C.5–C.7). The duplicate-therapy-representation defect
+ * (the same encounter surfacing as both a flat "visit" item and inside a
+ * Treatment Recommendation) is a SEPARATE, still-open characterization —
+ * not touched by this change, not fixed by guessing.
  */
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
@@ -44,8 +76,7 @@ import { useEpisodeContext, usePatientContext } from '../context/ClinicalWorkspa
 import { useAppointmentsListQuery } from '../../../appointments/data/repositories/appointments.repository.impl';
 import { usePrescriptionsListQuery } from '../../../prescriptions/data/repositories/prescriptions.repository.impl';
 import { useTreatmentSheetsByEpisodeQuery } from '../../../treatmentSheets/data/repositories/treatmentSheets.repository.impl';
-import { clinicalServicesKeys } from '../../../clinicalServices/data/repositories/clinicalServices.repository.impl';
-import { listClinicalServicesByVisitApi } from '../../../clinicalServices/data/datasources/clinicalServices.api';
+import { clinicalServicesByVisitQueryOptions } from '../../../clinicalServices/data/repositories/clinicalServices.repository.impl';
 
 export type ClinicalTimelineItemType =
   | 'visit'
@@ -89,12 +120,7 @@ export function useClinicalTimelineData(): ClinicalTimelineData {
   const visits = visitsQuery.data?.items ?? [];
 
   const clinicalServiceQueries = useQueries({
-    queries: visits.map((visit) => ({
-      queryKey: clinicalServicesKeys.byVisit(tenantId, visit.id),
-      queryFn: () => listClinicalServicesByVisitApi(tenantId, visit.id),
-      enabled: !!tenantId && !!visit.id,
-      staleTime: 30 * 1000,
-    })),
+    queries: visits.map((visit) => clinicalServicesByVisitQueryOptions(tenantId, visit.id)),
   });
 
   const isLoading =
@@ -141,16 +167,14 @@ export function useClinicalTimelineData(): ClinicalTimelineData {
     }
 
     (treatmentSheetsQuery.data?.treatment_sheets ?? []).forEach((sheet) => {
-      const sessionCount = sheet.rows?.length ?? 0;
-      const completedSessionCount = sheet.rows?.filter((row) => !!row.session_date).length ?? 0;
+      // No local session-count subtitle — see file header (T-0.6): no
+      // genuine backend authority is reachable from this episode-scoped
+      // query today, and this hook must not invent one.
       result.push({
         id: `treatment-recommendation-${sheet.id}`,
         type: 'treatment_recommendation',
         date: sheet.recorded_at,
         title: 'Treatment Recommendation',
-        subtitle: sessionCount
-          ? `${completedSessionCount}/${sessionCount} therapy session${sessionCount === 1 ? '' : 's'}`
-          : undefined,
         route: `/clinic-admin/treatment-sheets/${sheet.id}`,
       });
     });
