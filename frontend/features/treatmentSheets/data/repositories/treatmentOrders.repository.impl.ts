@@ -16,12 +16,14 @@ import {
   useMutation,
   useQueryClient,
   UseQueryOptions,
+  UseMutationOptions,
 } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import {
   getTreatmentOrderApi,
   listTreatmentOrdersApi,
   sendToSchedulingApi,
+  createTreatmentRecommendationApi,
   startSheetRowApi,
   scheduleRowApi,
   bulkScheduleRowsApi,
@@ -31,6 +33,7 @@ import {
   releaseTreatmentSheetApi,
   addClinicalReviewNoteApi,
   recordClinicalReviewOutcomeApi,
+  CreateTreatmentRecommendationRequest,
   ClinicalReviewNoteResponse,
   ClinicalReviewOutcome,
 } from '../datasources/treatmentOrders.api';
@@ -274,6 +277,43 @@ export const useSendToSchedulingMutation = (tenantId: string): UseSendToScheduli
 
   return { mutate, status, errorMessage, currentVersion, reset };
 };
+
+// ============================================
+// CREATE RECOMMENDATION / DIRECT SEND-TO-SCHEDULING MUTATIONS
+// ============================================
+
+/**
+ * R7 · T-0.4 (ED-ARCH-001): thin useMutation wrappers so
+ * TreatmentRecommendationModule (Presentation) no longer imports
+ * createTreatmentRecommendationApi/sendToSchedulingApi directly. Distinct
+ * from useSendToSchedulingMutation above (a local status-machine hook used
+ * by the standalone Treatment Sheet screens) — that hook swallows errors
+ * into its own status/errorMessage state and never resolves the response
+ * to its caller, which doesn't fit a caller that needs to await the
+ * created/updated order and throw on failure. No default onSuccess
+ * (matches useAddClinicalReviewNoteMutation's precedent below) — callers
+ * own their own invalidation.
+ */
+export const useCreateTreatmentRecommendationMutation = (
+  tenantId: string,
+  options?: UseMutationOptions<TreatmentOrderResponse, Error, CreateTreatmentRecommendationRequest>
+) =>
+  useMutation<TreatmentOrderResponse, Error, CreateTreatmentRecommendationRequest>({
+    mutationFn: (payload) => createTreatmentRecommendationApi(tenantId, payload),
+    ...options,
+  });
+
+export const useSendTreatmentOrderToSchedulingMutation = (
+  options?: UseMutationOptions<
+    TreatmentOrderResponse,
+    Error,
+    { sheetId: string; version: number; payload?: SendToSchedulingRequest }
+  >
+) =>
+  useMutation<TreatmentOrderResponse, Error, { sheetId: string; version: number; payload?: SendToSchedulingRequest }>({
+    mutationFn: ({ sheetId, version, payload }) => sendToSchedulingApi(sheetId, version, payload),
+    ...options,
+  });
 
 // ============================================
 // START SESSION MUTATION
