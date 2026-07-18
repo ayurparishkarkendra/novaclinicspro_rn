@@ -295,7 +295,7 @@ Supersession (schema, deferrable) ─────────► amendment surfa
 
 Every design section names the requirements it implements (headers above). Reverse coverage, and requirement→task-group mapping, are maintained in [`requirements-traceability-matrix.md`](requirements-traceability-matrix.md) — not duplicated here.
 
-**Design decisions that are deliberately deferred (each owned by a requirement's [VP] or an ETX):** case-sheet write transport (FR-CS-2) · idempotency key (FR-CS-4) · Plan status spelling (FR-TP-2) · `Missed` spelling (FR-TS-5) · supersession representation (FR-LD-1) · appointment purpose existence (**ETX-3**) · permission codes (**ETX-1**) · capability-change-mid-episode (**ETX-4**) · legacy `treatment_plan` column disposition (**ETX-5**).
+**Design decisions that are deliberately deferred (each owned by a requirement's [VP] or an ETX):** case-sheet write transport (FR-CS-2) · idempotency key (FR-CS-4) · Plan status spelling (FR-TP-2) · `Missed` spelling (FR-TS-5) · supersession representation (FR-LD-1) · appointment purpose existence (**ETX-3**) · permission codes (**ETX-1**) · legacy `treatment_plan` column disposition (**ETX-5**). **`ETX-4` (capability-change-mid-episode) is resolved** — the owner-approved capability-loss policy is frozen and implemented through the clarified `T-BE-B.1`/`T-BE-B.2`/`T-FE-E.6` acceptance criteria ([R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md](R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md)).
 
 **This design adds no scope absent from requirements v1.1.** Where it says "Small" or "subtractive," that is a verified finding, not an estimate. **v1.1 amendment (2026-07-18):** §2.1a and the FR-HIST-1 paragraph of §3 are the only sections added; nothing else in this document was reopened.
 

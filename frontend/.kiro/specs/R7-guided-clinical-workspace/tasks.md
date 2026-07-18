@@ -66,7 +66,7 @@
 
 ### T--1.7 · Design-validation & environment gate
 **Repo:** both · **Blocked by:** T--1.2…T--1.6 · **Unblocks:** Group 0 · **Size:** S
-**AC:** internal consistency confirmed (42/42 coverage ✅); both suites green at baseline (BE 667 ✅). **Rollback:** n/a.
+**AC:** internal consistency confirmed (44/44 coverage ✅); both suites green at baseline (BE 667 ✅). **Rollback:** n/a.
 
 > **GATE:** Group 0 does not start until T--1.7 passes.
 
