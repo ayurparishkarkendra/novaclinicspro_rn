@@ -1,9 +1,20 @@
+/**
+ * R7 · T-0.7 (ED-ARCH-001): the row save/save-all actions imported
+ * `updateTreatmentSheetRowApi`/`updateAllTreatmentSheetRowsApi` directly
+ * from the datasource layer. Repointed to
+ * `useUpdateTreatmentSheetRowMutation`/`useUpdateAllTreatmentSheetRowsMutation`
+ * (`treatmentSheets.repository.impl.ts`) — see that file's own docstrings
+ * for why the former was re-shaped (rowId as a mutate-time variable) and
+ * the latter is new. Both mutation hooks have no default `onSuccess`, so
+ * this hook's own success/failure handling (Alert, isSaving/isEditing
+ * state, `refetch()`) is completely unchanged.
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import {
-  updateAllTreatmentSheetRowsApi,
-  updateTreatmentSheetRowApi,
-} from '../../../data/datasources/treatmentSheets.api';
+  useUpdateAllTreatmentSheetRowsMutation,
+  useUpdateTreatmentSheetRowMutation,
+} from '../../../data/repositories/treatmentSheets.repository.impl';
 import { TreatmentSheetResponse } from '../../../data/models/treatmentSheets.dtos';
 import {
   buildRowUpdatePayload,
@@ -28,6 +39,9 @@ export const useTreatmentSheetRows = ({
   const [rowsData, setRowsData] = useState<RowFormData[]>([]);
   const [hasBeenSavedOnce, setHasBeenSavedOnce] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const updateRowMutation = useUpdateTreatmentSheetRowMutation(tenantId, treatmentSheetId);
+  const updateAllRowsMutation = useUpdateAllTreatmentSheetRowsMutation(tenantId, treatmentSheetId);
 
   useEffect(() => {
     if (!treatmentSheet?.rows) return;
@@ -79,7 +93,7 @@ export const useTreatmentSheetRows = ({
     });
 
     try {
-      await updateTreatmentSheetRowApi(tenantId, row.id, buildRowUpdatePayload(row));
+      await updateRowMutation.mutateAsync({ rowId: row.id, payload: buildRowUpdatePayload(row) });
       setRowsData(prev => {
         const updated = [...prev];
         updated[index] = { ...updated[index], isSaving: false, isEditing: false };
@@ -95,7 +109,7 @@ export const useTreatmentSheetRows = ({
       });
       Alert.alert('Error', err?.response?.data?.detail || err.message || 'Failed to update row.');
     }
-  }, [refetch, rowsData, tenantId]);
+  }, [refetch, rowsData, updateRowMutation]);
 
   const saveAllRows = useCallback(async () => {
     setIsSavingAll(true);
@@ -104,7 +118,7 @@ export const useTreatmentSheetRows = ({
         id: row.id,
         ...buildRowUpdatePayload(row),
       }));
-      await updateAllTreatmentSheetRowsApi(tenantId, treatmentSheetId, rowsPayload);
+      await updateAllRowsMutation.mutateAsync(rowsPayload);
       setHasBeenSavedOnce(true);
       setRowsData(prev => prev.map(row => ({ ...row, isEditing: false })));
       Alert.alert('Success', 'All treatment days saved successfully.');
@@ -114,7 +128,7 @@ export const useTreatmentSheetRows = ({
     } finally {
       setIsSavingAll(false);
     }
-  }, [refetch, rowsData, tenantId, treatmentSheetId]);
+  }, [refetch, rowsData, updateAllRowsMutation]);
 
   return {
     rowsData,
