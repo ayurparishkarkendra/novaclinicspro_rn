@@ -213,6 +213,22 @@ It must **never** return button colours, icons, layout, or UI labels. **Backend 
 
 ---
 
+## Decision 10 — Clinical History Hierarchy · **RATIFIED** *(v1.1 amendment, 2026-07-18)*
+
+**Decision.** Clinical history is part of R7 COS core, not R8. Doctor consultations and Treatment Reviews are **top-level** clinical encounters. Therapy Sessions are **grouped beneath their authoritative Treatment Plan**. The backend owns encounter classification, Plan-to-Session association, and Plan/session aggregates; the frontend renders a collapsible hierarchy and owns nothing else.
+
+**Verified problem this decision closes.** `useClinicalTimelineData` ✅ flattens every appointment — consultation or therapy — into one undifferentiated `'visit'` item; its own partial session-grouping computes a completed-session count from **scheduled** rows, not **completed** ones (a verified defect, `ED-ARCH-007`); and therapy appointments still separately leak through as flat items alongside that same grouping (double representation). Full evidence: [R7-HISTORY-HIERARCHY-AMENDMENT.md](R7-HISTORY-HIERARCHY-AMENDMENT.md).
+
+**Rationale.** (1) corrects current misclassification of therapy encounters as doctor consultations; (2) removes double representation of therapy sessions; (3) prevents frontend-derived session aggregation — the same DP-15/P3 discipline Decision 9 already applied to workflow recommendation, extended here to a surface (history) not previously named; (4) makes the first-class Treatment Plan (Decision 2/Treatment Plan resolution) **meaningful in patient history** — without this decision, the new Plan entity would ship with no history representation at all; (5) it is Clinical Operating System core (viewing what happened to this patient), not advanced clinical intelligence (trends, labs, AI).
+
+**Alternative rejected: defer to R8, retain the flat history in R7.** Rejected because: it leaves a known clinical-history misclassification live in R7's own COS surface; it duplicates treatment execution representation; it undermines the first-class Treatment Plan entity R7 itself introduces (Decision: Treatment Plan resolution); it preserves a frontend-derived, verifiably incorrect aggregate (ED-ARCH-007) inside R7's release, not merely a pre-existing debt item left alone.
+
+**Sequencing constraint (not a rejection, a scheduling fact).** The feature is **sequenced after** the Treatment Plan backend (`T-BE-D.4`) and stable Session association (`T-BE-E.1`) are available — the Plan-grouping half has no data to group by before then. **It does not block unrelated Group -1 Engineering Truth tasks** (T--1.4 onward proceed independently).
+
+**Product impact.** Medium-High — directly changes what doctors see reviewing a patient's course, closing a real, verified gap. **Architecture impact.** Extends (does not fork) the Clinical Workspace aggregate (§2.1a) — consistent with, not a departure from, Decision 9's "one aggregate" precedent. **Implementation consequence:** +7 tasks (`T-BE-A.3/A.4/A.5`, `T-FE-C.5/C.6/C.7`, `T-Z.9`), 70→77 total; +2 requirements (`FR-HIST-1/2`), 42→44 total. **Code/schema likely later:** additive backend read-model extension; **no schema change** by this decision itself (consumes the already-approved `tenant_treatment_plan` migration under `T-BE-D.2`). **Documents affected:** requirements.md (v1.1), design.md (§2.1a/§3), tasks.md (v1.1), requirements-traceability-matrix.md, R7-GUIDED-WORKSPACE-WIREFRAMES.md (W23), R7-WIREFRAME-IMPACT-MATRIX.md, R7-DESIGN-FREEZE-CHECKLIST.md, this document.
+
+---
+
 ## Patient-Safety Reality Check — **F-2, BLOCKING, owner response required**
 
 The owner scoped into R7 core: *"At minimum surface existing verified data for: allergies · active medicines · known contraindication warnings · pending clinical reviews · renal-risk indicators where existing data already supports them"* — with the instruction **"Do not invent unsupported clinical rules."** Verified against code:
@@ -252,6 +268,7 @@ The owner scoped into R7 core: *"At minimum surface existing verified data for: 
 | 7 | Recommend-with-deviation | Ratified | — |
 | 8 | R7/R8 split | Ratified | R7 still Large after narrowing |
 | 9 | **Backend owns workflow intelligence** | Ratified | recommendation moves D-FE→D-BE; **3 frontend violations found** (ED-ARCH-004/006) |
+| 10 | **Clinical history hierarchy** *(v1.1)* | Ratified — **in R7, not R8** | sequenced after Treatment Plan (`T-BE-D.4`/`T-BE-E.1`); **1 new frontend violation found** (ED-ARCH-007); +7 tasks, +2 requirements |
 
 **Open decisions the owner must still make:** (i) F-1 disposition of `appointment_id` + nullability migration timing; (ii) **F-2 patient-safety option (a)/(b)/(c)**; (iii) whether Treatment Plan is a new persisted entity or an additive projection; (iv) whether session `Missed` is a status or a cancellation reason; (v) `PrescriptionStatus` deletion vs dispensing model.
 

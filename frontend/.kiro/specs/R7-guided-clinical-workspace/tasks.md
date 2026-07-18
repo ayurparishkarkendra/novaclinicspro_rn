@@ -1,9 +1,10 @@
 # R7 — Clinical Operating System · Tasks
 
-**Version:** 1.0 — **APPROVED — implementation roadmap frozen**
-**Approved:** 2026-07-17 · **Requirements version:** `requirements.md` v1.0 FROZEN · **Design version:** `design.md` v1.0 APPROVED · **Base commits recorded before this documentation commit:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`.
-**Implements (immutable, not reinterpreted):** [`requirements.md`](requirements.md) v1.0 FROZEN · [`design.md`](design.md) v1.0 APPROVED · [`requirements-traceability-matrix.md`](requirements-traceability-matrix.md) · R7-OWNER-RATIFICATION · R7-DESIGN-FREEZE-CHECKLIST · R7-GUIDED-CLINICAL-WORKSPACE-DESIGN · R7-TREATMENT-SCHEDULING-MODEL · R7-STATE-DEFINITIONS
+**Version:** 1.1 — **APPROVED — implementation roadmap frozen (amended)**
+**Approved:** 2026-07-17 · **Amended:** 2026-07-18 (owner-approved history-hierarchy amendment — [R7-HISTORY-HIERARCHY-AMENDMENT.md](R7-HISTORY-HIERARCHY-AMENDMENT.md)) · **Requirements version:** `requirements.md` v1.1 FROZEN · **Design version:** `design.md` v1.0 APPROVED (amended §2.1a/§3, version number unchanged per that document's own amendment note) · **Base commits recorded before this documentation commit:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`.
+**Implements (immutable, not reinterpreted):** [`requirements.md`](requirements.md) v1.1 FROZEN · [`design.md`](design.md) v1.0 APPROVED (amended) · [`requirements-traceability-matrix.md`](requirements-traceability-matrix.md) · R7-OWNER-RATIFICATION (amended, Decision 10) · R7-DESIGN-FREEZE-CHECKLIST (re-run for amended scope) · R7-GUIDED-CLINICAL-WORKSPACE-DESIGN · R7-TREATMENT-SCHEDULING-MODEL · R7-STATE-DEFINITIONS
 **Baselines:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`
+**v1.1 amendment summary:** +7 tasks (T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9), +2 requirements (FR-HIST-1/2), 70→77 total tasks, 42→44 total requirements. **No existing task renumbered.**
 
 **Amendment control.** This plan is now frozen. Changing scope, task IDs, dependencies, acceptance criteria, milestones, or governance mechanisms requires a **controlled task-plan amendment** — its own reviewed, versioned change — not an inline edit. No task under this plan may reinterpret `requirements.md` or `design.md`.
 
@@ -147,6 +148,32 @@
 **AC:** (1) router parses/authz/calls service/translates — nothing else. (2) additive; **no existing contract changed** (AC-8). (3) follows verified `get_X_service → create_X_service(db) → IXService` convention ✅.
 **Tests:** contract · integration · architecture. **Rollback:** *Behavior* — remove route.
 **Reqs:** FR-VCC-1 · **Design:** §2.1, §4
+
+### T-BE-A.3 · Encounter classification + hierarchical history projection *[amendment, v1.1, 2026-07-18 — FR-HIST-1/2]*
+**Repo:** BE · **Layer:** Domain (classification, pure) + Application (projection) · **Objective:** classify each history item as `consultation`/`treatment_review`/`treatment_plan`/`legacy_treatment_sessions` from **verified existing signals** (`appointment_type`, `treatment_lifecycle_resolver`'s `NEEDS_CLINICAL_REVIEW`/`UNDER_CLINICAL_REVIEW`) — no new field; associate stable Sessions to Treatment Plans; return the `history_items[]` contract on the **same** `clinical_workspace_service.py`/`clinical_workspace_router.py` (§2.1a) — **not** a second aggregate.
+**Files:** `app/application/services/clinical_workspace_service.py` (extend), `app/api/v1/routers/clinical_workspace_router.py` (extend), classification logic in domain layer (exact module TBD at implementation)
+**Blocked by:** T-BE-A.1, **T-BE-D.4** (Treatment Plan service), **T-BE-E.1** (stable Session identity) · **Unblocks:** T-BE-A.4, T-FE-C.5 · **Size:** **L**
+**AC (FR-HIST-1/2):** (1) the same therapy Session appears exactly once (no duplicate representation of a therapy appointment + its Session). (2) Plan association uses authoritative identifiers only — never date/name/proximity inference. (3) Treatment Review classifies distinctly from therapy execution. (4) history remains scoped to the active patient/Episode. (5) contract carries semantics only (AC-4) — reuses the existing contract-guard pattern (T-BE-B.3).
+**ET:** re-verify `appointment_type` values and `treatment_lifecycle_resolver` states before coding — do not assume the T--1.4-era snapshot is still current.
+**Tests:** unit (classification, no DB) · duplicate-representation test · contract test (no presentation fields). **Rollback:** *Behavior* — additive, unreferenced until wired.
+**Reqs:** FR-HIST-1, FR-HIST-2 · **Design:** §2.1a · **Decisions:** D10 · **Principles:** P1, P2, P3, AC-1, AC-4, AC-5
+
+### T-BE-A.4 · Legacy treatment-session classification *[amendment, v1.1]*
+**Repo:** BE · **Layer:** Application · **Objective:** classify sessions with unreliable Plan association as `LEGACY_TREATMENT_SESSIONS` (or the smallest equivalent code, per convention) rather than inferring a grouping.
+**Files:** same as T-BE-A.3 (extend)
+**Blocked by:** T-BE-A.3, **the data audit** (§8/§16 of `R7-HISTORY-HIERARCHY-AMENDMENT.md` — Sheet-to-Plan cardinality, not yet performed) · **Unblocks:** T-FE-C.5 · **Size:** M
+**AC:** (1) **no automatic backfill without a verified cardinality/data audit.** (2) unreliable association classifies explicitly, never silently merged into a Plan. (3) `treatment_sheet_row.treatment_sheet_id` (verified `NOT NULL`) is the only trusted anchor used — nothing weaker.
+**ET:** the data audit itself (count Treatment Sheets per episode/recommendation across real tenant data) is a **prerequisite investigation**, not part of this task's code — if unperformed when this task starts, it blocks start, it is not skipped.
+**Tests:** unit (classification fallback) · integration (ambiguous-cardinality case classifies as legacy, not guessed). **Rollback:** *Behavior*.
+**Reqs:** FR-HIST-2 · **Design:** §2.1a · **Decisions:** D10
+
+### T-BE-A.5 · Session-count correction (backend-derived, actual execution) *[amendment, v1.1]*
+**Repo:** BE · **Layer:** Application · **Objective:** compute completed/scheduled/not-completed/cancelled counts from `treatment_sheet_row.status`/`completed_at` — **not** `session_date` presence (the verified-incorrect frontend formula this task replaces).
+**Files:** same as T-BE-A.3 (extend)
+**Blocked by:** T-BE-A.3 · **Unblocks:** T-FE-C.5 · **Size:** S
+**AC:** (1) completed count reflects actual completion, not scheduling. (2) counts match `treatment_lifecycle_resolver`'s own state where overlapping — one answer, not two (DP-15).
+**Tests:** unit — regression test proving the corrected formula disagrees with the old (scheduled-based) one on a mixed fixture. **Rollback:** *Behavior*.
+**Reqs:** FR-HIST-2 AC3 · **Design:** §2.1a · **Debt:** ED-ARCH-007 (frontend session-count derivation this replaces — see ED-DEP-7)
 
 ## BE Group B — Clinical Workflow Resolver & Service
 
@@ -365,6 +392,29 @@
 **Repo:** FE · **Blocked by:** T-0.6 · **Size:** S
 **AC:** reuses `ClinicalTimeline` ✅; virtualized; **default-filtered to the active episode** (no cross-episode leak). **Tests:** unit · integration. **Rollback:** *Behavior*. **Reqs:** FR-VCC-1
 
+### T-FE-C.5 · Consume backend history hierarchy (replace flat assembly) *[amendment, v1.1, 2026-07-18 — FR-HIST-1/2]*
+**Repo:** FE · **Layer:** Application · **Objective:** `useClinicalTimelineData` stops assembling five independent flat queries and consumes §2.1a's `history_items[]` contract; **removes** the local `completedSessionCount` computation (ED-ARCH-007).
+**Files:** `features/episodes/presentation/hooks/useClinicalTimelineData.ts`
+**Blocked by:** T-FE-C.4, **T-BE-A.3, T-BE-A.4, T-BE-A.5** (hard dependency — no interim frontend reconstruction, D9) · **Unblocks:** T-FE-C.6 · **Size:** M
+**AC:** (1) **zero** local encounter classification. (2) **zero** local session/count aggregation. (3) `presentation never touches a datasource` held (AC-2) — this task is application-layer only. (4) architecture test extends the `T-0.8`/`T-0.9` "no FE clinical derivation" pattern to this file specifically.
+**ET:** re-verify the hook's current five-query assembly before removing it — do not assume T--1's-era snapshot is unchanged.
+**Tests:** unit · architecture (no FE aggregation) · regression. **Rollback:** *Behavior* — flag; legacy flat assembly remains available behind the flag until this task is proven.
+**Reqs:** FR-HIST-1, FR-HIST-2 · **Design:** §3 · **Debt:** ED-ARCH-007, ED-DEP-7 · **Decisions:** D10 · **Principles:** P1, P2, P3, P9
+
+### T-FE-C.6 · Collapsible Treatment Plan groups + consultation/review/therapy distinction *[amendment, v1.1]*
+**Repo:** FE · **Layer:** Presentation · **Objective:** render `history_items[]` as a hierarchy — top-level consultations/treatment-reviews, collapsible Treatment Plan groups, expanded Session detail, explicit `LEGACY_TREATMENT_SESSIONS` label.
+**Files:** `features/episodes/presentation/components/ClinicalTimeline.tsx`
+**Blocked by:** T-FE-C.5 · **Unblocks:** T-FE-C.7, T-Z.9 · **Size:** M
+**AC:** (1) consultations/treatment-reviews top-level, never nested. (2) therapy sessions never render as independent top-level items. (3) each Plan group independently collapsible; collapse/expand is **local UI state only**. (4) multiple Plans, and completed/stopped/superseded Plans, remain visible and distinct. (5) status never colour-alone — icon + text (extends the file's already-theme-compliant `useClinicTheme()` pattern, verified T--1.1). (6) legacy group rendered with an explicit "Plan association unavailable" label, never silently merged.
+**Tests:** unit (per hierarchy shape) · a11y (icon+text, not colour-alone) · regression. **Rollback:** *Behavior* — flag.
+**Reqs:** FR-HIST-1 · **Design:** §3 · **Decisions:** D10 · **Principles:** P9
+
+### T-FE-C.7 · Mobile hierarchy behaviour *[amendment, v1.1]*
+**Repo:** FE · **Blocked by:** T-FE-C.6 · **Size:** S
+**AC:** (1) collapse/expand touch target ≥44pt (FR-MOB-1 AC1 pattern). (2) hierarchy is **not flattened** on mobile — Plan grouping preserved, not degraded to a flat list for space. (3) no dot-only status representation (FR-MOB-1 AC2).
+**Tests:** unit · responsive. **Rollback:** *Behavior*.
+**Reqs:** FR-HIST-1 AC17 · **Design:** §3 · **Decisions:** D10
+
 ## FE Group D — Dynamic workflow rendering
 
 ### T-FE-D.1 · Render the assembled workflow (post-`buildSectionConfig` removal)
@@ -468,6 +518,12 @@
 **Repo:** docs · **Blocked by:** T-Z.1..T-Z.7 · **Size:** M
 **AC:** every requirement → evidence; every owner decision → implementation; rollback verified; retrospective recorded (R6 precedent).
 
+### T-Z.9 · History hierarchy proof *[amendment, v1.1, 2026-07-18 — FR-HIST-1/2]*
+**Repo:** both · **Blocked by:** T-BE-A.5, T-FE-C.7 · **∥ with:** other Z tasks once its own dependency chain clears · **Size:** M
+**AC:** (1) **no duplicate Session representation** — the same therapy encounter never appears twice. (2) **no frontend history classification** — architecture scan clean on `useClinicalTimelineData.ts`/`ClinicalTimeline.tsx`. (3) **completed counts match backend execution truth** — regression test confirms parity with `treatment_sheet_row.status`/`completed_at`, not the retired scheduled-row formula. (4) consultations and therapy encounters remain visually and semantically distinct — a11y-audited, not colour-alone. (5) Plan groups are accessible and mobile-safe (extends T-Z.1's architecture proof and T-Z.2's regression scope to this surface specifically).
+**Tests:** architecture · regression · a11y · mobile. **Rollback:** *Behavior*.
+**Reqs:** FR-HIST-1, FR-HIST-2 · **Decisions:** D10
+
 ---
 
 # Dependency & Parallelism Map
@@ -503,11 +559,12 @@
 
 # Coverage
 
-**Requirements → tasks:** all **42/42** frozen requirements have ≥1 implementing task (FR-RX-2 is a *negative* requirement enforced by T-FE-E.2 AC + T-Z.7).
-**Owner decisions → tasks:** D1→BE-C · D2→BE-G · D3→T-FE-E.2/T-BE-D.1 · D4→[R8] T-Z.7 · D5→[R8] T-Z.7 · D6→BE-F/T-FE-E.4 · D7→T-FE-B.2 · D8→scope/T-Z.7 · D9→BE-B/T-0.9 · F-1→BE-C.2/C.3/C.4 · F-2→T-FE-C.3 · Plan→BE-D · Missed→T-BE-E.4/T-FE-E.3.
-**Debt gates → tasks:** ED-DEP-1→T-0.2..0.7 · ED-DEP-2→T-0.8 · ED-DEP-3→T-0.9 · ED-DEP-4→T-FE-C.3 · ED-DEP-5→T-BE-D.1/T-FE-E.2 · ED-DEP-6→T-0.9.
+**Requirements → tasks:** all **44/44** frozen requirements have ≥1 implementing task (FR-RX-2 is a *negative* requirement enforced by T-FE-E.2 AC + T-Z.7; **FR-HIST-1/2** [v1.1] → T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9).
+**Owner decisions → tasks:** D1→BE-C · D2→BE-G · D3→T-FE-E.2/T-BE-D.1 · D4→[R8] T-Z.7 · D5→[R8] T-Z.7 · D6→BE-F/T-FE-E.4 · D7→T-FE-B.2 · D8→scope/T-Z.7 · D9→BE-B/T-0.9 · **D10→T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9 (v1.1)** · F-1→BE-C.2/C.3/C.4 · F-2→T-FE-C.3 · Plan→BE-D · Missed→T-BE-E.4/T-FE-E.3.
+**Debt gates → tasks:** ED-DEP-1→T-0.2..0.7 · ED-DEP-2→T-0.8 · ED-DEP-3→T-0.9 · ED-DEP-4→T-FE-C.3 · ED-DEP-5→T-BE-D.1/T-FE-E.2 · ED-DEP-6→T-0.9 · **ED-DEP-7→T-BE-A.5/T-FE-C.5 (v1.1 — ED-ARCH-007, frontend session-count derivation)**.
 **ETX → tasks:** ETX-1→T--1.2 · ETX-2→T--1.5 · ETX-3→T--1.3 · ETX-4→T--1.6 · ETX-5→T--1.4.
 **Rollback:** every task declares its kind. **Data rollback is claimed nowhere** — clinical history is preserved by design (T-Z.4 AC5 verifies it).
+**Task count:** **77** (70 original + 7 added by the v1.1 history-hierarchy amendment: T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9). **No existing task ID was renumbered or reused.**
 
 ---
 
@@ -532,7 +589,7 @@ Milestone completion requires tests passing, architecture proof, and (where a ga
 **Permitted target branch:** `feature/r7-clinical-operating-system`.
 
 ## M2 — Backend COS Contracts Complete
-**Task groups:** BE Group A (T-BE-A.1, T-BE-A.2) · BE Group B (T-BE-B.1, T-BE-B.2, T-BE-B.3) · BE Group F, backend portion (T-BE-F.1, T-BE-F.2, T-BE-F.3).
+**Task groups:** BE Group A (T-BE-A.1, T-BE-A.2) · BE Group B (T-BE-B.1, T-BE-B.2, T-BE-B.3) · BE Group F, backend portion (T-BE-F.1, T-BE-F.2, T-BE-F.3). **Excludes T-BE-A.3/A.4/A.5 (v1.1 history hierarchy)** — these extend the same aggregate but depend on Treatment Plan/Sessions (M6) and complete later; see the M6 addendum below.
 **Required automated tests:** resolver unit tests with no DB (T-BE-B.1) · service unit tests with mocked repos + contract + integration (T-BE-A.1/A.2, T-BE-B.2) · **semantics-only contract guard** (T-BE-B.3) · completion-readiness contract tests (T-BE-F.3).
 **Required architecture proof:** backend scan clean — resolver imports no infrastructure (AC-3); router/service/repository layering intact (AC-1); contract carries no presentation fields (AC-4, T-BE-B.3).
 **Merge criteria:** Clinical Workspace aggregate complete (T-BE-A) · pure workflow resolver complete (T-BE-B.1) · workflow service complete (T-BE-B.2) · semantics-only contract guard passing (T-BE-B.3) · completion-readiness backend contract complete (T-BE-F.3, which itself depends on billing T-BE-F.1/F.2) · **no frontend clinical derivation required** to consume the contract · backend focused tests green.
@@ -572,6 +629,8 @@ Milestone completion requires tests passing, architecture proof, and (where a ga
 **Owner-review requirement:** **Gate OR-3**, positioned specifically **after BE Group D completes and before the Plan/Scheduling portion of FE-E.2 begins** (i.e., mid-M6, not only at its end) — per the user's own placement ("before treatment UI composition").
 **Permitted target branch:** `feature/r7-clinical-operating-system`.
 
+> **M6 addendum (v1.1 amendment, 2026-07-18).** Once `T-BE-D.4` and `T-BE-E.1` complete within this milestone, they **unblock** `T-BE-A.3`/`A.4`/`A.5` (history hierarchy backend) and, once those land, `T-FE-C.5`/`C.6`/`C.7` (history hierarchy frontend) and `T-Z.9` (history hierarchy proof). These seven tasks are not assigned to any single M0-M8 milestone — they form their own dependency chain **anchored inside M6, extending into M8** (T-Z.9 shares M8's "blocked by all" posture). No new milestone letter is introduced; this note exists so the chain isn't silently lost between M6 and M8.
+
 ## M7 — Living Documents Complete
 **Task groups:** BE Group G (T-BE-G.1, T-BE-G.2, T-BE-G.3) · FE-E.5 (amendment surfaces + version rendering).
 **Required automated tests:** **migration up/down on disposable Postgres** + immutability-of-signed-version integration (T-BE-G.1) · unpermitted-amend-rejected integration (T-BE-G.2) · unit + integration (FE-E.5).
@@ -581,7 +640,7 @@ Milestone completion requires tests passing, architecture proof, and (where a ga
 **Permitted target branch:** `feature/r7-clinical-operating-system`.
 
 ## M8 — R7 Release Candidate
-**Task groups:** Group Z (T-Z.1 … T-Z.8) — each blocked by **"all"** prior tasks per the existing dependency map, so M8 implicitly gates on M0–M7.
+**Task groups:** Group Z (T-Z.1 … T-Z.9, **T-Z.9 added v1.1**) — each blocked by **"all"** prior tasks per the existing dependency map, so M8 implicitly gates on M0–M7 (and, via T-Z.9, on the M6-anchored history-hierarchy chain above).
 **Required automated tests:** full architecture suite (T-Z.1) · full regression, both repos, vs baseline (T-Z.2) · DP-15 architecture+integration proof (T-Z.3) · migration up/down + flag-off parity + post-adoption rollback drill (T-Z.4) · query-count/timing sanity (T-Z.5).
 **Required architecture proof:** T-Z.1 in full — layer audit clean, **no new ED-ARCH-001 instances**, resolver imports no infrastructure, no FE clinical derivation, contract carries no presentation fields.
 **Merge criteria:** Group Z complete · full regression green · DP-15 proof complete · architecture proof complete · rollback drill complete · performance sanity complete · legacy routes remain functional (T-FE-F.1…F.3, consumed by T-Z.6) · R8 handoff complete (T-Z.7) · **owner release approval obtained.**

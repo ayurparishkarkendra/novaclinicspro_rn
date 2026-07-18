@@ -56,6 +56,30 @@ State codes + **localization keys**; **never** colours, icons, layout, or UI lab
 
 **Why one aggregate read, not enriched per-entity responses.** Considered: additively enriching each existing response and letting the frontend stitch. **Rejected** — stitching *is* frontend derivation (P2/P3 violation) and reintroduces ED-ARCH-006. One aggregate is the only option consistent with DP-15.
 
+### 2.1a Clinical Workspace Aggregate & Hierarchical History Projection *(amended v1.1, 2026-07-18)*
+**Implements:** FR-HIST-1, FR-HIST-2 · **Principles:** P1, P2, P3, P9 · **AC:** AC-1, AC-4, AC-5 · **Decisions:** D10
+
+`T-BE-A.1`/`T-BE-A.2` already establish the **Clinical Workspace aggregate** (`app/application/services/clinical_workspace_service.py` + `app/api/v1/routers/clinical_workspace_router.py`) as a distinct capability from §2.1's Workflow Resolver — it assembles `WorkspaceFactsSnapshot` (the resolver's *input*) via repositories only. This amendment gives it a second read: **the hierarchical history projection**, on the same service/router, not a second aggregate (FR-HIST-2's own instruction — "do not create an independent competing history aggregate").
+
+**Encounter classification (pure, deterministic).** Derived from **verified existing signals** — `appointment_type` (`"consultation"`/`"THERAPY"`/`"therapy"` values ✅) plus `treatment_lifecycle_resolver`'s `NEEDS_CLINICAL_REVIEW`/`UNDER_CLINICAL_REVIEW` states (the closest existing anchor for "Treatment Review," per `R7-HISTORY-HIERARCHY-AMENDMENT.md` §3) — **not a new field**. Classification logic belongs in the pure domain layer (candidate: a small classifier alongside or within `clinical_workflow_resolver.py`'s existing reuse of `treatment_lifecycle_resolver` — exact placement is an implementation-time decision, not fixed here).
+
+**Plan-to-session association.** Reuses `T-BE-D.4`'s Plan service and `T-BE-E.1`'s stable Session identity — **this projection cannot return real Plan groups before both exist** (§7 Sequencing, below). Association keys on stable identifiers only (Session→Plan FK, once `T-BE-D`/`T-BE-E` land) — never inferred from date/name/proximity (FR-HIST-2 AC 6).
+
+**Deduplication.** A therapy appointment and its Session/`treatment_sheet_row` must resolve to **one** history item, not two — the aggregate's own responsibility (FR-HIST-2 AC 1/2), preventing the exact double-representation `R7-HISTORY-HIERARCHY-AMENDMENT.md` §1 verified in the current flat list.
+
+**Session-count correction.** Completed/scheduled/not-completed/cancelled counts are computed **backend-side** from actual execution facts (`treatment_sheet_row.status`/`completed_at`), replacing the verified-incorrect frontend formula (`useClinicalTimelineData`'s `session_date`-presence check, which counts *scheduled*, not *completed*, rows — see ED-DEP-7/ED-ARCH-007).
+
+**Legacy fallback (no fabricated grouping).** `treatment_sheet_row.treatment_sheet_id` is `NOT NULL` — legacy sessions are never orphaned from their Treatment Sheet, but Sheet-to-Plan **cardinality is unverified** (design note, not resolved here — see `R7-HISTORY-HIERARCHY-AMENDMENT.md` §8/§16 for the required data audit). Until verified, unassociated sessions classify as `LEGACY_TREATMENT_SESSIONS` (exact code TBD at implementation, following existing convention) — never backfilled by guessing.
+
+**Contract (semantics only — AC-4).**
+```
+history_items[]: { item_type: consultation | treatment_review | treatment_plan | legacy_treatment_sessions,
+                    ...type-specific fields, session_counts{} for treatment_plan, sessions[] nested }
+```
+No colours/icons/layout/UI labels — same semantics-only discipline as §2.1's workflow contract.
+
+**Why extend, not fork (FR-HIST-2's own rule).** A second aggregate would let two backend paths answer "what happened for this patient" — the exact DP-15 violation §2.1 already rejected once for enriched-per-entity stitching. One aggregate, two reads (facts snapshot + history projection), is the only option consistent with the precedent this design already set.
+
 ### 2.2 Case Sheet — Episode binding, current-Visit attribution, atomicity
 **Implements:** FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-CS-6 · **Decisions:** D1, F-1 · **Principles:** P4, P5
 
@@ -180,7 +204,7 @@ Version/supersession representation **[VP]** — deliberately not fixed here; it
 
 ## 3. Frontend Design
 
-**Implements:** FR-COS-1, FR-COS-2, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-MOB-1, FR-MOB-2, FR-REC-2, FR-RBAC-1 · **Principles:** P9 · **AC:** AC-2
+**Implements:** FR-COS-1, FR-COS-2, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-MOB-1, FR-MOB-2, FR-REC-2, FR-RBAC-1, FR-HIST-1 *(amended v1.1)* · **Principles:** P9 · **AC:** AC-2
 
 ```
 app/clinic-admin/episodes/[episodeId]/workspace.tsx      ← EXISTING route (reused, not replaced)
@@ -204,6 +228,8 @@ app/clinic-admin/episodes/[episodeId]/workspace.tsx      ← EXISTING route (reu
 
 **Role composition (FR-RBAC-1).** `episodeWorkspaceConfigByRole` ✅ extends 2→5 roles **as config**. It may hide a CTA; it is **never** the authority — actionability comes from backend `blocking_factors`/`waiting_role` (FR-WFA-2).
 
+**Hierarchical history (FR-HIST-1, amended v1.1).** `ClinicalTimeline`/`useClinicalTimelineData` are **modified, not replaced**: the hook stops assembling five independent flat queries and instead consumes §2.1a's `history_items[]` contract directly; it **stops computing `completedSessionCount` locally** (the corrected, backend-derived count arrives on the `treatment_plan` item). `ClinicalTimeline.tsx`'s rendering gains: collapsed/expanded Plan-group state (local UI state only, per FR-HIST-1's own rule), a `treatment_review`/`legacy_treatment_sessions` visual treatment alongside the existing `consultation`/`treatment_plan` types, and per-type icon+label distinction — extending the file's already-theme-compliant pattern (`useClinicTheme()`, verified during T--1.1's theme review), not introducing a new styling system. **No second frontend-derived timeline model is created** — this is the same file, corrected.
+
 ---
 
 ## 4. Contracts (semantics only)
@@ -214,6 +240,7 @@ app/clinic-admin/episodes/[episodeId]/workspace.tsx      ← EXISTING route (reu
 | Workspace context (read) | FR-VCC-1..4 | patient/episode/visit context · what-changed signals (8, R7 scope) · verified safety signals only | allergy/interaction/renal panels (F-2) |
 | Billing visibility (read) | FR-BILL-1 | charges · invoice status · payment status · outstanding | write operations (R7) |
 | Case sheet write | FR-CS-2/3/4 | + explicit current `visit_id` **[VP transport]** | inference from `appointment_id` |
+| History hierarchy (read) *[amended v1.1]* | FR-HIST-1/2 | `history_items[]`: consultation \| treatment_review \| treatment_plan{session_counts, sessions[]} \| legacy_treatment_sessions | colours · icons · layout · UI labels · any frontend-computable aggregate (AC-4) |
 
 All state codes travel with **localization keys**; the frontend renders the label (R5/R6 precedent ✅).
 
@@ -256,10 +283,11 @@ ED-ARCH-001 remediation (reused modules)  ─┐
 Case sheet F-1 (service)  ─────────────────┘
 Workflow intelligence (resolver+service) ──► FE renders pills/recommendation (hard dependency)
 Treatment Plan entity (+migration) ────────► Sessions/scheduling ──► FE treatment experience
+                                           └─► History hierarchy projection ──► FE hierarchical history [amended v1.1]
 Billing read ──────────────────────────────► FE billing stage
 Supersession (schema, deferrable) ─────────► amendment surfaces
 ```
-**Hard rule:** no interim frontend reconstruction while a backend contract is pending (D9). If the contract is late, the frontend waits — it does not derive.
+**Hard rule:** no interim frontend reconstruction while a backend contract is pending (D9). If the contract is late, the frontend waits — it does not derive. **The history hierarchy is a hard consumer of Treatment Plan** (§2.1a) — its Plan-grouping half cannot ship, even partially, before `T-BE-D`/`T-BE-E` complete; the consultation/treatment-review half does not share this dependency and may proceed independently.
 
 ---
 
@@ -269,7 +297,7 @@ Every design section names the requirements it implements (headers above). Rever
 
 **Design decisions that are deliberately deferred (each owned by a requirement's [VP] or an ETX):** case-sheet write transport (FR-CS-2) · idempotency key (FR-CS-4) · Plan status spelling (FR-TP-2) · `Missed` spelling (FR-TS-5) · supersession representation (FR-LD-1) · appointment purpose existence (**ETX-3**) · permission codes (**ETX-1**) · capability-change-mid-episode (**ETX-4**) · legacy `treatment_plan` column disposition (**ETX-5**).
 
-**This design adds no scope absent from requirements v1.0.** Where it says "Small" or "subtractive," that is a verified finding, not an estimate.
+**This design adds no scope absent from requirements v1.1.** Where it says "Small" or "subtractive," that is a verified finding, not an estimate. **v1.1 amendment (2026-07-18):** §2.1a and the FR-HIST-1 paragraph of §3 are the only sections added; nothing else in this document was reopened.
 
 ---
 
