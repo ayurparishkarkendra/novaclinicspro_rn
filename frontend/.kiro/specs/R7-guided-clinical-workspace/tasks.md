@@ -5,6 +5,7 @@
 **Implements (immutable, not reinterpreted):** [`requirements.md`](requirements.md) v1.1 FROZEN · [`design.md`](design.md) v1.0 APPROVED (amended) · [`requirements-traceability-matrix.md`](requirements-traceability-matrix.md) · R7-OWNER-RATIFICATION (amended, Decision 10) · R7-DESIGN-FREEZE-CHECKLIST (re-run for amended scope) · R7-GUIDED-CLINICAL-WORKSPACE-DESIGN · R7-TREATMENT-SCHEDULING-MODEL · R7-STATE-DEFINITIONS
 **Baselines:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`
 **v1.1 amendment summary:** +7 tasks (T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9), +2 requirements (FR-HIST-1/2), 70→77 total tasks, 42→44 total requirements. **No existing task renumbered.**
+**2026-07-18 — ETX-4 resolved by owner decision** (not a requirements/design amendment — a task-level AC clarification): capability-loss policy frozen ([R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md](R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md)) and applied to `T-BE-B.1`/`T-BE-B.2`/`T-FE-E.6`'s existing acceptance criteria. **Task count unchanged at 77; no task ID, dependency, or scope changed.**
 
 **Amendment control.** This plan is now frozen. Changing scope, task IDs, dependencies, acceptance criteria, milestones, or governance mechanisms requires a **controlled task-plan amendment** — its own reviewed, versioned change — not an inline edit. No task under this plan may reinterpret `requirements.md` or `design.md`.
 
@@ -182,15 +183,17 @@
 **Files:** `app/domain/services/clinical_workflow_resolver.py`
 **Blocked by:** T-0 gate, T--1.6 · **Unblocks:** T-BE-B.2 · **∥ with:** BE-A, BE-C, BE-D · **Size:** **L**
 **AC:** (1) imports **nothing** from `app.infrastructure`/`app.api`/session/`app.localization` (AC-3 — the trap `capability_resolver` documents ✅). (2) **unit-testable with no DB.** (3) assembles GP · Ayurveda · Physio · follow-up · treatment-review · therapist journeys correctly. (4) **no fixed canonical order.** (5) capability-gated, **never** specialty-gated (AC-7). (6) inapplicable stages absent. (7) frozen dataclasses out.
-**ET:** verify capability codes `appointments.multiday`/`appointments.sessions` ✅ and entitlement (`("ayurveda","physio")` ✅). **Tests:** **unit, no DB** (per journey) · architecture (import audit). **Rollback:** *Behavior* — additive.
-**Reqs:** FR-WFA-1, FR-WFA-2, FR-REC-1, FR-CR-1 · **Design:** §2.1 · **Decisions:** D9 · **Principles:** P2, P3, P8, AC-3
+**AC — capability-loss policy** *[clarification, ETX-4 owner-resolved, 2026-07-18 — [R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md](R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md)]*: (8) historical records (completed Plans/Sessions/signed documents) remain visible after capability loss. (9) new capability-dependent workflows (new Recommendation/Plan/Session beyond the authorized course) are **absent or blocked**, never silently offered. (10) already-scheduled active care (execute a scheduled Session, record actuals, complete planned review) **may continue** when capability is lost. (11) course **expansion** (additional Sessions beyond the authorized count, a replacement capability-dependent Plan) is **blocked**, distinct from continuation. (12) stop/discontinue remains available to an authorized clinician regardless of capability state. (13) the contract returns an explicit capability-unavailable reason (exact code TBD at implementation, per repository convention — not frozen here). (14) capability availability is a **pre-resolved input** to this module (AC-3 — never a direct catalog/entitlement read). (15) **no clinic-type inference** substitutes for capability (AC-7, restated). (16) **no frontend fallback** — absence of a backend answer is never locally derived.
+**ET:** verify capability codes `appointments.multiday`/`appointments.sessions` ✅ and entitlement (`("ayurveda","physio")` ✅). **Tests:** **unit, no DB** (per journey) · architecture (import audit) · **capability-loss unit tests (AC 8–16), one per policy rule.** **Rollback:** *Behavior* — additive.
+**Reqs:** FR-WFA-1, FR-WFA-2, FR-REC-1, FR-CR-1 · **Design:** §2.1 · **Decisions:** D9 · **Principles:** P2, P3, P8, AC-3 · **ETX:** ETX-4 resolved
 
 ### T-BE-B.2 · `clinical_workflow_service` + contract
 **Repo:** BE · **Layer:** Application+Router · **Files:** `app/application/services/clinical_workflow_service.py` (+ router/dependencies/factory)
 **Blocked by:** T-BE-A.1, T-BE-B.1 · **Unblocks:** **T-0.9**, T-FE-B.1, T-FE-D.1 · **Size:** M
 **AC:** contract returns `recommended_action · reason · blocking_factors[] · waiting_role · completion_readiness{} · stages[] · alternatives[]`.
+**AC — capability assembly** *[clarification, ETX-4 owner-resolved, 2026-07-18]*: the service assembles, via existing repositories/`capability_resolver` (reuse, not rebuild) — entitlement, effective availability, effective-enabled state, active-record context (does an in-flight Plan/Session already exist for this action), and the action class (read / continue / expand / stop / create) — and passes this to `clinical_workflow_resolver` as part of its immutable snapshot.
 **Tests:** unit (mocked) · contract · integration. **Rollback:** *Behavior* — additive endpoint.
-**Reqs:** FR-WFA-1/2, FR-REC-1 · **Design:** §2.1, §4
+**Reqs:** FR-WFA-1/2, FR-REC-1 · **Design:** §2.1, §4 · **ETX:** ETX-4 resolved
 
 ### T-BE-B.3 · **Semantics-only contract guard**
 **Repo:** BE · **Layer:** Contract test · **Files:** `tests/test_r7_workflow_contract_semantics_only.py`
@@ -452,7 +455,8 @@
 **Repo:** FE · **Layer:** Config · **Files:** `features/episodes/presentation/config/episodeWorkspaceConfig.ts` ✅
 **Blocked by:** T--1.2, T-FE-D.1 · **Size:** M
 **AC:** 2→5 roles **as config, no screen forks** (the file's own docstring mandates this ✅); **RBAC-flexible** (permission-driven, not profession-hard-coded); **backend enforces** — UI hiding is presentation polish only ✅; actionability from backend `blocking_factors`/`waiting_role`, **never this map.**
-**Tests:** unit (per role) · integration. **Rollback:** *Behavior*. **Reqs:** FR-RBAC-1, FR-WFA-2
+**AC — capability-loss rendering** *[clarification, ETX-4 owner-resolved, 2026-07-18]*: renders backend-provided capability-loss semantics (read-only / blocked / continuation-allowed / historical-only / waiting-owner) exactly as returned; **never derives continuation/expansion policy from `useFeatures()`, clinic type, or this role-config map** — those remain presentation-polish only, same rule as actionability above.
+**Tests:** unit (per role) · integration. **Rollback:** *Behavior*. **Reqs:** FR-RBAC-1, FR-WFA-2 · **ETX:** ETX-4 resolved
 
 ## FE Group F — Legacy redirects
 *(R7 reaches **Redirect** only. **No screen deleted.**)*
