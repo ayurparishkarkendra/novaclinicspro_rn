@@ -256,3 +256,16 @@ frontend/.kiro/*
 frontend/.kiro/specs/*
 !frontend/.kiro/specs/R5-capability-platform/
 !frontend/.kiro/specs/R5-capability-platform/**
+# R7 Clinical Operating System: track the approved, frozen R7 specification
+# package (requirements.md v1.0 FROZEN, design.md v1.0 APPROVED, tasks.md
+# APPROVED, plus the supporting ratification/design/state documents) —
+# mirrors the R5-capability-platform exception above.
+!frontend/.kiro/specs/R7-guided-clinical-workspace/
+!frontend/.kiro/specs/R7-guided-clinical-workspace/**
+# ED-ARCH-001 finding: also track frontend/.kiro/engineering/ — general,
+# non-phase-specific governance records (ENGINEERING-DEBT.md and any future
+# ENGINEERING-TRUTH.md), mirroring the backend repo's own
+# .kiro/engineering/ exception. Must be tracked: engineering debt is
+# explicitly required to be part of the project's tracked record.
+!frontend/.kiro/engineering/
+!frontend/.kiro/engineering/**
