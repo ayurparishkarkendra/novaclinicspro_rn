@@ -23,13 +23,24 @@
  * create() response's own returned visit_id) — no history fetch. Full
  * services-for-this-visit browsing is deferred; if a later phase needs it,
  * it should expose visit_id on VisitInfo then, not here.
+ *
+ * R7 · T-0.5 (ED-ARCH-001): the write path imported `createClinicalServiceApi`
+ * directly from the datasource layer — the sole call site (no other
+ * production consumer). Repointed to `useCreateClinicalServiceMutation`
+ * (`clinicalServices.repository.impl.ts`), a new, minimal `useMutation`
+ * wrapper — no application hook existed at all for Clinical Services
+ * writes before this task. No default `onSuccess` on the new hook, so this
+ * module's existing conditional (`isFreshnessV1Enabled`-gated)
+ * invalidation, and its local session-list append, are both unchanged.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { isFreshnessV1Enabled, useFeatures } from '../../../../../core/hooks/useFeatures';
-import { createClinicalServiceApi } from '../../../../clinicalServices/data/datasources/clinicalServices.api';
-import { clinicalServicesKeys } from '../../../../clinicalServices/data/repositories/clinicalServices.repository.impl';
+import {
+  clinicalServicesKeys,
+  useCreateClinicalServiceMutation,
+} from '../../../../clinicalServices/data/repositories/clinicalServices.repository.impl';
 import { ClinicalServiceResponse } from '../../../../clinicalServices/data/models/clinicalServices.dtos';
 import { useEpisodeContext, useVisitContext } from '../../context/ClinicalWorkspaceContext';
 import { useReportSaveStatus } from '../../context/WorkspaceSaveStatusContext';
@@ -77,13 +88,15 @@ export const ClinicalServicesModule: React.FC<ClinicalServicesModuleProps> = ({ 
     reportSaveStatus('clinicalServices', saveStatus);
   }, [saveStatus, reportSaveStatus]);
 
+  const createServiceMutation = useCreateClinicalServiceMutation(tenantId);
+
   const recordService = useCallback(async (): Promise<void> => {
     if (!draft.service_type.trim()) return;
     setIsRecording(true);
     setRecordError(null);
     setSectionSaveStatus('saving');
     try {
-      const response = await createClinicalServiceApi(tenantId, {
+      const response = await createServiceMutation.mutateAsync({
         appointment_id: appointmentId,
         service_type: draft.service_type.trim(),
         description: draft.description.trim() || undefined,
@@ -101,7 +114,7 @@ export const ClinicalServicesModule: React.FC<ClinicalServicesModuleProps> = ({ 
     } finally {
       setIsRecording(false);
     }
-  }, [tenantId, appointmentId, draft, features, queryClient, setSectionSaveStatus]);
+  }, [appointmentId, draft, features, queryClient, setSectionSaveStatus, createServiceMutation]);
 
   const sectionProgress = useMemo<SectionProgress>(
     () => ({ status: computeClinicalServicesStatus(recordedThisSession.length, draft), saveStatus }),

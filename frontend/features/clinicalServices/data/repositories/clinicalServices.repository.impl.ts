@@ -11,9 +11,32 @@
  * exists), so there is nothing yet to list-query by.
  */
 
+import { useMutation, UseMutationOptions } from '@tanstack/react-query';
+import { createClinicalServiceApi } from '../datasources/clinicalServices.api';
+import { ClinicalServiceCreateRequest, ClinicalServiceResponse } from '../models/clinicalServices.dtos';
+
 export const clinicalServicesKeys = {
   all: ['clinicalServices'] as const,
   lists: () => [...clinicalServicesKeys.all, 'list'] as const,
   byVisit: (tenantId: string, visitId: string) =>
     [...clinicalServicesKeys.lists(), tenantId, visitId] as const,
 };
+
+/**
+ * R7 · T-0.5 (ED-ARCH-001): thin useMutation wrapper so ClinicalServicesModule
+ * (Presentation) no longer imports createClinicalServiceApi directly. No
+ * default onSuccess — Clinical Services' own append-only, session-only-list
+ * behavior (see ClinicalServicesModule's docstring) already builds its list
+ * from each response locally, and invalidation is conditionally
+ * flag-gated by the caller, so the caller owns it, matching the
+ * no-default-onSuccess precedent set for Treatment Recommendation's
+ * equivalent new mutations (T-0.4).
+ */
+export const useCreateClinicalServiceMutation = (
+  tenantId: string,
+  options?: UseMutationOptions<ClinicalServiceResponse, Error, ClinicalServiceCreateRequest>
+) =>
+  useMutation<ClinicalServiceResponse, Error, ClinicalServiceCreateRequest>({
+    mutationFn: (payload) => createClinicalServiceApi(tenantId, payload),
+    ...options,
+  });
