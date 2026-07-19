@@ -66,7 +66,7 @@ export const VisitCommandCenter: React.FC<VisitCommandCenterProps> = ({
 
 const VisitCommandCenterShell: React.FC = () => {
   const router = useRouter();
-  const { colors, spacing, typography } = useClinicTheme();
+  const { colors, spacing, typography, radii, borderWidths, sizes } = useClinicTheme();
   const { t } = useTranslation();
   const patient = usePatientContext();
   const episode = useEpisodeContext();
@@ -92,15 +92,24 @@ const VisitCommandCenterShell: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.default }]}>
-      <View style={[styles.header, { padding: spacing.md, borderBottomColor: colors.border.subtle }]}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+      <View
+        style={[
+          styles.header,
+          { padding: spacing.md, borderBottomColor: colors.border.subtle, borderBottomWidth: borderWidths.hairline },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          style={[styles.iconButton, { minHeight: sizes.touchTarget, minWidth: sizes.touchTarget }]}
+        >
+          <Ionicons name="arrow-back" size={sizes.iconMedium} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerTitles}>
           <Text style={[typography.h5, { color: colors.text.primary }]}>{t('visitCommandCenter.title')}</Text>
           <Text style={[typography.caption, { color: colors.text.secondary }]}>{patient.clientName}</Text>
         </View>
-        <View style={styles.iconButton} />
+        <View style={[styles.iconButton, { minHeight: sizes.touchTarget, minWidth: sizes.touchTarget }]} />
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl }}>
         <WhyTodaySection
@@ -112,7 +121,13 @@ const VisitCommandCenterShell: React.FC = () => {
         <View
           style={[
             styles.placeholder,
-            { backgroundColor: colors.surface.default, borderColor: colors.border.default, borderRadius: spacing.sm, padding: spacing.lg },
+            {
+              backgroundColor: colors.surface.default,
+              borderColor: colors.border.default,
+              borderWidth: borderWidths.default,
+              borderRadius: radii.medium,
+              padding: spacing.lg,
+            },
           ]}
         >
           <Text style={[typography.body2, { color: colors.text.secondary }]}>{t('common.comingSoon')}</Text>
@@ -142,16 +157,19 @@ const InvalidWorkspaceState: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   );
 };
 
+// Component-local structural layout only (flex/flexDirection/alignItems/
+// justifyContent) — no reusable visual value (colour, spacing, radius,
+// border width, icon size, touch target) belongs here; those come from
+// `useClinicTheme()` and are applied via the inline style arrays above.
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
-    borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerTitles: { flex: 1, alignItems: 'center' },
-  iconButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  placeholder: { borderWidth: 1, alignItems: 'center' },
+  placeholder: { alignItems: 'center' },
 });

@@ -61,7 +61,7 @@ export const WhyTodaySection: React.FC<WhyTodaySectionProps> = ({
   episodeId,
   appointmentId,
 }) => {
-  const { colors, spacing, typography } = useClinicTheme();
+  const { colors, spacing, typography, radii, borderWidths } = useClinicTheme();
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useClinicalWorkspaceQuery(
     tenantId,
@@ -75,7 +75,8 @@ export const WhyTodaySection: React.FC<WhyTodaySectionProps> = ({
     {
       backgroundColor: colors.surface.default,
       borderColor: colors.border.default,
-      borderRadius: spacing.sm,
+      borderWidth: borderWidths.default,
+      borderRadius: radii.medium,
       padding: spacing.lg,
     },
   ];
@@ -135,7 +136,11 @@ export const WhyTodaySection: React.FC<WhyTodaySectionProps> = ({
   );
 };
 
+// Component-local structural layout only — no reusable visual value
+// (border width, radius, colour, spacing) belongs here; those are
+// applied via the inline `cardStyle`/style arrays above, from
+// `useClinicTheme()`.
 const styles = StyleSheet.create({
-  card: { borderWidth: 1 },
+  card: {},
   loadingRow: { flexDirection: 'row', alignItems: 'center' },
 });
