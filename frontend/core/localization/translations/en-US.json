@@ -311,6 +311,78 @@
       "casesheetLoadFailed": "Could not load visit notes. Please try again.",
       "treatmentSheetsLoadFailed": "Could not load treatment plans. Please try again.",
       "prescriptionsLoadFailed": "Could not load prescriptions. Please try again."
+    },
+    "completeConsultation": {
+      "loadFailed": "Could not load the consultation completion summary. Please try again."
+    }
+  },
+  "completeConsultation": {
+    "title": "Review & Complete",
+    "action": {
+      "complete": "Complete Consultation"
+    },
+    "state": {
+      "ready": "Ready to complete",
+      "ready_with_warnings": "Ready to complete, with warnings",
+      "not_ready": "Not ready to complete",
+      "blocked": "Blocked",
+      "waiting_on_permission": "Waiting on permission",
+      "unresolved": "Unresolved",
+      "already_complete": "Already completed",
+      "not_applicable": "Not applicable"
+    },
+    "sections": {
+      "mandatory": "Outstanding required work",
+      "optional": "Optional suggested work",
+      "warnings": "Warnings",
+      "unresolved": "Unresolved facts",
+      "caseSheet": "Case Sheet",
+      "prescription": "Prescription",
+      "treatment": "Treatment",
+      "billing": "Billing",
+      "visit": "Visit"
+    },
+    "empty": {
+      "mandatory": "No required work outstanding.",
+      "optional": "No optional work suggested.",
+      "warnings": "No warnings.",
+      "unresolved": "No unresolved facts."
+    },
+    "stageNames": {
+      "consultation": "Consultation",
+      "assessment": "Case Sheet",
+      "prescription": "Prescription",
+      "treatment_recommendation": "Treatment Recommendation",
+      "treatment_plan": "Treatment Plan",
+      "billing": "Billing",
+      "visit_completion": "Visit Completion"
+    },
+    "reasonCodes": {
+      "unbilled_services": "Services delivered are not yet billed",
+      "outstanding_balance": "There is an outstanding balance",
+      "billing_facts_unavailable": "Billing information is currently unavailable",
+      "active_treatment_in_progress": "Treatment is currently in progress",
+      "treatment_clinical_review_pending": "A clinical review of treatment is pending",
+      "visit_not_started": "The visit has not started yet",
+      "unrecognised_document_status": "The document status is unrecognised",
+      "treatment_lifecycle_unresolved": "Treatment status is currently unresolved",
+      "treatment_execution_facts_unavailable": "Treatment execution details are currently unavailable",
+      "capability_facts_unavailable": "Capability information is currently unavailable",
+      "capability_unavailable_for_new_work": "This capability is not currently available for new work",
+      "unrecognised_lifecycle_status": "Treatment status is unrecognised",
+      "scheduling_denied": "Scheduling was denied",
+      "treatment_plan_entity_not_yet_implemented": "Treatment plans are not yet supported",
+      "permission_facts_unavailable": "Permission information is currently unavailable",
+      "episode_closed": "The episode is closed",
+      "unresolved_mandatory_facts": "Some required facts are unresolved"
+    },
+    "recordingState": {
+      "recorded": "Recorded",
+      "absent": "Not recorded",
+      "not_recorded": "Not recorded",
+      "unavailable": "Currently unavailable",
+      "not_applicable": "Not applicable",
+      "unresolved": "Unresolved"
     }
   },
   "episodeWorkspace": {

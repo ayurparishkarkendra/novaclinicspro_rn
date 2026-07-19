@@ -73,11 +73,24 @@ describe('Navigation entry points (R3B · T-0.1, baseline for AC-3/AC-4)', () =>
     });
   });
 
-  describe('CompleteConsultationScreen: transitions via replace, not push, at completion', () => {
+  describe('CompleteConsultationScreen (T-0.8 target-boundary update, replaces the pre-T-0.8 characterization above)', () => {
     const source = read('../../../features/episodes/presentation/pages/CompleteConsultationScreen.tsx');
 
-    it("uses router.replace('/doctor') on completion — Back doesn't return into a finished consultation", () => {
-      expect(source).toContain("router.replace('/doctor'");
+    // T-0.8 removed the local `transitionCasesheetStatusApi(..., {status:
+    // 'FINAL'})` completion mutation and its `router.replace('/doctor')`
+    // follow-up navigation — no governed backend completion-mutation
+    // endpoint exists yet (verified; only the read-only GET
+    // /clinic/{tenant_id}/consultation-completion contract exists). The
+    // completion action fails closed instead of retaining that call as a
+    // substitute; there is therefore no completion-triggered navigation to
+    // characterize until a governed mutation contract exists.
+    it('no longer performs a completion-triggered navigation — the action fails closed instead', () => {
+      expect(source).not.toContain("router.replace('/doctor'");
+      expect(source).not.toContain('transitionCasesheetStatusApi');
+    });
+
+    it('still uses router.back() for manual back navigation, preserved unchanged', () => {
+      expect(source).toContain('router.back()');
     });
   });
 
