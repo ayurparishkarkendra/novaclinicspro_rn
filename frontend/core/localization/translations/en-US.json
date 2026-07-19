@@ -385,6 +385,13 @@
       "unresolved": "Unresolved"
     }
   },
+  "visitCommandCenter": {
+    "title": "Visit Command Center",
+    "invalidContext": {
+      "title": "Can't open workspace",
+      "message": "No active appointment for this episode."
+    }
+  },
   "episodeWorkspace": {
     "header": {
       "episode": "Episode",

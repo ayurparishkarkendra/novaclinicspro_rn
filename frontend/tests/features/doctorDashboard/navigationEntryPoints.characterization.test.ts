@@ -103,6 +103,31 @@ describe('Navigation entry points (R3B · T-0.1, baseline for AC-3/AC-4)', () =>
     });
   });
 
+  describe('Entry point 3, T-FE-A.1 (FR-COS-1 AC1): cos_v1 gates the SAME route, no second route created', () => {
+    const source = read('../../../app/clinic-admin/episodes/[episodeId]/workspace.tsx');
+
+    it('imports VisitCommandCenter and gates it behind isCosV1Enabled — never unconditionally', () => {
+      expect(source).toContain("import { VisitCommandCenter } from '../../../../features/episodes/presentation/pages/VisitCommandCenter';");
+      expect(source).toContain('isCosV1Enabled(features)');
+    });
+
+    it('the cos_v1 branch is checked BEFORE the legacy mode/tab resolution — legacy code is untouched, just conditionally reached', () => {
+      const flagCheckIndex = source.indexOf('isCosV1Enabled(features)');
+      const legacyModeIndex = source.indexOf("mode === 'admin' ? 'admin' : 'doctor'");
+      expect(flagCheckIndex).toBeGreaterThan(-1);
+      expect(legacyModeIndex).toBeGreaterThan(-1);
+      expect(flagCheckIndex).toBeLessThan(legacyModeIndex);
+    });
+
+    it('no second workspace route file exists anywhere in app/ (FR-COS-1 AC1 — one route only)', () => {
+      const glob = require('fast-glob');
+      const matches = glob.sync('app/**/*workspace*.tsx', {
+        cwd: require('path').resolve(__dirname, '../../..'),
+      });
+      expect(matches).toEqual(['app/clinic-admin/episodes/[episodeId]/workspace.tsx']);
+    });
+  });
+
   describe('The dormant doctor-mode path (§3.2/§2.2 finding) has zero live callers today — locked in as a baseline for T-B.7', () => {
     const callers = [
       read('../../../features/appointments/presentation/pages/AppointmentsListScreen.tsx'),

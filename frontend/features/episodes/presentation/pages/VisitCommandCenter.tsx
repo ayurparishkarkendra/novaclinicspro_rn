@@ -1,0 +1,150 @@
+/**
+ * VisitCommandCenter (T-FE-A.1, FR-COS-1, FR-VCC-1)
+ *
+ * The flag-gated shell for the Clinical Operating System, rendered on the
+ * EXISTING Episode workspace route (`app/clinic-admin/episodes/[episodeId]/
+ * workspace.tsx`) when `cos_v1` is on — no new route (FR-COS-1 AC1). This
+ * task is structural scaffolding only: a header/container, a loading
+ * state, and an explicit invalid-context state (wireframe W30). It does
+ * not consume the backend workspace aggregate, assemble workflow stages,
+ * derive a next action, or render any clinical region (Why today / What
+ * changed / Before you act / workflow pills / billing) — those are later
+ * FE-A/B/C tasks' own scope.
+ *
+ * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
+ * exactly as `ClinicalWorkspace.tsx` already does for the consultation
+ * route — same props, same context, tenant/patient/episode/visit scoping
+ * not weakened. Unlike that route, `workspace.tsx` does not currently
+ * carry an `appointmentId` (verified — its query params are
+ * `mode`/`clientId`/`initialTab` only), so this shell treats a missing or
+ * unresolvable `appointmentId` as invalid context (W30: "No active
+ * appointment for this episode"), never a guessed Visit.
+ */
+import React from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useTranslation } from '../../../../core/localization/useTranslation';
+import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import {
+  WorkspaceProvider,
+  useEpisodeContext,
+  usePatientContext,
+  useVisitContext,
+} from '../context/ClinicalWorkspaceContext';
+
+export interface VisitCommandCenterProps {
+  episodeId: string;
+  appointmentId?: string;
+  clientId: string;
+}
+
+export const VisitCommandCenter: React.FC<VisitCommandCenterProps> = ({
+  episodeId,
+  appointmentId,
+  clientId,
+}) => {
+  const router = useRouter();
+  const { currentUser, selectedClinicId } = useAuth();
+  const tenantId = selectedClinicId || currentUser?.tenantId || '';
+
+  // No appointmentId (or tenant/episode/client) available at this route yet
+  // — never guess a Visit. Safe, explicit invalid-context state (W30).
+  if (!tenantId || !episodeId || !appointmentId || !clientId) {
+    return <InvalidWorkspaceState onBack={() => router.back()} />;
+  }
+
+  return (
+    <WorkspaceProvider tenantId={tenantId} episodeId={episodeId} appointmentId={appointmentId} clientId={clientId}>
+      <VisitCommandCenterShell />
+    </WorkspaceProvider>
+  );
+};
+
+const VisitCommandCenterShell: React.FC = () => {
+  const router = useRouter();
+  const { colors, spacing, typography } = useClinicTheme();
+  const { t } = useTranslation();
+  const patient = usePatientContext();
+  const episode = useEpisodeContext();
+  const visit = useVisitContext();
+
+  if (episode.isEpisodeLoading) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.default }]}>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.primary.default} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Episode failed to load, or the appointment-scoped Visit lookup
+  // (WorkspaceProvider's own, mirrored from ConsultationWorkspaceScreen's
+  // existing mechanism) returned undefined — never render a blank or
+  // wrong-record workspace (W30).
+  if (episode.isEpisodeError || !episode.episodeDetails || !visit.visit) {
+    return <InvalidWorkspaceState onBack={() => router.back()} />;
+  }
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.default }]}>
+      <View style={[styles.header, { padding: spacing.md, borderBottomColor: colors.border.subtle }]}>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={styles.iconButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerTitles}>
+          <Text style={[typography.h5, { color: colors.text.primary }]}>{t('visitCommandCenter.title')}</Text>
+          <Text style={[typography.caption, { color: colors.text.secondary }]}>{patient.clientName}</Text>
+        </View>
+        <View style={styles.iconButton} />
+      </View>
+      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl }}>
+        <View
+          style={[
+            styles.placeholder,
+            { backgroundColor: colors.surface.default, borderColor: colors.border.default, borderRadius: spacing.sm, padding: spacing.lg },
+          ]}
+        >
+          <Text style={[typography.body2, { color: colors.text.secondary }]}>{t('common.comingSoon')}</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const InvalidWorkspaceState: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const { colors, spacing, typography } = useClinicTheme();
+  const { t } = useTranslation();
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.default }]}>
+      <View style={[styles.center, { padding: spacing.md, gap: spacing.md }]}>
+        <Text style={[typography.h6, { color: colors.text.primary }]}>
+          {t('visitCommandCenter.invalidContext.title')}
+        </Text>
+        <Text style={[typography.body2, { color: colors.text.secondary, textAlign: 'center' }]}>
+          {t('visitCommandCenter.invalidContext.message')}
+        </Text>
+        <TouchableOpacity onPress={onBack} accessibilityRole="button">
+          <Text style={[typography.button, { color: colors.primary.default }]}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitles: { flex: 1, alignItems: 'center' },
+  iconButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  placeholder: { borderWidth: 1, alignItems: 'center' },
+});
