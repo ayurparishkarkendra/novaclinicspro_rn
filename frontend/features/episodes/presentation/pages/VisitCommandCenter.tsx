@@ -4,12 +4,12 @@
  * The flag-gated shell for the Clinical Operating System, rendered on the
  * EXISTING Episode workspace route (`app/clinic-admin/episodes/[episodeId]/
  * workspace.tsx`) when `cos_v1` is on — no new route (FR-COS-1 AC1). This
- * task is structural scaffolding only: a header/container, a loading
- * state, and an explicit invalid-context state (wireframe W30). It does
- * not consume the backend workspace aggregate, assemble workflow stages,
- * derive a next action, or render any clinical region (Why today / What
- * changed / Before you act / workflow pills / billing) — those are later
- * FE-A/B/C tasks' own scope.
+ * shell is structural scaffolding: a header/container, a loading state,
+ * and an explicit invalid-context state (wireframe W30), now joined by
+ * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`).
+ * It still does not assemble workflow stages, derive a next action, or
+ * render any other clinical region (What changed / Before you act /
+ * workflow pills / billing) — those remain later FE-B/C tasks' own scope.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -34,6 +34,7 @@ import {
   usePatientContext,
   useVisitContext,
 } from '../context/ClinicalWorkspaceContext';
+import { WhyTodaySection } from '../components/WhyTodaySection';
 
 export interface VisitCommandCenterProps {
   episodeId: string;
@@ -102,6 +103,12 @@ const VisitCommandCenterShell: React.FC = () => {
         <View style={styles.iconButton} />
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl }}>
+        <WhyTodaySection
+          tenantId={episode.tenantId}
+          clientId={patient.clientId}
+          episodeId={episode.episodeId}
+          appointmentId={visit.appointmentId}
+        />
         <View
           style={[
             styles.placeholder,

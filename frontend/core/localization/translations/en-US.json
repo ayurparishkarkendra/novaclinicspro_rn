@@ -390,6 +390,13 @@
     "invalidContext": {
       "title": "Can't open workspace",
       "message": "No active appointment for this episode."
+    },
+    "whyToday": {
+      "title": "Why today",
+      "purpose": "Purpose",
+      "patientConcern": "Patient concern",
+      "notRecorded": "Not recorded",
+      "unavailable": "Currently unavailable"
     }
   },
   "episodeWorkspace": {
