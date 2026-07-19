@@ -1,11 +1,12 @@
 # R7 — Clinical Operating System · Tasks
 
-**Version:** 1.1 — **APPROVED — implementation roadmap frozen (amended)**
+**Version:** 1.2 — **APPROVED — implementation roadmap frozen (amended)**
 **Approved:** 2026-07-17 · **Amended:** 2026-07-18 (owner-approved history-hierarchy amendment — [R7-HISTORY-HIERARCHY-AMENDMENT.md](R7-HISTORY-HIERARCHY-AMENDMENT.md)) · **Requirements version:** `requirements.md` v1.1 FROZEN · **Design version:** `design.md` v1.0 APPROVED (amended §2.1a/§3, version number unchanged per that document's own amendment note) · **Base commits recorded before this documentation commit:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`.
 **Implements (immutable, not reinterpreted):** [`requirements.md`](requirements.md) v1.1 FROZEN · [`design.md`](design.md) v1.0 APPROVED (amended) · [`requirements-traceability-matrix.md`](requirements-traceability-matrix.md) · R7-OWNER-RATIFICATION (amended, Decision 10) · R7-DESIGN-FREEZE-CHECKLIST (re-run for amended scope) · R7-GUIDED-CLINICAL-WORKSPACE-DESIGN · R7-TREATMENT-SCHEDULING-MODEL · R7-STATE-DEFINITIONS
 **Baselines:** BE `novaclinicspro-api` `dev` `8b23568` · FE `novaclinicspro_rn` `dev` `cd86021`
 **v1.1 amendment summary:** +7 tasks (T-BE-A.3/A.4/A.5, T-FE-C.5/C.6/C.7, T-Z.9), +2 requirements (FR-HIST-1/2), 70→77 total tasks, 42→44 total requirements. **No existing task renumbered.**
 **2026-07-18 — ETX-4 resolved by owner decision** (not a requirements/design amendment — a task-level AC clarification): capability-loss policy frozen ([R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md](R7-CAPABILITY-CHANGE-MID-EPISODE-VERIFICATION.md)) and applied to `T-BE-B.1`/`T-BE-B.2`/`T-FE-E.6`'s existing acceptance criteria. **Task count unchanged at 77; no task ID, dependency, or scope changed.**
+**2026-07-19 — Controlled Amendment: Group 0 sequencing correction** (not a requirements/design amendment — a documentation-only sequencing correction, see [R7-T-0.8-BLOCKED-BACKEND-DEPENDENCY.md](R7-T-0.8-BLOCKED-BACKEND-DEPENDENCY.md) for the Engineering Truth finding that prompted it): T-0.8 and T-0.9 were always declared **Blocked by T-BE-F.3 / T-BE-B.2** in this document (§Dependency & Parallelism Map, unchanged), but the former "GROUP 0" header text ("No feature work begins until complete") contradicted that declared dependency — a **task-plan sequencing contradiction**, not an architectural or requirements defect. Resolved by relabeling, not rewriting: "GROUP 0" is now **GROUP 0A** (T-0.1…T-0.7, independent frontend layering, no new backend contract required) followed by an explicitly authorized **Backend Contract Prerequisite Window** (T-BE-A.1, T-BE-B.1, T-BE-B.2, T-BE-F.1, T-BE-F.2, T-BE-F.3 — existing tasks, unchanged IDs/scope/dependencies) followed by **GROUP 0B** (T-0.8, T-0.9, unchanged). Final Group 0 / M1 requires all three; Group 0A completion alone does **not** satisfy M1 (see the Group 0 Final Gate and the amended M1 section below). **Task count unchanged at 77; no task ID, dependency, acceptance criterion, requirement mapping, or product scope changed** — see [R7-GROUP-0A-CLOSURE.md](R7-GROUP-0A-CLOSURE.md) for Group 0A's own closure evidence.
 
 **Amendment control.** This plan is now frozen. Changing scope, task IDs, dependencies, acceptance criteria, milestones, or governance mechanisms requires a **controlled task-plan amendment** — its own reviewed, versioned change — not an inline edit. No task under this plan may reinterpret `requirements.md` or `design.md`.
 
@@ -72,8 +73,10 @@
 
 ---
 
-# GROUP 0 — Blocking Architectural Debt
-**No feature work begins until complete.** Scope = **only R7-composed modules** (ED-ARCH-001 §migration-strategy — do not widen to a repo-wide refactor).
+# GROUP 0A — Independent Architecture Remediation
+*(Controlled amendment, 2026-07-19 — formerly "GROUP 0"; relabeled, not rewritten. See the 2026-07-19 amendment note above.)* Scope = **only R7-composed modules** (ED-ARCH-001 §migration-strategy — do not widen to a repo-wide refactor). **No FE composition task runs against a module until that module's Group-0A task is complete.**
+
+**Group 0A exit criteria:** all seven tasks (T-0.1…T-0.7) complete · focused characterization suites green · no new layer violations introduced in touched modules · known unrelated test failures (e.g. `workspaceHeader.test.tsx`) remain explicitly baselined, never silently absorbed · T-0.8/T-0.9's own backend dependencies (T-BE-F.3, T-BE-B.2) documented, not bypassed. **Group 0A completion alone does not satisfy M1** — see the Backend Contract Prerequisite Window and GROUP 0B below, and the Group 0 Final Gate.
 
 ### T-0.1 · Characterization baseline ∥
 **Repo:** FE · **Layer:** Test · **Objective:** lock current behavior before touching anything.
@@ -110,6 +113,33 @@
 **Repo:** FE · **Files:** `features/treatmentSheets/presentation/pages/TreatmentSheetDetailScreen.tsx`, `.../detail/useTreatmentSheetRows.ts` · **Blocked by:** T-0.1 · **Unblocks:** FE-E.2 · **Size:** M
 **AC:** zero violation imports; existing treatment tests green. **Rollback:** *Behavior* — revert. **Reqs:** FR-COS-2, FR-TS-3 · **Debt:** ED-DEP-1
 
+---
+
+## Backend Contract Prerequisite Window
+*(Controlled amendment, 2026-07-19. Authorized immediately after Group 0A closes, solely to satisfy GROUP 0B's already-declared dependencies below — not general authorization for backend Treatment Plan, Session, supersession, or any frontend composition work, all of which remain gated exactly as §Dependency & Parallelism Map already specifies.)*
+
+The minimum backend work required to unblock T-0.8/T-0.9 is exactly the tasks already defined under **# BACKEND** below, with their existing IDs, scope, acceptance criteria and dependencies unchanged — this window does not redefine, rename, or reinterpret any of them:
+
+| Task | Title | Unblocks (existing) |
+|---|---|---|
+| **T-BE-A.1** | Workspace facts snapshot (read model) | T-BE-A.2, T-BE-B.2 |
+| **T-BE-B.1** | `clinical_workflow_resolver` — pure domain | T-BE-B.2 |
+| **T-BE-B.2** | `clinical_workflow_service` + contract | **T-0.9**, T-FE-B.1, T-FE-D.1 |
+| **T-BE-F.1** | Billing visibility read contract | T-FE-E.4 |
+| **T-BE-F.2** | Completion readiness — billing warning, never block | T-BE-F.3 |
+| **T-BE-F.3** | Backend owns consultation summary + completion readiness | **T-0.8**, T-FE-F.2 |
+
+See each task's full definition under its owning **BE Group A / BE Group B / BE Group F** section below. Parallel execution follows the already-approved dependency graph (§Dependency & Parallelism Map) unchanged — e.g. T-BE-F.2 also requires T-BE-B.2, per that task's own pre-existing "Blocked by" field.
+
+> **Checkpoint 0A — Independent Layer Remediation Complete.** *Not a merge milestone; does not replace Gate OR-1.* Reached when Group 0A closes (see `R7-GROUP-0A-CLOSURE.md`). Its only effect is to authorize this Backend Contract Prerequisite Window to begin.
+
+---
+
+# GROUP 0B — Contract-Dependent Debt Removal
+*(Controlled amendment, 2026-07-19 — formerly the tail of "GROUP 0"; relabeled, not rewritten. Unchanged task ID, scope, acceptance criteria, or dependency.)* Begins only after its relevant backend contract(s) in the window above exist.
+
+**Group 0B exit criteria:** ED-ARCH-004 removed (T-0.8) · ED-ARCH-006 removed (T-0.9) · frontend renders backend workflow/completion semantics only · no `deriveSummary` clinical authority remains · no `buildSectionConfig` workflow authority remains · no frontend canonical clinical order remains · focused and architecture tests green.
+
 ### T-0.8 · **ED-ARCH-004** — retire `deriveSummary` from clinical decision-making
 **Repo:** FE · **Layer:** Presentation · **Objective:** stop the frontend deriving the consultation summary/completion and **acting on it**.
 **Files:** `features/episodes/presentation/pages/CompleteConsultationScreen.tsx` (1 import ✅ + `deriveSummary` ✅)
@@ -126,7 +156,9 @@
 **ET:** verify no other consumer depends on `activeSections` before removal. **Tests:** unit · architecture · regression (`useConsultationWorkspace.test.tsx` ✅). **Rollback:** *Behavior* — flag off.
 **Reqs:** FR-COS-2, FR-WFA-1 · **Design:** §3 · **Debt:** ED-DEP-3, ED-DEP-6 · **Principles:** P2, P3, P8
 
-> **GATE:** no FE composition task runs against a module until that module's Group-0 task is complete.
+> **GATE:** no FE composition task runs against a module until that module's Group-0A task is complete.
+
+> **GROUP 0 FINAL GATE** *(Controlled amendment, 2026-07-19)*: final Group 0 / M1 is **not** complete until Group 0A **+** the Backend Contract Prerequisite Window **+** GROUP 0B are **all** complete. Group 0A completion alone does **not** satisfy M1 and does **not** trigger Gate OR-1 — Checkpoint 0A (above) authorizes only the Backend Contract Prerequisite Window to begin, nothing more.
 
 ---
 
@@ -585,11 +617,12 @@ Milestone completion requires tests passing, architecture proof, and (where a ga
 **Permitted target branch:** `feature/r7-clinical-operating-system` only. **No implementation starts before this gate** (T--1.7's own gate statement).
 
 ## M1 — Blocking Architecture Debt Removed
-**Task groups:** Group 0 (T-0.1 … T-0.9).
-**Required automated tests:** T-0.1's characterization suite green; each of T-0.2…T-0.7's own architecture test ("no presentation→transport import"); T-0.8's architecture test ("no FE clinical derivation") + regression; T-0.9's architecture test ("no FE assembly") + regression (`useConsultationWorkspace.test.tsx` ✅).
-**Required architecture proof:** frontend scan (§Architectural Regression Scans) clean for the 8 R7-composed modules named in T-0.2…T-0.7, plus `CompleteConsultationScreen.tsx` (T-0.8) and `useConsultationWorkspace.ts` (T-0.9).
-**Merge criteria:** ED-ARCH-001 remediated in every R7-composed module (T-0.2…T-0.7) · ED-ARCH-004 no longer controls completion (T-0.8, itself gated on T-BE-F.3) · ED-ARCH-006 no longer assembles workflow in the frontend (T-0.9, itself gated on T-BE-B.2) · characterization tests green throughout.
-**Owner-review requirement:** **Gate OR-1.**
+*(Controlled amendment, 2026-07-19 — internal sequencing made explicit; scope, task groups and requirement mapping unchanged.)*
+**Task groups:** GROUP 0A (T-0.1 … T-0.7) **+** Backend Contract Prerequisite Window (T-BE-A.1, T-BE-B.1, T-BE-B.2, T-BE-F.1, T-BE-F.2, T-BE-F.3) **+** GROUP 0B (T-0.8, T-0.9). All three are required — Group 0A completion alone does **not** satisfy M1 (see the Group 0 Final Gate).
+**Required automated tests:** T-0.1's characterization suite green; each of T-0.2…T-0.7's own architecture test ("no presentation→transport import"); the Backend Contract Prerequisite Window's own tests (resolver unit tests with no DB, service unit/contract/integration tests, semantics-only contract guard — identical to the tests already required by M2 for these same task IDs); T-0.8's architecture test ("no FE clinical derivation") + regression; T-0.9's architecture test ("no FE assembly") + regression (`useConsultationWorkspace.test.tsx` ✅).
+**Required architecture proof:** frontend scan (§Architectural Regression Scans) clean for the 8 R7-composed modules named in T-0.2…T-0.7, plus `CompleteConsultationScreen.tsx` (T-0.8) and `useConsultationWorkspace.ts` (T-0.9); backend scan clean for the Backend Contract Prerequisite Window tasks (resolver imports no infrastructure — AC-3; router/service/repository layering intact — AC-1).
+**Merge criteria:** ED-ARCH-001 remediated in every R7-composed module (Group 0A, T-0.2…T-0.7) · the Backend Contract Prerequisite Window complete (T-BE-A.1, T-BE-B.1, T-BE-B.2, T-BE-F.1, T-BE-F.2, T-BE-F.3) · ED-ARCH-004 no longer controls completion (T-0.8) · ED-ARCH-006 no longer assembles workflow in the frontend (T-0.9) · characterization tests green throughout.
+**Owner-review requirement:** **Gate OR-1** — occurs after **final** M1 (Group 0A + Backend Contract Prerequisite Window + Group 0B), not after Group 0A alone.
 **Permitted target branch:** `feature/r7-clinical-operating-system`.
 
 ## M2 — Backend COS Contracts Complete
@@ -762,7 +795,8 @@ Detect:
 **No subsequent dependent milestone begins until its applicable gate is approved.** Independent tasks not depending on the review may continue **only when the dependency map (§Dependency & Parallelism Map) explicitly allows it** — e.g., FE-A may proceed during OR-1/OR-2 review because the map already shows it depends only on the T-0 gate, not on BE Group A/B.
 
 ## Gate OR-1 — After Group 0 / M1
-Review: architectural debt remediation (T-0.2…T-0.7) · preserved behaviour (characterization suite still green) · no widened cleanup (Task Isolation held) · readiness to compose existing modules (Group 0's own gate statement: "no FE composition task runs against a module until that module's Group-0 task is complete").
+*(Controlled amendment, 2026-07-19 — clarifies timing only; review scope unchanged.)* **Occurs after final M1** (GROUP 0A + Backend Contract Prerequisite Window + GROUP 0B) — **Group 0A completion alone does not trigger this gate.** Checkpoint 0A (§GROUP 0A / Backend Contract Prerequisite Window) is an internal authorization to begin backend prerequisite work, not a review milestone.
+Review: architectural debt remediation (T-0.2…T-0.7, Group 0A) · the Backend Contract Prerequisite Window (T-BE-A.1, T-BE-B.1, T-BE-B.2, T-BE-F.1, T-BE-F.2, T-BE-F.3) · contract-dependent debt removal (T-0.8, T-0.9, Group 0B) · preserved behaviour (characterization suite still green) · no widened cleanup (Task Isolation held) · readiness to compose existing modules (Group 0A's own gate statement: "no FE composition task runs against a module until that module's Group-0A task is complete").
 
 ## Gate OR-2 — After Backend Workflow Contract / M2
 Review: aggregate shape (T-BE-A) · workflow stages (T-BE-B.1) · recommendation semantics (T-BE-B.2) · completion readiness (T-BE-F.3) · blockers and waiting role · absence of UI fields (T-BE-B.3's contract guard) · proof that frontend derivation is unnecessary (the contract is sufficient for T-FE-B/T-FE-D to render without computing anything).
