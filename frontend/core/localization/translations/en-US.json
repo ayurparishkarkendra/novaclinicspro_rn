@@ -606,6 +606,15 @@
       "drafts": {
         "restored": "Unsaved changes restored"
       },
+      "journeyCard": {
+        "status": {
+          "complete": "Complete",
+          "inProgress": "In progress",
+          "notStarted": "Not started",
+          "blocked": "Blocked",
+          "unavailable": "Unavailable"
+        }
+      },
       "offline": {
         "title": "You're offline",
         "message": "Changes are saved locally. Connect to the internet to submit this step.",
