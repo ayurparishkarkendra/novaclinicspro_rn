@@ -34,6 +34,7 @@ export default function ClinicAdminLayout() {
         <Stack.Screen name="treatment-sessions/[sessionId]" />
         <Stack.Screen name="treatment-sheets" />
         <Stack.Screen name="settings/index" />
+        <Stack.Screen name="settings/capabilities" />
         <Stack.Screen name="settings/global" />
         <Stack.Screen name="settings/appointment-rules" />
         <Stack.Screen name="settings/operating-hours" />

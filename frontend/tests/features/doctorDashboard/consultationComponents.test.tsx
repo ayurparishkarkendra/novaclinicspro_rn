@@ -2,8 +2,10 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppointmentRow } from '../../../features/appointments/presentation/components/AppointmentRow';
 import { CreateConsultationScreen } from '../../../features/episodes/presentation/pages/CreateConsultationScreen';
+import { EpisodeWorkspaceScreen } from '../../../features/episodes/presentation/pages/EpisodeWorkspaceScreen';
 import {
   CompleteConsultationScreen,
   deriveSummary,
@@ -14,6 +16,7 @@ import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation
 
 const router = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 
+jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 jest.mock('../../../features/auth/presentation/hooks/useAuth', () => ({
   useAuth: () => ({ currentUser: { tenantId: 'tenant-1' }, selectedClinicId: null }),
 }));
@@ -44,6 +47,45 @@ jest.mock('../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData
   useEpisodeWorkspaceData: jest.fn(),
 }));
 
+// EpisodeWorkspaceScreen renders these tab panels for real. Stub them so this
+// file exercises the screen's own orchestration (loading/error states, the
+// current tab set, Treatment Plans gating) without pulling in each tab's own
+// network dependencies (treatment orders, prescriptions, etc. — each has its
+// own dedicated coverage elsewhere).
+jest.mock('../../../features/episodes/presentation/components/CasesheetTab', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    CasesheetTab: (props: any) =>
+      React.createElement(Text, { testID: 'casesheet-tab-content' }, `canCreate:${props.canCreate}`),
+  };
+});
+jest.mock('../../../features/episodes/presentation/components/TreatmentPlansTab', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    TreatmentPlansTab: (props: any) =>
+      React.createElement(
+        Text,
+        { testID: 'treatment-plans-tab-content' },
+        `canCreate:${props.canCreate}:canSchedule:${props.canSchedule}`,
+      ),
+  };
+});
+jest.mock('../../../features/episodes/presentation/components/VisitsTab', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    VisitsTab: (props: any) =>
+      React.createElement(Text, { testID: 'visits-tab-content' }, `canWriteRx:${props.canWriteRx}`),
+  };
+});
+
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+};
+
 const appointment = {
   id: 'appointment-1',
   tenant_id: 'tenant-1',
@@ -63,34 +105,36 @@ const appointment = {
   client_name: 'Maya Rao',
 };
 
-const workspaceData = {
-  episodeDetails: {
-    episode: {
-      id: 'episode-1',
-      title: 'Back pain',
-      status: 'ACTIVE',
-      start_date: '2026-06-29',
-      end_date: null,
-      description: null,
-      client_id: 'client-1',
-      client_name: 'Maya Rao',
-      visits_count: 1,
-      last_visit_date: null,
-    },
-    documents: {
-      casesheet: { exists: true, id: 'casesheet-1', status: 'DRAFT', created_at: null, last_updated: null },
-      treatment_sheet: { exists: true, id: 'sheet-1', status: 'FINAL', created_at: null, last_updated: null },
-    },
-    visits: [{
-      appointment_id: 'appointment-1',
-      appointment_date: '2026-06-29',
-      appointment_time: '10:00:00',
-      appointment_status: 'scheduled',
-      staff_name: 'Dr A',
-      prescription: { exists: true, id: 'rx-1', status: 'DRAFT', created_at: null },
-      payment: { exists: false, invoice_id: null, amount: null, status: null, paid_amount: null },
-    }],
+const episodeDetails = {
+  episode: {
+    id: 'episode-1',
+    title: 'Back pain',
+    status: 'ACTIVE',
+    start_date: '2026-06-29',
+    end_date: null,
+    description: null,
+    client_id: 'client-1',
+    client_name: 'Maya Rao',
+    visits_count: 1,
+    last_visit_date: null,
   },
+  documents: {
+    casesheet: { exists: true, id: 'casesheet-1', status: 'DRAFT', created_at: null, last_updated: null },
+    treatment_sheet: { exists: true, id: 'sheet-1', status: 'FINAL', created_at: null, last_updated: null },
+  },
+  visits: [{
+    appointment_id: 'appointment-1',
+    appointment_date: '2026-06-29',
+    appointment_time: '10:00:00',
+    appointment_status: 'scheduled',
+    staff_name: 'Dr A',
+    prescription: { exists: true, id: 'rx-1', status: 'DRAFT', created_at: null },
+    payment: { exists: false, invoice_id: null, amount: null, status: null, paid_amount: null },
+  }],
+};
+
+const workspaceData = {
+  episodeDetails,
   isEpisodeLoading: false,
   isEpisodeError: false,
   refetchEpisode: jest.fn(),
@@ -105,7 +149,7 @@ const workspaceData = {
   isTreatmentSheetLoading: false,
   isTreatmentSheetError: false,
   refetchTreatmentSheet: jest.fn(),
-  visits: [],
+  visits: episodeDetails.visits,
   clientId: 'client-1',
   clientName: 'Maya Rao',
 };
@@ -114,119 +158,176 @@ describe('consultation components', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(router);
-    (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({
-      ...workspaceData,
-      visits: workspaceData.episodeDetails.visits,
+    (useEpisodeWorkspaceData as jest.Mock).mockReturnValue(workspaceData);
+  });
+
+  describe('AppointmentRow', () => {
+    it('renders doctor Start Consultation without episode actions', () => {
+      const onStart = jest.fn();
+      const screen = render(
+        <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" onStartConsultation={onStart} />,
+      );
+
+      expect(screen.getByText('Start Consultation')).toBeTruthy();
+      expect(screen.queryByText('Link Episode')).toBeNull();
+      expect(screen.queryByText('New Episode')).toBeNull();
+      fireEvent.press(screen.getByTestId('action-start-consultation'));
+      expect(onStart).toHaveBeenCalledWith('appointment-1', 'client-1');
+    });
+
+    it('shows loading and disables doctor CTA while starting', () => {
+      const { getByTestId } = render(
+        <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" isStartingConsultation />,
+      );
+      expect(getByTestId('action-start-consultation').props.accessibilityState?.disabled ?? true).toBe(true);
+    });
+
+    it('hides doctor CTA for terminal appointments', () => {
+      const { queryByText, getAllByLabelText } = render(
+        <AppointmentRow variant="full" appointment={{ ...appointment, status: 'completed' } as any} userRole="doctor" />,
+      );
+      expect(queryByText('Start Consultation')).toBeNull();
+      expect(getAllByLabelText('Status: Completed').length).toBeGreaterThan(0);
+    });
+
+    it('keeps non-doctor quick actions visible', () => {
+      const { getByText } = render(
+        <AppointmentRow variant="full"
+          appointment={appointment as any}
+          userRole="receptionist"
+          onReschedule={jest.fn()}
+          onStatusUpdate={jest.fn()}
+          onCancel={jest.fn()}
+        />,
+      );
+      expect(getByText('Reschedule')).toBeTruthy();
     });
   });
 
-  it('renders doctor Start Consultation without episode actions', () => {
-    const onStart = jest.fn();
-    const screen = render(
-      <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" onStartConsultation={onStart} />,
-    );
+  describe('CreateConsultationScreen', () => {
+    it('validates empty chief complaint before creating a consultation', () => {
+      const { getByText } = renderWithQueryClient(
+        <CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />,
+      );
+      fireEvent.press(getByText('Start Consultation'));
+      expect(getByText('Chief Complaint is required.')).toBeTruthy();
+      expect(createEpisodeApi).not.toHaveBeenCalled();
+    });
 
-    expect(screen.getByText('Start Consultation')).toBeTruthy();
-    expect(screen.queryByText('Link Episode')).toBeNull();
-    expect(screen.queryByText('New Episode')).toBeNull();
-    fireEvent.press(screen.getByTestId('action-start-consultation'));
-    expect(onStart).toHaveBeenCalledWith('appointment-1', 'client-1');
+    it('creates an episode and navigates to consultation', async () => {
+      (createEpisodeApi as jest.Mock).mockResolvedValue({ id: 'episode-1' });
+      const { getByText, getByPlaceholderText } = renderWithQueryClient(
+        <CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />,
+      );
+
+      fireEvent.changeText(getByPlaceholderText("Primary reason for today's visit"), 'Back pain');
+      fireEvent.press(getByText('Start Consultation'));
+
+      await waitFor(() => expect(createEpisodeApi).toHaveBeenCalled());
+      expect(router.replace).toHaveBeenCalledWith(
+        '/clinic-admin/episodes/episode-1/consultation?appointmentId=appointment-1&clientId=client-1',
+      );
+    });
+
+    it('retains create form data after API failure and keeps patient context visible', async () => {
+      (createEpisodeApi as jest.Mock).mockRejectedValue(new Error('failed'));
+      const { getByText, getByDisplayValue, getByPlaceholderText } = renderWithQueryClient(
+        <CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />,
+      );
+
+      fireEvent.changeText(getByPlaceholderText("Primary reason for today's visit"), 'Back pain');
+      fireEvent.press(getByText('Start Consultation'));
+
+      await waitFor(() => expect(getByText('failed')).toBeTruthy());
+      expect(getByText('Maya Rao')).toBeTruthy();
+      expect(getByDisplayValue('Back pain')).toBeTruthy();
+    });
   });
 
-  it('shows loading and disables doctor CTA while starting', () => {
-    const { getByTestId } = render(
-      <AppointmentRow variant="full" appointment={appointment as any} userRole="doctor" isStartingConsultation />,
-    );
-    expect(getByTestId('action-start-consultation').props.accessibilityState?.disabled ?? true).toBe(true);
+  describe('EpisodeWorkspaceScreen', () => {
+    it('shows a loading state while the episode is loading', () => {
+      (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({
+        ...workspaceData,
+        isEpisodeLoading: true,
+        episodeDetails: undefined,
+      });
+      const { getByText } = render(
+        <EpisodeWorkspaceScreen mode="doctor" episodeId="episode-1" clientId="client-1" />,
+      );
+      expect(getByText('Loading episode...')).toBeTruthy();
+    });
+
+    it('shows an error state and retries via refetchEpisode', () => {
+      const refetchEpisode = jest.fn();
+      (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({
+        ...workspaceData,
+        isEpisodeError: true,
+        episodeDetails: undefined,
+        refetchEpisode,
+      });
+      const { getByText } = render(
+        <EpisodeWorkspaceScreen mode="doctor" episodeId="episode-1" clientId="client-1" />,
+      );
+      expect(getByText('Could not load episode workspace. Please try again.')).toBeTruthy();
+      fireEvent.press(getByText('Retry'));
+      expect(refetchEpisode).toHaveBeenCalled();
+    });
+
+    it('renders the current tab set (Visits, Casesheet, Treatment Plans) with no legacy Prescriptions tab', () => {
+      const { getByText, queryByText } = render(
+        <EpisodeWorkspaceScreen mode="doctor" episodeId="episode-1" clientId="client-1" />,
+      );
+      expect(getByText('Visits')).toBeTruthy();
+      expect(getByText('Casesheet')).toBeTruthy();
+      expect(getByText('Treatment Plans')).toBeTruthy();
+      // The workspace's 'prescriptions' tab key now renders the Visits panel
+      // under a "Visits" label — there is no longer a separate Prescriptions
+      // tab (folded into Casesheet, per T-F.2a). Guard against reintroducing
+      // that assumption.
+      expect(queryByText('Prescriptions')).toBeNull();
+    });
+
+    it('hides the Treatment Plans tab until a casesheet exists', () => {
+      (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({ ...workspaceData, hasCasesheet: false });
+      const { queryByText } = render(
+        <EpisodeWorkspaceScreen mode="doctor" episodeId="episode-1" clientId="client-1" />,
+      );
+      expect(queryByText('Treatment Plans')).toBeNull();
+    });
   });
 
-  it('hides doctor CTA for terminal appointments', () => {
-    const { queryByText, getAllByLabelText } = render(
-      <AppointmentRow variant="full" appointment={{ ...appointment, status: 'completed' } as any} userRole="doctor" />,
-    );
-    expect(queryByText('Start Consultation')).toBeNull();
-    expect(getAllByLabelText('Status: Completed').length).toBeGreaterThan(0);
-  });
+  describe('CompleteConsultationScreen', () => {
+    it('derives and renders complete consultation summary', () => {
+      const summary = deriveSummary(workspaceData as any, 'appointment-1', true);
+      expect(summary.notes.status).toBe('DRAFT');
+      expect(summary.prescription.status).toBe('DRAFT');
+      expect(summary.treatmentRecommendation.status).toBe('Sent to Admin');
+      expect(summary.ayurvedicAssessment?.status).toBe('Recorded');
+    });
 
-  it('keeps non-doctor quick actions visible', () => {
-    const { getByText } = render(
-      <AppointmentRow variant="full"
-        appointment={appointment as any}
-        userRole="receptionist"
-        onReschedule={jest.fn()}
-        onStatusUpdate={jest.fn()}
-        onCancel={jest.fn()}
-      />,
-    );
-    expect(getByText('Reschedule')).toBeTruthy();
-  });
+    it('finalizes casesheet and returns to doctor dashboard', async () => {
+      jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+      (transitionCasesheetStatusApi as jest.Mock).mockResolvedValue({});
+      const { getByText } = render(
+        <CompleteConsultationScreen episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
 
-  it('validates empty chief complaint before creating a consultation', () => {
-    const { getByText } = render(<CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />);
-    fireEvent.press(getByText('Start Consultation'));
-    expect(getByText('Chief Complaint is required.')).toBeTruthy();
-    expect(createEpisodeApi).not.toHaveBeenCalled();
-  });
+      fireEvent.press(getByText('Complete Consultation'));
 
-  it('creates an episode and navigates to consultation', async () => {
-    (createEpisodeApi as jest.Mock).mockResolvedValue({ id: 'episode-1' });
-    const { getByText, getByPlaceholderText } = render(
-      <CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />,
-    );
+      await waitFor(() =>
+        expect(transitionCasesheetStatusApi).toHaveBeenCalledWith('tenant-1', 'casesheet-1', { status: 'FINAL' }),
+      );
+      expect(router.replace).toHaveBeenCalledWith('/doctor');
+    });
 
-    fireEvent.changeText(getByPlaceholderText("Primary reason for today's visit"), 'Back pain');
-    fireEvent.press(getByText('Start Consultation'));
-
-    await waitFor(() => expect(createEpisodeApi).toHaveBeenCalled());
-    expect(router.replace).toHaveBeenCalledWith(
-      '/clinic-admin/episodes/episode-1/consultation?appointmentId=appointment-1&clientId=client-1',
-    );
-  });
-
-  it('retains create form data after API failure and keeps patient context visible', async () => {
-    (createEpisodeApi as jest.Mock).mockRejectedValue(new Error('failed'));
-    const { getByText, getByDisplayValue, getByPlaceholderText } = render(
-      <CreateConsultationScreen appointmentId="appointment-1" clientId="client-1" />,
-    );
-
-    fireEvent.changeText(getByPlaceholderText("Primary reason for today's visit"), 'Back pain');
-    fireEvent.press(getByText('Start Consultation'));
-
-    await waitFor(() => expect(getByText('failed')).toBeTruthy());
-    expect(getByText('Maya Rao')).toBeTruthy();
-    expect(getByDisplayValue('Back pain')).toBeTruthy();
-  });
-
-  it('derives and renders complete consultation summary', () => {
-    const summary = deriveSummary({ ...workspaceData, visits: workspaceData.episodeDetails.visits } as any, 'appointment-1', true);
-    expect(summary.notes.status).toBe('DRAFT');
-    expect(summary.prescription.status).toBe('DRAFT');
-    expect(summary.treatmentRecommendation.status).toBe('Sent to Admin');
-    expect(summary.ayurvedicAssessment?.status).toBe('Recorded');
-  });
-
-  it('finalizes casesheet and returns to doctor dashboard', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-    (transitionCasesheetStatusApi as jest.Mock).mockResolvedValue({});
-    const { getByText } = render(
-      <CompleteConsultationScreen episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
-    );
-
-    fireEvent.press(getByText('Complete Consultation'));
-
-    await waitFor(() =>
-      expect(transitionCasesheetStatusApi).toHaveBeenCalledWith('tenant-1', 'casesheet-1', { status: 'FINAL' }),
-    );
-    expect(router.replace).toHaveBeenCalledWith('/doctor');
-  });
-
-  it('blocks completion when notes are not saved', () => {
-    (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({ ...workspaceData, casesheetId: null, hasCasesheet: false });
-    const { getByText } = render(
-      <CompleteConsultationScreen episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
-    );
-    fireEvent.press(getByText('Complete Consultation'));
-    expect(getByText('Consultation notes must be saved before completing.')).toBeTruthy();
-    expect(transitionCasesheetStatusApi).not.toHaveBeenCalled();
+    it('blocks completion when notes are not saved', () => {
+      (useEpisodeWorkspaceData as jest.Mock).mockReturnValue({ ...workspaceData, casesheetId: null, hasCasesheet: false });
+      const { getByText } = render(
+        <CompleteConsultationScreen episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      fireEvent.press(getByText('Complete Consultation'));
+      expect(getByText('Consultation notes must be saved before completing.')).toBeTruthy();
+      expect(transitionCasesheetStatusApi).not.toHaveBeenCalled();
+    });
   });
 });

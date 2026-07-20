@@ -68,7 +68,6 @@ import { validateAppointmentTime, formatValidationMessage, ValidationResult } fr
 import { useDebounce } from '../../../../core/hooks/useDebounce';
 import { useFeatures } from '../../../../core/hooks/useFeatures';
 import { TreatmentResponse } from '../../../treatments/data/models/treatments.dtos';
-import { useCurrentTenantQuery } from '../../../tenants/data/repositories/tenants.repository.impl';
 import {
   useOrderingDoctorQuery,
   useTreatmentSheetPrefillQuery,
@@ -705,24 +704,19 @@ export const CreateAppointmentScreen: React.FC = () => {
 
   // Get feature configuration from JWT token
   const features = useFeatures();
-  
-  // FALLBACK: If JWT doesn't have features yet, check tenant clinic_type directly
-  const { data: tenant } = useCurrentTenantQuery(tenantId);
-  
-  const tenantClinicType = tenant?.clinic_type?.toLowerCase();
-  const effectiveClinicType = tenantClinicType || features.clinic_type || 'general';
-  const isTherapyClinic = effectiveClinicType === 'ayurveda' || effectiveClinicType === 'physio';
 
-  // General clinics must not inherit stale Ayurveda/Physio JWT feature flags.
-  const allowMultiDay = isTherapyClinic && features.appointments.allow_multiday;
-  const allowTherapySession = isTherapyClinic && (
-    features.appointments.allow_multiday || features.treatment_sheets.enable_treatment_sheets
-  );
-  
+  // Release 5 (R5) · T-F.2d (design.md §12, requirements.md N-10, FR-D2
+  // narrowed): allow_multiday/enable_treatment_sheets are capability-
+  // platform-derived as of T-F.2c (CapabilityResolutionService ->
+  // get_tenant_features) - the backend already returns the correct,
+  // per-tenant value, so this no longer needs its own clinic-type
+  // re-derivation on top (the former isTherapyClinic/tenant-clinic-type
+  // fallback that lived here existed only to gate these two values).
+  const allowMultiDay = features.appointments.allow_multiday;
+  const allowTherapySession = features.appointments.allow_multiday || features.treatment_sheets.enable_treatment_sheets;
+
   console.log('[CreateAppointmentScreen] Feature check:', {
     jwtFeatures: features,
-    tenantClinicType: tenant?.clinic_type,
-    effectiveClinicType,
     allowMultiDay,
     allowTherapySession,
   });
