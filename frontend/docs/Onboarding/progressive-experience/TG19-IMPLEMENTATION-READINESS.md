@@ -686,3 +686,28 @@ service/transport follows that checkpoint; frontend orchestration follows the
 backend transport commit. No product or Platform Foundation redesign is needed.
 
 **TG19 Implementation Status: NOT READY**
+
+## 23. Verified Clinic Contact Reassessment — 2026-07-20
+
+This section is the latest controlling decision and supersedes §22.
+
+Clinic identity persistence is implemented and verified. A subsequent source
+audit confirmed that Epic 2 permits verified email or mobile while migration
+`05aec2bbf49c` requires `org_tenants.email NOT NULL`. The existing provisioning
+path therefore cannot create a mobile-only clinic without prohibited contact
+fabrication.
+
+ADR-PF-008 resolves the constitutional model and selects the smallest additive
+correction: nullable tenant email, continued use of existing `phones`, versioned
+primary-contact and per-method provenance fields, no legacy backfill, and a
+guarded non-destructive downgrade.
+
+**VERIFIED_CLINIC_CONTACT_PERSISTENCE_READY_FOR_IMPLEMENTATION** — The exact
+model, migration, DTO, normalization, provisioning mapping, repository, legacy,
+rollback, security, and focused-test boundary is approved.
+
+**TG19_NOT_READY** — Backend Clinic Entry service/transport remains blocked until
+the ADR-PF-008 persistence checkpoint is implemented and verified. Frontend
+orchestration remains sequenced after the backend transport commit.
+
+**TG19 Implementation Status: NOT READY**

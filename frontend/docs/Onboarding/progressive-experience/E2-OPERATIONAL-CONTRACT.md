@@ -190,3 +190,24 @@ prerequisites that this document cannot invent:
    Version 1 verification method and accountable owner.
 
 Until both are approved, implementation must stop before TG19.
+
+## ADR-PF-008 Verified Contact Operational Addendum
+
+This is the controlling contact contract. New Clinic accepts email-only,
+mobile-only, or dual verified clinic contact. Authentication proves the actor;
+it does not prove that the actor's contact belongs to the clinic.
+
+`ClinicIdentityInputV1` retains `verified_contact` as the explicitly primary
+verified method, adds an optional distinct-kind `additional_verified_contact`,
+and makes `primary_contact_number` optional. One verified method is required. If
+mobile is present, its normalized value must agree with any supplied primary
+contact number. Duplicate kinds, neither method, or unverified evidence are
+typed validation/verification failures.
+
+Provisioning stores email only when the verified clinic email was supplied and
+stores the normalized verified mobile first in existing `phones`. It persists
+the ADR-PF-008 contract version, primary kind, and safe per-method provenance.
+It never copies actor/organization email and never generates a placeholder.
+
+The verified-contact migration/model/DTO/validation checkpoint must complete
+before backend Clinic Entry transport resumes.

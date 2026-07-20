@@ -213,3 +213,30 @@ for active, non-null identity rows. Existing rows remain valid with both fields
 null and receive no backfill. No new table, duplicate detector, Platform
 Foundation service, Clinic Entry transport, or frontend source is authorized in
 the identity-persistence checkpoint.
+
+## Verified Clinic Contact Addendum — ADR-PF-008
+
+Status: **VERIFIED_CLINIC_CONTACT_PERSISTENCE_READY_FOR_IMPLEMENTATION**
+
+The next bounded Platform Foundation checkpoint may change only:
+
+- `app/infrastructure/db/models/org_tenant.py` for nullable email and the six
+  approved contact-contract, primary-kind, and per-method provenance fields;
+- `app/domain/dto/clinic_entry.py` and `app/domain/clinic_identity.py` for the
+  additive email-only/mobile-only/dual-contact DTO, validation, and versioned
+  normalization boundary;
+- `app/application/onboarding/tenant_provisioning_service.py` only to map
+  explicitly verified clinic contact values and provenance without copying actor
+  identity or generating placeholders;
+- existing tenant repository mapping only where new fields require round-trip;
+- one additive Alembic migration under
+  `app/infrastructure/db/migrations/versions/`, descending from the current head;
+- focused tests under `tests/` and registration files only if required.
+
+Upgrade makes `org_tenants.email` nullable, adds the six ADR-PF-008 fields and
+safe constraints, and performs no data update. Downgrade must transactionally
+refuse when any null-email row exists; it cannot fabricate or delete data.
+
+No new table, contact subsystem, verification provider, Clinic Entry service,
+endpoint, frontend source, historical migration edit, or unrelated tenant
+profile change is authorized in this checkpoint.

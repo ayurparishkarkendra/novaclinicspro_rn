@@ -245,3 +245,28 @@ closed. Unlisted implementation detail remains `OPEN DECISION`.
 Epic 2 Constitutional Product Status: **VERSION 1 APPROVED**
 
 Epic 2 Implementation Planning Status: **NOT READY**
+
+## ADR-PF-008 Verified Contact Correction — Controlling Addendum
+
+- **CONFIRMED** — Version 1 supports a verified clinic email only, verified
+  clinic mobile only, or both; at least one verified clinic contact is required.
+- **CONFIRMED** — Authentication identity is not clinic-contact truth. Actor or
+  organization contact data cannot be copied unless explicitly supplied and
+  verified for the clinic.
+- **CONFIRMED** — With one verified method it is primary. With both, the request
+  explicitly selects the primary kind; no email-first/mobile-first default is
+  inferred.
+- **CONFIRMED** — `org_tenants.email` becomes nullable through the bounded
+  ADR-PF-008 implementation. Existing values are preserved and no placeholder
+  or synthetic contact is authorized.
+- **CONFIRMED** — `ClinicIdentityInputV1` must represent one or two distinct
+  verified methods and reject neither/unverified/duplicate-kind input.
+- **OUT OF SCOPE** — Authentication-contact transfer, placeholder generation,
+  silent mobile-only rejection, contact discovery, and a parallel subsystem.
+
+This addendum supersedes earlier required-field language that would make both a
+primary telephone number and email mandatory. The authoritative minimum is at
+least one verified clinic email or mobile under ADR-PF-008.
+
+Verified Clinic Contact Planning Status:
+**VERIFIED_CLINIC_CONTACT_PERSISTENCE_READY_FOR_IMPLEMENTATION**

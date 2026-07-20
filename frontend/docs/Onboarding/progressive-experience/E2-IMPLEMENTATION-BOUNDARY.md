@@ -219,3 +219,19 @@ After its migration and concurrency tests pass, the Backend Clinic Entry
 operations checkpoint may consume the repository extension and map only its
 named uniqueness conflict to `clinic_entry.duplicate`. Frontend orchestration
 remains sequenced after the backend transport commit.
+
+## ADR-PF-008 Verified Contact Persistence Prerequisite
+
+Before the Backend Clinic Entry operations checkpoint resumes, implement the
+exact verified-contact addendum in `E2-PLATFORM-FOUNDATION-BOUNDARY.md`.
+
+The checkpoint is limited to the existing tenant model/repository mapping,
+Clinic Entry contact DTO/normalization, transaction-safe provisioning mapping,
+one additive migration, and focused tests. It must support email-only,
+mobile-only, and dual-contact creation, enforce one verified method, persist safe
+provenance and explicit primary semantics, preserve legacy rows, and prohibit
+actor-email copying or placeholder generation.
+
+After implementation and migration verification pass, the Backend Clinic Entry
+service/transport checkpoint may resume. Frontend orchestration remains blocked
+until that later transport commit.
