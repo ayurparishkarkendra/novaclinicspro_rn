@@ -61,7 +61,9 @@ service that is not exposed as a public runtime API. Within one transaction it:
 7. creates the initial active assignment when none exists;
 8. records the grantor as deployment bootstrap/system authority, with a stable
    bootstrap reason and correlation identity;
-9. writes immutable, non-sensitive audit evidence in the same transaction;
+9. writes immutable, non-sensitive audit evidence through the
+   `org_platform_audit_logs` boundary defined by ADR-PF-015 in the same
+   transaction;
 10. commits the assignment and audit atomically.
 
 The deployment step is successful only after the authoritative assignment and
@@ -165,8 +167,9 @@ Implementation must prove:
 ## Consequences
 
 The initial authority source required by ADR-PF-012 is constitutionally
-defined. TG19 Final Platform Foundation Checkpoint 3 remains blocked until the
-bounded bootstrap mechanism and capability-assignment foundation are
-implemented and verified.
+defined. Platform Capability Bootstrap remains blocked until ADR-PF-015
+platform-audit persistence is implemented and verified. TG19 Final Platform
+Foundation Checkpoint 3 remains blocked until the bounded platform-audit,
+bootstrap, and capability-assignment foundations are implemented and verified.
 
 Platform Capability Bootstrap Architecture Status: **APPROVED**

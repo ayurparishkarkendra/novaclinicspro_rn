@@ -4,8 +4,9 @@ Date: 2026-07-20
 
 Status: **FROZEN — READY FOR BOUNDED IMPLEMENTATION**
 
-Governing decisions: `ADR-PF-012-MANUAL-VERIFIER-CAPABILITY.md` and
-`ADR-PF-014-PLATFORM-CAPABILITY-BOOTSTRAP.md`
+Governing decisions: `ADR-PF-012-MANUAL-VERIFIER-CAPABILITY.md`,
+`ADR-PF-014-PLATFORM-CAPABILITY-BOOTSTRAP.md`, and
+`ADR-PF-015-PLATFORM-AUDIT-LOG.md`
 
 ## Purpose
 
@@ -28,8 +29,8 @@ The bounded implementation may add only:
   existing user persistence boundary;
 - reuse of the ADR-PF-012 capability-assignment model, repository, application
   service, transaction boundary, and lifecycle rules;
-- reuse of organization/platform audit infrastructure for immutable bootstrap
-  evidence;
+- reuse of the implemented ADR-PF-015 platform-audit repository for immutable
+  bootstrap evidence;
 - stable typed bootstrap failures and safe operational output;
 - focused unit and PostgreSQL-backed integration tests;
 - deployment documentation describing secure per-environment configuration,
@@ -144,9 +145,14 @@ ADR-PF-012/014 authority model.
 
 ## Completion Gate
 
-The bootstrap prerequisite is complete only when the bounded implementation,
-focused tests, PostgreSQL concurrency/rollback evidence, deployment
-documentation, clean diff, commit, and push are complete.
+Bootstrap implementation must not begin until the ADR-PF-015 platform-audit
+model, migration, repository, UoW registration, and focused verification are
+complete.
+
+The bootstrap prerequisite is complete only when platform-audit implementation
+and the bounded bootstrap implementation, focused tests, PostgreSQL concurrency/
+rollback evidence, deployment documentation, clean diff, commit, and push are
+complete.
 
 Only a fresh pre-check after that completion may unblock TG19 Final Platform
 Foundation Checkpoint 3.
