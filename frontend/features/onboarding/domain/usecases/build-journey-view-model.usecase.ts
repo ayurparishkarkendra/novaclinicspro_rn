@@ -6,8 +6,16 @@ import {
   JourneyCardStatus,
   JourneyDefinition,
   JourneyDiagnostics,
+  JourneyProgress,
   JourneyViewModel,
 } from '../entities/journey.entity';
+
+export const calculateJourneyProgressPercentage = (
+  progress: JourneyProgress
+): number =>
+  progress.total > 0
+    ? Math.round((progress.completed / progress.total) * 100)
+    : 0;
 
 const createDiagnostics = (): {
   unknownStepCodes: string[];

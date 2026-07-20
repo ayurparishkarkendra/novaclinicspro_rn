@@ -8,6 +8,13 @@ Epic reviewed: E1 — Journey Foundation and Cards
 
 Decision: **NOT READY**
 
+> **Implementation completion update — 2026-07-20:** **TG18 COMPLETE.** The
+> original `NOT READY` decision below is retained as the historical planning
+> checkpoint. Its prerequisites were closed by the five accepted E1
+> constitutional documents, and the authorized TG18 checkpoints now satisfy
+> the accepted journey contract. The final evidence matrix is recorded in
+> Section 22.
+
 ## 1. Executive Decision
 
 TG18 is **NOT READY** to begin implementation.
@@ -483,3 +490,45 @@ The first Phase 2 epic is correctly selected, but selection and roadmap approval
 Until every prerequisite in §18 is approved and a subsequent readiness review authorizes a precise file boundary:
 
 **TG18 Implementation Status: NOT READY**
+
+## 22. Final Implementation Acceptance Evidence
+
+This section supersedes the historical implementation prohibition in §§19–21
+only for the subsequently approved TG18 checkpoints. It does not rewrite the
+planning decision that existed when this review was created.
+
+| Accepted E1 requirement | Implementation | Focused test | Acceptance evidence |
+|---|---|---|---|
+| FR1–FR2 — journey identity, version, and bundled definition | `journey.entity.ts`; `progressive-experience-journey.definition.ts` | `journey.entity.test.ts` | Version identity is independent of draft schema; one accepted client definition is resolved. |
+| FR3–FR4 — authoritative status and pure projection | existing onboarding-status repository/query; mapper; `build-journey-view-model.usecase.ts` | `useJourneyFoundation.test.tsx`; `build-journey-view-model.test.ts` | Existing API path is reused and presentation receives a deterministic domain projection. |
+| FR5–FR7 — card contract, eligibility, and ordering | journey card domain model, definition, projection, existing `StepCard` | mapper, `StepCard`, `JourneySurface`, and `SetupWizardFlow` tests | Only eligible known cards render, in authoritative order, using existing navigation destinations. |
+| FR8 — aggregate progress | projection plus `calculateJourneyProgressPercentage`; existing `ProgressBar` | mapper, `ProgressBar`, and `JourneySurface` tests | Text exposes `completed / total`; the visual value is derived from the same aggregate. |
+| FR9–FR10 — no state mutation and existing navigation | `JourneySurface` delegates the existing wizard step destination | `JourneySurface.test.tsx`; `SetupWizardFlow.test.tsx` | Card selection does not change domain status or bypass existing routing. |
+| FR11 — unknown steps | projection diagnostics and filtering | mapper and wizard-flow tests | Unknown steps are diagnostic-only and never become fallback cards or raw step UI. |
+| FR12 — unsupported version | fail-closed projection and localized `JourneySurface` alert | journey entity, mapper, and `JourneySurface` tests | No partial cards, progress, step content, or footer actions render. Saved data is not mutated. |
+| FR13 — loading, empty, partial, and available states | existing query/loading host plus explicit empty/active surfaces | hook, surface, and wizard-flow tests | Recognized-empty is explicit and is never presented as completion; partial supported data remains deterministic. |
+| FR14–FR15 — tenant isolation and draft independence | tenant match guard in `useJourneyFoundation`; no draft-store dependency | hook test and dependency inspection | Mismatched cached status is suppressed; journey version remains separate from Wizard Draft schema/state. |
+| FR16 — localization first | `en-US.json` and `hi-IN.json` journey keys | `JourneySurface.test.tsx` | Both locales contain matching keys and compatible `completed`/`total` placeholders. |
+| FR17 — central theme | `JourneySurface`, existing `StepCard`, and revised `ProgressBar` use `useClinicTheme` tokens | component tests and source inspection | No new hardcoded color, spacing, radius, typography, or inline style was introduced. |
+| FR18 — accessibility | journey header/state roles, card semantics, textual progress, progressbar value | `JourneySurface`, `StepCard`, and `ProgressBar` tests | Edge states and progress have screen-reader meaning; existing card focus/navigation order is preserved. |
+| FR19–FR20 — clean architecture and reuse-before-create | domain entities/use case, existing hook/repository/API/store/navigation/components | mapper, hook, component, and integration tests | No duplicate repository, service, store, API, navigation system, or card primitive was created. |
+| FR21 — measurement boundary | accepted event intents remain contract-only | architectural inspection | No analytics provider was invented; implementation does not block later approved instrumentation. |
+| FR22 — E1 boundary | all TG18 checkpoints | changed-file and backend-worktree verification | No TG19 capability, backend endpoint/migration, Doctor Module, clinical, commercial, or payment work was introduced. |
+
+Final verification:
+
+- focused verification: **7 suites, 77 tests passed**;
+- scoped TypeScript check: **no errors in TG18-touched source/tests**;
+- `git diff --check`: required before delivery;
+- backend impact: **none**;
+- multi-clinic impact: tenant identity is enforced and presentation remains
+  specialty-agnostic;
+- completion commits: TG18 checkpoints beginning with `6cb53e0c`, followed by
+  the Journey Card integration and acceptance-audit checkpoints, plus the final
+  edge-state remediation commit.
+
+All accepted E1 blockers and acceptance gaps are closed. This completion does
+not authorize TG19 implementation; it permits only a separate TG19 readiness
+review.
+
+**TG18 Implementation Status: COMPLETE**

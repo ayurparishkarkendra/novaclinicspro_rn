@@ -4,7 +4,10 @@ import {
   JourneyDefinition,
   PROGRESSIVE_EXPERIENCE_JOURNEY_ID,
 } from '../../features/onboarding/domain/entities/journey.entity';
-import { buildJourneyViewModel } from '../../features/onboarding/domain/usecases/build-journey-view-model.usecase';
+import {
+  buildJourneyViewModel,
+  calculateJourneyProgressPercentage,
+} from '../../features/onboarding/domain/usecases/build-journey-view-model.usecase';
 
 const card = (stepCode: string): JourneyCardDefinition => ({
   cardId: `card.${stepCode}`,
@@ -66,6 +69,11 @@ const onboardingStatus = (overrides: Partial<OnboardingStatus> = {}): Onboarding
 });
 
 describe('buildJourneyViewModel', () => {
+  it('derives display percentage from aggregate domain progress', () => {
+    expect(calculateJourneyProgressPercentage({ completed: 2, total: 3 })).toBe(67);
+    expect(calculateJourneyProgressPercentage({ completed: 0, total: 0 })).toBe(0);
+  });
+
   it('preserves backend order and maps authoritative status and progress', () => {
     const result = buildJourneyViewModel(definition(), onboardingStatus());
 

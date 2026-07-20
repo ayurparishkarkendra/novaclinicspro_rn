@@ -96,6 +96,7 @@ describe('useJourneyFoundation', () => {
 
     const { result } = renderHook(() => useJourneyFoundation('tenant-b'));
 
+    expect(result.current.data).toBeUndefined();
     expect(result.current.journey).toBeNull();
   });
 });

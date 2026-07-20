@@ -617,6 +617,12 @@
           "unavailable": "Unavailable"
         }
       },
+      "journey": {
+        "heading": "Your clinic preparation journey",
+        "unavailable": "This journey version is not available in this app version. Your saved clinic information has not been changed.",
+        "empty": "No supported journey steps are available yet. Your clinic is not marked complete by this state.",
+        "progress": "{{completed}} of {{total}} journey steps complete"
+      },
       "offline": {
         "title": "You're offline",
         "message": "Changes are saved locally. Connect to the internet to submit this step.",

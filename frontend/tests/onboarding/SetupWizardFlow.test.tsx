@@ -433,9 +433,11 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       refetch: mockRefetch,
     });
 
-    const { getAllByTestId } = renderFlow();
+    const { getAllByTestId, getByRole, getByText } = renderFlow();
 
     await waitFor(() => {
+      expect(getByRole('header')).toHaveTextContent('Your clinic preparation journey');
+      expect(getByText('0 of 3 journey steps complete')).toBeTruthy();
       expect(getAllByTestId(/^journey-card-/).map(card => card.props.testID)).toEqual([
         'journey-card-staff_setup',
         'journey-card-clinic_profile',
@@ -481,6 +483,23 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       expect(getByTestId('journey-card-staff_setup')).toBeTruthy();
     });
     expect(queryByTestId('journey-card-unknown_step')).toBeNull();
+  });
+
+  it('shows the explicit empty journey state and hides navigation when all steps are unknown', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['unknown_step']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText(/No supported journey steps are available yet/)).toBeTruthy();
+    });
+    expect(queryByText('Next')).toBeNull();
+    expect(queryByText(/Step unknown_step/)).toBeNull();
   });
 
   it('renders the Treatments redirect card for all service catalogue aliases', async () => {

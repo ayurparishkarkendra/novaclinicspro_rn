@@ -16,7 +16,7 @@ import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanI
 import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { DemoStatusBanner } from '../components/DemoStatusBanner';
-import { StepCard } from '../components/StepCard';
+import { JourneySurface } from '../components/JourneySurface';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
@@ -917,22 +917,17 @@ export function SetupWizardFlow() {
 
       {/* Step Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ flexGrow: 1 }}>
-        {journey?.availability === 'available' && journey.cards.length > 0 && (
-          <View accessibilityRole="list">
-            {journey.cards.map(card => (
-              <StepCard
-                key={`${card.cardId}:${card.stepCode}`}
-                journeyCard={card}
-                onPress={() => navigateToStep(card.destination.stepCode)}
-              />
-            ))}
-          </View>
+        {journey && (
+          <JourneySurface journey={journey} onSelectStep={navigateToStep} />
         )}
-        {renderStepContent()}
+        {journey?.availability === 'available' && journey.cards.length > 0
+          ? renderStepContent()
+          : null}
       </ScrollView>
 
       {/* Navigation Footer */}
-      <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
+      {journey?.availability === 'available' && journey.cards.length > 0 && (
+        <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
         <TouchableOpacity
           style={[
             styles.navButton,
@@ -993,7 +988,8 @@ export function SetupWizardFlow() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      )}
     </View>
   );
 }

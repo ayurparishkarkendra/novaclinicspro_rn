@@ -15,9 +15,10 @@ export const useJourneyFoundation = (
   const statusQuery = useOnboardingStatusQuery(tenantId, {
     enabled: options.enabled ?? Boolean(tenantId),
   });
+  const hasMatchingTenant = statusQuery.data?.tenant_id === tenantId;
 
   const journey = useMemo(() => {
-    if (!statusQuery.data || statusQuery.data.tenant_id !== tenantId) {
+    if (!statusQuery.data || !hasMatchingTenant) {
       return null;
     }
 
@@ -25,10 +26,11 @@ export const useJourneyFoundation = (
       PROGRESSIVE_EXPERIENCE_JOURNEY_DEFINITION,
       mapOnboardingStatusToDomain(statusQuery.data)
     );
-  }, [statusQuery.data, tenantId]);
+  }, [statusQuery.data, hasMatchingTenant]);
 
   return {
     ...statusQuery,
+    data: hasMatchingTenant ? statusQuery.data : undefined,
     journey,
   };
 };

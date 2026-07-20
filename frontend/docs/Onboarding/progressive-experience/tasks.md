@@ -1482,6 +1482,38 @@ Dependency confirmation:
 - Release dependencies: production promotion remains blocked by staging runs, baseline frontend TypeScript/Jest debt, and release sign-off.
 
 
+## Task Group 18 — Journey Foundation and Card Presentation (COMPLETE)
+
+Status: **COMPLETE** (2026-07-20)
+
+TG18 implemented only the approved E1 foundation and reusable Journey Card
+presentation slices. It introduced the versioned, tenant-scoped journey domain;
+pure DTO-to-domain and domain-to-presentation projection; reuse of the existing
+onboarding status repository/query, navigation, `StepCard`, `ProgressBar`, theme,
+and localization framework; and safe presentation for supported, unsupported,
+and recognized-empty journeys.
+
+Completion evidence:
+
+- the backend remained unchanged; no API, migration, repository, store, service,
+  dependency, or draft-schema implementation was created;
+- unsupported major versions fail closed with localized unavailable messaging,
+  no partial cards, and no actionable wizard footer;
+- recognized empty journeys present an explicit localized non-completion state;
+- active journeys preserve authoritative card order and expose localized
+  aggregate `completed / total` progress with progressbar semantics;
+- tenant mismatch suppresses stale raw status and journey projection;
+- English and Hindi keys have compatible interpolation placeholders;
+- central theme tokens, existing icon/navigation systems, accessible roles and
+  labels, and specialty-agnostic multi-clinic behavior are preserved;
+- focused journey entity, projection, hook, Journey Card, progress, journey
+  surface, and wizard integration verification passes (7 suites, 77 tests).
+
+TG18 does not authorize TG19, Doctor Module, Clinical Workspace, scheduling,
+inventory, billing/payment implementation, analytics-platform implementation,
+backend redesign, or architecture rewrites. TG19 requires its own readiness
+review before any implementation.
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
@@ -1512,7 +1544,8 @@ Multi-agent rule: one agent = one branch = one clean clone or worktree. Claude's
     { "id": 8, "tasks": ["14"] },
     { "id": 9, "tasks": ["15"] },
     { "id": 10, "tasks": ["16"] },
-    { "id": 11, "tasks": ["17"] }
+    { "id": 11, "tasks": ["17"] },
+    { "id": 12, "tasks": ["18"] }
   ],
   "notes": [
     "11.2 depends on 6.3: backend idempotency verification requires the Idempotency-Key header implementation (6.3) to be complete and deployed to staging before the staging verification in 11.2 can be executed.",
@@ -1520,7 +1553,8 @@ Multi-agent rule: one agent = one branch = one clean clone or worktree. Claude's
     "14 depends on Task Group 13's v1 draft store and activates Requirement 6 step-screen integration. Task 11 staging checks remain release blockers only and do not block Task 14 implementation.",
     "15 depends on Task Group 14's active step-screen draft integration and activates Requirement 9 app lifecycle sync. Task 11 staging checks remain release blockers only and do not block Task 15 implementation.",
     "16 depends on Task Group 15's lifecycle-safe draft recovery and activates the bounded Req 7 plus Req 8 AC1 offline visibility/gating increment. Pending mutation queue, retry flush, and dead-letter handling require future design and are not part of Task Group 16.",
-    "17 depends on Task Group 16 and activates the bounded Req 13 DemoStatusBanner action-wiring increment. Subscription conversion, payment recovery, readiness policy, and direct tenant transition remain out of scope."
+    "17 depends on Task Group 16 and activates the bounded Req 13 DemoStatusBanner action-wiring increment. Subscription conversion, payment recovery, readiness policy, and direct tenant transition remain out of scope.",
+    "18 depends on the approved Phase 2 roadmap, TG18 readiness review, and accepted E1 requirements, domain design, journey versioning, Journey Card contract, and reuse audit. It implements only Journey Foundation and Card Presentation; TG19 requires a separate readiness review."
   ]
 }
 ```
