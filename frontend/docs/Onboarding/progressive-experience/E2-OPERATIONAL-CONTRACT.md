@@ -211,3 +211,25 @@ It never copies actor/organization email and never generates a placeholder.
 
 The verified-contact migration/model/DTO/validation checkpoint must complete
 before backend Clinic Entry transport resumes.
+
+## ADR-PF-009 Contact Evidence Addendum — Controlling
+
+ADR-PF-009 closes the evidence-model decision without authorizing code. Clients
+submit opaque, server-issued evidence references for each declared clinic email
+or mobile. They cannot submit trusted verification timestamps, methods, or
+outcomes. The Platform Clinic Contact Verification service validates exact
+organization, actor, `clinic_entry.create.v1` operation, contact kind,
+normalized-value fingerprint, policy, status, and expiry.
+
+Email and mobile require independent evidence. The server-resolved validation
+result supplies the safe timestamp and method/version persisted under
+ADR-PF-008. Clinic Entry consumes all required evidence atomically with tenant
+creation, organization association, idempotency completion, and audit. Rollback
+leaves evidence verified and usable; completed operation replay does not consume
+again.
+
+The contract uses a separate `org_contact_verifications` lifecycle because
+ownership verification proves authority over an existing tenant while contact
+verification proves control of a contact before a tenant exists. TG19 Backend
+Clinic Entry Transport remains blocked until the bounded ADR-PF-009
+implementation is complete and verified.

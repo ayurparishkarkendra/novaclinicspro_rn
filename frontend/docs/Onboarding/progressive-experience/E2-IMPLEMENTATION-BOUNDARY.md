@@ -235,3 +235,17 @@ actor-email copying or placeholder generation.
 After implementation and migration verification pass, the Backend Clinic Entry
 service/transport checkpoint may resume. Frontend orchestration remains blocked
 until that later transport commit.
+
+## ADR-PF-009 Contact Evidence Prerequisite
+
+The Backend Clinic Entry operations checkpoint may not begin until
+`E2-CONTACT-VERIFICATION-IMPLEMENTATION-BOUNDARY.md` is implemented and
+verified. That prerequisite owns the separate `org_contact_verifications`
+model/migration, repository port/adapter, Platform Clinic Contact Verification
+lifecycle service, trusted provider port, typed evidence errors, organization
+audit/idempotency integration, unit-of-work registration, and focused tests.
+
+Clinic Entry transport must accept opaque evidence references and consume only
+server-resolved verification results. It must never expose the ADR-PF-008
+provenance DTO as client-asserted verification truth. No Clinic Entry source is
+authorized during the evidence prerequisite.

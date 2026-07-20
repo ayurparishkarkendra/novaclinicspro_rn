@@ -711,3 +711,30 @@ the ADR-PF-008 persistence checkpoint is implemented and verified. Frontend
 orchestration remains sequenced after the backend transport commit.
 
 **TG19 Implementation Status: NOT READY**
+
+## 24. Clinic Contact Evidence Reassessment — 2026-07-20
+
+This section is the latest controlling decision and supersedes §23.
+
+Verified Clinic Contact persistence is implemented, but source audit confirms
+that no server-side clinic-contact evidence issuer/validator exists. Accepting
+the current provenance DTO directly at transport would allow clients to assert
+verification timestamps and methods, contrary to ADR-PF-008.
+
+ADR-PF-009 selects a separate `org_contact_verifications` lifecycle and defines
+opaque references, organization/actor/operation/contact binding, keyed contact
+fingerprinting, independent email/mobile evidence, issue/verify/validate/expire/
+revoke/consume states, typed failures, safe audit, idempotency, atomic
+consumption, rollback, and provider extension points.
+
+**CLINIC_CONTACT_VERIFICATION_IMPLEMENTATION_READY** — The exact future boundary
+is frozen in `E2-CONTACT-VERIFICATION-IMPLEMENTATION-BOUNDARY.md`. No concrete
+email/SMS provider is approved; provider-specific transport remains `UNKNOWN`
+until separately authorized.
+
+**TG19_NOT_READY** — Backend Clinic Entry service/transport remains blocked
+until the ADR-PF-009 persistence and lifecycle prerequisite is implemented and
+verified. Frontend orchestration, final acceptance, and TG20 remain sequenced
+after the backend transport checkpoint.
+
+**TG19 Implementation Status: NOT READY**
