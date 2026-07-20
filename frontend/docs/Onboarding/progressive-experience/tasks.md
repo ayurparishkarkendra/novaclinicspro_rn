@@ -1397,6 +1397,91 @@ Task Group 17 selects DemoStatusBanner action wiring because it is the next visi
 
 ---
 
+
+### Post-Dev-Sync Reconciliation - 2026-07-20
+
+Outcome:
+
+```text
+NO_IMPLEMENTATION_GROUP_READY
+```
+
+The frontend and backend `feature/progressive-experience-recovery` worktrees were synchronized with latest `origin/dev` before this reconciliation. Frontend HEAD is `516dc8feb780460481310295b20920e38977ee15`; backend HEAD is `14522967f8a063b53b7f29c0b2b8e9cbc750b573`. Both worktrees are clean, both remain on `feature/progressive-experience-recovery`, and `git merge-base --is-ancestor origin/dev HEAD` returned `0` in both repositories.
+
+Task Group 17 remains complete after the dev merge. The next incomplete areas are either staging-only release checks or implementation areas with unresolved design, ownership, backend contract, telemetry, payment, or environment dependencies. No Task Group 18 is authorized from the current canonical evidence.
+
+#### Task Group 17 Evidence Audit
+
+| Task 17 Acceptance Item | Code Evidence | Test Evidence | Status |
+|---|---|---|---|
+| Compatibility wizard sessions render `DemoStatusBanner` when demo status data is available. | `SetupWizardFlow.tsx` calls `useDemoStatusQuery(tenantId, { enabled: !!tenantId && currentUser?.applicationStatus === \"onboarding\" })` and renders `DemoStatusBanner` only when `demoStatusData` exists. | `SetupWizardFlow.test.tsx` covers banner rendering with mocked demo status data; focused TG17 run reported 3 passed suites and 42 passed tests. | VERIFIED_COMPLETE |
+| "Continue Setup" routes only within the existing wizard step list. | `handleContinueSetupFromBanner` first uses `statusData.next_recommended_step` through `navigateToStep`, then falls back to an existing non-completed/non-blocked step. `navigateToStep` returns false for unknown step codes. | `SetupWizardFlow.test.tsx` verifies Continue Setup routes to the backend-recommended `operating_hours` step and does not dispatch a mutation. | VERIFIED_COMPLETE |
+| "Ready to Start" navigates to `go_live_checklist` and does not directly transition or complete the tenant. | `handleReadyToStartFromBanner` only calls `navigateToStep(\"go_live_checklist\")` when `canOpenReadyToStartChecklist` is true. No banner-owned transition mutation or tenant completion call is added. | `SetupWizardFlow.test.tsx` verifies Ready to Start opens the existing checklist and `mockMutateAsync` is not called. | VERIFIED_COMPLETE |
+| Ready-to-start is disabled when backend readiness is unavailable. | `canOpenReadyToStartChecklist` requires the visible `go_live_checklist` step and `per_step_validation.go_live_checklist.actionable === true`; `DemoStatusBanner` receives `isTransitionDisabled={isNextPending || !canOpenReadyToStartChecklist}`. | `SetupWizardFlow.test.tsx` and `DemoStatusBanner.test.tsx` assert disabled accessibility state and no navigation/callback when disabled. | VERIFIED_COMPLETE |
+| Pending/disabled banner actions expose accessible disabled state. | `DemoStatusBanner.tsx` sets `accessibilityState={{ disabled: ... }}` for Continue Setup and Ready to Start actions and shows pending indicators through the existing props. | `DemoStatusBanner.test.tsx` covers disabled Ready to Start behavior; SetupWizardFlow tests cover the wizard-disabled Ready-to-Start path. | VERIFIED_COMPLETE |
+| User-facing banner copy is localized and avoids legacy Demo or Go Live lifecycle terms. | `en-US.json` and `hi-IN.json` contain Progressive Experience status-banner keys including Continue Setup and Ready to Start. | `DemoStatusBanner.test.tsx` and `SetupWizardFlow.test.tsx` assert legacy `Demo` and `Go Live` wording is not exposed in the tested banner flow. | VERIFIED_COMPLETE |
+| No backend files or Doctor Module files were modified for TG17. | TG17 implementation evidence is limited to onboarding presentation, tests, and localization files. The post-sync backend merge preserved platform and clinical exports without attributing Doctor Module work to Progressive Experience. | `git status` is clean in both PE worktrees after sync; focused frontend and backend verification passed before this reconciliation. | VERIFIED_COMPLETE |
+
+#### Post-Sync Requirements Coverage Matrix
+
+| Requirement | Status | Evidence | Remaining Gap |
+|---|---|---|---|
+| Req 1 - StepDetailScreen alias routing | COMPLETE | Shared alias routing evidence remains in completed groups 1, 2, and 5. | Re-audit only if backend templates change before release. |
+| Req 2 - SetupWizardFlow alias routing | COMPLETE | SetupWizardFlow service-catalogue aliases continue to use the shared alias list. | None for current alias inventory. |
+| Req 3 - Delete unused Treatments screen | COMPLETE | Dead onboarding Treatments screen remains absent from active imports. | None. |
+| Req 4 - Backend template alias audit | PARTIALLY_IMPLEMENTED | Current alias list is documented and tested. | Active-template audit remains release validation if backend templates change. |
+| Req 5 - WizardDraftStore schema/persistence | COMPLETE | Task Groups 13 and 15 completed tenant/user-scoped draft persistence, migration, expiry, compression, and clean-state behavior. | Future Journey Versioning identity review only. |
+| Req 6 - WizardDraftStore step-screen integration | COMPLETE | Task Group 14 integrated required wizard step screens; Task Group 15 covered lifecycle sync. | Release verification only. |
+| Req 7 - OfflineBanner | COMPLETE | Task Group 16 added NetInfo-backed offline banner wiring. | Physical/emulated offline release run remains under Req 32. |
+| Req 8 - Offline CTA gating and mutation flush | PARTIALLY_IMPLEMENTED | Task Group 16 gates known-offline submit/complete CTAs; backend platform idempotency supports safe server replay after requests reach backend. | PendingMutationStore, retry/flush, and dead-letter behavior need queue/error/analytics design. |
+| Req 9 - App lifecycle background/foreground | COMPLETE | Task Group 15 added AppState background sync, foreground hydrate, refetch, and changed-step notice. | No polling/conflict expansion authorized. |
+| Req 10 - Android back button intercept | COMPLETE | Completed production-hardening groups preserve Android back handling. | None. |
+| Req 11 - Tenant identity fix | STAGING_ONLY | Automated checks and fallback behavior are complete. | Provisional/live/multi-clinic staging confirmation required. |
+| Req 12 - Idempotency keys | PARTIALLY_IMPLEMENTED | Frontend idempotency keys and backend Platform Foundation idempotency tests passed in dev. | Same-key replay and tenant replay staging checks remain. |
+| Req 13 - Demo/live transition hooks | COMPLETE | Task Group 17 wired DemoStatusBanner actions into SetupWizardFlow while preserving the checklist gate. | Subscription conversion, payment recovery, and direct transition remain explicit non-goals. |
+| Req 14 - Theme compliance | PARTIALLY_IMPLEMENTED | Touched Progressive Experience UI uses `useClinicTheme()` tokens. | Legacy untouched UI remains per-task cleanup only. |
+| Req 15 - Test coverage | PARTIALLY_IMPLEMENTED | Focused onboarding tests cover completed groups, including TG17. | Full frontend TypeScript/Jest baseline debt and E2E coverage remain. |
+| Req 16 - Draft conflict modal | NOT_STARTED | No conflict modal is implemented. | Requires backend `updated_at` contract and conflict design. |
+| Req 17 - Multi-device validation | NOT_STARTED | Foreground refetch exists, but no multi-device conflict flow is authorized. | Requires Req 29 and conflict-resolution policy. |
+| Req 18 - Pending payment recovery | NOT_STARTED | Subscription/payment screens and APIs exist outside a recovery policy. | Needs subscription/payment ownership and UX decision. |
+| Req 19 - Storage security audit | PARTIALLY_IMPLEMENTED | Current draft fields were reviewed during Task Group 13. | Project-level storage classification and SecureStore decision remain. |
+| Req 20 - Error message centralisation | NOT_STARTED | Existing generic error utilities are not an onboarding mapper. | Needs mapper boundary, localized key catalog, and tests. |
+| Req 21 - Zero hardcoded design values | PARTIALLY_IMPLEMENTED | Recent touched UI follows theme tokens. | Legacy untouched screens remain per-task cleanup. |
+| Req 22 - Zustand architecture | PARTIALLY_IMPLEMENTED | Wizard store follows synchronous Zustand actions plus standalone async helpers. | Future stores, especially PendingMutationStore, need design review. |
+| Req 23 - Hook/service architecture | PARTIALLY_IMPLEMENTED | Repository hooks and datasource boundaries exist for completed flows. | Legacy direct datasource calls remain outside current authorization. |
+| Req 24 - Internationalisation coverage | PARTIALLY_IMPLEMENTED | TG17 added/verified English and Hindi user-facing banner terminology. | Future task strings need parity review. |
+| Req 25 - Accessibility | PARTIALLY_IMPLEMENTED | TG16/TG17 touched notices and disabled CTAs expose accessible state/roles. | Broader legacy accessibility audit remains outside current task groups. |
+| Req 26 - Duplicate submission locking | PARTIALLY_IMPLEMENTED | Submit lock, stale submission guard, offline gating, and TG17 banner-disabled states exist. | Future commercial/payment recovery pending states need their own task. |
+| Req 27 - Query invalidation | PARTIALLY_IMPLEMENTED | Submit/complete invalidation, foreground refetch, and TG17 presentation-only routing exist. | Demo extend/transition mutation invalidation remains out of TG17 scope. |
+| Req 28 - Analytics/audit events | PARTIALLY_IMPLEMENTED | Draft storage failure/expiry logging path exists. | Structured analytics provider/stub and event catalog remain undecided. |
+| Req 29 - Backend `updated_at` contract | OPEN_DECISION | Frontend DTO field exists. | Backend guarantee and staging proof are not established. |
+| Req 30 - Tenant-scoped storage | PARTIALLY_IMPLEMENTED | Wizard drafts are tenant/user scoped and cleaned on logout. | PendingMutationStore isolation not implemented. |
+| Req 31 - Draft expiry | PARTIALLY_IMPLEMENTED | Draft expiry constant and hydration discard exist. | Remote-config override and structured analytics remain undecided. |
+| Req 32 - End-to-end release verification | STAGING_ONLY | Release checklist remains documented. | Runs A-D and tenant/replay sign-off require staging/device access. |
+
+#### Next Implementation Decision
+
+| Candidate Next Area | Requirement Support | Design/Ownership Support | Dependency Check | Result |
+|---|---|---|---|---|
+| Pending mutation persistence / offline queue | Req 8, Req 30 | Partial only | Needs queue ownership, retry policy, dead-letter UX, error mapper, and analytics decision. | NO_IMPLEMENTATION_GROUP_READY |
+| Draft conflict and multi-device handling | Req 16, Req 17, Req 29 | Partial only | Blocked by backend `updated_at` contract and conflict-resolution policy. | NO_IMPLEMENTATION_GROUP_READY |
+| Pending payment recovery / commercial conversion | Req 18, Req 27 | Not enough | Needs subscription/payment ownership, endpoint scope, and commercial UX policy. | NO_IMPLEMENTATION_GROUP_READY |
+| Centralized onboarding error messages | Req 20, Req 24 | Partial only | Needs mapper boundary, string catalog, and ownership confirmation. | NO_IMPLEMENTATION_GROUP_READY |
+| Analytics / audit events | Req 28 | Not enough | Needs provider/stub decision and accepted event list. | NO_IMPLEMENTATION_GROUP_READY |
+| Staging tenant and replay verification | Req 11, Req 12, Req 32 | Checklist ready | Environment/device dependent; not an implementation group. | STAGING_ONLY |
+
+Selected result: `NO_IMPLEMENTATION_GROUP_READY`.
+
+Dependency confirmation:
+
+- Requirement support: the remaining gaps are traceable, but none has enough accepted design plus dependency readiness for implementation.
+- Design support: no new frontend/backend task group should be created until the relevant queue, conflict, payment, error, or analytics boundary is clarified.
+- Ownership: onboarding remains Codex-owned; Doctor Module, clinical readiness, workspace lifecycle, billing policy, and capability truth remain outside this implementation authorization.
+- Frontend/backend impact: no code changes are authorized by this reconciliation.
+- Staging dependencies: Req 11, Req 12, and Req 32 remain staging-only and must not be marked complete from local tests.
+- Release dependencies: production promotion remains blocked by staging runs, baseline frontend TypeScript/Jest debt, and release sign-off.
+
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
