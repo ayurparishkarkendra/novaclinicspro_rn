@@ -2,7 +2,84 @@
 
 Date: 2026-07-20
 
-Status: Master planning roadmap; no implementation authorized
+Status: APPROVED; governing roadmap; no implementation authorized
+
+## Roadmap Governance
+
+| Governance field | Value |
+|---|---|
+| Version | 1.0 |
+| Status | APPROVED |
+| Owner | Product Architecture |
+| Implementation Phase | Progressive Experience Phase 2 |
+
+### Purpose
+
+This document is the governing roadmap for all remaining Progressive Experience implementation. Future Task Groups TG18–TG31 must implement this roadmap. They must consume the approved roadmap intent and must not redefine product scope.
+
+The roadmap governs what Phase 2 delivers and why. Detailed requirements govern accepted behavior, design governs the approved architecture, and Task Groups govern bounded execution. A Task Group number does not authorize implementation; explicit implementation authorization remains required.
+
+### Roadmap Change Policy
+
+- Product scope changes require roadmap approval.
+- Requirements changes require requirements approval.
+- Architecture changes require design approval.
+- Task Groups may not introduce new product capabilities.
+- Implementation evidence may clarify delivery status but may not retroactively redefine product intent.
+
+If a new capability is discovered, it must follow this governance sequence:
+
+```text
+Roadmap
+↓
+Requirements
+↓
+Design
+↓
+Task Group
+↓
+Implementation
+```
+
+The sequence must never run in reverse. Implementation must not create de facto product scope, requirements, architecture, or roadmap policy.
+
+### Implementation Governance
+
+Before implementation begins, every future Task Group must explicitly verify and record:
+
+- [ ] Central Theme usage;
+- [ ] Localization first;
+- [ ] Accessibility;
+- [ ] Clean Architecture;
+- [ ] Reuse-before-create;
+- [ ] Multi-clinic compatibility;
+- [ ] Existing repository reuse;
+- [ ] Existing component reuse;
+- [ ] Existing hook reuse;
+- [ ] Existing store reuse.
+
+A Task Group must stop before implementation if any verification is missing, unresolved, or contradicted by its proposed scope.
+
+### Roadmap Freeze
+
+- TG18–TG31 are governed by this roadmap.
+- Changes require an approved roadmap revision with an updated version and recorded rationale.
+- Task Groups must consume the roadmap and trace their scope to its approved epics and outcomes.
+- Task Groups must not redefine, broaden, narrow, reorder, or reinterpret roadmap intent.
+- Requirements and design may elaborate approved scope but may not silently amend the roadmap.
+
+### Non-Goals
+
+This roadmap does not authorize:
+
+- Doctor Module work;
+- Clinical Workspace work;
+- Scheduling;
+- Inventory;
+- Billing implementation;
+- Payment Gateway implementation;
+- backend API redesign;
+- architecture rewrites.
 
 ## 1. Executive Summary
 
