@@ -584,3 +584,53 @@ not TG19 code.
 The historical decision above is superseded by §19.
 
 **TG19 Implementation Status: READY**
+
+## 20. Platform Foundation Boundary Reassessment — 2026-07-20
+
+This section is the latest controlling decision. Repository evidence after the
+prior READY declaration confirmed that TG19 could not safely start because its
+required Platform Foundation files were outside the then-approved implementation
+boundary. ADR-PF-004, ADR-PF-005, ADR-PF-006, and
+`E2-PLATFORM-FOUNDATION-BOUNDARY.md` now resolve and authorize that prerequisite
+without treating planning completion as implementation completion. Historical
+statuses above remain audit evidence and are superseded here.
+
+### Resolved architecture decisions
+
+- Organization and membership are new platform persistence, not extensions of
+  tenant RBAC or `is_org_admin`.
+- `org_organization_tenants` is the authoritative single-active-owner
+  organization-to-tenant association and supports multiple clinics per
+  organization without granting tenant data access.
+- ADR-PF-003 verification uses persisted opaque evidence issued, approved,
+  validated, expired/revoked, and consumed by a platform service.
+- Pre-tenant operations use `org_idempotency_records`; fake tenant IDs and
+  nullable ambiguous scope are prohibited.
+- The Clinic Entry application service will own one unit-of-work commit;
+  provisioning, verification consumption, association, idempotency completion,
+  and transactional audit flush inside it. External effects occur after commit.
+- Existing provisioning callers retain a backward-compatible committing wrapper
+  while the new orchestration uses a non-committing core.
+
+### Current readiness classifications
+
+**PLATFORM_FOUNDATION_READY_FOR_IMPLEMENTATION** — The constitutional decisions,
+exact persistence/port/adapter/service boundary, migration rules, transaction
+ownership, compatibility path, prohibited areas, and focused verification are
+approved and frozen. Generated migration identity and optional platform router
+placement remain source-time `UNKNOWN`; neither is a product or architecture
+decision.
+
+**TG19_NOT_READY** — The Platform Foundation is not implemented yet. Therefore
+no concrete Clinic Entry service/transport exists for frontend orchestration,
+and TG19 cannot be declared implementation-complete or ready for its frontend
+integration phase.
+
+### Next authorized activity
+
+Implement only the Platform Foundation checkpoint in
+`E2-PLATFORM-FOUNDATION-BOUNDARY.md`. After it is committed and verified, perform
+a fresh readiness check before implementing backend Clinic Entry operations.
+Do not resume frontend orchestration or TG20.
+
+**TG19 Implementation Status: NOT READY**

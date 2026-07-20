@@ -2,10 +2,12 @@
 
 Date: 2026-07-20
 
-Status: Bounded proposal; blocked prerequisites remain
+Status: Frozen phased boundary; Platform Foundation implementation authorized
 
-This boundary applies only after TG19 is declared READY. It authorizes neither
-implementation nor TG20 work today.
+This boundary is governed by ADR-PF-002 through ADR-PF-006 and
+`E2-PLATFORM-FOUNDATION-BOUNDARY.md`. It separates the prerequisite Platform
+Foundation from Clinic Entry operations and frontend orchestration. No phase
+authorizes TG20 or permits a later phase to redefine an earlier contract.
 
 ## Frontend Responsibilities
 
@@ -140,6 +142,41 @@ are mandatory. Full unrelated suites are outside the checkpoint unless a shared
 contract change warrants them.
 
 ## Bounded Implementation Checkpoints
+
+The checkpoint sequence below supersedes the historical five-step proposal in
+this section wherever names or ordering conflict.
+
+1. **PF checkpoint — Platform Foundation:** implement only the persistence,
+   ports/adapters, organization authorization, ownership-verification lifecycle,
+   organization-scoped idempotency, organization audit, migration, and
+   transaction-safe provisioning seam authorized by
+   `E2-PLATFORM-FOUNDATION-BOUNDARY.md`. No Clinic Entry API or frontend work.
+2. **Backend Clinic Entry operations:** after the PF checkpoint passes, implement
+   `clinic_entry_service.py`, transport schemas/router, dependency wiring,
+   typed mapping, create/associate orchestration, effective-tenant result, and
+   focused contract/integration/isolation tests. It consumes rather than
+   recreates the Platform Foundation.
+3. **Frontend Clinic Entry orchestration:** after backend transport is committed
+   and source-confirmed, extend the existing onboarding repository/datasource,
+   typed mapping, error tokens, draft allowlist/cleanup, auth refresh, effective
+   tenant validation, retry lifecycle, and focused tests. No new repository,
+   store, API client, or product behavior.
+4. **Final TG19 acceptance:** run focused cross-layer, localization,
+   accessibility, tenant-isolation, idempotency, multi-clinic, migration, and
+   staging evidence checks; update completion evidence only. No TG20 work.
+
+### Freeze rule
+
+Each phase may change only files named by this document or the Platform
+Foundation boundary. An equivalent discovered in a later descendant must be
+extended rather than duplicated. A genuinely necessary unnamed file requires a
+reviewed boundary revision before code. Task checkpoints consume this boundary;
+they do not redefine it.
+
+### Historical checkpoint proposal
+
+The following list is retained only as historical planning evidence and is not
+the implementation sequence:
 
 1. **Checkpoint 1 — Backend constitutional foundation:** only after blockers
    close, add organization/verification ports, Version 1 normalization/DTO/error
