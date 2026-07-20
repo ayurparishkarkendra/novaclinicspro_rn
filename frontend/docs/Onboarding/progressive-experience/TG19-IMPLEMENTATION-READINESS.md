@@ -660,3 +660,29 @@ verification/release gates; they do not change the source contract or require a
 product decision.
 
 **TG19 Implementation Status: READY**
+
+## 22. Clinic Identity Persistence Reassessment — 2026-07-20
+
+This section is the latest controlling decision and supersedes §21.
+
+Repository evidence confirmed that the implemented Platform Foundation does not
+persist `clinic_identity_v1` on organization–tenant associations. Consequently,
+the approved organization-scoped duplicate contract cannot be made
+concurrency-safe by the backend Clinic Entry service without a migration.
+
+ADR-PF-007 selects the smallest additive correction: nullable identity version
+and fingerprint fields on `org_organization_tenants`, with a partial unique index
+for active authoritative identities. Existing associations are
+`LEGACY_IDENTITY_UNKNOWN`, remain valid with null fields, and receive no inferred
+backfill.
+
+**CLINIC_IDENTITY_PERSISTENCE_READY_FOR_IMPLEMENTATION** — The exact model,
+repository, migration, uniqueness, rollback, legacy compatibility, conflict
+mapping, and focused-test boundary is approved.
+
+**TG19_NOT_READY** — TG19 remains blocked until this persistence extension is
+implemented and migration/concurrency verification passes. Backend Clinic Entry
+service/transport follows that checkpoint; frontend orchestration follows the
+backend transport commit. No product or Platform Foundation redesign is needed.
+
+**TG19 Implementation Status: NOT READY**

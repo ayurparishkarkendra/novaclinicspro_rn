@@ -189,3 +189,27 @@ offline mock connection, matching the already documented migration-chain debt in
 ADR-PF-001. This does not alter the new revision or authorize editing historical
 migrations; real PostgreSQL upgrade/downgrade remains a release verification
 gate.
+
+## Clinic Identity Persistence Addendum — ADR-PF-007
+
+Status: **CLINIC_IDENTITY_PERSISTENCE_READY_FOR_IMPLEMENTATION**
+
+The frozen Platform Foundation boundary is extended only as follows:
+
+- modify `app/infrastructure/db/models/organization_tenant.py` to add nullable
+  `identity_version` and `identity_fingerprint` fields plus paired-nullability
+  and active organization-scoped uniqueness metadata;
+- modify `app/domain/repositories/i_organization_tenant_repository.py` and
+  `app/infrastructure/repositories/organization_tenant_repository.py` for
+  active identity lookup, authoritative capture, and safe identity replay;
+- add one migration under `app/infrastructure/db/migrations/versions/`, with its
+  generated revision ID descending from the current merged head;
+- update model/migration registration only if the repository requires it;
+- add focused identity repository, concurrency, typed-conflict, and migration
+  tests under `tests/`.
+
+The partial unique index scope is organization + identity version + fingerprint
+for active, non-null identity rows. Existing rows remain valid with both fields
+null and receive no backfill. No new table, duplicate detector, Platform
+Foundation service, Clinic Entry transport, or frontend source is authorized in
+the identity-persistence checkpoint.

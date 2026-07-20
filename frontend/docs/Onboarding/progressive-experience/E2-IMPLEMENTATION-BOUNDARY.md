@@ -202,3 +202,20 @@ Implementation remains prohibited until the authoritative organization
 identity/role model and the ownership-verification method/owner are approved and
 recorded. Those decisions may alter the proposed backend file/migration boundary;
 the readiness document must then be re-evaluated before code.
+
+## ADR-PF-007 Identity Persistence Prerequisite
+
+Before the Backend Clinic Entry operations checkpoint, implement the bounded
+identity-persistence addendum in `E2-PLATFORM-FOUNDATION-BOUNDARY.md`.
+
+The checkpoint may change only the existing organization–tenant model, its
+domain port and SQLAlchemy adapter, one additive migration from the current
+merged head, required registration, and focused tests. It must persist
+`clinic_identity_v1` version/fingerprint on the active association and enforce
+database uniqueness within organization scope. Legacy rows remain null and
+valid; no backfill is authorized.
+
+After its migration and concurrency tests pass, the Backend Clinic Entry
+operations checkpoint may consume the repository extension and map only its
+named uniqueness conflict to `clinic_entry.duplicate`. Frontend orchestration
+remains sequenced after the backend transport commit.
