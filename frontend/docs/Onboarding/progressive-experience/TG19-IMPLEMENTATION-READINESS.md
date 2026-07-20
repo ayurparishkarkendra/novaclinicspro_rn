@@ -772,3 +772,27 @@ prerequisites. This planning decision authorizes no code and does not resume
 frontend orchestration, final acceptance, or TG20.
 
 **Manual Clinic Contact Verification Implementation Status: READY**
+
+## 26. Final Platform Foundation Dependency Audit — 2026-07-20
+
+`TG19-PLATFORM-FOUNDATION-DEPENDENCY-AUDIT.md` is the controlling recursive
+source audit for the frontend-orchestration gate. It classifies 72 dependencies
+and consolidates every remaining Platform Foundation prerequisite into one final
+phase: authoritative organization/clinic context, an approved effective-tenant
+selection contract and transport, manual contact-verification authority
+transport and decision persistence, ownership-verification target context and
+transport, and a cross-foundation PostgreSQL acceptance gate.
+
+The audit finds three remaining architecture decisions: selection transport/
+session semantics, platform manual-capability assignment, and the
+non-enumerating ownership target context. Existing append-only organization
+audit persistence is sufficient for safe manual-decision evidence, so no new
+migration decision is required. No other product or architecture decision was
+found necessary for TG19.
+
+**TG19_FRONTEND_ORCHESTRATION_NOT_READY** — Frontend work must not begin until
+the complete PF-FINAL-1 through PF-FINAL-5 backlog is implemented and verified
+together. This audit authorizes no implementation, TG19 final acceptance, or
+TG20 work.
+
+**TG19 Frontend Orchestration Status: NOT READY**
