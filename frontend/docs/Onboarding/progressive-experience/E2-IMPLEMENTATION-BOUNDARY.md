@@ -165,6 +165,17 @@ this section wherever names or ordering conflict.
    accessibility, tenant-isolation, idempotency, multi-clinic, migration, and
    staging evidence checks; update completion evidence only. No TG20 work.
 
+### Manual contact-verification transport prerequisite
+
+ADR-PF-010 closes the Version 1 provider/method decision with the bounded
+`manual_platform_authority_v1` contract. Before frontend Clinic Entry
+orchestration resumes, implement only the transport authorized by
+`E2-CONTACT-VERIFICATION-IMPLEMENTATION-BOUNDARY.md`: organization-authorized
+request/status, independent platform-authority review decisions, explicit
+non-bypassable permission, typed schemas/errors, audit/idempotency composition,
+and focused tests. No provider integration, public callback, migration, Clinic
+Entry mutation change, frontend source, final acceptance, or TG20 is authorized.
+
 ### Freeze rule
 
 Each phase may change only files named by this document or the Platform

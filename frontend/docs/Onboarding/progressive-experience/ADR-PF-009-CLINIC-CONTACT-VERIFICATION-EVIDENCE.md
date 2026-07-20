@@ -94,9 +94,13 @@ issue references or mark evidence verified.
 
 No concrete email or SMS provider is approved by this ADR. Repository evidence
 shows actor-auth magic-link initiation and logging communication adapters, but
-neither verifies a clinic-bound contact under this contract. Email link/code,
-mobile OTP, manual approval, or trusted external verification requires an
-approved adapter and method/version key before it may produce `verified` state.
+neither verifies a clinic-bound contact under this contract. ADR-PF-010 approves
+the additive `manual_platform_authority_v1` method. Only an authenticated,
+independent Platform Operations or Platform Security principal with the
+explicit non-bypassable capability
+`platform.clinic_contact_verification.approve` may use that method to produce
+`verified` state. Email link/code, mobile OTP, or trusted external verification
+still requires a separately approved adapter and method/version key.
 
 ## Validator and Consumer
 
@@ -201,6 +205,15 @@ weaken organization/actor/value binding, or change consumed evidence.
   general identity-proofing platform.
 - Clinic Entry transport, frontend orchestration, TG19 final acceptance, TG20,
   clinical, billing, scheduling, inventory, import, merge, or transfer work.
+
+## ADR-PF-010 Manual Authority Addendum
+
+ADR-PF-010 is the controlling Version 1 manual-method contract. Organization
+Owners and Organization Administrators may request pending evidence, but cannot
+approve it. Platform `is_org_admin` alone grants no approval authority, and the
+generic administrative permission bypass must not be used. Approval, rejection,
+revocation, safe status, audit, idempotency, separation of duties, and transport
+authorization follow ADR-PF-010. No public provider callback is authorized.
 
 ## Consequences
 

@@ -738,3 +738,37 @@ verified. Frontend orchestration, final acceptance, and TG20 remain sequenced
 after the backend transport checkpoint.
 
 **TG19 Implementation Status: NOT READY**
+
+## 25. Manual Clinic Contact Verification Decision — 2026-07-20
+
+This section is the latest controlling readiness decision and supersedes §24
+for the clinic-contact verification method decision.
+
+ADR-PF-010 approves `manual_platform_authority_v1`. Active Organization Owners
+and Organization Administrators may request pending clinic-contact evidence.
+Only an authenticated, independent Platform Operations or Platform Security
+principal explicitly granted the non-bypassable capability
+`platform.clinic_contact_verification.approve` may approve, reject, or revoke
+it. Organization/tenant roles, self-approval, destination-organization
+membership, and platform `is_org_admin` without the capability are insufficient.
+
+The approval records a stable reason/evidence classification, verifier,
+timestamp, method/version, immutable audit outcome, and optional safe external
+reference without storing raw contact evidence. Approved evidence becomes
+`verified` under the existing ADR-PF-009 lifecycle and is later validated and
+atomically consumed by Clinic Entry. Approval itself creates or associates no
+clinic.
+
+**MANUAL_CLINIC_CONTACT_VERIFICATION_IMPLEMENTATION_READY** — The exact request,
+status, platform-review, permission, audit/idempotency, security, file, and test
+boundary is authorized in `E2-CONTACT-VERIFICATION-IMPLEMENTATION-BOUNDARY.md`.
+No new table or migration is expected; implementation must stop if existing
+persistence cannot represent the approved safe decision metadata.
+
+**TG19_FRONTEND_ORCHESTRATION_NOT_READY** — The manual verification transport,
+authoritative organization/auth context, authorized clinic-set/effective-tenant
+handoff, and ownership-verification transport remain implementation
+prerequisites. This planning decision authorizes no code and does not resume
+frontend orchestration, final acceptance, or TG20.
+
+**Manual Clinic Contact Verification Implementation Status: READY**

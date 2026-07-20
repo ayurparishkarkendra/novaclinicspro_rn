@@ -4,7 +4,8 @@ Date: 2026-07-20
 
 Status: **FROZEN — READY FOR BOUNDED IMPLEMENTATION**
 
-Governing decision: `ADR-PF-009-CLINIC-CONTACT-VERIFICATION-EVIDENCE.md`
+Governing decisions: `ADR-PF-009-CLINIC-CONTACT-VERIFICATION-EVIDENCE.md` and
+`ADR-PF-010-MANUAL-CLINIC-CONTACT-VERIFICATION.md`
 
 ## Purpose
 
@@ -65,15 +66,47 @@ integration/application port convention; its exact path is `UNKNOWN` pending a
 fresh convention audit. It may accept transient normalized destination data and
 return only safe correlation/method information.
 
-FastAPI issuance, challenge-completion, callback, or administrative-verification
-transport paths are `UNKNOWN`. They may not be created until a concrete method
-is separately approved and its authenticated caller, rate limits, callback
-authentication, request/response schema, and secret-handling boundary are
-documented. Internal service tests may use a deterministic fake provider.
+ADR-PF-010 approves only `manual_platform_authority_v1`. The implementation may
+add the smallest FastAPI transport following existing platform router/schema/
+dependency conventions:
 
-This `UNKNOWN` transport placement does not block implementing persistence,
-ports, lifecycle policy, and trusted internal service boundaries. It does block
-declaring an end-to-end email/mobile provider flow deployable.
+- organization-authorized email/mobile evidence request;
+- requester-safe evidence status;
+- platform-authority pending list/read only if operational review requires it;
+- platform-authority approve, reject, and revoke;
+- explicit platform-capability authorization that does not inherit the generic
+  `is_org_admin` bypass.
+
+The requester is an active Organization Owner or Organization Administrator.
+The decision maker is an authenticated, independent Platform Operations or
+Platform Security principal explicitly granted
+`platform.clinic_contact_verification.approve`. Organization and tenant roles,
+ordinary clients, the requester, destination-organization members, and platform
+administrators lacking that capability are rejected.
+
+Public callbacks, challenge transport, email/SMS delivery, OTP, and external
+providers remain unauthorized. Internal service tests may continue to use a
+deterministic fake provider; it is not deployable transport.
+
+No new table or migration is authorized. If current persistence cannot record
+the ADR-PF-010 verifier, reason category, method/version, outcome, and optional
+safe external reference without schema change, implementation must stop and
+report that exact gap.
+
+## Authorized Manual Transport Files
+
+After a fresh convention audit, implementation may extend the existing contact
+verification service, its port/repository only where existing lifecycle methods
+require it, existing organization audit/idempotency composition, existing
+authentication/permission definitions, router registration, and unit of work.
+It may create one focused contact-verification schema module, router module, and
+dependency module under the repository's current FastAPI conventions, plus
+focused tests. It must reuse all existing evidence persistence and normalization.
+
+The explicit platform capability may be added to the central permission catalog
+and an accountable platform role mapping. It must be evaluated through a new or
+extended non-bypassable platform-capability dependency; changing generic RBAC
+bypass semantics repository-wide is not authorized.
 
 ## Typed Errors
 
@@ -125,6 +158,19 @@ Focused tests under `tests/` must cover:
 - focused Ruff, compileall, Pytest, Alembic heads/current/upgrade/downgrade, and
   `git diff --check`.
 
+ADR-PF-010 additionally requires:
+
+- active Organization Owner/Administrator may request pending evidence;
+- organization user, Clinic Administrator, and requester cannot approve;
+- explicitly permitted independent platform verifier may approve;
+- `is_org_admin` without the explicit capability is rejected;
+- dual-role/self-approval and wrong-organization/contact decisions are rejected;
+- approve, reject, revoke, expiry, consumption, concurrent decisions, and
+  idempotent replay have one authoritative outcome;
+- audit includes requester, verifier, safe reason category, method, and outcome;
+- no raw reference/contact/fingerprint/secret leaks through review transport;
+- Clinic Entry consumes only evidence approved under the accepted method.
+
 Real PostgreSQL verification is required for row locks, uniqueness, concurrent
 consumption, and rollback before the prerequisite is complete.
 
@@ -147,10 +193,11 @@ consumption, and rollback before the prerequisite is complete.
 
 ## Completion Gate
 
-The implementation checkpoint is complete only when the model/migration,
-repository, lifecycle service, safe fake-provider boundary, typed errors,
-transaction integration, and all focused tests pass. A separately approved
-concrete provider is still required before real email/mobile evidence can be
-issued in production.
+The manual transport checkpoint is complete only when the existing model,
+repository, lifecycle service, explicit non-bypassable platform capability,
+request/review/status transport, typed errors, audit/idempotency/transaction
+integration, and all focused tests pass. No provider is required for the
+approved manual method. Any automated email/mobile verification remains blocked
+until its provider adapter is separately approved.
 
-Clinic Contact Verification Implementation Planning Status: **READY**
+Manual Clinic Contact Verification Implementation Status: **READY**
