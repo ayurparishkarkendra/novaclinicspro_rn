@@ -55,7 +55,7 @@ Every recursively discovered dependency is classified exactly once.
 | D10 | Single-clinic effective-tenant calculation in Clinic Entry result | IMPLEMENTED | `ClinicEntryService` returns the sole active association as `effectiveTenantId`. | Nothing |
 | D11 | Refreshed single-clinic effective-tenant projection | MISSING_IMPLEMENTATION | `/auth/me` trusts JWT `tenant_id` and does not recalculate from current membership truth. | Frontend orchestration |
 | D12 | Multiple-clinic `selectionRequired` projection | MISSING_IMPLEMENTATION | Approved policy exists; no backend response exposes the required flag. | Frontend orchestration |
-| D13 | Effective-tenant selection command/transport | MISSING_DOCUMENTATION | Contracts require an approved selection boundary but do not fix endpoint, server persistence/session semantics, or response. | Frontend orchestration; final acceptance |
+| D13 | Effective-tenant selection command/transport | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-011 fixes endpoint, persistence, session refresh, response, lifecycle, and errors. | Frontend orchestration; final acceptance |
 | D14 | Unauthorized/stale requested-tenant rejection | MISSING_IMPLEMENTATION | No authenticated context/selection operation validates a requested tenant against the refreshed authorized set. | Frontend orchestration |
 | D15 | Existing basic `/auth/me` identity projection | IMPLEMENTED | User ID, email, JWT tenant, roles, permissions, and application status exist. | Nothing |
 | D16 | `/auth/me` organization memberships | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-002 and the remediation objective approve it; `CurrentUserResponse` has no organization field. | Frontend orchestration |
@@ -65,7 +65,7 @@ Every recursively discovered dependency is classified exactly once.
 | D20 | Session refresh as authoritative membership refresh | IMPLEMENTED_PARTIAL | Refresh mechanism exists, but backend projection is incomplete and JWT tenant can remain stale. | Frontend orchestration |
 | D21 | Platform manual-verifier permission definition | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-010 names `platform.clinic_contact_verification.approve`; central permission catalog does not contain it. | Frontend orchestration |
 | D22 | Non-bypassable platform-capability dependency | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-010 prohibits `is_org_admin` bypass; current generic permission dependencies explicitly bypass. | Frontend orchestration |
-| D23 | Accountable platform-role/capability assignment source | MISSING_DOCUMENTATION | ADR-PF-010 names the capability but not its authoritative persistence/claim assignment and revocation mechanism. | Manual transport; frontend orchestration |
+| D23 | Accountable platform-role/capability assignment source | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-012 fixes database assignment, Platform Security ownership, bootstrap, revocation, and non-bypassable evaluation. | Manual transport; frontend orchestration |
 | D24 | Contact-verification persistence | IMPLEMENTED | `org_contact_verifications` and migration `20260720_150000` exist. | Nothing |
 | D25 | Contact evidence repository with locked lookup | IMPLEMENTED | Repository/port support hash lookup, add, and lifecycle locking. | Nothing |
 | D26 | Contact evidence issuance service | IMPLEMENTED | Service authorizes organization actor, normalizes/fingerprints, creates opaque pending evidence, and audits. | Nothing |
@@ -89,7 +89,7 @@ Every recursively discovered dependency is classified exactly once.
 | D44 | Ownership request endpoint | MISSING_IMPLEMENTATION | No safe FastAPI transport issues an ownership request. | Frontend orchestration |
 | D45 | Ownership approve/reject/revoke endpoint | MISSING_IMPLEMENTATION | Service has approve/revoke but no transport; reject transport/service operation is incomplete. | Frontend orchestration |
 | D46 | Ownership safe-status endpoint | MISSING_IMPLEMENTATION | No requester/approver status projection exists. | Frontend orchestration |
-| D47 | Authorized non-enumerating target-clinic context | MISSING_DOCUMENTATION | ADR-PF-003 requires an exact tenant reference from an authorized non-public context; no approved source/route/UI handoff is defined. | Frontend orchestration |
+| D47 | Authorized non-enumerating target-clinic context | DOCUMENTED_NOT_IMPLEMENTED | ADR-PF-013 fixes approver-authorized context, opaque target issuance, binding, safe handoff, and no-enumeration rules. | Frontend orchestration |
 | D48 | Ownership issuance idempotency | IMPLEMENTED_PARTIAL | ADR-PF-003 requires it; current service mints a new reference on each call and does not compose organization idempotency. | Final acceptance |
 | D49 | Ownership verification audit | IMPLEMENTED | Issue/approve/expire/revoke/consume events use organization audit. | Nothing |
 | D50 | Clinic Entry create/associate DTOs and routes | IMPLEMENTED | Version 1 schemas and both organization-scoped routes are registered. | Nothing |
@@ -124,8 +124,8 @@ The 72 dependencies classify as:
 |---|---:|
 | IMPLEMENTED | 30 |
 | IMPLEMENTED_PARTIAL | 9 |
-| DOCUMENTED_NOT_IMPLEMENTED | 13 |
-| MISSING_DOCUMENTATION | 3 |
+| DOCUMENTED_NOT_IMPLEMENTED | 16 |
+| MISSING_DOCUMENTATION | 0 |
 | MISSING_IMPLEMENTATION | 12 |
 | NOT_REQUIRED_FOR_TG19 | 5 |
 
@@ -206,18 +206,12 @@ upgrade/current/downgrade policy, and refreshed authorized clinic visibility.
 Owner: Platform Architecture + Security + QA. Complexity: medium. Order: 5.
 Severity: blocks frontend orchestration handoff approval and final acceptance.
 
-## Missing-Dependency Decisions
+## Architecture Decision Status
 
-The three `MISSING_DOCUMENTATION` items are three decisions:
-
-1. Effective-tenant selection endpoint, server persistence/session semantics,
-   and response (D13).
-2. Platform manual-verifier capability assignment and revocation authority
-   (D23).
-3. Authorized non-enumerating target-clinic context for ownership requests
-   (D47).
-
-No other product or architectural decision was found necessary for TG19.
+ADR-PF-011 through ADR-PF-013 close D13, D23, and D47. There are zero
+`MISSING_DOCUMENTATION` dependencies and no remaining TG19 Platform Foundation
+product or architecture decision. All remaining gaps are bounded implementation
+or verification work.
 
 ## Dependency Graph
 
@@ -287,3 +281,17 @@ TG19; the remaining work is the already documented frontend orchestration and
 final acceptance.
 
 TG19 Frontend Orchestration Status: **NOT READY**
+
+## Architecture Closure Addendum — 2026-07-20
+
+ADR-PF-011 closes effective-tenant selection/session semantics. ADR-PF-012
+closes explicit manual-verifier capability assignment. ADR-PF-013 closes the
+non-enumerating ownership target context. Dependencies D13, D23, and D47 move
+from `MISSING_DOCUMENTATION` to `DOCUMENTED_NOT_IMPLEMENTED`; no TG19 Platform
+Foundation architecture decision remains open.
+
+`TG19-FINAL-PLATFORM-FOUNDATION-IMPLEMENTATION-PLAN.md` consolidates PF-FINAL-1
+through PF-FINAL-5 into one ordered phase. Frontend orchestration remains
+blocked until that phase and its PostgreSQL/security gate pass.
+
+TG19 Final Platform Foundation Plan Status: **READY**

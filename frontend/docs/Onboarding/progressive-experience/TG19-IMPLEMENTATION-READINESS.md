@@ -796,3 +796,22 @@ together. This audit authorizes no implementation, TG19 final acceptance, or
 TG20 work.
 
 **TG19 Frontend Orchestration Status: NOT READY**
+
+## 27. Final Platform Foundation Architecture Closure — 2026-07-20
+
+ADR-PF-011, ADR-PF-012, and ADR-PF-013 close the final effective-tenant,
+manual-capability, and ownership-target decisions identified by the dependency
+audit. `TG19-FINAL-PLATFORM-FOUNDATION-IMPLEMENTATION-PLAN.md` governs the
+remaining five-checkpoint Platform Foundation phase.
+
+No TG19 Platform Foundation product or architecture decision remains open.
+Implementation is still required for authoritative auth/clinic context,
+effective-tenant selection/session transport, manual contact verification,
+ownership target/verification transport, and cross-foundation PostgreSQL/
+security acceptance.
+
+**TG19_FINAL_PLATFORM_FOUNDATION_PLAN_READY**
+
+**TG19_FRONTEND_ORCHESTRATION_NOT_READY** — Frontend orchestration remains
+blocked until all five checkpoints are implemented, verified, committed, and
+pushed.

@@ -176,6 +176,16 @@ non-bypassable permission, typed schemas/errors, audit/idempotency composition,
 and focused tests. No provider integration, public callback, migration, Clinic
 Entry mutation change, frontend source, final acceptance, or TG20 is authorized.
 
+### Final Platform Foundation phase
+
+ADR-PF-011 through ADR-PF-013 and
+`TG19-FINAL-PLATFORM-FOUNDATION-IMPLEMENTATION-PLAN.md` govern the remaining
+authenticated-context, effective-selection, manual-capability/contact
+transport, ownership-target/transport, and cross-foundation verification work.
+That five-checkpoint phase must complete before Frontend Clinic Entry
+orchestration begins. It changes neither roadmap sequencing nor E2 product
+scope.
+
 ### Freeze rule
 
 Each phase may change only files named by this document or the Platform
