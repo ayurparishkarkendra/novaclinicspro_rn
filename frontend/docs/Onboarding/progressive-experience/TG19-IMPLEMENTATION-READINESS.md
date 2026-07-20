@@ -8,27 +8,28 @@ Epic reviewed: E2 — Clinic Entry and Bring Your Clinic
 
 Task group: TG19 — Clinic Entry and Bring Your Clinic Contract
 
-Decision: **NOT READY**
+Decision: **READY**
 
 > **Version 1 constitutional decision update — 2026-07-20:** Product
 > Architecture approved the initial Bring Your Clinic meaning, identity/contact
 > field sets, domain ownership, single/multiple-clinic selection rule,
 > duplicate/idempotency policy, and security classification. These decisions
-> close the corresponding historical blockers below. TG19 remains **NOT READY**
-> because the source audit found no authoritative organization membership model
-> or ownership-verification mechanism. The operational and implementation
-> boundaries are now documented; see §§17–18.
+> close the corresponding historical blockers below. The source-audit blockers
+> are now resolved by accepted platform-wide ADR-PF-002 and ADR-PF-003. TG19 is
+> **READY** within the exact boundary in `E2-IMPLEMENTATION-BOUNDARY.md`; see §19.
 
 ## 1. Executive Decision
 
-TG19 is **NOT READY** for implementation without architectural uncertainty.
+TG19 is **READY** for bounded implementation without unresolved architectural
+decisions.
 
-The approved Phase 2 roadmap deliberately makes TG19 a contract-first group and
-requires new accepted E2 requirements. Its stop condition requires work to stop
-while either the product meaning of Bring Your Clinic or tenant/provisioning
-ownership remains undefined. Both remain open in the authoritative documents.
+The approved Phase 2 roadmap makes TG19 contract-first. The Epic 2
+constitutional documents, operational/source audit, exact implementation
+boundary, and accepted Platform Foundation ADRs now define its product and
+architecture contracts. Earlier NOT READY findings remain below as historical
+decision evidence and are superseded by §19.
 
-Implementation is blocked until all of the following are accepted:
+The readiness decision is based on acceptance of all of the following:
 
 1. the supported clinic-entry paths and precise product meaning of Bring Your
    Clinic, including explicit non-goals;
@@ -453,7 +454,44 @@ TG19 implementation.
 
 **TG19 Implementation Status: NOT READY**
 
-## 17. Post-Audit Operational Reassessment
+## 19. Platform Foundation Decision Closure — Controlling Reassessment
+
+This section is the latest and controlling readiness decision. Historical
+`NOT READY` statements above preserve the audit trail and are superseded here.
+
+### Platform decisions accepted
+
+| Blocker | Accepted platform decision | Result |
+|---|---|---|
+| Authoritative organization identity and roles | `ADR-PF-002-ORGANIZATION-MEMBERSHIP.md` defines a stable Organization aggregate, authoritative Organization Membership, Owner/Administrator roles, Clinic Administrator as tenant-scoped RBAC, lifecycle, invitations, tenant association, authentication boundary, permissions, audit, and additive extension points. Global `is_org_admin` is explicitly not customer organization membership. | CLOSED |
+| Ownership-verification issuer and validator | `ADR-PF-003-CLINIC-OWNERSHIP-VERIFICATION.md` defines authenticated in-product approval by an active target-clinic principal with `clinic.ownership.verify`; the Platform Ownership Verification service is the sole issuer/validator; evidence binding, lifecycle, expiry, audit, retry, failure, consumption, replay, non-disclosure, and future methods are fixed. | CLOSED |
+
+### Readiness determination
+
+The new ADRs supply the two platform authorities that the source audit could not
+derive from existing code. They are platform-wide and do not redefine the E2
+journey. Combined with the five Epic 2 constitutional documents,
+`E2-OPERATIONAL-CONTRACT.md`, `E2-SOURCE-REUSE-AUDIT.md`, and
+`E2-IMPLEMENTATION-BOUNDARY.md`, TG19 can now proceed without inventing product
+behavior, organization authority, or ownership verification.
+
+TG19 implementation is allowed only through the bounded checkpoints and exact
+file/behavior/test boundary already approved in `E2-IMPLEMENTATION-BOUNDARY.md`.
+Implementation must reuse existing provisioning, auth/session, tenant RBAC,
+idempotency, error, audit, draft, theme, localization, navigation, and TG18
+assets as classified. It must not implement TG20 or broaden the platform ADRs.
+
+### Remaining gates
+
+There are no remaining product or architecture blockers to beginning TG19.
+Hindi review, manual accessibility acceptance, security acceptance, focused
+test completion, migration review, and staging/device verification remain
+checkpoint or release acceptance criteria. They do not block implementation
+from starting and cannot be skipped before the affected checkpoint/release.
+
+**TG19 Implementation Status: READY**
+
+## Appendix A. Historical Post-Audit Operational Reassessment
 
 The required source audit is recorded in:
 
@@ -497,7 +535,7 @@ blockers.
 
 **TG19 Implementation Status: NOT READY**
 
-## 18. Historical Version 1 Decision Closure and Reassessment
+## Appendix B. Historical Version 1 Decision Closure and Reassessment
 
 ### Closed constitutional blockers
 
@@ -542,3 +580,7 @@ allowed activity is a source-confirmed operational contract and boundary review,
 not TG19 code.
 
 **TG19 Implementation Status: NOT READY**
+
+The historical decision above is superseded by §19.
+
+**TG19 Implementation Status: READY**
