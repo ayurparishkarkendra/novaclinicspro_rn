@@ -815,3 +815,32 @@ security acceptance.
 **TG19_FRONTEND_ORCHESTRATION_NOT_READY** — Frontend orchestration remains
 blocked until all five checkpoints are implemented, verified, committed, and
 pushed.
+
+## 28. Manual Verification Decision Provenance Persistence — 2026-07-20
+
+This section is the latest controlling readiness decision for TG19 Final
+Platform Foundation Checkpoint 3.
+
+Source audit confirmed that implemented `org_contact_verifications` persistence
+cannot retain the ADR-PF-010 authoritative verifier, safe decision reason,
+distinct optional operational reference, or decision timestamp. Platform Audit
+alone is insufficient because the evidence record must retain its own decision
+provenance through validation, consumption, revocation, and review.
+
+ADR-PF-016 authorizes the smallest additive correction: nullable
+`decision_principal_id`, `decision_reason_code`,
+`decision_external_reference`, and `decision_at`; one verifier foreign key; no
+backfill; no destructive rewrite; and legacy classification as
+`LEGACY_DECISION_PROVENANCE_UNKNOWN`.
+
+**MANUAL_VERIFICATION_DECISION_PERSISTENCE_READY_FOR_IMPLEMENTATION** — The
+model, migration, repository, lifecycle, security, transaction, audit, legacy,
+and focused-test boundary is approved. No additional product or architecture
+decision is required for this persistence checkpoint.
+
+**CHECKPOINT_3_BLOCKED** — Manual Contact Verification Capability & Transport
+must not resume until the ADR-PF-016 persistence extension is implemented,
+verified on PostgreSQL, committed, and pushed. Checkpoint 4, Checkpoint 5,
+frontend orchestration, TG19 acceptance, and TG20 remain unauthorized.
+
+**Manual Verification Provenance Implementation Status: READY**

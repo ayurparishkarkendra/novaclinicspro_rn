@@ -4,8 +4,9 @@ Date: 2026-07-20
 
 Status: **FROZEN — READY FOR BOUNDED IMPLEMENTATION**
 
-Governing decisions: `ADR-PF-009-CLINIC-CONTACT-VERIFICATION-EVIDENCE.md` and
-`ADR-PF-010-MANUAL-CLINIC-CONTACT-VERIFICATION.md`
+Governing decisions: `ADR-PF-009-CLINIC-CONTACT-VERIFICATION-EVIDENCE.md`,
+`ADR-PF-010-MANUAL-CLINIC-CONTACT-VERIFICATION.md`, and
+`ADR-PF-016-MANUAL-VERIFICATION-DECISION-PROVENANCE.md`
 
 ## Purpose
 
@@ -88,10 +89,20 @@ Public callbacks, challenge transport, email/SMS delivery, OTP, and external
 providers remain unauthorized. Internal service tests may continue to use a
 deterministic fake provider; it is not deployable transport.
 
-No new table or migration is authorized. If current persistence cannot record
-the ADR-PF-010 verifier, reason category, method/version, outcome, and optional
-safe external reference without schema change, implementation must stop and
-report that exact gap.
+ADR-PF-016 authorizes one additive migration on the existing
+`org_contact_verifications` table because source evidence confirmed that the
+implemented persistence cannot retain the ADR-PF-010 verifier, reason category,
+distinct safe external reference, and decision timestamp. The migration may add
+only nullable `decision_principal_id`, `decision_reason_code`,
+`decision_external_reference`, and `decision_at`, plus the approved verifier
+foreign key and structurally safe legacy-compatible constraints. It performs no
+backfill and creates no new table or index without demonstrated query evidence.
+
+Existing rows remain valid as `LEGACY_DECISION_PROVENANCE_UNKNOWN`. The
+repository and lifecycle service may be extended only to persist, safely read,
+and prevent mutation of the approved decision provenance. Platform capability
+enforcement remains separate from persistence. No further schema change is
+authorized; any additional persistence need is a stop condition.
 
 ## Authorized Manual Transport Files
 
@@ -193,7 +204,8 @@ consumption, and rollback before the prerequisite is complete.
 
 ## Completion Gate
 
-The manual transport checkpoint is complete only when the existing model,
+The manual transport checkpoint is complete only when the ADR-PF-016 additive
+persistence extension and the existing model,
 repository, lifecycle service, explicit non-bypassable platform capability,
 request/review/status transport, typed errors, audit/idempotency/transaction
 integration, and all focused tests pass. No provider is required for the

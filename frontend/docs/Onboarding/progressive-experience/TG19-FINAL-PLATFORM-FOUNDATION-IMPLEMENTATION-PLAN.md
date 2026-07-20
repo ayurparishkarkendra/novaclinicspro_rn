@@ -83,7 +83,9 @@ boundary. Frontend remains untouched. Commit
 ## Checkpoint 3 — Manual Contact Verification Capability and Transport
 
 **Objective/dependencies:** Implement ADR-PF-010/012 using ADR-PF-009 evidence,
-audit, idempotency, organization authorization, and UOW.
+ADR-PF-016 decision provenance, audit, idempotency, organization authorization,
+and UOW. Checkpoint 3 remains paused until the bounded ADR-PF-016 persistence
+extension is implemented, verified, committed, and pushed.
 
 **Allowed backend areas:** one platform-capability assignment model, port,
 adapter, application service, and additive migration; registrations/exports;
@@ -91,8 +93,11 @@ central permission codes only for the two named capabilities; existing contact
 service/port/repository; one focused schema/router/dependency family and router
 registration; focused tests.
 
-**Persistence:** create only `org_platform_capability_assignments`. Manual
-decision evidence reuses `org_audit_logs`; contact schema is unchanged.
+**Persistence:** reuse `org_platform_capability_assignments`; add only the
+ADR-PF-016-authorized nullable decision-provenance fields to the existing
+`org_contact_verifications` table through one additive migration. Manual
+platform-authority decisions use immutable Platform Audit; no other contact
+schema change is authorized.
 
 **Endpoints:** organization Owner/Admin contact request and requester-safe
 status; platform-authority pending list/read and approve/reject/revoke; Platform
