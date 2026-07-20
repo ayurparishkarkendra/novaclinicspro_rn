@@ -591,6 +591,35 @@
         "preparingSampleClinic": "Preparing your sample clinic...",
         "sampleError": "Unable to create sample clinic. Please try again."
       },
+      "clinicEntry": {
+        "loading": "Loading clinic entry options...",
+        "loadError": "Clinic entry options could not be loaded. Please try again.",
+        "empty": "Clinic entry is unavailable because the application context could not be resolved.",
+        "approvedTitle": "Application approved",
+        "question": "How would you like to add your clinic?",
+        "questionHint": "Choose the path that matches your clinic. Selecting a path does not create or connect a clinic.",
+        "selectionHeading": "Selected clinic path",
+        "selectionPrompt": "Select one clinic path to review its requirements.",
+        "authoritativeHandoff": "Nova continues only after the platform confirms an authorized effective clinic. Multiple clinics require an explicit selection.",
+        "newClinic": {
+          "title": "Create a new clinic",
+          "description": "Use this path when this clinic does not yet exist in Nova.",
+          "badge": "NEW CLINIC",
+          "identity": "Confirm clinic name and business address",
+          "contact": "Provide a primary contact and verified email or mobile",
+          "specialty": "Choose a clinic type or specialty without limiting future specialties",
+          "validation": "Required identity and contact details are validated before Nova can create and associate a clinic. This presentation does not provision a tenant."
+        },
+        "bringYourClinic": {
+          "title": "Bring your clinic",
+          "description": "Use this path to connect an existing Nova-managed clinic to your organization.",
+          "badge": "EXISTING NOVA CLINIC",
+          "novaManaged": "The clinic must already be managed in Nova",
+          "approval": "An authorized clinic administrator must approve ownership",
+          "noImport": "No records, external databases, or clinical data are imported",
+          "validation": "Nova requires authenticated ownership approval before an existing clinic can be associated. Selecting this path is not ownership verification."
+        }
+      },
       "statusBanner": {
         "commercialTrialEnded": "Access Paused",
         "trialEndedMessage": "Your clinic data is safely stored. Review subscription options to continue using Nova.",

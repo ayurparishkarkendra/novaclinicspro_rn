@@ -1,35 +1,111 @@
-/**
- * ChoiceScreen
- * Allows users to start clinic preparation or explore a sample clinic after approval
- */
-
-import React, { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
-import { useAuth } from '../../../../features/auth/presentation/hooks/useAuth';
-import { authRepository } from '../../../../features/auth/data/repositories/auth.repository.impl';
-import { useApplicationDetailQuery, useCreateDemoTenantMutation } from '../../data/repositories/onboarding.repository.impl';
-import { useOnboardingStore } from '../providers/onboarding.store';
-import { LoadingScreen } from '../components/LoadingScreen';
-import { ErrorScreen } from '../components/ErrorScreen';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import { useTranslation } from '../../../../core/localization/useTranslation';
+import { ClinicTheme, useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useAuth } from '../../../auth/presentation/hooks/useAuth';
+import { useApplicationDetailQuery } from '../../data/repositories/onboarding.repository.impl';
+import {
+  buildClinicEntryViewModel,
+  ClinicEntryPathId,
+  ClinicEntryPathViewModel,
+} from '../../domain/usecases/build-clinic-entry-view-model.usecase';
+import { ErrorScreen } from '../components/ErrorScreen';
+import { LoadingScreen } from '../components/LoadingScreen';
+import { useOnboardingStore } from '../providers/onboarding.store';
+
+interface ClinicEntryPathCardProps {
+  path: ClinicEntryPathViewModel;
+  selected: boolean;
+  onSelect: (pathId: ClinicEntryPathId) => void;
+  theme: ClinicTheme;
+  t: (key: string) => string;
+}
+
+const ClinicEntryPathCard = ({
+  path,
+  selected,
+  onSelect,
+  theme,
+  t,
+}: ClinicEntryPathCardProps) => {
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const title = t(path.titleKey);
+  const description = t(path.descriptionKey);
+
+  return (
+    <TouchableOpacity
+      testID={`clinic-entry-path-${path.id}`}
+      style={[styles.pathCard, selected && styles.pathCardSelected]}
+      onPress={() => onSelect(path.id)}
+      accessible
+      accessibilityRole="radio"
+      accessibilityLabel={title}
+      accessibilityHint={description}
+      accessibilityState={{ checked: selected }}
+    >
+      <View style={styles.pathHeader}>
+        <Ionicons
+          name={path.iconToken}
+          size={theme.spacing.xl}
+          color={selected ? theme.colors.primary.default : theme.colors.text.secondary}
+        />
+        <View style={styles.pathHeading}>
+          <Text style={styles.pathTitle}>{title}</Text>
+          <Text style={styles.pathBadge}>{t(path.badgeKey)}</Text>
+        </View>
+        <Ionicons
+          name={selected ? 'radio-button-on' : 'radio-button-off'}
+          size={theme.spacing.lg}
+          color={selected ? theme.colors.primary.default : theme.colors.text.tertiary}
+        />
+      </View>
+      <Text style={styles.pathDescription}>{description}</Text>
+      <View style={styles.featureList}>
+        {path.featureKeys.map((featureKey) => (
+          <View key={featureKey} style={styles.featureRow}>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={theme.spacing.md}
+              color={theme.colors.feedback.success}
+            />
+            <Text style={styles.featureText}>{t(featureKey)}</Text>
+          </View>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export function ChoiceScreen() {
   const theme = useClinicTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { t } = useTranslation();
   const router = useRouter();
   const { applicationId } = useLocalSearchParams<{ applicationId: string }>();
-  const { setCurrentApplicationId, setIsSubmitting, isSubmitting } = useOnboardingStore();
-  const { refreshSession, currentUser } = useAuth();
+  const { setCurrentApplicationId } = useOnboardingStore();
+  const { currentUser } = useAuth();
+  const [selectedPathId, setSelectedPathId] = useState<ClinicEntryPathId | null>(null);
 
   const { data: application, isLoading, error, refetch } = useApplicationDetailQuery(
     applicationId || '',
-    { enabled: !!applicationId }
+    { enabled: Boolean(applicationId) }
   );
 
-  const createDemoMutation = useCreateDemoTenantMutation();
+  const viewModel = useMemo(
+    () =>
+      application
+        ? buildClinicEntryViewModel({ tenantName: application.tenant_name })
+        : null,
+    [application]
+  );
+
+  const selectedPath = useMemo(
+    () => viewModel?.paths.find((path) => path.id === selectedPathId) ?? null,
+    [selectedPathId, viewModel]
+  );
 
   useEffect(() => {
     if (applicationId) {
@@ -37,358 +113,101 @@ export function ChoiceScreen() {
     }
   }, [applicationId, setCurrentApplicationId]);
 
-  // CRITICAL: If user has application_status === 'onboarding', redirect to wizard immediately
-  // Do not show the choice page when the clinic preparation flow is already active
   useEffect(() => {
     if (currentUser?.applicationStatus === 'onboarding') {
-      console.log('[ChoiceScreen] User has onboarding status, redirecting to wizard');
       router.replace('/onboarding/wizard-flow');
     }
   }, [currentUser, router]);
 
-  const handleStartDemo = async () => {
-    if (!applicationId) return;
-
-    try {
-      setIsSubmitting(true);
-      const demoResult = await createDemoMutation.mutateAsync({ application_id: applicationId });
-      
-      console.log('[ChoiceScreen] Demo created:', demoResult);
-      
-      const durationDays = demoResult.duration_days || 7;
-      const tenantId = demoResult.tenant_id || demoResult.demo_tenant_id;
-      
-      console.log('[ChoiceScreen] Tenant ID from demo response:', tenantId);
-      
-      // CRITICAL: Backend has updated Supabase metadata, now refresh JWT to get tenant_id
-      console.log('[ChoiceScreen] Refreshing session to get updated JWT with tenant_id...');
-      
-      try {
-        await refreshSession();
-        console.log('[ChoiceScreen] Session refreshed successfully');
-        
-        // Additional delay to ensure axios interceptor gets the new token
-        console.log('[ChoiceScreen] Waiting for token to be available in all API clients...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Verify token has tenant_id
-        const userSession = await authRepository.getCurrentUser();
-        console.log('[ChoiceScreen] User session after refresh:', {
-          tenantId: userSession.tenantId,
-          email: userSession.email,
-        });
-        
-        if (userSession.tenantId) {
-          console.log('[ChoiceScreen] ✅ Token has tenant_id, API calls will work');
-        } else {
-          console.warn('[ChoiceScreen] ⚠️ Token still missing tenant_id, using X-Tenant-ID header workaround');
-        }
-      } catch (refreshError) {
-        console.error('[ChoiceScreen] Token refresh failed:', refreshError);
-        console.warn('[ChoiceScreen] Continuing with X-Tenant-ID header workaround');
-      }
-      
-      // Show success message and navigate
-      Alert.alert(
-        t('onboarding.progressiveExperience.choice.sampleClinicReadyTitle'),
-        t('onboarding.progressiveExperience.choice.sampleClinicReadyMessage', { durationDays }),
-        [
-          {
-            text: t('onboarding.progressiveExperience.choice.exploreSampleClinic'),
-            onPress: () => {
-              console.log('[ChoiceScreen] Navigating to setup wizard with tenant:', tenantId);
-              router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('[ChoiceScreen] Error in handleStartDemo:', error);
-      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.choice.sampleError'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSetupWizard = async () => {
-    if (!applicationId) return;
-
-    try {
-      setIsSubmitting(true);
-      
-      // Create demo tenant first (required since direct setup not implemented)
-      const demoResult = await createDemoMutation.mutateAsync({ application_id: applicationId });
-      
-      console.log('[ChoiceScreen] Demo created for setup:', demoResult);
-      
-      const tenantId = demoResult.tenant_id || demoResult.demo_tenant_id;
-      
-      // CRITICAL: Backend has updated Supabase metadata, now refresh JWT to get tenant_id
-      console.log('[ChoiceScreen] Refreshing session to get updated JWT with tenant_id...');
-      
-      try {
-        await refreshSession();
-        console.log('[ChoiceScreen] Session refreshed successfully');
-        
-        // Additional delay to ensure axios interceptor gets the new token
-        console.log('[ChoiceScreen] Waiting for token to be available in all API clients...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Verify token has tenant_id
-        const userSession = await authRepository.getCurrentUser();
-        console.log('[ChoiceScreen] User session after refresh:', {
-          tenantId: userSession.tenantId,
-          email: userSession.email,
-        });
-        
-        if (userSession.tenantId) {
-          console.log('[ChoiceScreen] ✅ Token has tenant_id, API calls will work');
-        } else {
-          console.warn('[ChoiceScreen] ⚠️ Token still missing tenant_id, using X-Tenant-ID header workaround');
-        }
-      } catch (refreshError) {
-        console.error('[ChoiceScreen] Token refresh failed:', refreshError);
-        console.warn('[ChoiceScreen] Continuing with X-Tenant-ID header workaround');
-      }
-      
-      console.log('[ChoiceScreen] Navigating to setup wizard with tenant:', tenantId);
-      
-      // Navigate directly to setup wizard
-      router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
-    } catch (error: any) {
-      console.error('[ChoiceScreen] Error in handleSetupWizard:', error);
-      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.choice.startError'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (!applicationId) {
+    return <ErrorScreen message={t('onboarding.progressiveExperience.clinicEntry.empty')} />;
+  }
 
   if (isLoading) {
-    return <LoadingScreen message="Loading..." />;
+    return <LoadingScreen message={t('onboarding.progressiveExperience.clinicEntry.loading')} />;
   }
 
   if (error) {
-    return <ErrorScreen message={error.message} onRetry={refetch} />;
+    return (
+      <ErrorScreen
+        message={t('onboarding.progressiveExperience.clinicEntry.loadError')}
+        onRetry={refetch}
+      />
+    );
   }
 
-  if (!application) {
-    return <ErrorScreen message="Application not found" />;
+  if (!application || !viewModel) {
+    return <ErrorScreen message={t('onboarding.progressiveExperience.clinicEntry.empty')} />;
   }
 
   return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme.colors.background.default }]}
-      contentContainerStyle={{ padding: theme.spacing.lg }}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
     >
-      <View style={[styles.header, { marginBottom: theme.spacing.xl }]}>
-        <Ionicons 
-          name="checkmark-circle" 
-          size={80} 
-          color={theme.colors.feedback.success} 
+      <View style={styles.header} accessible accessibilityRole="header">
+        <Ionicons
+          name="checkmark-circle"
+          size={theme.spacing.xxl}
+          color={theme.colors.feedback.success}
         />
-        <Text style={[
-          theme.typography.h3, 
-          { 
-            color: theme.colors.text.primary,
-            marginTop: theme.spacing.md,
-            textAlign: 'center' 
-          }
-        ]}>
-          Application Approved!
+        <Text style={styles.approvedTitle}>
+          {t('onboarding.progressiveExperience.clinicEntry.approvedTitle')}
         </Text>
-        <Text style={[
-          theme.typography.body1, 
-          { 
-            color: theme.colors.text.secondary,
-            marginTop: theme.spacing.sm,
-            textAlign: 'center' 
-          }
-        ]}>
-          {application.tenant_name}
+        <Text style={styles.clinicName}>{viewModel.clinicDisplayName}</Text>
+      </View>
+
+      <View style={styles.introduction}>
+        <Text style={styles.question} accessibilityRole="header">
+          {t('onboarding.progressiveExperience.clinicEntry.question')}
+        </Text>
+        <Text style={styles.questionHint}>
+          {t('onboarding.progressiveExperience.clinicEntry.questionHint')}
         </Text>
       </View>
 
-      <Text style={[
-        theme.typography.h5, 
-        { 
-          color: theme.colors.text.primary,
-          marginBottom: theme.spacing.lg,
-          textAlign: 'center' 
-        }
-      ]}>
-        {t('onboarding.progressiveExperience.choice.question')}
-      </Text>
+      <View accessibilityRole="radiogroup">
+        {viewModel.paths.map((path) => (
+          <ClinicEntryPathCard
+            key={path.id}
+            path={path}
+            selected={path.id === selectedPathId}
+            onSelect={setSelectedPathId}
+            theme={theme}
+            t={t}
+          />
+        ))}
+      </View>
 
-      {/* Option 1: Prepare Clinic */}
-      <TouchableOpacity
-        style={[
-          styles.optionCard,
-          {
-            backgroundColor: theme.colors.surface.default,
-            padding: theme.spacing.lg,
-            marginBottom: theme.spacing.md,
-            borderRadius: 12,
-            borderWidth: 2,
-            borderColor: theme.colors.primary.default,
-          }
-        ]}
-        onPress={handleSetupWizard}
-        disabled={isSubmitting}
-      >
-        <View style={[styles.optionHeader, { marginBottom: theme.spacing.sm }]}>
-          <Ionicons name="rocket" size={32} color={theme.colors.primary.default} />
-          <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
-            <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-              {t('onboarding.progressiveExperience.choice.prepareMyClinic')}
-            </Text>
-            <Text style={[
-              theme.typography.caption, 
-              { 
-                color: theme.colors.primary.default,
-                fontWeight: '600' 
-              }
-            ]}>
-              {t('onboarding.progressiveExperience.choice.recommended')}
-            </Text>
-          </View>
-        </View>
-        <Text style={[
-          theme.typography.body2, 
-          { 
-            color: theme.colors.text.secondary,
-            marginBottom: theme.spacing.sm 
-          }
-        ]}>
-          {t('onboarding.progressiveExperience.choice.prepareDescription')}
-        </Text>
-        <View style={styles.featureList}>
-          <View style={[styles.featureItem, { marginBottom: 4 }]}>
-            <Ionicons name="checkmark" size={16} color={theme.colors.feedback.success} />
-            <Text style={[
-              theme.typography.caption, 
-              { 
-                color: theme.colors.text.secondary,
-                marginLeft: 8 
-              }
-            ]}>
-              {t('onboarding.progressiveExperience.choice.realWorkspace')}
-            </Text>
-          </View>
-          <View style={[styles.featureItem, { marginBottom: 4 }]}>
-            <Ionicons name="checkmark" size={16} color={theme.colors.feedback.success} />
-            <Text style={[
-              theme.typography.caption, 
-              { 
-                color: theme.colors.text.secondary,
-                marginLeft: 8 
-              }
-            ]}>
-              {t('onboarding.progressiveExperience.choice.reviewBeforeStart')}
-            </Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="checkmark" size={16} color={theme.colors.feedback.success} />
-            <Text style={[
-              theme.typography.caption, 
-              { 
-                color: theme.colors.text.secondary,
-                marginLeft: 8 
-              }
-            ]}>
-              {t('onboarding.progressiveExperience.choice.readyForOperations')}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* Option 2: Sample Clinic - Hidden when application_status is 'onboarding' */}
-      {currentUser?.applicationStatus !== 'onboarding' && (
-        <TouchableOpacity
-          style={[
-            styles.optionCard,
-            {
-              backgroundColor: theme.colors.surface.default,
-              padding: theme.spacing.lg,
-              marginBottom: theme.spacing.xl,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: theme.colors.border.default,
-            }
-          ]}
-          onPress={handleStartDemo}
-          disabled={isSubmitting}
+      {selectedPath ? (
+        <View
+          testID="clinic-entry-selection-summary"
+          style={styles.selectionSummary}
+          accessible
+          accessibilityRole="summary"
+          accessibilityLiveRegion="polite"
         >
-          <View style={[styles.optionHeader, { marginBottom: theme.spacing.sm }]}>
-            <Ionicons name="flask" size={32} color={theme.colors.secondary.default} />
-            <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
-              <Text style={[theme.typography.h6, { color: theme.colors.text.primary }]}>
-                {t('onboarding.progressiveExperience.choice.exploreSampleClinic')}
-              </Text>
-              <Text style={[
-                theme.typography.caption, 
-                { 
-                  color: theme.colors.secondary.default,
-                  fontWeight: '600' 
-                }
-              ]}>
-                {t('onboarding.progressiveExperience.choice.exploreFeatures')}
-              </Text>
-            </View>
-          </View>
-          <Text style={[
-            theme.typography.body2, 
-            { 
-              color: theme.colors.text.secondary,
-              marginBottom: theme.spacing.sm 
-            }
-          ]}>
-            {t('onboarding.progressiveExperience.choice.sampleDescription')}
+          <Text style={styles.selectionTitle}>
+            {t('onboarding.progressiveExperience.clinicEntry.selectionHeading')}
           </Text>
-          <View style={styles.featureList}>
-            <View style={[styles.featureItem, { marginBottom: 4 }]}>
-              <Ionicons name="time" size={16} color={theme.colors.feedback.warning} />
-              <Text style={[
-                theme.typography.caption, 
-                { 
-                  color: theme.colors.text.secondary,
-                  marginLeft: 8 
-                }
-              ]}>
-                {t('onboarding.progressiveExperience.choice.sampleAccess')}
-              </Text>
-            </View>
-            <View style={[styles.featureItem, { marginBottom: 4 }]}>
-              <Ionicons name="eye" size={16} color={theme.colors.secondary.default} />
-              <Text style={[
-                theme.typography.caption, 
-                { 
-                  color: theme.colors.text.secondary,
-                  marginLeft: 8 
-                }
-              ]}>
-                {t('onboarding.progressiveExperience.choice.guidedWalkthrough')}
-              </Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="swap-horizontal" size={16} color={theme.colors.secondary.default} />
-              <Text style={[
-                theme.typography.caption, 
-                { 
-                  color: theme.colors.text.secondary,
-                  marginLeft: 8 
-                }
-              ]}>
-                {t('onboarding.progressiveExperience.choice.realClinicSeparate')}
-              </Text>
-            </View>
+          <Text style={styles.selectionPath}>{t(selectedPath.titleKey)}</Text>
+          <Text style={styles.validationText}>{t(selectedPath.validationKey)}</Text>
+          <View style={styles.handoffRow}>
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={theme.spacing.md}
+              color={theme.colors.feedback.info}
+            />
+            <Text style={styles.handoffText}>
+              {t('onboarding.progressiveExperience.clinicEntry.authoritativeHandoff')}
+            </Text>
           </View>
-        </TouchableOpacity>
-      )}
-
-      {isSubmitting && (
-        <View style={[styles.loadingOverlay, { marginTop: theme.spacing.md }]}>
-          <Text style={[theme.typography.body2, { color: theme.colors.text.secondary }]}>
-            {t('onboarding.progressiveExperience.choice.preparingSampleClinic')}
+        </View>
+      ) : (
+        <View style={styles.selectionPrompt} accessible accessibilityRole="summary">
+          <Text style={styles.selectionPromptText}>
+            {t('onboarding.progressiveExperience.clinicEntry.selectionPrompt')}
           </Text>
         </View>
       )}
@@ -396,28 +215,137 @@ export function ChoiceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    alignItems: 'center',
-  },
-  optionCard: {
-    // Styles set inline with theme
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureList: {
-    // Container for features
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadingOverlay: {
-    alignItems: 'center',
-  },
-});
+const createStyles = (theme: ClinicTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background.default,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+      paddingBottom: theme.spacing.xxl,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    approvedTitle: {
+      ...theme.typography.h3,
+      color: theme.colors.text.primary,
+      marginTop: theme.spacing.md,
+      textAlign: 'center',
+    },
+    clinicName: {
+      ...theme.typography.body1,
+      color: theme.colors.text.secondary,
+      marginTop: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    introduction: {
+      marginBottom: theme.spacing.lg,
+    },
+    question: {
+      ...theme.typography.h5,
+      color: theme.colors.text.primary,
+      textAlign: 'center',
+    },
+    questionHint: {
+      ...theme.typography.body2,
+      color: theme.colors.text.secondary,
+      marginTop: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    pathCard: {
+      minHeight: theme.spacing.xxl,
+      backgroundColor: theme.colors.surface.default,
+      borderColor: theme.colors.border.default,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: theme.spacing.sm,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    pathCardSelected: {
+      backgroundColor: theme.colors.primary.soft,
+      borderColor: theme.colors.primary.default,
+    },
+    pathHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    pathHeading: {
+      flex: 1,
+      marginHorizontal: theme.spacing.md,
+    },
+    pathTitle: {
+      ...theme.typography.h6,
+      color: theme.colors.text.primary,
+    },
+    pathBadge: {
+      ...theme.typography.caption,
+      color: theme.colors.primary.default,
+      marginTop: theme.spacing.xs,
+    },
+    pathDescription: {
+      ...theme.typography.body2,
+      color: theme.colors.text.secondary,
+      marginTop: theme.spacing.md,
+    },
+    featureList: {
+      marginTop: theme.spacing.md,
+    },
+    featureRow: {
+      minHeight: theme.spacing.xl,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    featureText: {
+      ...theme.typography.caption,
+      color: theme.colors.text.secondary,
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+    },
+    selectionSummary: {
+      backgroundColor: theme.colors.feedback.infoLight,
+      borderColor: theme.colors.feedback.info,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: theme.spacing.sm,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+    },
+    selectionTitle: {
+      ...theme.typography.caption,
+      color: theme.colors.text.secondary,
+    },
+    selectionPath: {
+      ...theme.typography.h6,
+      color: theme.colors.text.primary,
+      marginTop: theme.spacing.xs,
+    },
+    validationText: {
+      ...theme.typography.body2,
+      color: theme.colors.text.secondary,
+      marginTop: theme.spacing.sm,
+    },
+    handoffRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginTop: theme.spacing.md,
+    },
+    handoffText: {
+      ...theme.typography.caption,
+      color: theme.colors.text.secondary,
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+    },
+    selectionPrompt: {
+      minHeight: theme.spacing.xxl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: theme.spacing.sm,
+    },
+    selectionPromptText: {
+      ...theme.typography.body2,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+  });
