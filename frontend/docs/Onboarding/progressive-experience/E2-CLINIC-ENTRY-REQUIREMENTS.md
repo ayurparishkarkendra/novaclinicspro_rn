@@ -2,7 +2,41 @@
 
 Date: 2026-07-20
 
-Status: Constitutional planning; product decisions remain open
+Status: Version 1 product decisions approved; implementation prerequisites remain open
+
+## Version 1 Approved Decision Register
+
+This register is additive and controlling. Any earlier `OPEN DECISION` in this
+document that conflicts with a row marked `CONFIRMED` below is superseded and
+closed. Unlisted implementation detail remains `OPEN DECISION`.
+
+| Classification | Area | Version 1 decision |
+|---|---|---|
+| CONFIRMED | Bring Your Clinic | An authenticated Organization Owner or authorized Organization Admin may connect an existing Nova-managed clinic to their organization after successful ownership verification. |
+| OUT OF SCOPE | Bring Your Clinic non-goals | Data migration, EMR migration, another vendor's database import, bulk data import, and tenant claiming without verification. Future meanings require roadmap approval. |
+| CONFIRMED | Required Minimum Set (Version 1) | Clinic Name; Clinic Address; Primary Contact Number; Verified Email or Mobile; Clinic Type / Specialty. |
+| CONFIRMED | Optional Initial Set (Version 1) | GST; PAN; Logo; Website; Secondary Contact. |
+| CONFIRMED | Field extension point | Fields are stable keyed definitions grouped as required or optional for a contract version. Future approved fields are additive; consumers ignore unknown optional fields and shall not require schema redesign. |
+| CONFIRMED | Tenant ownership | Workspace/Tenant domain owns tenant creation, tenant association, and tenant selection. Authentication owns identity and session refresh. Frontend owns presentation, navigation, and validation presentation—never tenant truth. |
+| CONFIRMED | Multi-clinic Version 1 | A single authorized clinic becomes the automatic effective tenant. Multiple authorized clinics require explicit tenant selection. Future strategies are additive. |
+| CONFIRMED | Duplicate/idempotency Version 1 | Duplicate prevention uses normalized clinic identity within organization scope. Create/associate operations are idempotent; retry returns the same authoritative result. Future matching strategies are additive. |
+| CONFIRMED | Security Version 1 | Clinic identity/contact is business-sensitive tenant metadata, not clinical or payment data. Local drafts are allowed only for approved non-sensitive fields and are cleared on logout and tenant switch. Ownership verification and association actions are auditable. Future classification categories are additive. |
+
+### Versioned Extension Rules
+
+- **CONFIRMED** — Entry paths use stable identifiers and declared eligibility;
+  future paths are additions approved through the roadmap and do not redefine
+  Version 1 semantics.
+- **CONFIRMED** — Field definitions carry stable keys, requirement level,
+  localization keys, validation metadata, and security classification; the
+  required/optional sets may grow additively through an approved contract
+  version.
+- **CONFIRMED** — New matching or tenant-selection strategies are named,
+  versioned additions; Version 1 normalized-identity and single/multiple clinic
+  behavior remain backward compatible.
+- **OPEN DECISION** — Exact normalization rules, ownership-verification method,
+  API/DTO representation, error taxonomy, and optional-field draft allowlist
+  require technical contract approval before implementation.
 
 ## Classification Rule
 
@@ -208,4 +242,6 @@ Status: Constitutional planning; product decisions remain open
 - **OPEN DECISION** — E2 cannot be implementation-ready until the OPEN DECISION
   acceptance criteria are approved and traced into design and reuse boundaries.
 
-Epic 2 Planning Status: **NOT READY**
+Epic 2 Constitutional Product Status: **VERSION 1 APPROVED**
+
+Epic 2 Implementation Planning Status: **NOT READY**

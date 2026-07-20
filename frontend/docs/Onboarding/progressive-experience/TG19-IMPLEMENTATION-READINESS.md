@@ -10,6 +10,14 @@ Task group: TG19 — Clinic Entry and Bring Your Clinic Contract
 
 Decision: **NOT READY**
 
+> **Version 1 constitutional decision update — 2026-07-20:** Product
+> Architecture approved the initial Bring Your Clinic meaning, identity/contact
+> field sets, domain ownership, single/multiple-clinic selection rule,
+> duplicate/idempotency policy, and security classification. These decisions
+> close the corresponding historical blockers below. TG19 remains **NOT READY**
+> because the operational Workspace/Tenant integration and exact implementation
+> boundary are not yet verifiable without inventing APIs or behavior. See §17.
+
 ## 1. Executive Decision
 
 TG19 is **NOT READY** for implementation without architectural uncertainty.
@@ -441,5 +449,51 @@ TG19 may become READY only when:
 
 Until then, the only allowed next activity is E2 constitutional planning—not
 TG19 implementation.
+
+**TG19 Implementation Status: NOT READY**
+
+## 17. Version 1 Decision Closure and Reassessment
+
+### Closed constitutional blockers
+
+| Prior blocker | Approved Version 1 resolution | Status |
+|---|---|---|
+| Bring Your Clinic meaning | Verified connection of an existing Nova-managed clinic to the caller's organization. Eligible callers are authenticated Organization Owners and authorized Organization Admins. | CLOSED |
+| Bring Your Clinic non-goals | Data migration, EMR migration, vendor database import, bulk import, and unverified tenant claim are excluded. | CLOSED |
+| Identity/contact field contract | Required minimum: Clinic Name, Clinic Address, Primary Contact Number, Verified Email or Mobile, Clinic Type / Specialty. Optional initial: GST, PAN, Logo, Website, Secondary Contact. Fields extend additively. | CLOSED |
+| Domain ownership | Workspace/Tenant owns create/associate/select and tenant truth; Authentication owns identity/session refresh; Frontend owns presentation/navigation/validation presentation. | CLOSED |
+| Multi-clinic policy | One authorized clinic auto-selects; multiple authorized clinics require explicit selection; future strategies are additive. | CLOSED |
+| Duplicate/idempotency policy | Normalized clinic identity within organization scope; create/associate are idempotent; retry returns the same authoritative result; future match strategies are additive. | CLOSED |
+| Security classification | Business-sensitive tenant metadata, not clinical/payment; only approved non-sensitive local drafts; clear on logout/switch; verification/association is auditable. | CLOSED |
+
+### Remaining implementation blockers
+
+1. **Existing contract sufficiency:** No accepted evidence identifies an existing
+   Workspace/Tenant API/repository operation that implements verified clinic
+   association, normalized organization-scoped duplicate matching, idempotent
+   replay, or explicit multi-clinic selection. This review may not invent it.
+2. **Operational contract:** Exact DTOs/states, normalized identity algorithm,
+   ownership-verification mechanism, audit record, idempotency-key scope and
+   retention, and authoritative result are not defined.
+3. **Session and failure contract:** Refresh ordering, token claims, Req 11
+   fallback retirement, typed errors, retryable/terminal classes, partial
+   success, timeout, cancellation, and recovery are unresolved.
+4. **Data implementation:** Field normalization/validation ownership per field
+   and the approved non-sensitive draft allowlist are not fixed.
+5. **Implementation boundary:** Exact components/hooks/repositories/services/APIs
+   to reuse or extend, exact file paths, navigation, localization copy/keys,
+   focused tests, and backend impact cannot be authorized until blockers 1–4
+   are resolved by source-confirmed design.
+6. **Release owners:** Hindi review, manual accessibility acceptance, security
+   acceptance, and staging/device verification ownership remain required before
+   release; they do not authorize implementation by themselves.
+
+### Reassessment
+
+The roadmap's product-definition stop condition is now closed. The technical
+stop condition remains: implementation would require guessing the authoritative
+Workspace/Tenant integration and ownership-verification behavior. The next
+allowed activity is a source-confirmed operational contract and boundary review,
+not TG19 code.
 
 **TG19 Implementation Status: NOT READY**

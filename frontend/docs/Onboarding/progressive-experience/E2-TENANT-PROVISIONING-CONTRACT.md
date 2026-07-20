@@ -2,7 +2,75 @@
 
 Date: 2026-07-20
 
-Status: Constitutional boundary; operational contract remains open
+Status: Version 1 ownership and policy approved; operational integration remains open
+
+## Version 1 Approved Contract Register
+
+This register controls and closes conflicting earlier `OPEN DECISION` statements.
+It does not invent a service, endpoint, DTO, or ownership-verification mechanism.
+
+### Ownership
+
+- **CONFIRMED** — Workspace/Tenant domain owns tenant creation, tenant
+  association, tenant selection, authoritative tenant results, and tenant truth.
+- **CONFIRMED** — Authentication owns authenticated identity and session refresh.
+- **CONFIRMED** — Frontend owns presentation, navigation, and validation
+  presentation; it never owns or synthesizes tenant truth.
+
+### Tenant creation and association
+
+- **CONFIRMED** — New-clinic creation is an authoritative Workspace/Tenant
+  operation.
+- **CONFIRMED** — Bring Your Clinic association connects an existing
+  Nova-managed clinic to the authenticated caller's organization only after
+  successful ownership verification.
+- **CONFIRMED** — Only an authenticated Organization Owner or authorized
+  Organization Admin is eligible for Version 1 association.
+- **OUT OF SCOPE** — Data/EMR/vendor migration, bulk import, and unverified tenant
+  claiming.
+
+### Selection and effective tenant
+
+- **CONFIRMED** — Exactly one authorized clinic is selected automatically as the
+  effective tenant.
+- **CONFIRMED** — More than one authorized clinic requires explicit tenant
+  selection before tenant-sensitive onboarding.
+- **CONFIRMED** — Future selection strategies are additive named strategies and
+  do not change Version 1 behavior.
+
+### Duplicate and idempotency
+
+- **CONFIRMED** — Version 1 duplicate prevention uses normalized clinic identity
+  within organization scope.
+- **CONFIRMED** — Create and associate operations are idempotent.
+- **CONFIRMED** — A retry of the same logical operation returns the same
+  authoritative result and does not repeat the side effect.
+- **CONFIRMED** — Future matching strategies are additive and versioned.
+
+### Security
+
+- **CONFIRMED** — Clinic identity/contact is business-sensitive tenant metadata,
+  not clinical data and not payment data.
+- **CONFIRMED** — Local drafts are permitted only for fields on an approved
+  non-sensitive allowlist.
+- **CONFIRMED** — Logout and tenant switching clear permitted local drafts.
+- **CONFIRMED** — Ownership-verification and association actions require an
+  auditable record.
+- **CONFIRMED** — Future classification categories are additive.
+
+### Remaining operational decisions
+
+- **OPEN DECISION** — Existing API sufficiency and exact Workspace/Tenant
+  repository/service ownership.
+- **OPEN DECISION** — Normalization algorithm and canonical identity key.
+- **OPEN DECISION** — Ownership-verification method, evidence, expiry, and audit
+  event shape.
+- **OPEN DECISION** — Command identity/idempotency-key generation, scope, and
+  retention window.
+- **OPEN DECISION** — Session-refresh ordering, token claims, failure recovery,
+  and Req 11 fallback retirement.
+- **OPEN DECISION** — Typed failure taxonomy, partial-success recovery, offline
+  disposition, DTOs, and focused contract tests.
 
 ## Classification Rule
 
@@ -181,4 +249,6 @@ Status: Constitutional boundary; operational contract remains open
 - **OPEN DECISION** — The operational tenant/provisioning contract remains
   incomplete and blocks TG19 implementation.
 
-E2 Tenant Provisioning Contract Status: **NOT READY**
+E2 Tenant Provisioning Policy Status: **VERSION 1 APPROVED**
+
+E2 Tenant Provisioning Integration Status: **NOT READY**

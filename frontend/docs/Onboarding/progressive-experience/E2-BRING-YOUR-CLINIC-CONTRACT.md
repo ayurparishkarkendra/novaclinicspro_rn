@@ -2,7 +2,56 @@
 
 Date: 2026-07-20
 
-Status: Product contract extraction; meaning unresolved
+Status: Version 1 product meaning approved
+
+## Version 1 Approved Product Contract
+
+This section is controlling. It closes every conflicting historical assumption
+or `OPEN DECISION` below about the Version 1 meaning, eligibility, ownership
+domain, and explicit non-goals. Other implementation details remain open.
+
+### Definition
+
+- **CONFIRMED** — Bring Your Clinic Version 1 allows an authenticated
+  Organization Owner or authorized Organization Admin to connect an existing
+  Nova-managed clinic to their organization after successful ownership
+  verification.
+
+### Required Minimum Set (Version 1)
+
+- **CONFIRMED** — The clinic must be an existing Nova-managed clinic.
+- **CONFIRMED** — The caller must be authenticated.
+- **CONFIRMED** — The caller must be an Organization Owner or authorized
+  Organization Admin.
+- **CONFIRMED** — Ownership verification must succeed before association.
+- **CONFIRMED** — Workspace/Tenant returns the authoritative association/tenant
+  result; Authentication refreshes identity/session; Frontend presents and
+  navigates.
+
+### Optional Initial Set (Version 1)
+
+- **CONFIRMED** — No optional Bring Your Clinic behavior is approved in Version
+  1 beyond presentation details that do not change eligibility or association
+  semantics.
+
+### Explicit non-goals
+
+- **OUT OF SCOPE** — Data migration.
+- **OUT OF SCOPE** — EMR migration.
+- **OUT OF SCOPE** — Importing another vendor's database.
+- **OUT OF SCOPE** — Bulk data import.
+- **OUT OF SCOPE** — Tenant claiming without verification.
+
+### Extension points
+
+- **CONFIRMED** — Future meanings require roadmap approval and are represented
+  as new versioned entry-path capabilities, not reinterpretations of Version 1.
+- **CONFIRMED** — Future ownership-verification, matching, and selection
+  strategies are additive named strategies behind the stable Version 1 result
+  boundary.
+- **OPEN DECISION** — Exact clinic locator/input, ownership-verification method,
+  normalized identity algorithm, association API/DTO, audit record, errors,
+  retries, navigation, and localized copy require technical/UX approval.
 
 ## Classification Rule
 
@@ -141,4 +190,6 @@ Status: Product contract extraction; meaning unresolved
   unresolved gate; architecture, backend, security, UX, and implementation
   planning cannot close before it.
 
-Bring Your Clinic Contract Status: **NOT READY**
+Bring Your Clinic Product Contract Status: **VERSION 1 APPROVED**
+
+Bring Your Clinic Technical Contract Status: **NOT READY**

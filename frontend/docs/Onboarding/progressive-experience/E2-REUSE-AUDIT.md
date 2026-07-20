@@ -2,8 +2,46 @@
 
 Date: 2026-07-20
 
-Status: Constitutional pre-implementation audit; contract-dependent decisions
-remain open
+Status: Version 1 product constraints approved; source-to-contract fit remains open
+
+## Version 1 Reuse Constraints
+
+This controlling section closes prior uncertainty about product meaning and
+domain ownership. It does not declare an existing API suitable without contract
+verification.
+
+| Classification | Decision | Asset/boundary | Version 1 disposition |
+|---|---|---|---|
+| CONFIRMED | REUSE/EXTEND | `ChoiceScreen.tsx` | Present stable `new_clinic` and `bring_your_clinic` choices for eligible users; do not use demo creation as the hidden implementation. |
+| CONFIRMED | REUSE/EXTEND | `ClinicProfileScreen.tsx` form behavior | Support the required minimum field set and optional initial set through extensible field definitions; do not copy direct Axios or hardcoded UI behavior. |
+| CONFIRMED | REUSE | Workspace/Tenant boundary | Own create, associate, select, normalized-identity matching, idempotency, and authoritative tenant result. Exact existing repository/API fit remains open. |
+| CONFIRMED | REUSE | Authentication boundary | Own identity and session refresh; no second auth state. |
+| CONFIRMED | REUSE | Wizard Draft store | Only approved non-sensitive field keys; clear on logout/switch; never tenant truth. The allowlist remains open. |
+| CONFIRMED | REUSE | TG18 foundation | Consume only after automatic single-clinic or explicit multi-clinic effective-tenant resolution. |
+| CONFIRMED | DO NOT CREATE | duplicate tenant/clinic truth | No frontend store, matching engine, association engine, or provisioning truth. |
+| CONFIRMED | DO NOT REUSE | demo tenant creation as target path | Version 1 paths are new clinic and verified association of an existing Nova-managed clinic. |
+| OUT OF SCOPE | DO NOT CREATE | migration/import capability | Data/EMR/vendor migration, bulk import, and unverified claims are excluded. |
+
+### Extensible field reuse
+
+- **CONFIRMED** — Required Minimum Set: Clinic Name, Clinic Address, Primary
+  Contact Number, Verified Email or Mobile, Clinic Type / Specialty.
+- **CONFIRMED** — Optional Initial Set: GST, PAN, Logo, Website, Secondary
+  Contact.
+- **CONFIRMED** — Reusable form rendering/validation shall consume stable field
+  definitions so approved future keys are additive.
+- **OPEN DECISION** — Exact existing input primitives, field-definition location,
+  normalization, server validation mapping, draft allowlist, and test file
+  boundary require source-to-contract design approval.
+
+### Remaining reuse decisions
+
+- **OPEN DECISION** — Which existing onboarding/tenant repository and datasource
+  can satisfy Workspace/Tenant create/associate/select without new APIs.
+- **OPEN DECISION** — Whether one focused orchestration hook and pure mapper are
+  needed after exact DTOs and state transitions are verified.
+- **OPEN DECISION** — Exact localization keys/copy, navigation destinations,
+  ownership-verification UI, errors, and accessibility acceptance.
 
 ## Classification Rule
 
@@ -176,4 +214,6 @@ remain open
   behavior cannot close before Bring Your Clinic and tenant/provisioning
   contracts are approved.
 
-E2 Reuse Audit Status: **NOT READY FOR IMPLEMENTATION**
+E2 Reuse Policy Status: **VERSION 1 APPROVED**
+
+E2 Source-to-Contract Audit Status: **NOT READY FOR IMPLEMENTATION**

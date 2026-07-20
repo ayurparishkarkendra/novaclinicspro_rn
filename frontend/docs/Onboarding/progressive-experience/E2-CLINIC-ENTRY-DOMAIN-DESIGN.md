@@ -2,7 +2,48 @@
 
 Date: 2026-07-20
 
-Status: Constitutional design skeleton; unresolved transitions are not designed
+Status: Version 1 product architecture approved; technical integration remains open
+
+## Version 1 Approved Architecture Register
+
+This controlling register closes conflicting earlier `OPEN DECISION` statements.
+Unlisted technical detail remains open and must not be inferred.
+
+| Classification | Domain element | Version 1 design |
+|---|---|---|
+| CONFIRMED | `ClinicEntryPathId` | Stable, extensible identifiers for `new_clinic` and `bring_your_clinic`; future approved paths are additive. |
+| CONFIRMED | `BringYourClinicIntent` | Connect an existing Nova-managed clinic to the caller's organization after successful ownership verification; caller is an authenticated Organization Owner or authorized Organization Admin. |
+| CONFIRMED | `ClinicIdentityContact` | Extensible keyed field collection with a Version 1 required minimum set and optional initial set; unknown optional additions do not invalidate older consumers. |
+| CONFIRMED | Required Minimum Set | Clinic Name, Clinic Address, Primary Contact Number, Verified Email or Mobile, Clinic Type / Specialty. |
+| CONFIRMED | Optional Initial Set | GST, PAN, Logo, Website, Secondary Contact. |
+| CONFIRMED | Workspace/Tenant ownership | Owns create, associate, select, normalized-identity duplicate prevention, authoritative result, and tenant truth. |
+| CONFIRMED | Authentication ownership | Owns authenticated identity and session refresh. |
+| CONFIRMED | Frontend ownership | Owns presentation, navigation, client validation presentation, accessibility, and localization; never tenant truth. |
+| CONFIRMED | Effective tenant | One authorized clinic selects automatically; more than one requires explicit selection. Selection strategies are additive. |
+| CONFIRMED | Idempotency | Create/associate commands are idempotent and replay returns the same authoritative result. |
+| CONFIRMED | Security | Identity/contact is business-sensitive tenant metadata. Drafting is limited to an approved non-sensitive allowlist and is cleared on logout/switch. Verification/association is auditable. |
+
+### Version 1 State-Machine Refinement
+
+```text
+CONFIRMED: ENTRY_CONTEXT_LOADING
+  → CONFIRMED: PATH_SELECTION
+  → CONFIRMED: NEW_CLINIC_INPUT | BRING_EXISTING_NOVA_CLINIC_VERIFICATION
+  → CONFIRMED: AUTHORITATIVE_CREATE | AUTHORITATIVE_ASSOCIATE
+  → CONFIRMED: SESSION_REFRESH
+  → CONFIRMED: AUTO_SELECT_SINGLE | EXPLICIT_SELECT_MULTIPLE
+  → CONFIRMED: EFFECTIVE_TENANT_RESOLVED
+  → CONFIRMED: WORKSPACE_PREPARATION_HANDOFF
+```
+
+- **CONFIRMED** — Each authoritative command may expose pending, validation,
+  failure, retry, and success presentation without transferring truth to the
+  frontend.
+- **CONFIRMED** — Paths, fields, match strategies, and tenant-selection
+  strategies are discriminated/versioned extension points.
+- **OPEN DECISION** — Exact backend states, DTOs, ownership-verification method,
+  normalized identity algorithm, retryable error classes, and transition API
+  remain unresolved.
 
 ## Classification Rule
 
@@ -193,4 +234,6 @@ Presentation
 - **OPEN DECISION** — Security/data classification.
 - **OPEN DECISION** — Exact repository/API fit, file boundary, and tests.
 
-Epic 2 Design Status: **NOT READY**
+Epic 2 Product Architecture Status: **VERSION 1 APPROVED**
+
+Epic 2 Technical Integration Status: **NOT READY**
