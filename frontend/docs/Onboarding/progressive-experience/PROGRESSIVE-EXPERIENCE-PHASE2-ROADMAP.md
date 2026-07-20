@@ -60,22 +60,31 @@ Phase 2 will make the accepted journey explicit and traceable by establishing:
 
 Phase 2 success means every accepted lifecycle capability has an owner, accepted requirements, design, task group, tests, release gate, and traceable implementation evidence. It does not mean every capability must ship in one release.
 
-## 5. Product-Epic Portfolio
+## 5. Epic Classification
 
-| Epic | Product outcome | Existing requirement support | Future task groups |
-|---|---|---|---|
-| E1 Journey Foundation and Cards | Versioned, guided journey with reusable cards and progress meaning. | Req 5 follow-up; Req 14, 15, 21, 23–25, 28; accepted vision gap. | TG18 |
-| E2 Clinic Entry and Bring Your Clinic | Clear clinic-creation/import paths and complete identity/contact handoff. | Req 11, 19, 24, 25, 30; ownership map and accepted vision gap. | TG19 |
-| E3 Workspace Preparation | Users can see Nova preparing their workspace and know when personalization can begin. | Req 11, 15, 23, 24, 25, 27, 28; accepted lifecycle gap. | TG20 |
-| E4 Capability Visibility | Relevant steps are server/capability driven and specialty extensible. | Req 1–4, 15, 23–25; ownership/candidate gap. | TG21 |
-| E5 Ready-to-Start Experience | Authoritative readiness, missing-action explanation, and safe checklist navigation. | Req 13, 15, 17, 23–28, 32. | TG22 |
-| E6 Conflict and Multi-Clinic Recovery | Local drafts never silently overwrite newer server or other-device work. | Req 9, 11, 16, 17, 29–32. | TG23 |
-| E7 Offline Mutation Recovery | Explicit, tenant-safe queue/retry/manual recovery behavior. | Req 8, 12, 20, 22–24, 26, 28, 30, 32. | TG24, TG25 |
-| E8 Commercial Trial | Trial begins after readiness and exposes clear active/expiring/expired states. | Req 13, 15, 18, 24–28, 32; accepted lifecycle gap. | TG26 |
-| E9 Subscription Conversion and Payment Recovery | A clinic can safely convert, resume verification, and recover failure. | Req 12, 18–20, 23–28, 30, 32. | TG27 |
-| E10 Informational Dunning | Timely, non-destructive commercial notices lead to an owned action. | Req 20, 24, 25, 28; accepted lifecycle gap. | TG28 |
-| E11 Dashboard First Actions and Progressive Guidance | Activated clinics receive relevant next actions and ongoing guidance. | Req 14, 15, 21, 23–25, 28; ownership-map gap. | TG29, TG30 |
-| E12 Cross-Cutting Completion and Release | Phase-wide security, analytics, localization, accessibility, theme, and E2E acceptance. | Req 14, 15, 19–25, 28, 30–32. | TG31 |
+Phase 2 uses two epic classifications:
+
+- **Product Experience Epic:** Delivers or advances a recognizable part of the approved customer journey. Its success is measured through user and commercial outcomes.
+- **Platform Foundation Epic:** Supplies safety, consistency, recovery, architecture, or verification capabilities required by one or more Product Experience epics. It exists only to enable product capabilities and is not a standalone user journey, destination, or product proposition.
+
+Platform Foundation work must remain traceable to the Product Experience epics it enables. Completing a Platform Foundation epic must not be reported as completion of an end-user journey stage.
+
+### 5.1 Product-Epic Portfolio
+
+| Epic | Classification | Product outcome | Existing requirement support | Future task groups |
+|---|---|---|---|---|
+| E1 Journey Foundation and Cards | Product Experience | Versioned, guided journey with reusable cards and progress meaning. | Req 5 follow-up; Req 14, 15, 21, 23–25, 28; accepted vision gap. | TG18 |
+| E2 Clinic Entry and Bring Your Clinic | Product Experience | Clear clinic-creation/import paths and complete identity/contact handoff. | Req 11, 19, 24, 25, 30; ownership map and accepted vision gap. | TG19 |
+| E3 Workspace Preparation | Product Experience | Users can see Nova preparing their workspace and know when personalization can begin. | Req 11, 15, 23, 24, 25, 27, 28; accepted lifecycle gap. | TG20 |
+| E4 Capability Visibility | Product Experience | Relevant steps are server/capability driven and specialty extensible. | Req 1–4, 15, 23–25; ownership/candidate gap. | TG21 |
+| E5 Ready-to-Start Experience | Product Experience | Authoritative readiness, missing-action explanation, and safe checklist navigation. | Req 13, 15, 17, 23–28, 32. | TG22 |
+| E6 Conflict and Multi-Clinic Recovery | Platform Foundation | Local drafts never silently overwrite newer server or other-device work. | Req 9, 11, 16, 17, 29–32. | TG23 |
+| E7 Offline Mutation Recovery | Platform Foundation | Explicit, tenant-safe queue/retry/manual recovery behavior. | Req 8, 12, 20, 22–24, 26, 28, 30, 32. | TG24, TG25 |
+| E8 Commercial Trial | Product Experience | Trial begins after readiness and exposes clear active/expiring/expired states. | Req 13, 15, 18, 24–28, 32; accepted lifecycle gap. | TG26 |
+| E9 Subscription Conversion and Payment Recovery | Product Experience | A clinic can safely convert, resume verification, and recover failure. | Req 12, 18–20, 23–28, 30, 32. | TG27 |
+| E10 Informational Dunning | Product Experience | Timely, non-destructive commercial notices lead to an owned action. | Req 20, 24, 25, 28; accepted lifecycle gap. | TG28 |
+| E11 Dashboard First Actions and Progressive Guidance | Product Experience | Activated clinics receive relevant next actions and ongoing guidance. | Req 14, 15, 21, 23–25, 28; ownership-map gap. | TG29, TG30 |
+| E12 Cross-Cutting Completion and Release | Platform Foundation | Phase-wide security, analytics, localization, accessibility, theme, and E2E acceptance. | Req 14, 15, 19–25, 28, 30–32. | TG31 |
 
 ## 6. Epic Specifications
 
@@ -84,6 +93,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Define the canonical journey identity, version, stages, progress semantics, and reusable Journey Card contract that later epics consume.
 
 **Business value:** Prevents disconnected screens from becoming the roadmap. It gives users consistent guidance and lets the product evolve the journey without confusing journey version with draft schema version.
+
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Onboarding journey start-to-completion rate; median time from journey start to Ready to Start; Journey Card action completion rate; percentage of sessions with an unknown or unmapped journey state.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; Analytics platform creation.
 
 **User journey:** After clinic entry, the owner sees the current journey stage, why it matters, the next supported action, and progress derived from authoritative server/capability state.
 
@@ -121,6 +136,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Reduces abandonment and avoids forcing established clinics through a new-clinic-only mental model.
 
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Account-to-clinic-identity completion rate; abandonment rate by clinic-entry path; median time to resolve a tenant and enter workspace preparation; duplicate clinic-creation rate.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; migration of clinical records.
+
 **User journey:** The owner creates an account, chooses a documented clinic path, supplies or confirms clinic identity/contact data, and enters workspace preparation with a resolved tenant.
 
 **Requirements covered:** Req 11, 19, 24, 25, and 30. Bring Your Clinic and identity/contact refinement require new Phase 2 requirements.
@@ -156,6 +177,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Make Nova’s workspace preparation visible and understandable without placing provisioning truth in the frontend.
 
 **Business value:** Reduces uncertainty between clinic creation and personalization and prevents premature setup actions.
+
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Workspace-preparation completion rate; median preparation duration; preparation failure and manual-retry rate; percentage of clinics that proceed to Review & Personalize after preparation completes.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace feature implementation; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; frontend-owned provisioning logic.
 
 **User journey:** After identity creation, the owner sees preparation progress, safe waiting/retry guidance, completion, and the next permitted action.
 
@@ -193,6 +220,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Shortens setup, improves relevance, and preserves extensibility across specialties.
 
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator, Front Desk, Doctor, Therapist.
+
+**Success Metrics:** Percentage of clinics shown only applicable setup steps; unmapped capability/step-code rate; setup completion rate by specialty; step-list change recovery rate without lost drafts.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling workflow implementation; Inventory workflow implementation; specialty-specific clinical behavior; frontend-owned capability truth.
+
 **User journey:** During Review & Personalize, the clinic sees a coherent set of applicable steps and safely handles capability changes.
 
 **Requirements covered:** Req 1–4, 15, and 23–25. Capability-driven visibility requires a new Phase 2 requirement.
@@ -228,6 +261,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Turn authoritative readiness into an understandable checklist and safe transition point before the commercial trial.
 
 **Business value:** Gives clinics confidence, prevents premature commercial activation, and reduces support questions about missing setup.
+
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Review-and-Personalize-to-Ready-to-Start conversion rate; median time to resolve readiness blockers; Ready-to-Start checklist completion rate; premature trial-activation count.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; frontend-defined readiness policy.
 
 **User journey:** The owner sees what is ready, what is blocking readiness, how to resolve each item, and a clear Ready-to-Start confirmation. Only then can the commercial trial begin.
 
@@ -265,6 +304,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Protects clinic setup data and user trust.
 
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Silent draft-overwrite count; conflict-resolution completion rate; cross-clinic draft leakage count; multi-device resume success rate; support incidents attributable to stale onboarding state.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; general-purpose synchronization platform.
+
 **User journey:** On resume or clinic switch, the owner sees a clear choice only when needed and never submits a draft under the wrong clinic.
 
 **Requirements covered:** Req 9, 11, 16, 17, and 29–32.
@@ -300,6 +345,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Extend TG16’s offline visibility/gating into explicit, safe mutation recovery.
 
 **Business value:** Prevents lost intent and duplicate side effects on unreliable networks.
+
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Offline submission recovery success rate; duplicate side-effect count; dead-letter/manual-recovery rate; median time from reconnection to successful recovery; cross-clinic queue leakage count.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling mutations; Inventory mutations; Billing implementation; Payment Gateway implementation; general-purpose offline or analytics platform.
 
 **User journey:** The owner understands that submission is unavailable or queued according to accepted policy, sees recovery progress, and can manually resolve terminal failure.
 
@@ -337,6 +388,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Makes the product’s value window and next commercial action clear without conflating sample/demo access with onboarding.
 
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator.
+
+**Success Metrics:** Ready-to-Start-to-trial-activation conversion rate; median time from Ready to Start to trial activation; percentage of trial users who view or act on the next commercial action; trial-state support incident rate.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; pricing or plan-policy creation; Demo Mode reintroduction.
+
 **User journey:** After readiness confirmation, the clinic intentionally begins the 30-day commercial trial, sees active/expiring/expired state, and has an owned next action.
 
 **Requirements covered:** Req 13, 15, 18, 24–28, and 32. Trial start/expiry/extension policy requires new Phase 2 requirements.
@@ -372,6 +429,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Enable safe conversion to paid subscription and recovery of interrupted/pending payment verification.
 
 **Business value:** Protects revenue and avoids forcing clinics to restart payment.
+
+**Primary Personas:** Organization Owner, Organization Admin.
+
+**Success Metrics:** Trial-to-paid-subscription conversion rate; interrupted-payment recovery completion rate; duplicate checkout/payment attempt count; median pending-verification resolution time; payment-recovery abandonment rate.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; billing-ledger implementation; Payment Gateway implementation; pricing or plan-policy creation; storage of protected payment credentials.
 
 **User journey:** The clinic selects the owned conversion action, completes payment, resumes pending verification after interruption, and receives a definitive paid or recoverable failure state.
 
@@ -409,6 +472,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Improves conversion and reduces surprise/support load.
 
+**Primary Personas:** Organization Owner, Organization Admin.
+
+**Success Metrics:** Dunning notice action rate; subscription conversion after notice; notice dismissal/acknowledgement rate; commercial-state support contact rate; duplicate or superseded notice rate.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; notification-platform creation; client-authored commercial policy.
+
 **User journey:** Before and after relevant commercial milestones, the clinic receives a clear informational notice with timing, consequence, and an owned action.
 
 **Requirements covered:** Req 20, 24, 25, and 28. Dunning requires new Phase 2 product requirements and policy.
@@ -445,6 +514,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 
 **Business value:** Converts setup completion into adoption and sustained value.
 
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator, Front Desk, Doctor, Therapist.
+
+**Success Metrics:** First-action completion rate; median time from activation to first action; percentage of clinics completing the recommended first-action set; guidance engagement and completion rate; repeat active-clinic engagement after onboarding.
+
+**Explicitly Out of Scope:** Doctor Module; Clinical Workspace implementation; clinical workflow changes; Scheduling implementation; Inventory implementation; Billing implementation; Payment Gateway implementation; Analytics platform creation.
+
 **User journey:** After paid activation or the accepted activation milestone, the clinic sees prioritized first actions, completes them, and receives progressively relevant guidance.
 
 **Requirements covered:** Req 14, 15, 21, 23–25, and 28. Dashboard first actions, progressive branding, guidance, and continuous growth require new Phase 2 requirements.
@@ -480,6 +555,12 @@ Phase 2 success means every accepted lifecycle capability has an owner, accepted
 **Purpose:** Close Phase 2 with coherent security, analytics, architecture, localization, accessibility, theme, multi-clinic, and release evidence.
 
 **Business value:** Ensures product breadth does not reduce production safety or maintainability.
+
+**Primary Personas:** Organization Owner, Organization Admin, Clinic Administrator, Front Desk, Doctor, Therapist.
+
+**Success Metrics:** Phase 2 critical-journey pass rate; accessibility acceptance pass rate; `en-US`/`hi-IN` parity and review completion; tenant-isolation defect count; production-blocking regression count; percentage of shipped epics with complete traceability evidence.
+
+**Explicitly Out of Scope:** New user-journey features; Doctor Module; Clinical Workspace; Scheduling; Inventory; Billing implementation; Payment Gateway implementation; Analytics platform implementation; unrelated baseline-debt remediation.
 
 **User journey:** Every Phase 2 path behaves consistently across language, assistive technology, specialty, clinic, device lifecycle, network conditions, and commercial state.
 
