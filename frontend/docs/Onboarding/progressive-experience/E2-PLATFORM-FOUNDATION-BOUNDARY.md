@@ -150,3 +150,42 @@ transport placement remain `UNKNOWN`, and neither changes domain semantics.
 The bounded Platform Foundation checkpoint is ready for implementation.
 
 Platform Foundation Implementation Status: **READY**
+
+## Implementation Evidence — 2026-07-20
+
+Status: **PLATFORM_FOUNDATION_IMPLEMENTATION_COMPLETE**
+
+Backend revision `20260720_120000` implements the frozen boundary as an
+additive merge of repository heads `20260712_000001` and `20260717_100000`.
+It creates only the six authorized tables and registers their SQLAlchemy models:
+
+- `org_organizations`;
+- `org_organization_members`;
+- `org_ownership_verifications`;
+- `org_organization_tenants`;
+- `org_idempotency_records`;
+- `org_audit_logs`.
+
+The implementation adds the named domain ports and SQLAlchemy adapters,
+organization authorization/membership operations, opaque ownership-verification
+lifecycle service, organization-scoped idempotency adapter, transactional audit
+adapter, and both existing unit-of-work compositions. Platform `is_org_admin`
+does not participate in customer-organization authorization.
+
+`TenantProvisioningService` retains its default committing behavior for legacy
+callers and exposes `provision_tenant_in_transaction()` for an externally owned
+transaction. The latter flushes without committing and defers Supabase metadata
+synchronization. Organization repositories, verification, idempotency, and audit
+adapters flush only, allowing one later application-service commit.
+
+Focused Platform Foundation, tenant-idempotency compatibility, onboarding
+idempotency integration, and Clinic Entry domain suites pass. New-file Ruff and
+compileall checks pass. Alembic reports one head at `20260720_120000`.
+
+A live local PostgreSQL database was not configured for this checkpoint. Full
+offline fresh-chain SQL generation reaches the pre-existing historical revision
+`1d51109d8e2d` and fails because that revision performs runtime inspection on an
+offline mock connection, matching the already documented migration-chain debt in
+ADR-PF-001. This does not alter the new revision or authorize editing historical
+migrations; real PostgreSQL upgrade/downgrade remains a release verification
+gate.

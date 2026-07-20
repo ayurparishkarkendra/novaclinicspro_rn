@@ -634,3 +634,29 @@ a fresh readiness check before implementing backend Clinic Entry operations.
 Do not resume frontend orchestration or TG20.
 
 **TG19 Implementation Status: NOT READY**
+
+## 21. Platform Foundation Implementation Reassessment — 2026-07-20
+
+This section is the latest controlling decision and supersedes §20 for
+implementation readiness.
+
+**PLATFORM_FOUNDATION_IMPLEMENTATION_COMPLETE** — The approved organization,
+membership, association, ownership-verification, organization-idempotency,
+transactional audit, migration, repository, unit-of-work, and transaction-safe
+provisioning foundations are implemented and focused verification passes.
+
+The prior backend prerequisite identified before this checkpoint is removed:
+Clinic Entry may now consume authoritative organization membership,
+organization-to-tenant association, ownership verification, pre-tenant
+idempotency, transactional audit, and a non-committing provisioning seam without
+inventing platform architecture.
+
+**TG19_READY** — The next authorized activity is the bounded backend Clinic
+Entry operations and transport checkpoint defined by
+`E2-IMPLEMENTATION-BOUNDARY.md`. This classification does not authorize frontend
+orchestration, TG19 final acceptance, TG19 Checkpoint 4, or TG20. Real-PostgreSQL
+migration upgrade/downgrade and the historical migration-chain defect remain
+verification/release gates; they do not change the source contract or require a
+product decision.
+
+**TG19 Implementation Status: READY**
