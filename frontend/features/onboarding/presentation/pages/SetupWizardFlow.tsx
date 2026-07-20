@@ -11,11 +11,12 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useDemoStatusQuery, useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import { useDemoStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { DemoStatusBanner } from '../components/DemoStatusBanner';
+import { StepCard } from '../components/StepCard';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
@@ -28,6 +29,7 @@ import {
   useWizardStore,
 } from '../stores/wizard.store';
 import { useTranslation } from '../../../../core/localization/useTranslation';
+import { useJourneyFoundation } from '../hooks/useJourneyFoundation';
 
 interface Step {
   code: string;
@@ -85,7 +87,13 @@ export function SetupWizardFlow() {
   const isNextDisabled = isNextPending || isOffline;
 
   // Fetch onboarding status - only if tenantId is available
-  const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
+  const {
+    data: statusData,
+    isLoading,
+    error,
+    refetch,
+    journey,
+  } = useJourneyFoundation(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
   const { data: demoStatusData } = useDemoStatusQuery(tenantId, {
@@ -909,6 +917,17 @@ export function SetupWizardFlow() {
 
       {/* Step Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ flexGrow: 1 }}>
+        {journey?.availability === 'available' && journey.cards.length > 0 && (
+          <View accessibilityRole="list">
+            {journey.cards.map(card => (
+              <StepCard
+                key={`${card.cardId}:${card.stepCode}`}
+                journeyCard={card}
+                onPress={() => navigateToStep(card.destination.stepCode)}
+              />
+            ))}
+          </View>
+        )}
         {renderStepContent()}
       </ScrollView>
 

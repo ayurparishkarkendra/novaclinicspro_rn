@@ -94,6 +94,21 @@ jest.mock('../../features/auth/presentation/hooks/useAuth', () => ({
 jest.mock('../../features/onboarding/presentation/components/WizardStepper', () => ({
   WizardStepper: () => null,
 }));
+jest.mock('../../features/onboarding/presentation/components/StepCard', () => ({
+  StepCard: ({ journeyCard, onPress }: any) => {
+    const React = require('react');
+    const { Text, TouchableOpacity } = require('react-native');
+    return (
+      <TouchableOpacity
+        testID={`journey-card-${journeyCard.stepCode}`}
+        onPress={onPress}
+        disabled={!journeyCard.isActionable}
+      >
+        <Text>{journeyCard.stepCode}</Text>
+      </TouchableOpacity>
+    );
+  },
+}));
 jest.mock('../../features/onboarding/presentation/pages/steps/ClinicProfileScreen', () => ({
   ClinicProfileScreen: () => null,
 }));
@@ -184,7 +199,7 @@ const buildValidation = (
       is_valid: completedStepCodes.includes(stepCode),
       issues: [],
       blocked_reason: null,
-      action_url_template: null,
+      action_url_template: `/clinic/{tenant_id}/${stepCode}`,
       entity_type: null,
       icon: null,
       category: null,
@@ -408,6 +423,64 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       expect.anything(),
       expect.anything()
     );
+  });
+
+  it('renders Journey Cards in authoritative backend visible-step order', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['staff_setup', 'clinic_profile', 'operating_hours']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getAllByTestId } = renderFlow();
+
+    await waitFor(() => {
+      expect(getAllByTestId(/^journey-card-/).map(card => card.props.testID)).toEqual([
+        'journey-card-staff_setup',
+        'journey-card-clinic_profile',
+        'journey-card-operating_hours',
+      ]);
+    });
+  });
+
+  it('selects the existing wizard step when a Journey Card action is pressed', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'staff_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByTestId, getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByTestId('journey-card-staff_setup')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('journey-card-staff_setup'));
+
+    await waitFor(() => {
+      expect(getByText('Staff & Roles')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('does not render a fabricated Journey Card for an unknown backend step', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['unknown_step', 'staff_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByTestId, getByTestId } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByTestId('journey-card-staff_setup')).toBeTruthy();
+    });
+    expect(queryByTestId('journey-card-unknown_step')).toBeNull();
   });
 
   it('renders the Treatments redirect card for all service catalogue aliases', async () => {

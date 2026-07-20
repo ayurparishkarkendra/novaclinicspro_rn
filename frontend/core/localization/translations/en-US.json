@@ -607,6 +607,8 @@
         "restored": "Unsaved changes restored"
       },
       "journeyCard": {
+        "description": "Review and personalize this clinic preparation step.",
+        "action": "Review step",
         "status": {
           "complete": "Complete",
           "inProgress": "In progress",

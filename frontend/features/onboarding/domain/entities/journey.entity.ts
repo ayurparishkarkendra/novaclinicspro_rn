@@ -45,6 +45,114 @@ export interface JourneyDefinition {
   stepMappings: Readonly<Record<string, JourneyCardDefinition>>;
 }
 
+const JOURNEY_CARD_DESCRIPTION_KEY =
+  'onboarding.progressiveExperience.journeyCard.description';
+const JOURNEY_CARD_ACTION_KEY =
+  'onboarding.progressiveExperience.journeyCard.action';
+const REVIEW_AND_PERSONALIZE_STAGE = 'review_and_personalize';
+
+const createStepCardDefinition = (
+  cardId: string,
+  stepCode: string,
+  titleKey: string,
+  iconToken: ExistingThemeIconToken
+): JourneyCardDefinition => ({
+  cardId,
+  stepCode,
+  stageId: REVIEW_AND_PERSONALIZE_STAGE,
+  titleKey,
+  descriptionKey: JOURNEY_CARD_DESCRIPTION_KEY,
+  actionLabelKey: JOURNEY_CARD_ACTION_KEY,
+  destination: { kind: 'wizard_step', stepCode },
+  iconToken,
+});
+
+const createAliasDefinitions = (
+  cardId: string,
+  stepCodes: ReadonlyArray<string>,
+  titleKey: string,
+  iconToken: ExistingThemeIconToken
+): Record<string, JourneyCardDefinition> =>
+  Object.fromEntries(
+    stepCodes.map((stepCode) => [
+      stepCode,
+      createStepCardDefinition(cardId, stepCode, titleKey, iconToken),
+    ])
+  );
+
+export const PROGRESSIVE_EXPERIENCE_JOURNEY_DEFINITION: JourneyDefinition = Object.freeze({
+  id: PROGRESSIVE_EXPERIENCE_JOURNEY_ID,
+  version: PROGRESSIVE_EXPERIENCE_JOURNEY_VERSION,
+  stepMappings: Object.freeze({
+    clinic_profile: createStepCardDefinition(
+      'clinic-profile',
+      'clinic_profile',
+      'onboarding.progressiveExperience.stepLabels.clinicProfile',
+      'business-outline'
+    ),
+    operating_hours: createStepCardDefinition(
+      'operating-hours',
+      'operating_hours',
+      'onboarding.progressiveExperience.stepLabels.operatingHours',
+      'time-outline'
+    ),
+    ...createAliasDefinitions(
+      'rooms-and-therapy-beds',
+      ['rooms_and_therapy_beds', 'treatment_rooms'],
+      'onboarding.progressiveExperience.stepLabels.roomsAndTherapyBeds',
+      'bed-outline'
+    ),
+    ...createAliasDefinitions(
+      'staff-and-roles',
+      ['staff_and_roles', 'staff_setup', 'staff_members'],
+      'onboarding.progressiveExperience.stepLabels.staffAndRoles',
+      'people-outline'
+    ),
+    ...createAliasDefinitions(
+      'treatments-and-therapies',
+      [
+        'treatments_and_therapies',
+        'services_and_specialities',
+        'services',
+        'services_offered',
+        'treatment_services',
+      ],
+      'onboarding.progressiveExperience.stepLabels.treatmentsAndTherapies',
+      'medkit-outline'
+    ),
+    inventory_setup: createStepCardDefinition(
+      'inventory-readiness',
+      'inventory_setup',
+      'onboarding.progressiveExperience.stepLabels.inventoryReadiness',
+      'cube-outline'
+    ),
+    ...createAliasDefinitions(
+      'billing-preferences',
+      ['financials_and_tax', 'billing_setup', 'billing_settings'],
+      'onboarding.progressiveExperience.stepLabels.billingPreferences',
+      'receipt-outline'
+    ),
+    ...createAliasDefinitions(
+      'payment-methods',
+      ['payment_setup', 'payment_methods'],
+      'onboarding.progressiveExperience.stepLabels.paymentMethods',
+      'card-outline'
+    ),
+    subscription_payment: createStepCardDefinition(
+      'subscription-options',
+      'subscription_payment',
+      'onboarding.progressiveExperience.stepLabels.subscriptionOptions',
+      'pricetag-outline'
+    ),
+    go_live_checklist: createStepCardDefinition(
+      'ready-to-start',
+      'go_live_checklist',
+      'onboarding.progressiveExperience.stepLabels.readyToStart',
+      'checkmark-circle-outline'
+    ),
+  }),
+});
+
 export type JourneyCardStatus =
   | 'not_started'
   | 'in_progress'
