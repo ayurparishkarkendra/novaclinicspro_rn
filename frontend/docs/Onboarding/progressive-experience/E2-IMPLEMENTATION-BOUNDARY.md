@@ -1,0 +1,167 @@
+# E2 Implementation Boundary
+
+Date: 2026-07-20
+
+Status: Bounded proposal; blocked prerequisites remain
+
+This boundary applies only after TG19 is declared READY. It authorizes neither
+implementation nor TG20 work today.
+
+## Frontend Responsibilities
+
+- Present the two approved entry paths, approved fields, validation, status,
+  errors, retries, and navigation with central Theme and icons.
+- Localize every user-visible string in `en-US` and `hi-IN` with compatible
+  interpolation.
+- Use accessible labels/hints, minimum target sizes, logical focus order,
+  first-invalid focus, live-region status, non-color meaning, and disabled/
+  pending duplicate-submit protection.
+- Map presentation input to typed repository commands; never call APIs directly.
+- Apply the draft allowlist, refresh the existing auth session after an
+  authoritative result, validate the effective tenant, cancel/isolate stale
+  queries, clear old drafts, and navigate to the TG20 boundary.
+
+## Backend Responsibilities
+
+- Authenticate and authorize the actor against an authoritative destination
+  organization and tenant relationship.
+- Validate ownership evidence, DTOs, normalization, duplicates, association,
+  idempotency, tenant isolation, and typed errors.
+- Reuse provisioning, membership/RBAC, metadata sync, audit, and platform
+  idempotency behavior.
+- Return only `ClinicEntryResultV1`; refreshable auth data must reflect the new
+  authorized clinic without leaking unrelated tenants.
+
+## Exact Frontend Files Allowed to Change
+
+Existing files:
+
+- `frontend/features/onboarding/presentation/pages/ChoiceScreen.tsx`
+- `frontend/features/onboarding/presentation/pages/steps/ClinicProfileScreen.tsx`
+- `frontend/features/onboarding/domain/repositories/onboarding.repository.ts`
+- `frontend/features/onboarding/data/repositories/onboarding.repository.impl.ts`
+- the existing onboarding remote datasource interface and implementation files
+  resolved in that feature (no second datasource)
+- the existing onboarding DTO/entity mapper files resolved in that feature
+- `frontend/features/onboarding/presentation/stores/wizard.store.ts`
+- `frontend/features/auth/presentation/providers/auth.store.ts`
+- `frontend/features/auth/presentation/hooks/useAuth.ts`
+- `frontend/core/localization/errorTokens.ts`
+- `frontend/core/localization/translations/en-US.json`
+- `frontend/core/localization/translations/hi-IN.json`
+- existing E2-focused test files adjacent to these modules
+
+New files, only if the repository has no equivalent after a fresh reuse check:
+
+- one E2 domain contract/mapping module under
+  `frontend/features/onboarding/domain/`
+- one E2 orchestration hook under
+  `frontend/features/onboarding/presentation/hooks/`
+- focused E2 test files mirroring the allowed modules
+
+No new store, repository, API client, theme, navigation system, or generic error
+platform is allowed.
+
+## Exact Backend Files Allowed to Change
+
+Existing files:
+
+- `app/application/onboarding/tenant_provisioning_service.py`
+- `app/application/platform/idempotency_service.py`
+- `app/infrastructure/repositories/platform_idempotency_repository.py`
+- `app/infrastructure/db/models/platform_idempotency_record.py`
+- `app/api/v1/schemas/error_response.py`
+- `app/api/v1/routers/auth_router.py` and its existing auth response schema
+- existing tenant/user repository interfaces and SQLAlchemy implementations,
+  only for organization-scoped lookup/association and normalized duplicate lookup
+- existing audit repository/model and event definitions, only for E2 events
+- dependency wiring/router registration files strictly required to expose the
+  approved E2 application operation
+- focused tests for the above modules
+
+New files, because no compatible contract exists:
+
+- `app/domain/dto/clinic_entry.py`
+- `app/domain/services/i_clinic_entry_service.py`
+- `app/application/onboarding/clinic_entry_service.py`
+- `app/domain/clinic_identity.py`
+- `app/api/v1/schemas/clinic_entry.py`
+- `app/api/v1/routers/clinic_entry_router.py`
+- one migration for organization association/normalized identity and pre-tenant
+  idempotency scope, but only after the two readiness blockers are approved and
+  only if the accepted existing schema cannot enforce them
+- focused unit/contract/integration tests matching these files
+
+File names are fixed for the proposed boundary; implementation must first verify
+they do not collide with a later repository descendant. If an equivalent exists,
+extend it and update this boundary before code rather than duplicate it.
+
+## Files and Areas Prohibited from Changing
+
+- Requirements, design, Phase 2 roadmap, tasks, E1/TG18 contracts, and unrelated
+  documentation (except a completion note in TG19 readiness after implementation).
+- TG18 journey domain, Journey Cards, projection, progress, or tests except a
+  focused handoff assertion requiring no semantic change.
+- Doctor Module, Clinical Workspace, scheduling, inventory, billing, payment,
+  clinical records, R7, main worktrees, `dev`, and `test` branches.
+- Existing global org-admin tenant behavior, demo/provisional lifecycle semantics,
+  authentication provider replacement, architecture rewrites, and external
+  integrations.
+
+## Migration Determination
+
+Repository evidence shows no destination-organization association or normalized
+identity constraint, and platform idempotency requires `tenant_id`. A migration
+is therefore genuinely expected if the approved organization model is persisted
+in this service. It must add, not reinterpret, Version 1 organization association,
+`clinic_identity_v1` uniqueness within organization, and a valid pre-tenant
+idempotency scope. No migration may be designed until the authoritative
+organization aggregate and verification owner are approved. If that authority
+is provided by another existing service, use its contract and omit the local
+migration.
+
+## Exact Focused Test Matrix
+
+| Layer | Required cases |
+|---|---|
+| Domain unit | NFKC/whitespace/case normalization; address/phone/email/canonical-key rules; stable hash; optional-field exclusion; additive unknown optional field. |
+| Repository unit | DTO mapping; typed errors; no raw message display; draft positive allowlist; prohibited-field omission; logout/tenant-switch/success cleanup. |
+| Frontend presentation | both paths; validation and first-invalid focus; pending double-submit; retry phase; screen-reader labels/live status; single auto and multiple explicit selection; specialty-neutral rendering. |
+| Contract | create/associate request and `ClinicEntryResultV1`; every stable error code; same-key replay equality; different-payload conflict; session-refresh-required result. |
+| Backend integration | atomic create+association; provisioning reuse; already-associated replay; expired verification; transient retry; refresh data contains authorized clinic; workspace handoff only after effective tenant validation. |
+| Tenant isolation | duplicate lookup scoped to destination organization; unauthorized/cross-org responses disclose no existence; stale cache/draft suppression; actor cannot select an unauthorized tenant. |
+| Idempotency | concurrent same request creates once; completed replay returns identical authoritative result; conflict on fingerprint change; retry after retryable failure; audit side effects occur once. |
+| Localization | all new keys exist in both catalogs; interpolation names match; raw backend text absent; long Hindi copy does not change semantics. |
+| Accessibility | labels/hints/roles; focus order; first error focus; live-region loading/error/success; non-color states; touch targets; screen-reader path consequence. |
+| Multi-clinic | zero/one/many authorized clinics; stale persisted selection; explicit selection for many; switch cancels/isolate requests and clears draft; no clinic-type assumptions. |
+
+Focused TypeScript and Python checks for touched modules plus `git diff --check`
+are mandatory. Full unrelated suites are outside the checkpoint unless a shared
+contract change warrants them.
+
+## Bounded Implementation Checkpoints
+
+1. **Checkpoint 1 — Backend constitutional foundation:** only after blockers
+   close, add organization/verification ports, Version 1 normalization/DTO/error
+   types, repository constraints/migration, and unit/contract tests. No UI.
+2. **Checkpoint 2 — Backend operations:** create/associate orchestration using
+   provisioning/idempotency/audit, auth clinic refresh projection, integration,
+   isolation, and concurrency tests. No presentation expansion.
+3. **Checkpoint 3 — Frontend data/application boundary:** typed repository/
+   datasource mapping, error tokens, draft allowlist/cleanup, auth refresh and
+   effective-tenant validation tests. No unrelated onboarding screens.
+4. **Checkpoint 4 — Entry presentation:** approved path/form integration,
+   localization, accessibility, loading/recovery, navigation handoff, and focused
+   presentation/multi-clinic tests.
+5. **Checkpoint 5 — Verification only:** cross-layer focused regression and
+   documentation evidence. No TG20 implementation.
+
+Every checkpoint begins with reuse verification and stops on an undocumented
+dependency. Task Groups consume this boundary; they cannot redefine it.
+
+## Readiness Gate
+
+Implementation remains prohibited until the authoritative organization
+identity/role model and the ownership-verification method/owner are approved and
+recorded. Those decisions may alter the proposed backend file/migration boundary;
+the readiness document must then be re-evaluated before code.

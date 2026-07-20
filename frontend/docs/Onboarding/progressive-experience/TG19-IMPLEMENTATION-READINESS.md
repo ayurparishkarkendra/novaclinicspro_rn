@@ -15,8 +15,9 @@ Decision: **NOT READY**
 > field sets, domain ownership, single/multiple-clinic selection rule,
 > duplicate/idempotency policy, and security classification. These decisions
 > close the corresponding historical blockers below. TG19 remains **NOT READY**
-> because the operational Workspace/Tenant integration and exact implementation
-> boundary are not yet verifiable without inventing APIs or behavior. See §17.
+> because the source audit found no authoritative organization membership model
+> or ownership-verification mechanism. The operational and implementation
+> boundaries are now documented; see §§17–18.
 
 ## 1. Executive Decision
 
@@ -452,7 +453,51 @@ TG19 implementation.
 
 **TG19 Implementation Status: NOT READY**
 
-## 17. Version 1 Decision Closure and Reassessment
+## 17. Post-Audit Operational Reassessment
+
+The required source audit is recorded in:
+
+- `E2-OPERATIONAL-CONTRACT.md`;
+- `E2-SOURCE-REUSE-AUDIT.md`;
+- `E2-IMPLEMENTATION-BOUNDARY.md`.
+
+### Blockers closed by the audit
+
+| Prior blocker | Resolution | Status |
+|---|---|---|
+| Existing API/repository fit | Every operation is classified `REUSE_AS_IS`, `EXTEND_EXISTING`, `NEW_CONTRACT_REQUIRED`, or `NOT_APPLICABLE`. The global org-admin tenant API and demo path are explicitly unsuitable. | CLOSED |
+| Normalization and duplicates | Deterministic `clinic_identity_v1`, organization scope, canonical fingerprint, replay, and additive matcher rules are defined. | CLOSED |
+| Create/associate idempotency | Scope, fingerprint conflict, concurrent request, completed replay, retry, and side-effect rules are defined. | CLOSED |
+| DTO/error/session contract | `ClinicIdentityInputV1`, `ClinicEntryResultV1`, stable typed errors, refresh sequence, and mutation-versus-refresh recovery are defined. | CLOSED |
+| Local drafts | Positive field allowlist, prohibited values, scope, expiry, and logout/switch/success/abandon cleanup are defined. | CLOSED |
+| Implementation/test boundary | Exact permitted/prohibited areas, genuinely conditional migration, focused test matrix, and five bounded checkpoints are defined. | CLOSED |
+
+### Source-confirmed blockers that remain
+
+1. **Authoritative organization identity and roles:** the inspected backend has
+   tenant memberships and a global `OrgUser.is_org_admin` platform bypass, but
+   no organization aggregate/membership that can enforce “within organization”
+   duplicate scope or distinguish Organization Owner from authorized
+   Organization Admin. Product Architecture and Backend must identify and
+   approve that authority and role mapping.
+2. **Ownership-verification mechanism:** no issuer, validator, persistence, or
+   accountable owner exists for the required verification of an existing
+   Nova-managed clinic. Product/Security must approve the Version 1 verification
+   method and owner. The operational contract defines the safe opaque evidence
+   boundary but intentionally does not invent the method.
+
+The first blocker determines whether organization association and pre-tenant
+idempotency are persisted locally or supplied by an existing external authority;
+therefore it also gates the proposed migration. Both decisions must be recorded
+and this readiness decision updated before any source change.
+
+Release owners for Hindi review, manual accessibility, security acceptance, and
+staging/device verification remain release gates, not implementation-architecture
+blockers.
+
+**TG19 Implementation Status: NOT READY**
+
+## 18. Historical Version 1 Decision Closure and Reassessment
 
 ### Closed constitutional blockers
 
