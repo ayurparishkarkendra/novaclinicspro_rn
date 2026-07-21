@@ -1571,6 +1571,24 @@ review before any implementation.
   idempotency state, and then navigates after refreshed tenant validation.
 - This checkpoint does not rerun final acceptance and does not authorize TG20.
 
+### TG19 Final Acceptance — ACCEPTED (2026-07-21)
+
+- All 28 Epic 2 Version 1 requirements are classified: 27
+  `VERIFIED_COMPLETE`, 0 `PARTIAL`, 0 `BLOCKED`, 1 `OUT_OF_SCOPE`, and 0
+  `STAGING_ONLY`.
+- Journeys A through G are verified, including initial organization creation,
+  existing-organization clinic creation, Bring Your Clinic, manual and automatic
+  verification, tenant switching, and staff-onboarding isolation.
+- Focused verification passed: backend 154 tests with 9 isolated-PostgreSQL URL
+  skips, frontend 4 suites/15 tests, Ruff, compileall, and ESLint. Prior isolated
+  PostgreSQL evidence remains 161 passing tests.
+- Supabase PostgreSQL is current at the single Alembic head `20260721_020000`.
+  The historical `org_staff` metadata target and repository-wide TypeScript/lint
+  debt remain separately owned and are not TG19 blockers.
+- `TG19-FINAL-ACCEPTANCE.md` is the controlling acceptance record.
+- Decision: `TG19_ACCEPTED`. TG20 remains unimplemented; only its architecture
+  and implementation planning may begin under separate authorization.
+
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).

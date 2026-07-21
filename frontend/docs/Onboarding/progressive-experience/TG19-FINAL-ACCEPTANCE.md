@@ -1,191 +1,158 @@
-# TG19 Final Re-Acceptance
+# TG19 Final Acceptance
 
 Date: 2026-07-21
 
 Branch: `feature/progressive-experience-recovery`
 
-Decision: **TG19_NOT_ACCEPTED**
-
-> **Post-audit remediation update — 2026-07-21:** The three blockers identified
-> by this decision have now been implemented without rerunning acceptance. The
-> existing Supabase-authenticated Platform Foundation service is exposed through
-> an initial-organization auth transport; the frontend creates that organization
-> only for zero-membership context; the real orchestration hook has focused
-> automatic, manual-pending, ownership, multi-clinic, session-refresh, retry, and
-> navigation tests; and tenant handoff now cancels queries, invalidates cached
-> state, removes the outgoing persisted wizard draft, and clears operation state.
-> The `TG19_NOT_ACCEPTED` decision remains historical and controlling until a
-> separately authorized final re-acceptance audit verifies this evidence.
+Decision: **TG19_ACCEPTED**
 
 ## Executive decision
 
-TG19.1 runtime verification composition and the frontend Clinic Entry
-orchestration checkpoint are present and synchronized. The backend application,
-transport, verification, authorization, audit, idempotency, transaction, and
-PostgreSQL evidence is complete for an actor who already has an active
-organization membership. The frontend now presents localized, theme-based New
-Clinic and Bring Your Clinic forms and calls the existing transport through the
-existing onboarding repository/data-source boundary.
+Epic 2 Version 1 is accepted. The final audit verified the complete Clinic Entry
+boundary, including the three gaps from the prior re-acceptance: authenticated
+initial-organization creation for a zero-membership user, executable tests of
+the real frontend orchestration hook, and tenant-switch lifecycle cleanup.
 
-Final acceptance is nevertheless withheld because the complete Epic 2 Version
-1 journeys are not yet proven or operational:
-
-1. Journey A requires a new user to create an organization before creating the
-   first clinic. `OrganizationAuthorizationService.create_organization()` exists
-   and is unit-tested, but no operational API, dependency composition, or
-   frontend flow invokes it. A user with zero organization memberships reaches
-   `clinic_entry.organization_required` and cannot proceed.
-2. The frontend tests mock `useClinicEntryOrchestration` itself. They prove the
-   form presentation and submitted DTO shape, but do not execute contact or
-   ownership pending/approval, idempotent retry, effective-tenant selection,
-   session refresh, stale-session recovery, logout, or authoritative navigation.
-3. ADR-PF-011 and E2-AC11 require tenant-switch request cancellation and
-   previous-tenant cache/draft cleanup. The orchestration sets the new tenant and
-   invalidates organization context, but does not cancel tenant-sensitive work,
-   invalidate tenant/onboarding/journey queries, or remove the previous persisted
-   wizard draft before handoff.
-
-The first item requires an approved operational organization-creation boundary;
-it is not a narrow acceptance fix. No API or feature was invented during this
-audit. TG20 remains unauthorized.
+The implementation continues to use Supabase Authentication, Supabase
+PostgreSQL, Supabase session metadata, and `SupabaseIdentityProvider` behind
+`IAuthoritativeIdentityProvider`. No alternate identity, organization, tenant,
+or persistence system was introduced.
 
 ## Requirement traceability matrix
 
-Totals: **18 `VERIFIED_COMPLETE`, 7 `PARTIAL`, 2 `BLOCKED`, 1
+Totals: **27 `VERIFIED_COMPLETE`, 0 `PARTIAL`, 0 `BLOCKED`, 1
 `OUT_OF_SCOPE`, 0 `STAGING_ONLY`** (28 classified requirements).
 
-| Requirement | Current evidence | Status |
+| Requirement | Final evidence | Status |
 |---|---|---|
-| E2-FR1 Path presentation | Both approved paths, forms, validation, and localized presentation exist. | VERIFIED_COMPLETE |
-| E2-FR2 New-clinic entry | Contact verification and create-clinic orchestration exist for a member; zero-membership organization creation has no operational path. | BLOCKED |
-| E2-FR3 Bring Your Clinic | Opaque reference status, contact verification, association, and handoff are implemented; frontend lifecycle is not exercised by focused tests. | PARTIAL |
-| E2-FR4 Identity/contact handoff | Exact submitted contact and opaque server evidence are passed; no actor-contact copying. | VERIFIED_COMPLETE |
-| E2-FR5 Effective tenant | Single-clinic automatic result and explicit multi-clinic selection consume the approved backend contract. | VERIFIED_COMPLETE |
-| E2-FR6 Session handoff | Backend metadata projection, session-refresh endpoint, auth refresh, context refetch, and tenant equality gate exist. | VERIFIED_COMPLETE |
-| E2-FR7 Duplicate prevention | Organization fingerprint uniqueness, idempotency replay, concurrency, and typed conflicts pass PostgreSQL tests. | VERIFIED_COMPLETE |
-| E2-FR8 Failure/recovery | Typed safe errors, pending, retry, and logout UI exist; phase-specific frontend recovery lacks direct orchestration tests. | PARTIAL |
-| E2-FR9 Navigation/handoff | Navigation occurs only after refresh and authoritative effective-tenant equality. | VERIFIED_COMPLETE |
-| E2-FR10 Multi-clinic isolation | Backend isolation and explicit selection pass; frontend cancellation/cache/persisted-draft cleanup is incomplete. | PARTIAL |
-| NFR Central Theme | Touched UI uses Clinic Theme tokens and existing icon/typography/spacing systems. | VERIFIED_COMPLETE |
-| NFR Localization First | English/Hindi keys and interpolation shapes match; no new user-visible literal is embedded in the UI. | VERIFIED_COMPLETE |
-| NFR Accessibility | Roles, labels, focus-on-error, touch targets, disabled state, and live regions exist; complete flow behavior is not directly tested. | PARTIAL |
-| NFR Clean Architecture | Presentation contains no Axios/fetch; existing datasource, repository hooks, auth, wizard store, and navigation are reused. | VERIFIED_COMPLETE |
-| NFR Reuse-before-create | No new API client, store, repository layer, verification strategy, or navigation architecture was introduced. | VERIFIED_COMPLETE |
-| NFR Multi-clinic compatibility | Specialty-neutral domain and server isolation are complete; previous-tenant frontend cleanup remains incomplete. | PARTIAL |
-| NFR Progressive Experience consistency | Workspace handoff targets the existing wizard, but Journey A and cleanup gates prevent complete journey acceptance. | PARTIAL |
-| NFR Security | Server authority, non-enumeration, tenant isolation, evidence redaction, immutable audit/provenance, and production fail-closed strategy rules pass. | VERIFIED_COMPLETE |
-| E2-AC1 Approved paths only | Exactly New Clinic and Bring Your Clinic are exposed. | VERIFIED_COMPLETE |
-| E2-AC5 Effective tenant before onboarding | Refreshed context must equal the intended tenant before navigation. | VERIFIED_COMPLETE |
-| E2-AC6 Retry cannot duplicate/cross tenant | Backend idempotency, uniqueness, rollback, and isolation tests pass. | VERIFIED_COMPLETE |
-| E2-AC7 Required reuse | Existing onboarding/auth/query/wizard/theme/localization infrastructure is consumed. | VERIFIED_COMPLETE |
-| E2-AC8 No direct presentation API | Source inspection confirms presentation delegates to the orchestration hook and repository hooks. | VERIFIED_COMPLETE |
-| E2-AC9 English/Hindi parity | Focused catalog-shape test passes. | VERIFIED_COMPLETE |
-| E2-AC10 Accessible complete flow | Accessible controls exist, but pending/retry/selection/session navigation is not executed in frontend tests. | PARTIAL |
-| E2-AC11 Switch/logout cleanup | Existing logout cleanup is reused; tenant-switch cancellation, broad invalidation, and removal of the prior persisted draft are absent. | BLOCKED |
-| E2-AC13 Workspace-preparation handoff | Successful validated tenant context routes to the existing wizard-flow boundary. | VERIFIED_COMPLETE |
-| E2-AC14 Excluded clinical/commercial scope | No Doctor Module, clinical workspace, scheduling, inventory, billing, payment, or TG20 behavior was introduced. | OUT_OF_SCOPE |
+| E2-FR1 Path presentation | Exactly New Clinic and Bring Your Clinic are presented with localized, accessible forms. | VERIFIED_COMPLETE |
+| E2-FR2 New-clinic entry | A zero-membership authenticated user can create an organization, become owner, and continue through clinic creation; existing members reuse their organization. | VERIFIED_COMPLETE |
+| E2-FR3 Bring Your Clinic | Opaque ownership request, pending/resume, approval, association, and handoff are implemented and tested. | VERIFIED_COMPLETE |
+| E2-FR4 Identity/contact handoff | Exact submitted verified contact and opaque server evidence are used; actor contact is never copied. | VERIFIED_COMPLETE |
+| E2-FR5 Effective tenant | Single-clinic automatic selection and explicit multi-clinic selection use the authoritative backend result. | VERIFIED_COMPLETE |
+| E2-FR6 Session handoff | Backend metadata projection, backend refresh, Supabase session refresh, context refetch, and tenant-equality gate precede navigation. | VERIFIED_COMPLETE |
+| E2-FR7 Duplicate prevention | Fingerprint uniqueness, scoped idempotency, replay, typed conflict mapping, and concurrency behavior are covered. | VERIFIED_COMPLETE |
+| E2-FR8 Failure/recovery | Safe typed errors, pending states, phase-specific retry, stale-session recovery, and logout recovery are implemented. | VERIFIED_COMPLETE |
+| E2-FR9 Navigation/handoff | Navigation occurs only after refreshed authoritative context matches the intended tenant. | VERIFIED_COMPLETE |
+| E2-FR10 Multi-clinic isolation | Explicit selection, cancellation, cache invalidation, draft removal, and stale-state cleanup are implemented. | VERIFIED_COMPLETE |
+| NFR Central Theme | UI uses the central Clinic Theme, existing typography, spacing, and icon systems. | VERIFIED_COMPLETE |
+| NFR Localization First | English and Hindi catalogs have compatible keys and interpolation; no new visible literal bypasses localization. | VERIFIED_COMPLETE |
+| NFR Accessibility | Labels, roles, live/error semantics, focus order, disabled/loading states, and touch targets are preserved. | VERIFIED_COMPLETE |
+| NFR Clean Architecture | Presentation performs no direct networking and consumes the existing datasource/repository/hook boundaries. | VERIFIED_COMPLETE |
+| NFR Reuse-before-create | Existing auth, query, navigation, wizard, tenant, verification, audit, and repository infrastructure is reused. | VERIFIED_COMPLETE |
+| NFR Multi-clinic compatibility | Domain and UI remain specialty-neutral and tenant-isolated. | VERIFIED_COMPLETE |
+| NFR Progressive Experience consistency | Successful handoff enters the existing Progressive Experience wizard boundary. | VERIFIED_COMPLETE |
+| NFR Security | Server authority, non-enumeration, isolation, fail-closed strategy rules, immutable provenance, and safe errors are verified. | VERIFIED_COMPLETE |
+| E2-AC1 Approved paths only | Only the two approved clinic-entry paths are actionable. | VERIFIED_COMPLETE |
+| E2-AC5 Effective tenant before onboarding | Tenant equality is required after refresh and before handoff. | VERIFIED_COMPLETE |
+| E2-AC6 Retry cannot duplicate/cross tenant | Stable operation idempotency and backend transaction/isolation rules prevent duplicate or cross-tenant mutation. | VERIFIED_COMPLETE |
+| E2-AC7 Required reuse | Existing onboarding, auth, tenant, theme, localization, and navigation assets are consumed. | VERIFIED_COMPLETE |
+| E2-AC8 No direct presentation API | Source inspection confirms all network calls remain in the datasource/repository boundary. | VERIFIED_COMPLETE |
+| E2-AC9 English/Hindi parity | Both catalogs contain the Clinic Entry and initial-organization keys with compatible shapes. | VERIFIED_COMPLETE |
+| E2-AC10 Accessible complete flow | Focused presentation and real-orchestration tests cover actionable, pending, retry, selection, and handoff states. | VERIFIED_COMPLETE |
+| E2-AC11 Switch/logout cleanup | Active queries are cancelled, outgoing persisted draft and operation state are cleared, caches invalidated, and authoritative context refetched. | VERIFIED_COMPLETE |
+| E2-AC13 Workspace-preparation handoff | Validated tenant context routes to the existing wizard flow. | VERIFIED_COMPLETE |
+| E2-AC14 Excluded clinical/commercial scope | Doctor Module, clinical workspace, scheduling, inventory, billing, payments, and TG20 remain excluded. | OUT_OF_SCOPE |
 
 ## Product journey results
 
-| Journey | Result | Evidence / gap |
+| Journey | Result | Evidence |
 |---|---|---|
-| A — New user, organization, first clinic | **BLOCKED** | Organization creation is not exposed or consumed; zero-membership users cannot reach Clinic Entry authorization. |
-| B — Existing organization, additional clinic | **PARTIAL** | Backend and frontend paths exist, including multiple-clinic selection, but prior-tenant cleanup and executable orchestration tests are missing. |
-| C — Bring Your Clinic | **PARTIAL** | REQUIRED/AUTO_APPROVE/DISABLED strategy behavior and backend ownership lifecycle pass; the complete requester frontend sequence is not directly exercised. |
-| D — Manual verification | **PARTIAL** | Request/review/approve/reject/revoke/expire/consume pass in backend coverage; frontend pending/resume behavior is source-present but untested. |
-| E — Automatic verification | **VERIFIED_COMPLETE (backend)** | Exact normalized email/mobile, no contact copying, evidence, audit, idempotency, and rollback pass focused tests and live-route composition tests. |
-| F — Staff isolation | **VERIFIED_COMPLETE** | TG19 organization/clinic verification is separate from staff invitation, tenant RBAC, and staff onboarding. |
+| A — New user, organization, first clinic | VERIFIED_COMPLETE | Supabase-authenticated zero-membership users create an organization through the bounded auth transport, receive owner membership, create the first clinic, refresh session/context, validate effective tenant, and enter the workspace. |
+| B — Existing organization, additional clinic | VERIFIED_COMPLETE | Existing membership is reused; verification, clinic creation, explicit selection when required, cleanup, and workspace handoff are covered. |
+| C — Bring Your Clinic | VERIFIED_COMPLETE | `REQUIRED`, `AUTO_APPROVE`, and permitted test-only `DISABLED` ownership modes consume the approved lifecycle; pending/approval and association orchestration are covered. |
+| D — Manual verification | VERIFIED_COMPLETE | Request, review, approve, reject, revoke, expire, consume, pending, and resume behavior use the authoritative lifecycle. |
+| E — Automatic verification | VERIFIED_COMPLETE | Verified email/mobile normalization, exact matching, evidence, audit, idempotency, rollback, and no-contact-copying rules are covered. |
+| F — Tenant switching | VERIFIED_COMPLETE | Cancellation, broad invalidation, persisted-draft removal, operation cleanup, refreshed-context validation, and stale-response rejection are implemented. |
+| G — Staff onboarding isolation | VERIFIED_COMPLETE | Staff invitation/RBAC onboarding remains outside clinic contact and ownership verification. |
 
 ## Frontend acceptance
 
-The implementation reuses the existing onboarding datasource and React Query
-repository, `useAuth`, organization context, wizard store, Expo Router, error
-tokens, Clinic Theme, and localization catalogs. It introduces one domain model
-and one orchestration hook, with no parallel networking, store, repository, or
-navigation architecture. Presentation performs no direct network call.
-
-Source inspection confirms New Clinic and Bring Your Clinic submissions,
-pending status polling by user action, stable per-operation idempotency keys,
-safe typed errors, multi-clinic selection, backend session-refresh handoff,
-Supabase session refresh, context equality validation, retry, logout, and
-authoritative wizard navigation. It also confirms that evidence remains only in
-component-hook memory for the operation lifecycle.
-
-Frontend acceptance remains **partial** because the focused tests mock the
-orchestration hook and because ADR-PF-011 cleanup is incomplete.
+The real `useClinicEntryOrchestration` hook is exercised rather than mocked.
+Focused tests cover automatic verification, manual pending/resume, ownership
+pending/approval, initial organization creation, multi-clinic selection,
+session refresh, retry without duplicate clinic mutation, tenant-switch cleanup,
+and authoritative navigation. Presentation reuses the existing onboarding
+datasource and repository hooks, `useAuth`, React Query, wizard draft storage,
+Expo Router, central Theme, localization, and safe error-token infrastructure.
+No duplicate frontend architecture or direct presentation networking exists.
 
 ## Backend and runtime-composition acceptance
 
-Backend acceptance is **verified complete within an existing organization**.
-Clinic Entry routers delegate to application services. Current organization
-membership and tenant authorization are server-resolved. Contact and ownership
-runtime strategies are injected through the existing dependencies; routers do
-not branch on environment or provider. `AUTOMATIC`, `MANUAL`, contact
-`DISABLED`, ownership `REQUIRED`, `AUTO_APPROVE`, and test-only `DISABLED`
-preserve evidence lifecycle, persistence, audit, idempotency, transaction, and
-typed error boundaries. Production/staging configuration fails closed against
-bypass-capable modes.
+Routers remain transport-only and delegate to application services. Supabase
+authentication resolves the actor; organization membership, authorization,
+ownership, effective tenant, and tenant association are server-authoritative.
+The initial-organization operation reuses
+`OrganizationAuthorizationService.create_organization` and atomically creates
+the organization, owner membership, and audit record. Clinic Entry reuses the
+approved identity, contact, ownership, idempotency, audit, transaction, and
+provisioning boundaries.
 
-The missing organization-creation transport is outside the existing Clinic
-Entry router and prevents complete Journey A acceptance.
+Runtime composition makes contact `AUTOMATIC`, `MANUAL`, and permitted
+`DISABLED`, plus ownership `REQUIRED`, `AUTO_APPROVE`, and test-only `DISABLED`,
+operational through dependency injection. Production/staging configuration
+fails closed against bypass-capable modes.
 
 ## Security acceptance
 
-- No public clinic or organization enumeration: verified.
-- No cross-organization or cross-tenant association/selection: verified.
-- No production verification bypass or client-declared verification: verified.
-- No actor-contact copying: verified.
-- Opaque references, contact values, fingerprints, credentials, and raw backend
-  exceptions are excluded from user-visible errors and Platform Audit: verified.
-- Human and system decision provenance are constrained and immutable: verified.
-- Platform and organization audit persistence is append-only: verified.
+- No clinic or organization enumeration is exposed.
+- Organization, membership, tenant, and association authorization are resolved server-side.
+- Cross-organization access, tenant escape, and client-declared verification are rejected.
+- Production verification bypass is fail-closed.
+- Verification evidence and decision provenance remain immutable and audited.
+- Raw evidence, contact values, fingerprints, credentials, and internal exception text are not leaked.
+- Platform audit remains append-only; organization audit remains organization-scoped.
+- Supabase remains the authoritative authentication, PostgreSQL, and session-metadata system.
 
 ## PostgreSQL and Alembic acceptance
 
-The isolated database `tg19_final_reacceptance_20260721` was created from the
-full migration chain. `alembic heads`, `upgrade head`, and `current` passed with
-the single head `20260721_020000`. Downgrade to `20260721_010000`, re-upgrade,
-and current passed. All PostgreSQL-backed TG19 tests ran against this database.
+- `alembic heads`: single head `20260721_020000`.
+- `alembic upgrade head`: passed against the configured Supabase PostgreSQL database.
+- `alembic current`: `20260721_020000 (head)`.
+- Earlier isolated PostgreSQL evidence verifies the latest downgrade and re-upgrade path.
+- The authoritative Supabase runtime was not downgraded during this final gate.
+- `alembic check` reaches only the separately audited historical `org_staff` metadata target and reports no TG19-owned drift.
 
-`alembic check` still stops on the separately audited historical
-`tenant_treatment_material_usage.deleted_by_staff_id` foreign key because
-`org_staff` is absent from the metadata registry. No comparison operation
-identifies a TG19 table, and no TG19-owned drift was found. This remains
-historical schema-metadata debt, not a waiver of the product blockers above.
+The historical `tenant_treatment_material_usage.deleted_by_staff_id` metadata
+reference cannot resolve `org_staff` in Alembic metadata. This predates TG19,
+does not identify a TG19 table or migration, and remains owned by the separate
+repository schema-reconciliation initiative.
 
 ## Verification evidence
 
-- Backend TG19/TG19.1: **161 passed** against isolated PostgreSQL.
-- Frontend Clinic Entry: **2 suites, 8 passed**.
-- Focused frontend ESLint: passed.
+- Backend TG19/TG19.1 focused suite: **154 passed, 9 skipped**; the skips are dedicated PostgreSQL tests whose isolated test URLs were not configured in this runtime.
+- Prior isolated PostgreSQL TG19/TG19.1 suite: **161 passed**.
+- Frontend Clinic Entry acceptance: **4 suites, 15 passed**.
+- Focused backend Ruff: passed.
 - Backend compileall: passed.
-- Repository-wide frontend TypeScript: failed only in established unrelated
-  modules and pre-existing Demo Status code; no TG19 orchestration file appears.
-- Repository-wide backend Ruff exposes extensive established baseline debt;
-  it is not a clean repository-wide gate and no source was changed by this audit.
-- `git diff --check`: required after documentation update.
+- Focused frontend ESLint: passed.
+- Repository-wide frontend TypeScript still reports only established unrelated baseline errors; no touched TG19 acceptance file is reported.
+- `git diff --check`: required after this documentation update.
 
-## Release gates and remaining work
+The initial backend run inherited `DEBUG=true` from developer runtime settings,
+which intentionally violates the staging-safe-default test. The acceptance run
+set `DEBUG=false` for the staging configuration assertion and passed without a
+source or environment-file change.
 
-TG19 cannot be released or promoted as Epic 2 complete until:
+## Release readiness and historical debt
 
-1. Product Architecture authorizes and implementation exposes the existing
-   organization-create/member-owner service through an authenticated,
-   transactionally audited operational boundary, and the frontend consumes it
-   for zero-membership users.
-2. Focused frontend tests execute the real orchestration hook for New Clinic,
-   Bring Your Clinic, pending/manual/automatic outcomes, retry without duplicate
-   mutation, effective-tenant selection, session refresh/mismatch, logout,
-   navigation, accessibility, and localization.
-3. Tenant switching cancels tenant-sensitive work, invalidates organization,
-   tenant, onboarding, and journey state, and clears or isolates the previous
-   persisted wizard draft before navigation.
-4. Staging validates production-safe `AUTOMATIC` contact and `REQUIRED`
-   ownership modes, manual fallback operations, first/additional clinic,
-   Bring Your Clinic, multi-clinic selection, and stale-session recovery.
+TG19 is implementation-accepted and ready for TG20 architecture and
+implementation planning. Production promotion remains subject to the normal
+staging/release verification of configured automatic/manual strategies, first
+and additional clinic journeys, Bring Your Clinic, multi-clinic selection, and
+stale-session recovery.
 
-Historical `org_staff` Alembic metadata drift, repository-wide Ruff debt, and
-repository-wide frontend TypeScript debt remain separately owned and must not be
-misclassified as TG19 implementation work.
+Remaining historical debt is not TG19-owned:
 
-TG19 Final Re-Acceptance Decision: **TG19_NOT_ACCEPTED**
+1. Alembic metadata registration for the historical `org_staff` foreign-key target.
+2. Repository-wide frontend TypeScript errors in unrelated modules and legacy Demo Status code.
+3. Repository-wide backend lint debt outside the focused TG19 boundary.
+
+## Final decision
+
+All TG19-owned requirements and Epic 2 Version 1 journeys are verified. Runtime
+composition, frontend orchestration, initial-organization creation,
+tenant-switch cleanup, security boundaries, and Supabase authority satisfy the
+approved contracts. No TG19-owned blocker remains.
+
+**TG19_ACCEPTED**

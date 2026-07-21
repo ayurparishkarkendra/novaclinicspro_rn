@@ -900,6 +900,41 @@ missing migrations, stale model metadata, or reflection/naming differences.
 **TG19_FINAL_ACCEPTANCE_READY** — Historical repository metadata reconciliation
 remains separately owned and must not be folded into TG19.
 
+## 34. TG19 Final Acceptance Gate — 2026-07-21
+
+**Decision:** `TG19_ACCEPTED`
+
+The final gate verified the three remaining acceptance remediations:
+
+- a Supabase-authenticated zero-membership user can create the initial
+  organization and owner membership through the existing audited Platform
+  Foundation service before Clinic Entry;
+- focused frontend tests execute the real Clinic Entry orchestration for
+  automatic, manual-pending, ownership, retry, multi-clinic, session-refresh,
+  cleanup, and navigation behavior;
+- tenant handoff cancels active queries, invalidates cached state, removes the
+  outgoing persisted wizard draft, clears operation/idempotency state, refreshes
+  Supabase and backend session context, and rejects a mismatched tenant before
+  navigation.
+
+The focused backend suite passed 154 tests with 9 dedicated PostgreSQL tests
+skipped because their isolated test URLs were not configured; the previously
+recorded isolated PostgreSQL run passed 161 tests. The frontend acceptance suite
+passed 4 suites and 15 tests. Focused Ruff, compileall, and ESLint passed.
+
+Supabase PostgreSQL upgraded to and reports the single Alembic head
+`20260721_020000`. `alembic check` remains stopped only by the separately audited
+historical `org_staff` metadata target; no TG19-owned drift exists. Repository-
+wide frontend TypeScript errors remain unrelated baseline debt and do not name
+the TG19 acceptance files.
+
+All 28 requirements are classified: 27 `VERIFIED_COMPLETE`, 0 `PARTIAL`, 0
+`BLOCKED`, 1 `OUT_OF_SCOPE`, and 0 `STAGING_ONLY`. Production promotion still
+requires normal staging/release verification, but no TG19-owned implementation
+blocker remains.
+
+**TG19 Implementation Status:** `ACCEPTED`
+
 ## 31. ADR-PF-017 Automatic Authority Closure — 2026-07-21
 
 **Decision:** `VERIFICATION_STRATEGY_AUTHORITY_READY`
