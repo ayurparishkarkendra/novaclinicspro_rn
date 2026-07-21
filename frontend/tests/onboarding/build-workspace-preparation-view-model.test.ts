@@ -56,6 +56,7 @@ describe('buildWorkspacePreparationViewModel', () => {
         userRetryCount: 2,
         reasonCode: 'TRANSIENT_DEPENDENCY_FAILURE',
         nextAction: 'RETRY',
+        refreshAfterSeconds: null,
       })
     );
     expect(result.progress.percentage).toBe(25);
@@ -89,6 +90,7 @@ describe('buildWorkspacePreparationViewModel', () => {
         userRetryCount: 3,
         reasonCode: 'RETRY_LIMIT_REACHED',
         nextAction: 'CONTACT_SUPPORT',
+        refreshAfterSeconds: null,
       })
     );
     expect(result.retry).toMatchObject({ available: false, exhausted: true, remaining: 0 });
@@ -100,6 +102,7 @@ describe('buildWorkspacePreparationViewModel', () => {
         ...projection(),
         state: 'PERSONALIZATION_AVAILABLE',
         nextAction: 'ENTER_PERSONALIZATION',
+        refreshAfterSeconds: null,
       })
     );
     expect(incomplete.personalizationAvailable).toBe(false);
@@ -121,6 +124,7 @@ describe('buildWorkspacePreparationViewModel', () => {
         progress: { completed: 4, total: 4, indeterminate: false },
         units,
         nextAction: 'ENTER_PERSONALIZATION',
+        refreshAfterSeconds: null,
       })
     );
     expect(complete.personalizationAvailable).toBe(true);
@@ -167,9 +171,30 @@ describe('buildWorkspacePreparationViewModel', () => {
     ).toThrow(InvalidWorkspacePreparationProjectionError);
   });
 
-  it.each(['START', 'REFRESH'] as const)('accepts backend-authoritative %s actions', (nextAction) => {
+  it.each([
+    ['PENDING', 'START'],
+    ['PREPARING', 'REFRESH'],
+  ] as const)('accepts backend-authoritative %s/%s projection', (state, nextAction) => {
     expect(
-      buildWorkspacePreparationViewModel({ ...projection(), nextAction }).nextAction
+      buildWorkspacePreparationViewModel({ ...projection(), state, nextAction }).nextAction
     ).toBe(nextAction);
+  });
+
+  it('fails closed for invalid state/action, refresh, evidence, and reason combinations', () => {
+    expect(() =>
+      buildWorkspacePreparationViewModel({ ...projection(), nextAction: 'CONTACT_SUPPORT' })
+    ).toThrow(InvalidWorkspacePreparationProjectionError);
+    expect(() =>
+      buildWorkspacePreparationViewModel({ ...projection(), refreshAfterSeconds: 31 })
+    ).toThrow(InvalidWorkspacePreparationProjectionError);
+    expect(() =>
+      buildWorkspacePreparationViewModel({ ...projection(), reasonCode: 'RAW_BACKEND_REASON' })
+    ).toThrow(InvalidWorkspacePreparationProjectionError);
+    expect(() =>
+      buildWorkspacePreparationViewModel({
+        ...projection(),
+        progress: { completed: 2, total: 4, indeterminate: false },
+      })
+    ).toThrow(InvalidWorkspacePreparationProjectionError);
   });
 });

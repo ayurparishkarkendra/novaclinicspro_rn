@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { WorkspacePreparationScreen } from '../../features/onboarding/presentation/pages/WorkspacePreparationScreen';
 import { WorkspacePreparationOrchestrationState } from '../../features/onboarding/domain/entities/workspace-preparation.entity';
@@ -7,6 +7,7 @@ import { WorkspacePreparationOrchestrationState } from '../../features/onboardin
 const mockPush = jest.fn();
 const mockRetry = jest.fn();
 const mockReload = jest.fn();
+const mockPreparePersonalizationHandoff = jest.fn();
 const mockUseWorkspacePreparation = jest.fn();
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -68,8 +69,10 @@ const presentation = (domain: WorkspacePreparationOrchestrationState | null) => 
   domain,
   error: null,
   retrying: false,
+  personalizing: false,
   retry: mockRetry,
   reload: mockReload,
+  preparePersonalizationHandoff: mockPreparePersonalizationHandoff,
 });
 
 describe('WorkspacePreparationScreen', () => {
@@ -140,6 +143,25 @@ describe('WorkspacePreparationScreen', () => {
     expect(mockRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('exposes disabled semantics while retry is pending', () => {
+    mockUseWorkspacePreparation.mockReturnValue({
+      ...presentation(buildDomain({
+        lifecycle: 'RETRYABLE_FAILURE',
+        failure: { kind: 'RETRYABLE', reasonCode: 'safe_reason', messageToken: 'safe.token' },
+        retry: { available: true, exhausted: false, used: 1, maximum: 3, remaining: 2 },
+        nextAction: 'RETRY',
+      })),
+      retrying: true,
+    });
+    const { getByRole } = render(
+      <WorkspacePreparationScreen organizationId="org-1" tenantId="tenant-1" />
+    );
+
+    expect(getByRole('button').props.accessibilityState).toEqual({ disabled: true });
+    fireEvent.press(getByRole('button'));
+    expect(mockRetry).not.toHaveBeenCalled();
+  });
+
   it('fails safely without exposing a retry for a terminal failure', () => {
     mockUseWorkspacePreparation.mockReturnValue(
       presentation(buildDomain({
@@ -159,7 +181,8 @@ describe('WorkspacePreparationScreen', () => {
     expect(queryByRole('text', { name: 'internal_reason' })).toBeNull();
   });
 
-  it('hands completed preparation to the existing personalization flow', () => {
+  it('hands completed preparation to the existing personalization flow', async () => {
+    mockPreparePersonalizationHandoff.mockResolvedValue(true);
     mockUseWorkspacePreparation.mockReturnValue(
       presentation(buildDomain({
         lifecycle: 'PERSONALIZATION_AVAILABLE',
@@ -180,6 +203,8 @@ describe('WorkspacePreparationScreen', () => {
     );
 
     fireEvent.press(getByRole('button'));
-    expect(mockPush).toHaveBeenCalledWith('/onboarding/wizard-flow?tenantId=tenant-1');
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith('/onboarding/wizard-flow?tenantId=tenant-1')
+    );
   });
 });

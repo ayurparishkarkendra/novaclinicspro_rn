@@ -1,7 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  AccessibilityInfo,
+  findNodeHandle,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { ClinicTheme, useClinicTheme } from '../../../../core/theme/useClinicTheme';
@@ -34,6 +42,22 @@ export function WorkspacePreparationScreen({
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const presentation = useWorkspacePreparation(tenantId, organizationId);
+  const failureRef = useRef<View>(null);
+  const completionRef = useRef<View>(null);
+  const failureKind = presentation.domain?.failure.kind ?? 'NONE';
+  const personalizationAvailable =
+    presentation.domain?.personalizationAvailable ?? false;
+
+  useEffect(() => {
+    const target =
+      failureKind !== 'NONE'
+        ? failureRef.current
+        : personalizationAvailable
+          ? completionRef.current
+          : null;
+    const node = target ? findNodeHandle(target) : null;
+    if (node) AccessibilityInfo.setAccessibilityFocus(node);
+  }, [failureKind, personalizationAvailable]);
 
   if (presentation.loading) {
     return (
@@ -43,7 +67,7 @@ export function WorkspacePreparationScreen({
     );
   }
 
-  if (!presentation.domain) {
+  if (presentation.error || !presentation.domain) {
     return (
       <View style={styles.centered} accessible accessibilityRole="alert">
         <Ionicons
@@ -170,6 +194,7 @@ export function WorkspacePreparationScreen({
 
       {domain.failure.kind !== 'NONE' && (
         <View
+          ref={failureRef}
           style={styles.failureCard}
           accessible
           accessibilityRole="alert"
@@ -223,7 +248,12 @@ export function WorkspacePreparationScreen({
       )}
 
       {domain.personalizationAvailable && (
-        <View style={styles.completionCard} accessible accessibilityLiveRegion="polite">
+        <View
+          ref={completionRef}
+          style={styles.completionCard}
+          accessible
+          accessibilityLiveRegion="polite"
+        >
           <Ionicons
             name="sparkles"
             size={theme.spacing.xl}
@@ -240,9 +270,13 @@ export function WorkspacePreparationScreen({
             accessibilityLabel={t(
               'onboarding.progressiveExperience.workspacePreparation.actions.personalize'
             )}
-            onPress={() =>
-              router.push(`/onboarding/wizard-flow?tenantId=${tenantId}` as never)
-            }
+            accessibilityState={{ disabled: presentation.personalizing }}
+            disabled={presentation.personalizing}
+            onPress={async () => {
+              if (await presentation.preparePersonalizationHandoff()) {
+                router.push(`/onboarding/wizard-flow?tenantId=${tenantId}` as never);
+              }
+            }}
             style={styles.primaryButton}
           >
             <Text style={styles.primaryButtonText}>

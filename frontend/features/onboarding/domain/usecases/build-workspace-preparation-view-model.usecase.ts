@@ -53,6 +53,27 @@ const NEXT_ACTIONS: readonly WorkspacePreparationNextAction[] = [
   'CONTACT_SUPPORT',
 ];
 
+const SAFE_REASON_CODES = [
+  'TRANSIENT_DEPENDENCY_FAILURE',
+  'TRANSACTION_CONFLICT',
+  'EXECUTION_INTERRUPTED',
+  'ACCESS_RECONCILIATION_FAILED',
+  'ONBOARDING_FOUNDATION_FAILED',
+  'ASSOCIATION_INACTIVE',
+  'TENANT_INELIGIBLE',
+  'UNSAFE_INCONSISTENCY',
+  'RETRY_LIMIT_REACHED',
+  'UNSUPPORTED_CONTRACT',
+] as const;
+
+const NEXT_ACTIONS_BY_STATE: Record<WorkspacePreparationState, readonly WorkspacePreparationNextAction[]> = {
+  PENDING: ['START', 'WAIT'],
+  PREPARING: ['WAIT', 'REFRESH'],
+  PERSONALIZATION_AVAILABLE: ['ENTER_PERSONALIZATION'],
+  RETRYABLE_FAILURE: ['RETRY', 'CONTACT_SUPPORT'],
+  TERMINAL_FAILURE: ['CONTACT_SUPPORT'],
+};
+
 const isUnitCode = (value: string): value is WorkspacePreparationUnitCode =>
   WORKSPACE_PREPARATION_UNIT_ORDER.includes(value as WorkspacePreparationUnitCode);
 
@@ -68,17 +89,35 @@ export const buildWorkspacePreparationViewModel = (
   if (input.contractVersion !== WORKSPACE_PREPARATION_CONTRACT_V1) {
     throw new UnsupportedWorkspacePreparationContractError();
   }
+  const state = input.state as WorkspacePreparationState;
+  const nextAction = input.nextAction as WorkspacePreparationNextAction;
+  const unitCodes = input.units.map((unit) => unit.code);
   if (
-    !STATES.includes(input.state as WorkspacePreparationState) ||
-    !NEXT_ACTIONS.includes(input.nextAction as WorkspacePreparationNextAction) ||
+    !STATES.includes(state) ||
+    !NEXT_ACTIONS.includes(nextAction) ||
+    !NEXT_ACTIONS_BY_STATE[state]?.includes(nextAction) ||
     input.aggregateVersion < 1 ||
     input.progress.completed < 0 ||
-    input.progress.total < 1 ||
+    input.progress.total !== WORKSPACE_PREPARATION_UNIT_ORDER.length ||
     input.progress.completed > input.progress.total ||
+    input.progress.completed !== input.units.length ||
     input.userRetryCount < 0 ||
     input.maxUserRetries !== 3 ||
     input.maxUserRetries < input.userRetryCount ||
-    input.units.some((unit) => !isUnitCode(unit.code))
+    input.units.some(
+      (unit) =>
+        !isUnitCode(unit.code) ||
+        !['SATISFIED', 'RECONCILED'].includes(unit.outcome) ||
+        unit.attempt < 1
+    ) ||
+    new Set(unitCodes).size !== unitCodes.length ||
+    (input.reasonCode !== null &&
+      !SAFE_REASON_CODES.includes(input.reasonCode as (typeof SAFE_REASON_CODES)[number])) ||
+    (input.refreshAfterSeconds !== null &&
+      (input.refreshAfterSeconds < 2 ||
+        input.refreshAfterSeconds > 30 ||
+        !['PENDING', 'PREPARING'].includes(state))) ||
+    (input.retryAllowed && state !== 'RETRYABLE_FAILURE')
   ) {
     throw new InvalidWorkspacePreparationProjectionError();
   }
@@ -86,8 +125,8 @@ export const buildWorkspacePreparationViewModel = (
   const result: WorkspacePreparation = {
     ...input,
     contractVersion: WORKSPACE_PREPARATION_CONTRACT_V1,
-    state: input.state as WorkspacePreparationState,
-    nextAction: input.nextAction as WorkspacePreparationNextAction,
+    state,
+    nextAction,
     updatedAt: parseDate(input.updatedAt),
     units: input.units.map((unit) => ({
       ...unit,

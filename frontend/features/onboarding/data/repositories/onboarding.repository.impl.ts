@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import { useCallback, useRef } from 'react';
 import {
   getApplicationDetailApi,
   getValidationReportApi,
@@ -202,23 +203,49 @@ export const useRetryWorkspacePreparationMutation = (
 ) => {
   const queryClient = useQueryClient();
   const queryKey = onboardingKeys.workspacePreparation(organizationId, tenantId);
+  const scope = `${organizationId}:${tenantId}`;
+  const pendingIntent = useRef<{
+    scope: string;
+    key: string;
+    aggregateVersion: number;
+  } | null>(null);
   return useMutation<
     WorkspacePreparation,
     Error,
     { aggregateVersion: number }
   >({
-    mutationFn: ({ aggregateVersion }) =>
-      workspacePreparationRepository.retryWorkspacePreparation(
-        tenantId,
+    mutationFn: ({ aggregateVersion }) => {
+      if (pendingIntent.current?.scope !== scope) pendingIntent.current = null;
+      pendingIntent.current ??= {
+        scope,
+        key: `workspace-preparation-retry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         aggregateVersion,
-        `workspace-preparation-retry-${Date.now()}-${Math.random().toString(36).slice(2)}`
-      ),
+      };
+      return workspacePreparationRepository.retryWorkspacePreparation(
+        tenantId,
+        pendingIntent.current.aggregateVersion,
+        pendingIntent.current.key
+      );
+    },
     onSuccess: (value) => {
       queryClient.setQueryData(queryKey, value);
       queryClient.invalidateQueries({ queryKey });
+      pendingIntent.current = null;
     },
     retry: false,
   });
+};
+
+export const useClearWorkspacePreparationCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.workspacePreparations(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
 };
 
 export const useOrganizationContextQuery = () =>
