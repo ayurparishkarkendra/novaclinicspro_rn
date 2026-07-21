@@ -234,3 +234,44 @@ proven residual pre-existing differences, supported by a new clean inventory.
 **TG19 final acceptance remains blocked until the empty Alembic metadata
 registration regression is corrected and a fresh `alembic check` no longer
 proposes destructive removal of TG19 tables.**
+
+## 9. Post-correction Evidence — 2026-07-21
+
+This section supersedes §8's pre-correction release-gate decision.
+
+The TG19 correction restores deterministic discovery and import of every module
+in `app.infrastructure.db.models`, validates every discovered declarative table
+against `Base.metadata`, and explicitly requires the nine TG19 Platform
+Foundation tables. The guard uses table identity, not a hardcoded table count,
+and fails before Alembic comparison when discovery or required registration is
+incomplete.
+
+Fresh PostgreSQL verification confirms:
+
+- the full migration chain reaches the single head `20260720_190000`;
+- downgrade to `20260720_120000` and re-upgrade to head succeed;
+- the former 80 table-removal and 146 index-removal operations are eliminated;
+- no residual comparison operation references a TG19 Platform Foundation table.
+
+Direct `alembic check` now stops on one pre-existing metadata defect:
+`tenant_treatment_material_usage.deleted_by_staff_id` targets absent metadata
+table `org_staff`. A complete registry scan finds no second unresolved foreign
+key. An analysis-only comparison that suppresses only that known constraint in
+memory—without changing source or schema—accounts for all 217 residual
+operations:
+
+| Classification | Operations | Evidence |
+|---|---:|---|
+| `PRE_EXISTING_MISSING_MIGRATION` | 6 | Model-only tables: `bulk_import_jobs`, `bulk_import_staging`, `tenant_appointment_rules`, `feedback_requests`, `patient_feedback`, and `therapist_feedback` |
+| `REFLECTION_OR_NAMING_DIFFERENCE` | 195 | 99 column-comment changes, 5 table-comment removals, 80 index removals, and 11 index additions |
+| `STALE_MODEL_METADATA` | 16 | Event-outbox nullable/type differences (2); tenant-inventory model-only columns (8); treatment-material nullable/FK/column differences (4); treatment-session column difference (1); notification-preference constraint difference (1) |
+| **Total** | **217** | No TG19 table is implicated |
+
+Additional pre-existing metadata diagnostics are the unresolved `org_staff`
+foreign-key target and a cycle warning between `tenant_casesheets` and
+`tenant_treatment_sheets`. They predate TG19 and belong to the separately
+owned schema-reconciliation initiative.
+
+**TG19 metadata-registry regression is corrected. TG19 final acceptance may
+proceed; historical repository metadata debt remains separately blocked from a
+repository-wide clean `alembic check`.**

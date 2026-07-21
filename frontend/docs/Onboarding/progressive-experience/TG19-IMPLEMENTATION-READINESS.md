@@ -864,3 +864,24 @@ metadata guard, and rerun `alembic check` on a fresh PostgreSQL database. A
 release-gate exception is not justified until that bounded TG19 correction is
 complete. Residual pre-existing drift, if any, must then be classified under a
 separately owned schema-reconciliation initiative.
+
+## 30. Alembic Metadata Registry Correction — 2026-07-21
+
+This section supersedes §29's TG19 final-acceptance blocker.
+
+Deterministic model-module discovery, complete declarative registration
+validation, and a fail-closed nine-table TG19 guard restore Alembic metadata
+population without changing product behavior or database schema. Fresh
+PostgreSQL upgrade, downgrade, re-upgrade, metadata tests, Platform Foundation
+regressions, Ruff, and compileall pass.
+
+The former 226 destructive false-positive removals are eliminated. No residual
+comparison operation references a TG19 table. Direct `alembic check` now
+surfaces only the pre-existing unresolved `org_staff` metadata target; an
+analysis-only comparison classifies 217 further operations as historical
+missing migrations, stale model metadata, or reflection/naming differences.
+
+**TG19_ALEMBIC_REGRESSION_CORRECTED**
+
+**TG19_FINAL_ACCEPTANCE_READY** — Historical repository metadata reconciliation
+remains separately owned and must not be folded into TG19.
