@@ -19,6 +19,10 @@ import {
   StepSubmitRequest,
   StepSubmitResponse,
   CompleteSetupResponse,
+  WorkspacePreparationDatasourceError,
+  WorkspacePreparationResponseDTO,
+  WorkspacePreparationRetryRequestDTO,
+  WorkspacePreparationStartRequestDTO,
 } from '../models/onboarding.dtos';
 import {
   AuthOrganizationContext,
@@ -45,6 +49,67 @@ const throwClinicEntryError = (error: any): never => {
 const clinicEntryHeaders = (idempotencyKey: string) => ({
   headers: { 'Idempotency-Key': idempotencyKey },
 });
+
+const throwWorkspacePreparationError = (error: any): never => {
+  const detail = error?.response?.data?.detail ?? {};
+  const body = detail.error ?? detail;
+  throw new WorkspacePreparationDatasourceError(
+    body.error_code ?? 'workspace_preparation.execution_failure',
+    body.message_token ?? 'errors.workspacePreparation.execution_failure',
+    Boolean(body.retryable)
+  );
+};
+
+export const ensureWorkspacePreparationApi = async (
+  tenantId: string
+): Promise<WorkspacePreparationResponseDTO> => {
+  const request: WorkspacePreparationStartRequestDTO = {
+    contract_version: 'workspace_preparation_v1',
+  };
+  try {
+    const response = await axiosClient.post<WorkspacePreparationResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/workspace-preparation`,
+      request
+    );
+    return response.data;
+  } catch (error) {
+    return throwWorkspacePreparationError(error);
+  }
+};
+
+export const getWorkspacePreparationApi = async (
+  tenantId: string
+): Promise<WorkspacePreparationResponseDTO> => {
+  try {
+    const response = await axiosClient.get<WorkspacePreparationResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/workspace-preparation`
+    );
+    return response.data;
+  } catch (error) {
+    return throwWorkspacePreparationError(error);
+  }
+};
+
+export const retryWorkspacePreparationApi = async (
+  tenantId: string,
+  aggregateVersion: number,
+  idempotencyKey: string
+): Promise<WorkspacePreparationResponseDTO> => {
+  const request: WorkspacePreparationRetryRequestDTO = {
+    contract_version: 'workspace_preparation_v1',
+    aggregate_version: aggregateVersion,
+  };
+  try {
+    const response = await axiosClient.post<WorkspacePreparationResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/workspace-preparation/retry`,
+      request,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    );
+    return response.data;
+  } catch (error) {
+    return throwWorkspacePreparationError(error);
+  }
+};
 
 export const createInitialOrganizationApi = async (
   displayName: string

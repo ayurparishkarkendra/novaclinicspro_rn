@@ -24,6 +24,10 @@ import {
   InitialOrganizationResult,
   OwnershipStatusResult,
 } from '../clinic-entry';
+import {
+  WorkspacePreparation,
+  WorkspacePreparationError,
+} from '../entities/workspace-preparation.entity';
 
 export interface IOnboardingRepository {
   getApplicationDetail(applicationId: string): Promise<ApplicationDetailResponse>;
@@ -74,4 +78,13 @@ export interface IOnboardingRepository {
     idempotencyKey: string
   ): Promise<EffectiveTenantResult>;
   refreshEffectiveTenant(organizationId: string): Promise<EffectiveTenantResult>;
+  ensureWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation>;
+  getWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation>;
+  retryWorkspacePreparation(
+    tenantId: string,
+    aggregateVersion: number,
+    idempotencyKey: string
+  ): Promise<WorkspacePreparation>;
 }
+
+export type OnboardingRepositoryError = WorkspacePreparationError;

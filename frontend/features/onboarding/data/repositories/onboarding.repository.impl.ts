@@ -27,6 +27,9 @@ import {
   refreshEffectiveTenantApi,
   requestContactVerificationApi,
   selectEffectiveTenantApi,
+  ensureWorkspacePreparationApi,
+  getWorkspacePreparationApi,
+  retryWorkspacePreparationApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -42,6 +45,8 @@ import {
   StepSubmitRequest,
   StepSubmitResponse,
   CompleteSetupResponse,
+  WorkspacePreparationDatasourceError,
+  WorkspacePreparationResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -52,6 +57,12 @@ import {
   InitialOrganizationResult,
   OwnershipStatusResult,
 } from '../../domain/clinic-entry';
+import {
+  WORKSPACE_PREPARATION_CONTRACT_V1,
+  WorkspacePreparation,
+  WorkspacePreparationError,
+} from '../../domain/entities/workspace-preparation.entity';
+import { buildWorkspacePreparationViewModel } from '../../domain/usecases/build-workspace-preparation-view-model.usecase';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -72,6 +83,142 @@ export const onboardingKeys = {
   setupProgress: (id: string) => [...onboardingKeys.setupWizard(id), 'progress'] as const,
   status: (tenantId: string) => [...onboardingKeys.all, 'status', tenantId] as const,
   organizationContext: () => [...onboardingKeys.all, 'organization-context'] as const,
+  workspacePreparations: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'workspace-preparation', organizationId, tenantId] as const,
+  workspacePreparation: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.workspacePreparations(organizationId, tenantId),
+      WORKSPACE_PREPARATION_CONTRACT_V1,
+    ] as const,
+};
+
+const mapWorkspacePreparation = (
+  dto: WorkspacePreparationResponseDTO
+): WorkspacePreparation =>
+  buildWorkspacePreparationViewModel({
+    contractVersion: dto.contract_version,
+    runId: dto.run_id,
+    state: dto.state,
+    aggregateVersion: dto.aggregate_version,
+    progress: dto.progress,
+    units: dto.units.map((unit) => ({
+      code: unit.code,
+      outcome: unit.outcome,
+      evidenceVersion: unit.evidence_version,
+      attempt: unit.attempt,
+      observedAt: unit.observed_at,
+      recordedAt: unit.recorded_at,
+    })),
+    reasonCode: dto.reason_code,
+    retryAllowed: dto.retry_allowed,
+    userRetryCount: dto.user_retry_count,
+    maxUserRetries: dto.max_user_retries,
+    nextAction: dto.next_action,
+    refreshAfterSeconds: dto.refresh_after_seconds,
+    supportCorrelationId: dto.support_correlation_id,
+    updatedAt: dto.updated_at,
+  });
+
+const mapWorkspacePreparationError = (error: unknown): never => {
+  if (error instanceof WorkspacePreparationError) throw error;
+  if (error instanceof WorkspacePreparationDatasourceError) {
+    throw new WorkspacePreparationError(error.errorCode, error.messageToken, error.retryable);
+  }
+  throw new WorkspacePreparationError(
+    'workspace_preparation.execution_failure',
+    'errors.workspacePreparation.execution_failure',
+    true
+  );
+};
+
+export const workspacePreparationRepository = {
+  async ensureWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(await ensureWorkspacePreparationApi(tenantId));
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+  async getWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(await getWorkspacePreparationApi(tenantId));
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+  async retryWorkspacePreparation(
+    tenantId: string,
+    aggregateVersion: number,
+    idempotencyKey: string
+  ): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(
+        await retryWorkspacePreparationApi(tenantId, aggregateVersion, idempotencyKey)
+      );
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+};
+
+export const shouldRetryWorkspacePreparation = (
+  failureCount: number,
+  error: Error
+): boolean =>
+  error instanceof WorkspacePreparationError && error.retryable && failureCount < 2;
+
+export const useWorkspacePreparationQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<WorkspacePreparation, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<WorkspacePreparation, Error>({
+    queryKey: onboardingKeys.workspacePreparation(organizationId, tenantId),
+    queryFn: () => workspacePreparationRepository.getWorkspacePreparation(tenantId),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryWorkspacePreparation,
+    ...options,
+  });
+
+export const useEnsureWorkspacePreparationMutation = (
+  organizationId: string,
+  tenantId: string
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.workspacePreparation(organizationId, tenantId);
+  return useMutation<WorkspacePreparation, Error, void>({
+    mutationFn: () => workspacePreparationRepository.ensureWorkspacePreparation(tenantId),
+    onSuccess: (value) => {
+      queryClient.setQueryData(queryKey, value);
+      queryClient.invalidateQueries({ queryKey });
+    },
+    retry: false,
+  });
+};
+
+export const useRetryWorkspacePreparationMutation = (
+  organizationId: string,
+  tenantId: string
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.workspacePreparation(organizationId, tenantId);
+  return useMutation<
+    WorkspacePreparation,
+    Error,
+    { aggregateVersion: number; idempotencyKey: string }
+  >({
+    mutationFn: ({ aggregateVersion, idempotencyKey }) =>
+      workspacePreparationRepository.retryWorkspacePreparation(
+        tenantId,
+        aggregateVersion,
+        idempotencyKey
+      ),
+    onSuccess: (value) => {
+      queryClient.setQueryData(queryKey, value);
+      queryClient.invalidateQueries({ queryKey });
+    },
+    retry: false,
+  });
 };
 
 export const useOrganizationContextQuery = () =>

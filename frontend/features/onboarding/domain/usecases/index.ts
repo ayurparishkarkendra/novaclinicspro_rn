@@ -12,3 +12,4 @@ export * from './create-demo-tenant.usecase';
 export * from './get-demo-status.usecase';
 export * from './transition-demo-to-live.usecase';
 export * from './build-journey-view-model.usecase';
+export * from './build-workspace-preparation-view-model.usecase';
