@@ -1528,6 +1528,17 @@ review before any implementation.
 - Controlling evidence: `TG19-FINAL-ACCEPTANCE.md`.
 - Decision: `TG19_NOT_ACCEPTED`; TG20 remains unauthorized.
 
+### TG19.1 Runtime Verification Composition — COMPLETE (2026-07-21)
+
+- The configured contact and ownership strategy resolvers are consumed by the
+  live existing verification transports through dependency injection.
+- Manual request/review, authoritative evidence lifecycle, audit, idempotency,
+  authorization, and transaction ownership remain reused and authoritative.
+- Isolated PostgreSQL TG19/TG19.1 regression evidence: 161 tests passed; no
+  migration or schema change and no new TG19-owned Alembic drift.
+- TG19 remains not accepted solely pending the authorized frontend Clinic Entry
+  orchestration checkpoint. Final acceptance was not rerun; TG20 is unauthorized.
+
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).

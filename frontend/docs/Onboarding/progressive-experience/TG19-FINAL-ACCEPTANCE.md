@@ -204,3 +204,28 @@ theme, and localization architecture. It must not create TG20 behavior, a new
 repository/store/API client, a public clinic search, or new product semantics.
 
 TG19 Final Acceptance Decision: **TG19_NOT_ACCEPTED**
+
+## 13. TG19.1 Runtime Verification Composition Evidence — 2026-07-21
+
+The ADR-PF-017/018 runtime-composition gap recorded by this audit is complete.
+The existing contact-verification request transport now receives the configured
+`IContactVerificationStrategy` through dependency injection, and the existing
+ownership-target transport receives the configured
+`IOwnershipVerificationStrategy`. Routers contain no configuration or
+environment branching. Manual contact request/review and required ownership
+review continue to use their existing application services; automatic and
+non-production strategies use the same evidence, lifecycle, authorization,
+audit, idempotency, and unit-of-work boundaries.
+
+Focused live-route tests prove authoritative verified contact evidence and
+approved ownership evidence are returned through the existing transports. The
+complete TG19/TG19.1 backend suite passes **161 tests** against an isolated
+PostgreSQL database. Ruff, compileall, the single Alembic head/current revision,
+and fresh-database migration all pass. `alembic check` continues to stop only at
+the separately classified historical `org_staff` metadata target; this
+checkpoint changes no model or migration and introduces no TG19-owned drift.
+
+This evidence removes only the runtime strategy-composition blocker. TG19
+remains **NOT ACCEPTED** because the frozen frontend Clinic Entry orchestration
+checkpoint is still absent. Final acceptance was not rerun, and TG20 remains
+unauthorized.

@@ -941,3 +941,25 @@ strategies unreachable in the product flow.
 TG20 remains unauthorized. The next activity must close the already-approved
 TG19 frontend orchestration and runtime strategy-composition boundaries, then
 repeat final acceptance.
+
+## 33. TG19.1 Runtime Verification Composition — 2026-07-21
+
+The approved ADR-PF-017/018 strategy resolvers are now consumed by the live
+clinic-contact request and ownership-target dependency contexts. Contact
+`AUTOMATIC`, `MANUAL`, and permitted `DISABLED` modes and ownership `REQUIRED`,
+`AUTO_APPROVE`, and test-only `DISABLED` modes therefore reach their existing
+authoritative evidence lifecycles through one typed configuration resolver.
+Manual review/status transport remains available; no route-level mode branch,
+parallel lifecycle, persistence change, or frontend behavior was added.
+
+Focused and full TG19/TG19.1 verification passes **161 tests** on isolated
+PostgreSQL. The single Alembic head/current revision remains
+`20260721_020000`; the known historical `org_staff` metadata issue remains
+separately classified and no TG19-owned drift was introduced.
+
+**TG19_1_RUNTIME_COMPOSITION_COMPLETE**
+
+The only remaining implementation blocker from final acceptance is the frozen
+frontend Clinic Entry orchestration checkpoint. TG19 remains not accepted until
+that checkpoint is implemented and final acceptance is repeated. TG20 remains
+unauthorized.
