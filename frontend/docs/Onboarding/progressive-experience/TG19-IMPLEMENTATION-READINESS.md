@@ -10,6 +10,14 @@ Task group: TG19 — Clinic Entry and Bring Your Clinic Contract
 
 Decision: **READY**
 
+> **Final re-acceptance update — 2026-07-21:** The bounded implementation
+> checkpoints are present, but release acceptance remains `TG19_NOT_ACCEPTED`.
+> The final audit found no operational organization-creation path for a new user
+> with zero memberships, incomplete ADR-PF-011 tenant-switch cleanup, and no
+> focused tests that execute the frontend orchestration hook. This does not
+> revoke the historical implementation-readiness decision; it records failed
+> acceptance evidence. See `TG19-FINAL-ACCEPTANCE.md`.
+
 > **Version 1 constitutional decision update — 2026-07-20:** Product
 > Architecture approved the initial Bring Your Clinic meaning, identity/contact
 > field sets, domain ownership, single/multiple-clinic selection rule,

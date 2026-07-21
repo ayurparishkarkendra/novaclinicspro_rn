@@ -1539,6 +1539,21 @@ review before any implementation.
 - TG19 remains not accepted solely pending the authorized frontend Clinic Entry
   orchestration checkpoint. Final acceptance was not rerun; TG20 is unauthorized.
 
+### TG19 Final Re-Acceptance — NOT ACCEPTED (2026-07-21)
+
+- TG19.1 runtime composition and frontend Clinic Entry orchestration commits are
+  present and synchronized.
+- Isolated PostgreSQL TG19/TG19.1 verification passed 161 tests; frontend
+  Clinic Entry presentation verification passed 8 tests.
+- Journey A remains blocked because organization creation is application-service
+  only: there is no operational transport/frontend path for a zero-membership
+  user to create the organization required by Clinic Entry authorization.
+- ADR-PF-011 tenant-switch cancellation/cache/persisted-draft cleanup is not
+  complete, and focused frontend tests mock rather than execute the orchestration
+  hook.
+- Controlling evidence: `TG19-FINAL-ACCEPTANCE.md`.
+- Decision: `TG19_NOT_ACCEPTED`; TG20 remains unauthorized.
+
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).
