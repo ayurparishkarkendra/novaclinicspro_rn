@@ -18,6 +18,14 @@ import {
   getOnboardingStatusApi,
   submitStepDataApi,
   completeSetupApi,
+  associateClinicEntryApi,
+  createClinicEntryApi,
+  getContactVerificationStatusApi,
+  getOrganizationContextApi,
+  getOwnershipStatusApi,
+  refreshEffectiveTenantApi,
+  requestContactVerificationApi,
+  selectEffectiveTenantApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -34,6 +42,14 @@ import {
   StepSubmitResponse,
   CompleteSetupResponse,
 } from '../models/onboarding.dtos';
+import {
+  BringClinicInput,
+  ClinicEntryResult,
+  ContactVerificationResult,
+  EffectiveTenantResult,
+  NewClinicInput,
+  OwnershipStatusResult,
+} from '../../domain/clinic-entry';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -53,7 +69,101 @@ export const onboardingKeys = {
   setupWizard: (id: string) => [...onboardingKeys.all, 'setup-wizard', id] as const,
   setupProgress: (id: string) => [...onboardingKeys.setupWizard(id), 'progress'] as const,
   status: (tenantId: string) => [...onboardingKeys.all, 'status', tenantId] as const,
+  organizationContext: () => [...onboardingKeys.all, 'organization-context'] as const,
 };
+
+export const useOrganizationContextQuery = () =>
+  useQuery({
+    queryKey: onboardingKeys.organizationContext(),
+    queryFn: getOrganizationContextApi,
+  });
+
+export const useRequestContactVerificationMutation = () =>
+  useMutation<
+    ContactVerificationResult,
+    Error,
+    {
+      organizationId: string;
+      contactKind: 'email' | 'mobile';
+      contactValue: string;
+      intendedOperation: 'clinic_entry.create.v1' | 'clinic_entry.associate.v1';
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: (variables) =>
+      requestContactVerificationApi(
+        variables.organizationId,
+        variables.contactKind,
+        variables.contactValue,
+        variables.intendedOperation,
+        variables.idempotencyKey
+      ),
+  });
+
+export const useContactVerificationStatusMutation = () =>
+  useMutation<
+    ContactVerificationResult,
+    Error,
+    { organizationId: string; evidenceId: string }
+  >({
+    mutationFn: ({ organizationId, evidenceId }) =>
+      getContactVerificationStatusApi(organizationId, evidenceId),
+  });
+
+export const useOwnershipStatusMutation = () =>
+  useMutation<
+    OwnershipStatusResult,
+    Error,
+    { organizationId: string; ownershipReference: string }
+  >({
+    mutationFn: ({ organizationId, ownershipReference }) =>
+      getOwnershipStatusApi(organizationId, ownershipReference),
+  });
+
+export const useCreateClinicEntryMutation = () =>
+  useMutation<
+    ClinicEntryResult,
+    Error,
+    {
+      organizationId: string;
+      input: NewClinicInput;
+      evidenceReference: string;
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: ({ organizationId, input, evidenceReference, idempotencyKey }) =>
+      createClinicEntryApi(organizationId, input, evidenceReference, idempotencyKey),
+  });
+
+export const useAssociateClinicEntryMutation = () =>
+  useMutation<
+    ClinicEntryResult,
+    Error,
+    {
+      organizationId: string;
+      input: BringClinicInput;
+      evidenceReference: string;
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: ({ organizationId, input, evidenceReference, idempotencyKey }) =>
+      associateClinicEntryApi(organizationId, input, evidenceReference, idempotencyKey),
+  });
+
+export const useSelectEffectiveTenantMutation = () =>
+  useMutation<
+    EffectiveTenantResult,
+    Error,
+    { organizationId: string; tenantId: string; idempotencyKey: string }
+  >({
+    mutationFn: ({ organizationId, tenantId, idempotencyKey }) =>
+      selectEffectiveTenantApi(organizationId, tenantId, idempotencyKey),
+  });
+
+export const useRefreshEffectiveTenantMutation = () =>
+  useMutation<EffectiveTenantResult, Error, string>({
+    mutationFn: refreshEffectiveTenantApi,
+  });
 
 // ============================================
 // QUERY HOOKS

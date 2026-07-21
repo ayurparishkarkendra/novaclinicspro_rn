@@ -10,6 +10,9 @@ const mockRefetch = jest.fn();
 const mockSetCurrentApplicationId = jest.fn();
 const mockUseApplicationDetailQuery = jest.fn();
 const mockUseAuth = jest.fn();
+const mockUseClinicEntryOrchestration = jest.fn();
+const mockSubmitNewClinic = jest.fn();
+const mockSubmitBringClinic = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -23,7 +26,7 @@ jest.mock('@expo/vector-icons', () => ({
 jest.mock('../../core/theme/useClinicTheme', () => ({
   useClinicTheme: () => ({
     colors: {
-      primary: { default: '#primary', soft: '#primary-soft' },
+      primary: { default: '#primary', soft: '#primary-soft', onPrimary: '#on-primary' },
       background: { default: '#background' },
       surface: { default: '#surface' },
       border: { default: '#border' },
@@ -35,7 +38,7 @@ jest.mock('../../core/theme/useClinicTheme', () => ({
       feedback: {
         success: '#success',
         info: '#info',
-        infoLight: '#info-light',
+        infoLight: '#info-light', error: '#error',
       },
     },
     spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 },
@@ -69,6 +72,10 @@ jest.mock('../../features/onboarding/presentation/providers/onboarding.store', (
   useOnboardingStore: () => ({ setCurrentApplicationId: mockSetCurrentApplicationId }),
 }));
 
+jest.mock('../../features/onboarding/presentation/hooks/useClinicEntryOrchestration', () => ({
+  useClinicEntryOrchestration: () => mockUseClinicEntryOrchestration(),
+}));
+
 describe('ChoiceScreen Clinic Entry presentation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -79,9 +86,16 @@ describe('ChoiceScreen Clinic Entry presentation', () => {
       error: null,
       refetch: mockRefetch,
     });
+    mockUseClinicEntryOrchestration.mockReturnValue({
+      state: 'idle', errorToken: null, organizations: [], organizationId: 'org-1',
+      setSelectedOrganizationId: jest.fn(), tenantChoices: [], isLoadingContext: false,
+      contextError: null, submitNewClinic: mockSubmitNewClinic,
+      submitBringClinic: mockSubmitBringClinic, resumePending: jest.fn(),
+      chooseTenant: jest.fn(), retry: jest.fn(), logout: jest.fn(), resetOperation: jest.fn(),
+    });
   });
 
-  it('presents both approved paths without starting provisioning or navigation', () => {
+  it('presents both approved paths and submits the New Clinic contract', () => {
     const { getAllByRole, getByText, getByTestId, queryByTestId } = render(<ChoiceScreen />);
 
     expect(getByText('Create a new clinic')).toBeTruthy();
@@ -92,23 +106,28 @@ describe('ChoiceScreen Clinic Entry presentation', () => {
     fireEvent.press(getByTestId('clinic-entry-path-new_clinic'));
 
     expect(getByTestId('clinic-entry-selection-summary')).toBeTruthy();
-    expect(getByText(/This presentation does not provision a tenant/)).toBeTruthy();
-    expect(getByTestId('clinic-entry-path-new_clinic').props.accessibilityState).toEqual({
-      checked: true,
-    });
+    fireEvent.changeText(getByTestId('clinic-specialty'), 'General');
+    fireEvent.changeText(getByTestId('clinic-address-line1'), '1 Main Road');
+    fireEvent.changeText(getByTestId('clinic-city'), 'Pune');
+    fireEvent.changeText(getByTestId('clinic-state'), 'MH');
+    fireEvent.changeText(getByTestId('clinic-postal-code'), '411001');
+    fireEvent.changeText(getByTestId('clinic-contact-value'), 'owner@example.com');
+    fireEvent.press(getByTestId('clinic-entry-submit'));
+    expect(mockSubmitNewClinic).toHaveBeenCalledWith(expect.objectContaining({ clinicName: 'Nova Clinic', countryCode: 'IN' }));
+    expect(getByTestId('clinic-entry-path-new_clinic').props.accessibilityState.checked).toBe(true);
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('presents Bring Your Clinic verification and non-import boundaries', () => {
-    const { getByText, getByTestId } = render(<ChoiceScreen />);
+    const { getByTestId } = render(<ChoiceScreen />);
 
     fireEvent.press(getByTestId('clinic-entry-path-bring_your_clinic'));
 
-    expect(getByText(/authenticated ownership approval/)).toBeTruthy();
-    expect(getByText(/No records, external databases, or clinical data are imported/)).toBeTruthy();
-    expect(getByTestId('clinic-entry-path-bring_your_clinic').props.accessibilityState).toEqual({
-      checked: true,
-    });
+    fireEvent.changeText(getByTestId('ownership-reference'), 'opaque-reference');
+    fireEvent.changeText(getByTestId('clinic-contact-value'), 'owner@example.com');
+    fireEvent.press(getByTestId('clinic-entry-submit'));
+    expect(mockSubmitBringClinic).toHaveBeenCalledWith(expect.objectContaining({ ownershipReference: 'opaque-reference' }));
+    expect(getByTestId('clinic-entry-path-bring_your_clinic').props.accessibilityState.checked).toBe(true);
   });
 
   it('reuses the existing loading, empty, and safe error presentations', () => {

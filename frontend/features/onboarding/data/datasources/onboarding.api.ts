@@ -20,6 +20,197 @@ import {
   StepSubmitResponse,
   CompleteSetupResponse,
 } from '../models/onboarding.dtos';
+import {
+  AuthOrganizationContext,
+  BringClinicInput,
+  ClinicEntryResult,
+  ClinicEntryTransportError,
+  ContactVerificationResult,
+  EffectiveTenantResult,
+  NewClinicInput,
+  OwnershipStatusResult,
+} from '../../domain/clinic-entry';
+
+const throwClinicEntryError = (error: any): never => {
+  const body = error?.response?.data?.detail?.error ?? error?.response?.data?.detail ?? {};
+  throw new ClinicEntryTransportError(
+    body.errorCode ?? body.error_code ?? 'clinic_entry.transient_failure',
+    body.messageToken ?? body.message_token ?? 'errors.clinicEntry.transientFailure',
+    Boolean(body.retryable),
+    body.fieldKey ?? body.field_key
+  );
+};
+
+const clinicEntryHeaders = (idempotencyKey: string) => ({
+  headers: { 'Idempotency-Key': idempotencyKey },
+});
+
+export const getOrganizationContextApi = async (): Promise<AuthOrganizationContext> => {
+  try {
+    const { data } = await axiosClient.get('/api/v1/auth/me');
+    return {
+      memberships: (data.organization_memberships ?? []).map((membership: any) => ({
+        organizationId: membership.organization_id,
+        organizationName: membership.organization_name,
+        authorizedClinics: (membership.authorized_clinics ?? []).map((clinic: any) => ({
+          tenantId: clinic.tenant_id,
+          clinicName: clinic.clinic_name,
+          city: clinic.city,
+        })),
+        effectiveTenantId: membership.effective_tenant_id,
+        selectionRequired: membership.selection_required,
+      })),
+      effectiveOrganizationId: data.effective_organization_id,
+      effectiveTenantId: data.effective_tenant_id,
+      selectionRequired: data.selection_required,
+      sessionRefreshRequired: data.session_refresh_required,
+    };
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const requestContactVerificationApi = async (
+  organizationId: string,
+  contactKind: 'email' | 'mobile',
+  contactValue: string,
+  intendedOperation: 'clinic_entry.create.v1' | 'clinic_entry.associate.v1',
+  idempotencyKey: string
+): Promise<ContactVerificationResult> => {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/v1/organizations/${organizationId}/contact-verifications`,
+      { contactKind, contactValue, intendedOperation },
+      clinicEntryHeaders(idempotencyKey)
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const getContactVerificationStatusApi = async (
+  organizationId: string,
+  evidenceId: string
+): Promise<ContactVerificationResult> => {
+  try {
+    const { data } = await axiosClient.get(
+      `/api/v1/organizations/${organizationId}/contact-verifications/${evidenceId}`
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const getOwnershipStatusApi = async (
+  organizationId: string,
+  ownershipReference: string
+): Promise<OwnershipStatusResult> => {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/v1/organizations/${organizationId}/ownership-verifications/status`,
+      { targetReference: ownershipReference }
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const createClinicEntryApi = async (
+  organizationId: string,
+  input: NewClinicInput,
+  evidenceReference: string,
+  idempotencyKey: string
+): Promise<ClinicEntryResult> => {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/v1/clinic-entry/organizations/${organizationId}/clinics`,
+      {
+        contractVersion: '1.0',
+        clinicIdentity: {
+          clinicName: input.clinicName,
+          clinicTypeSpecialty: input.clinicTypeSpecialty,
+          clinicAddress: {
+            line1: input.addressLine1,
+            line2: input.addressLine2 || null,
+            city: input.city,
+            state: input.state,
+            postalCode: input.postalCode,
+            countryCode: input.countryCode,
+          },
+          primaryContactNumber: input.contactKind === 'mobile' ? input.contactValue : null,
+          verifiedContact: {
+            kind: input.contactKind,
+            value: input.contactValue,
+            evidenceReference,
+          },
+        },
+      },
+      clinicEntryHeaders(idempotencyKey)
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const associateClinicEntryApi = async (
+  organizationId: string,
+  input: BringClinicInput,
+  evidenceReference: string,
+  idempotencyKey: string
+): Promise<ClinicEntryResult> => {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/v1/clinic-entry/organizations/${organizationId}/associations`,
+      {
+        contractVersion: '1.0',
+        ownershipVerificationId: input.ownershipReference,
+        verifiedContact: {
+          kind: input.contactKind,
+          value: input.contactValue,
+          evidenceReference,
+        },
+      },
+      clinicEntryHeaders(idempotencyKey)
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const selectEffectiveTenantApi = async (
+  organizationId: string,
+  tenantId: string,
+  idempotencyKey: string
+): Promise<EffectiveTenantResult> => {
+  try {
+    const { data } = await axiosClient.put(
+      `/api/v1/auth/organizations/${organizationId}/effective-tenant`,
+      { tenantId, contractVersion: '1.0' },
+      clinicEntryHeaders(idempotencyKey)
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
+
+export const refreshEffectiveTenantApi = async (
+  organizationId: string
+): Promise<EffectiveTenantResult> => {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/v1/auth/organizations/${organizationId}/session-refresh`
+    );
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
 
 /**
  * Get application details

@@ -86,6 +86,28 @@
       "logoutFailed": "Logout failed. Please try again.",
       "tokenRefreshFailed": "Failed to refresh your session. Please log in again."
     },
+    "clinicEntry": {
+      "validation": "Review the highlighted clinic information and try again.",
+      "fieldInvalid": "One or more clinic fields are invalid.",
+      "duplicate": "This clinic is already connected to the organization.",
+      "unauthorized": "You are not authorized to add a clinic to this organization.",
+      "alreadyAssociated": "This clinic is already connected.",
+      "idempotencyConflict": "This request changed while it was being retried. Review it and submit again.",
+      "associationConflict": "This clinic cannot be connected to the selected organization.",
+      "inProgress": "Clinic entry is already in progress. Check again shortly.",
+      "transientFailure": "Clinic entry is temporarily unavailable. Please try again.",
+      "sessionRefreshFailed": "The clinic was saved, but the secure session could not be refreshed. Please try again.",
+      "organizationRequired": "Select an organization before continuing.",
+      "verificationInvalid": "Ownership verification is invalid or no longer available.",
+      "verificationExpired": "Ownership verification has expired. Request a new approval.",
+      "unsupported": "This clinic entry request is not supported.",
+      "contactVerificationInvalid": "Clinic contact verification is invalid.",
+      "contactVerificationExpired": "Clinic contact verification has expired.",
+      "contactVerificationRevoked": "Clinic contact verification was revoked.",
+      "contactVerificationConsumed": "Clinic contact verification was already used.",
+      "contactVerificationMismatch": "The clinic contact does not match the verified account contact.",
+      "contactVerificationInProgress": "Clinic contact verification is still pending."
+    },
     "generic": {
       "loadFailed": "Failed to load data. Please try again.",
       "saveFailed": "Failed to save. Please try again.",
@@ -618,6 +640,33 @@
           "approval": "An authorized clinic administrator must approve ownership",
           "noImport": "No records, external databases, or clinical data are imported",
           "validation": "Nova requires authenticated ownership approval before an existing clinic can be associated. Selecting this path is not ownership verification."
+        },
+        "form": {
+          "organization": "Organization",
+          "clinicName": "Clinic name",
+          "specialty": "Clinic type or specialty",
+          "addressLine1": "Address line 1",
+          "addressLine2": "Address line 2 (optional)",
+          "city": "City",
+          "state": "State",
+          "postalCode": "Postal code",
+          "countryCode": "Country code",
+          "ownershipReference": "Ownership approval reference",
+          "contactKind": "Verified contact method",
+          "email": "Email",
+          "mobile": "Mobile",
+          "emailValue": "Clinic email",
+          "mobileValue": "Clinic mobile",
+          "requiredError": "Complete all required fields before continuing.",
+          "submit": "Verify and continue"
+        },
+        "status": {
+          "loading": "Verifying clinic information securely...",
+          "pending": "Verification is pending. You can check again after the authorized review is complete.",
+          "checkAgain": "Check verification status",
+          "retry": "Try again",
+          "logout": "Log out",
+          "selectClinic": "Choose the clinic to use now"
         }
       },
       "statusBanner": {

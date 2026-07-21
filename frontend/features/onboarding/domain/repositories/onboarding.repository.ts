@@ -14,6 +14,15 @@ import {
   SetupWizardContextResponse,
   SetupWizardProgressResponse,
 } from '../../data/models/onboarding.dtos';
+import {
+  AuthOrganizationContext,
+  BringClinicInput,
+  ClinicEntryResult,
+  ContactVerificationResult,
+  EffectiveTenantResult,
+  NewClinicInput,
+  OwnershipStatusResult,
+} from '../clinic-entry';
 
 export interface IOnboardingRepository {
   getApplicationDetail(applicationId: string): Promise<ApplicationDetailResponse>;
@@ -29,4 +38,38 @@ export interface IOnboardingRepository {
   getSetupWizardContext(applicationId: string): Promise<SetupWizardContextResponse>;
   getSetupWizardProgress(applicationId: string): Promise<SetupWizardProgressResponse>;
   completeSetupWizard(applicationId: string): Promise<{ tenant_id: string }>;
+  getOrganizationContext(): Promise<AuthOrganizationContext>;
+  requestContactVerification(
+    organizationId: string,
+    contactKind: 'email' | 'mobile',
+    contactValue: string,
+    intendedOperation: 'clinic_entry.create.v1' | 'clinic_entry.associate.v1',
+    idempotencyKey: string
+  ): Promise<ContactVerificationResult>;
+  getContactVerificationStatus(
+    organizationId: string,
+    evidenceId: string
+  ): Promise<ContactVerificationResult>;
+  getOwnershipStatus(
+    organizationId: string,
+    ownershipReference: string
+  ): Promise<OwnershipStatusResult>;
+  createClinic(
+    organizationId: string,
+    input: NewClinicInput,
+    evidenceReference: string,
+    idempotencyKey: string
+  ): Promise<ClinicEntryResult>;
+  associateClinic(
+    organizationId: string,
+    input: BringClinicInput,
+    evidenceReference: string,
+    idempotencyKey: string
+  ): Promise<ClinicEntryResult>;
+  selectEffectiveTenant(
+    organizationId: string,
+    tenantId: string,
+    idempotencyKey: string
+  ): Promise<EffectiveTenantResult>;
+  refreshEffectiveTenant(organizationId: string): Promise<EffectiveTenantResult>;
 }
