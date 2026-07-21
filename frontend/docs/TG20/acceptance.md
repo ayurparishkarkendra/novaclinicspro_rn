@@ -4,7 +4,7 @@
 > and each measurable checkpoint exit in `final-authorization-contracts.md` and
 > `tasks.md`; no implementation shortcut may be waived by this strategy.
 
-Status: **Planning**
+Status: **Final acceptance blocked — PostgreSQL runtime evidence unavailable**
 
 ## Acceptance objective
 
@@ -133,6 +133,86 @@ Final acceptance chooses exactly one:
 Historical repository debt must be classified separately. Staging-only release
 verification may remain after implementation acceptance only when the governing
 requirements explicitly permit it.
+
+## Final acceptance evidence — 2026-07-21
+
+### Requirement classifications
+
+| Requirement | Classification | Evidence |
+|---|---|---|
+| TG20-FR1–FR15 | `VERIFIED_COMPLETE` | Source trace through TG19 handoff, application services, transport, frontend repository/orchestration, and 63 focused backend plus 177 onboarding frontend tests. |
+| TG20-NFR1 | `VERIFIED_COMPLETE` | Domain, application, repository, transport, and presentation boundaries remain separated; touched-path Ruff and ESLint pass. |
+| TG20-NFR2 | `BLOCKED` | Supabase remains the configured authority in source, but this worktree/session provides no configured Supabase PostgreSQL connection. Required live `alembic current`, `alembic check`, migration lifecycle, and atomic retry transaction verification could not be executed, and no prior equivalent acceptance evidence is recorded in the authoritative TG20 documents. |
+| TG20-NFR3–NFR8 | `VERIFIED_COMPLETE` | Isolation, safe projections/errors, transactional retry composition, localization/Theme/accessibility, reuse, and additive version handling are covered by focused source and test evidence. |
+| TG20-OPT1 | `VERIFIED_COMPLETE` | Existing React Query lifecycle infrastructure supplies bounded active refresh and terminal-state stop behavior. |
+| TG20-OPT2 | `OUT_OF_SCOPE` | No backend elapsed-duration projection or estimated completion behavior was implemented. |
+| TG20-OPT3 | `VERIFIED_COMPLETE` | The safe `support_correlation_id` contract is mapped through backend and frontend without raw internal detail. |
+| TG21 capability-driven visibility | `OUT_OF_SCOPE` | Reserved for TG21. |
+| TG22 Ready-to-Start policy/checklist | `OUT_OF_SCOPE` | Reserved for TG22. |
+| TG23–TG25 conflict/offline mutation recovery | `OUT_OF_SCOPE` | Reserved for later roadmap groups. |
+| TG26–TG30 commercial and continuous-guidance behavior | `OUT_OF_SCOPE` | Reserved for later roadmap groups. |
+| Clinical Workspace workflows | `OUT_OF_SCOPE` | Explicitly outside TG20. |
+
+Totals: 24 `VERIFIED_COMPLETE`, 1 `BLOCKED`, 6 `OUT_OF_SCOPE`, 0
+`PARTIAL`, and 0 `STAGING_ONLY`. All ten mandatory acceptance criteria are
+`VERIFIED_COMPLETE` by source and deterministic focused tests; the independent
+PostgreSQL runtime gate remains blocked as recorded above.
+
+### Journey matrix
+
+| Journey | Classification | Evidence/result |
+|---|---|---|
+| A — First clinic handoff | `STAGING_ONLY` | TG19 handoff, effective-tenant revalidation, ensure/start, ordered units, evidence progress, and personalization navigation align in source and focused tests; the complete chain was not exercised against configured Supabase Authentication/PostgreSQL in this gate. |
+| B — Existing clinic | `STAGING_ONLY` | Lazy initialization, existing-run return, evidence evaluation, and no synthetic completion pass focused tests; live Supabase PostgreSQL execution is outstanding. |
+| C — Retryable failure | `VERIFIED_COMPLETE` | Typed eligibility, safe reason/next action, remaining attempts, organization idempotency, atomic claim continuation, resume from first invalid evidence, three-retry maximum, and replay/conflict behavior pass focused tests. |
+| D — Terminal failure | `VERIFIED_COMPLETE` | Missing clinic-type plus `general` fallback, unsupported contract/state, no retry, safe guidance, and non-leaking transport behavior are verified. |
+| E — Concurrent execution | `BLOCKED` | Claim/CAS/stale-generation/expiry/restart behavior passes deterministic tests, but the required PostgreSQL one-winner transaction test could not run without the approved Supabase connection. |
+| F — Tenant switch and logout | `VERIFIED_COMPLETE` | Query cancellation, tenant-key removal, operation/retry cleanup, stale-generation rejection, draft cleanup reuse, logout, and new-scope isolation pass frontend and Platform Foundation regressions. |
+| G — Personalization handoff | `VERIFIED_COMPLETE` | Navigation occurs only for authoritative `PERSONALIZATION_AVAILABLE` after effective-tenant refresh/equality; `START`/`REFRESH` and existing routes are covered without inventing readiness or clinical state. |
+
+### Gate results
+
+- Backend: 63 focused TG20 deterministic tests passed; the one PostgreSQL
+  atomic retry test was not counted as passed because the approved connection
+  was unavailable. Aggregate, lifecycle, units, evidence, events, claims,
+  query/executor/retry/transport, RBAC, audit, idempotency, UoW, and safe typed
+  errors are otherwise `VERIFIED_COMPLETE`.
+- Frontend: 177 onboarding tests plus 4 logout-boundary tests passed. Data/
+  repository reuse, domain projection, orchestration, state/retry UX, cleanup,
+  and handoff are `VERIFIED_COMPLETE`.
+- Regression: 77 TG19/Platform Foundation tests passed; one TG19 PostgreSQL
+  fixture was skipped because `CLINIC_ENTRY_TEST_DATABASE_URL` is not
+  configured. The skip does not conceal a TG20 source failure.
+- Security: deterministic authorization, effective-tenant equality, view/manage
+  RBAC, server-only lifecycle authority, safe response shape, transactional
+  audit/idempotency, and immutable history checks are `VERIFIED_COMPLETE`;
+  live database enforcement remains part of the blocked PostgreSQL gate.
+- Accessibility/localization/Theme: `en-US`/`hi-IN` parity and placeholders,
+  localized visible TG20 copy, determinate/indeterminate progress, busy/live/
+  alert semantics, focus and disabled states, non-color meaning, touch sizing,
+  central Theme tokens, icons, Hindi length, and font scaling are
+  `VERIFIED_COMPLETE` by source and focused presentation tests.
+- Static checks: touched-file ESLint passed; backend compileall passed; scoped
+  Ruff passed using a temporary cache; Alembic reports the single
+  `20260721_030000` head. Repository TypeScript reports only pre-existing,
+  non-TG20 errors; no TG20-owned TypeScript error was reported.
+- Migration: static revision tests verify the two preparation tables,
+  append-only event model, constraints/indexes, two permissions, and five
+  default-role mappings. `alembic current`, `alembic check`, upgrade,
+  downgrade, and re-upgrade remain `BLOCKED` without configured Supabase
+  PostgreSQL. The documented historical `org_staff` metadata drift remains
+  unrelated debt and is not used to reject TG20.
+- Scope: clinical setup, staff onboarding, readiness completion, billing,
+  inventory, CRM, commercial activation, analytics, and future Progressive
+  Experience epics remain `OUT_OF_SCOPE` and were not claimed or implemented.
+
+### Final decision
+
+`TG20_NOT_ACCEPTED — required TG20 PostgreSQL migration and concurrent-transaction acceptance evidence is unavailable because no configured Supabase PostgreSQL connection is present and no prior equivalent acceptance evidence is recorded.`
+
+Implementation is source-complete, but recovery-branch merge planning and TG21
+remain unauthorized until the blocked PostgreSQL gate is executed successfully
+and this matrix is revised through a final acceptance checkpoint.
 
 ## References
 

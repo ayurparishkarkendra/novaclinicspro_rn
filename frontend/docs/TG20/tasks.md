@@ -1,6 +1,6 @@
 # TG20 Tasks — Executable Checkpoint Contract
 
-Status: **PLANNING ONLY — implementation requires final authorization**
+Status: **TG20.0–TG20.6 complete; TG20.7 acceptance blocked by PostgreSQL runtime evidence**
 
 Controlling contracts: `operational-contracts.md` and
 `final-authorization-contracts.md`.
@@ -334,6 +334,29 @@ Platform Foundation redesign.
 13. **Commit boundary:** one final-acceptance documentation commit.
 14. **Push:** feature branch only; both repositories finish clean/synchronized
     `0 0`. Acceptance does not authorize TG21.
+
+### TG20.7 execution record — 2026-07-21
+
+- Requirement matrix: 24 `VERIFIED_COMPLETE`, 1 `BLOCKED`, 6 `OUT_OF_SCOPE`,
+  0 `PARTIAL`, 0 `STAGING_ONLY`.
+- Journey matrix: C, D, F, and G `VERIFIED_COMPLETE`; A and B `STAGING_ONLY`;
+  E `BLOCKED` pending the approved PostgreSQL concurrency execution.
+- Verification: 63 focused deterministic TG20 backend tests, 77 TG19/Platform
+  Foundation regressions, 177 onboarding frontend tests, and 4 logout tests
+  passed. One TG19 database fixture skipped due absent
+  `CLINIC_ENTRY_TEST_DATABASE_URL`; one TG20 PostgreSQL atomic retry test could
+  not be executed against the required Supabase runtime.
+- Static gates: backend compileall, scoped Ruff, touched-file ESLint, and single
+  Alembic head passed. Repository TypeScript failures are pre-existing and do
+  not include TG20-owned files.
+- Blocked gate: the session/worktree has no configured Supabase PostgreSQL
+  connection, so `alembic current`, `alembic check`, upgrade, downgrade,
+  re-upgrade, and the PostgreSQL atomic retry/concurrency proof remain missing.
+  No prior equivalent final-acceptance evidence exists in the authoritative
+  TG20 documents.
+- Decision: `TG20_NOT_ACCEPTED`. TG21 and recovery-branch merge planning remain
+  prohibited. Resume TG20.7 only with the approved Supabase PostgreSQL runtime;
+  do not introduce a local, Docker, or SQLite substitute.
 
 ## Constitutional references
 
