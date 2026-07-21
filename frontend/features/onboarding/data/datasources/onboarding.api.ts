@@ -28,6 +28,7 @@ import {
   ContactVerificationResult,
   EffectiveTenantResult,
   NewClinicInput,
+  InitialOrganizationResult,
   OwnershipStatusResult,
 } from '../../domain/clinic-entry';
 
@@ -44,6 +45,17 @@ const throwClinicEntryError = (error: any): never => {
 const clinicEntryHeaders = (idempotencyKey: string) => ({
   headers: { 'Idempotency-Key': idempotencyKey },
 });
+
+export const createInitialOrganizationApi = async (
+  displayName: string
+): Promise<InitialOrganizationResult> => {
+  try {
+    const { data } = await axiosClient.post('/api/v1/auth/organizations', { displayName });
+    return data;
+  } catch (error) {
+    return throwClinicEntryError(error);
+  }
+};
 
 export const getOrganizationContextApi = async (): Promise<AuthOrganizationContext> => {
   try {

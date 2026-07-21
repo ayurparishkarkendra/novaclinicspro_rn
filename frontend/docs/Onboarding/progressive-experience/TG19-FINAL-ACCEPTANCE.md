@@ -6,6 +6,17 @@ Branch: `feature/progressive-experience-recovery`
 
 Decision: **TG19_NOT_ACCEPTED**
 
+> **Post-audit remediation update — 2026-07-21:** The three blockers identified
+> by this decision have now been implemented without rerunning acceptance. The
+> existing Supabase-authenticated Platform Foundation service is exposed through
+> an initial-organization auth transport; the frontend creates that organization
+> only for zero-membership context; the real orchestration hook has focused
+> automatic, manual-pending, ownership, multi-clinic, session-refresh, retry, and
+> navigation tests; and tenant handoff now cancels queries, invalidates cached
+> state, removes the outgoing persisted wizard draft, and clears operation state.
+> The `TG19_NOT_ACCEPTED` decision remains historical and controlling until a
+> separately authorized final re-acceptance audit verifies this evidence.
+
 ## Executive decision
 
 TG19.1 runtime verification composition and the frontend Clinic Entry

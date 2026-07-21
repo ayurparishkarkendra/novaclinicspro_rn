@@ -47,6 +47,11 @@ export const ErrorTokens = {
     inProgress: 'errors.clinicEntry.inProgress',
     transientFailure: 'errors.clinicEntry.transientFailure',
     sessionRefreshFailed: 'errors.clinicEntry.sessionRefreshFailed',
+    organizationNameRequired: 'errors.clinicEntry.organizationNameRequired',
+    organizationCreationUnauthorized: 'errors.clinicEntry.organizationCreationUnauthorized',
+    organizationCreationConflict: 'errors.clinicEntry.organizationCreationConflict',
+    organizationCreationRetryableFailure:
+      'errors.clinicEntry.organizationCreationRetryableFailure',
     verificationInvalid: 'errors.clinicEntry.verificationInvalid',
     verificationExpired: 'errors.clinicEntry.verificationExpired',
     contactVerificationMismatch: 'errors.clinicEntry.contactVerificationMismatch',

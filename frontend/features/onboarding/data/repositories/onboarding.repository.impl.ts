@@ -20,6 +20,7 @@ import {
   completeSetupApi,
   associateClinicEntryApi,
   createClinicEntryApi,
+  createInitialOrganizationApi,
   getContactVerificationStatusApi,
   getOrganizationContextApi,
   getOwnershipStatusApi,
@@ -48,6 +49,7 @@ import {
   ContactVerificationResult,
   EffectiveTenantResult,
   NewClinicInput,
+  InitialOrganizationResult,
   OwnershipStatusResult,
 } from '../../domain/clinic-entry';
 
@@ -76,6 +78,11 @@ export const useOrganizationContextQuery = () =>
   useQuery({
     queryKey: onboardingKeys.organizationContext(),
     queryFn: getOrganizationContextApi,
+  });
+
+export const useCreateInitialOrganizationMutation = () =>
+  useMutation<InitialOrganizationResult, Error, string>({
+    mutationFn: createInitialOrganizationApi,
   });
 
 export const useRequestContactVerificationMutation = () =>

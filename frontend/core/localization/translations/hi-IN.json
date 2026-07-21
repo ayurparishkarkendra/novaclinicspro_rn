@@ -97,6 +97,10 @@
       "transientFailure": "क्लिनिक जोड़ने की सेवा अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।",
       "sessionRefreshFailed": "क्लिनिक सहेजा गया, लेकिन सुरक्षित सत्र रिफ्रेश नहीं हो सका। कृपया पुनः प्रयास करें।",
       "organizationRequired": "आगे बढ़ने से पहले एक संगठन चुनें।",
+      "organizationNameRequired": "आगे बढ़ने से पहले संगठन का नाम दर्ज करें।",
+      "organizationCreationUnauthorized": "आपका अकाउंट संगठन नहीं बना सकता।",
+      "organizationCreationConflict": "आपके संगठन का संदर्भ बदल गया है। पुनः लोड करके संगठन चुनें।",
+      "organizationCreationRetryableFailure": "संगठन बनाया नहीं जा सका। कृपया पुनः प्रयास करें।",
       "verificationInvalid": "स्वामित्व सत्यापन अमान्य है या अब उपलब्ध नहीं है।",
       "verificationExpired": "स्वामित्व सत्यापन समाप्त हो गया है। नई स्वीकृति का अनुरोध करें।",
       "unsupported": "यह क्लिनिक जोड़ने का अनुरोध समर्थित नहीं है।",
@@ -486,6 +490,7 @@
         },
         "form": {
           "organization": "संगठन",
+          "organizationName": "संगठन का नाम",
           "clinicName": "क्लिनिक का नाम",
           "specialty": "क्लिनिक प्रकार या विशेषज्ञता",
           "addressLine1": "पता पंक्ति 1",

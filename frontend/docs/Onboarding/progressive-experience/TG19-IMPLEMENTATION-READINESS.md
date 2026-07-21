@@ -18,6 +18,12 @@ Decision: **READY**
 > revoke the historical implementation-readiness decision; it records failed
 > acceptance evidence. See `TG19-FINAL-ACCEPTANCE.md`.
 
+> **Remaining-blocker implementation update — 2026-07-21:** The bounded initial
+> organization transport, real frontend orchestration tests, and ADR-PF-011
+> tenant-switch cleanup are implemented. This evidence does not itself rerun or
+> change final acceptance; it makes TG19 ready for the separately authorized
+> final re-acceptance checkpoint.
+
 > **Version 1 constitutional decision update — 2026-07-20:** Product
 > Architecture approved the initial Bring Your Clinic meaning, identity/contact
 > field sets, domain ownership, single/multiple-clinic selection rule,

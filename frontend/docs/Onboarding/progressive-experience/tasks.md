@@ -1554,6 +1554,23 @@ review before any implementation.
 - Controlling evidence: `TG19-FINAL-ACCEPTANCE.md`.
 - Decision: `TG19_NOT_ACCEPTED`; TG20 remains unauthorized.
 
+### TG19 Remaining Acceptance Blockers — COMPLETE (2026-07-21)
+
+- The existing Supabase-authenticated organization service now has a bounded
+  initial-organization transport that atomically creates the organization,
+  owner membership, and organization audit record for a zero-membership user.
+- Clinic Entry creates the initial organization before verification only when
+  authoritative organization context is empty; existing-organization journeys
+  continue to reuse their current organization membership.
+- Focused tests execute the real Clinic Entry orchestration for automatic and
+  manual-pending contact verification, ownership pending/approval, effective
+  tenant selection, session refresh, retry without duplicate clinic mutation,
+  lifecycle cleanup, and authoritative navigation.
+- Tenant handoff cancels active queries, invalidates cached state, removes the
+  outgoing tenant/user persisted wizard draft, resets in-memory operation and
+  idempotency state, and then navigates after refreshed tenant validation.
+- This checkpoint does not rerun final acceptance and does not authorize TG20.
+
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).

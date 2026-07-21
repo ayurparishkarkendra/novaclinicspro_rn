@@ -154,6 +154,7 @@ export function ChoiceScreen() {
   const orchestration = useClinicEntryOrchestration();
   const [selectedPathId, setSelectedPathId] = useState<ClinicEntryPathId | null>(null);
   const [contactKind, setContactKind] = useState<ContactKind>('email');
+  const [organizationName, setOrganizationName] = useState('');
   const [clinicName, setClinicName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
@@ -183,8 +184,11 @@ export function ChoiceScreen() {
   }, [applicationId, setCurrentApplicationId]);
 
   useEffect(() => {
-    if (application?.tenant_name && !clinicName) setClinicName(application.tenant_name);
-  }, [application, clinicName]);
+    if (application?.tenant_name) {
+      if (!clinicName) setClinicName(application.tenant_name);
+      if (!organizationName) setOrganizationName(application.tenant_name);
+    }
+  }, [application, clinicName, organizationName]);
 
   useEffect(() => {
     if (currentUser?.applicationStatus === 'onboarding') router.replace('/onboarding/wizard-flow');
@@ -198,6 +202,11 @@ export function ChoiceScreen() {
   }, [orchestration.state, selectedPathId]);
 
   const validate = () => {
+    if (orchestration.organizations.length === 0 && !organizationName.trim()) {
+      setValidationToken('onboarding.progressiveExperience.clinicEntry.form.requiredError');
+      clinicNameRef.current?.focus();
+      return false;
+    }
     if (selectedPathId === 'new_clinic') {
       if (
         !clinicName.trim() ||
@@ -237,14 +246,14 @@ export function ChoiceScreen() {
         contactKind,
         contactValue: contactValue.trim(),
       };
-      void orchestration.submitNewClinic(input);
+      void orchestration.submitNewClinic(input, organizationName.trim());
     } else {
       const input: BringClinicInput = {
         ownershipReference: ownershipReference.trim(),
         contactKind,
         contactValue: contactValue.trim(),
       };
-      void orchestration.submitBringClinic(input);
+      void orchestration.submitBringClinic(input, organizationName.trim());
     }
   };
 
@@ -310,6 +319,15 @@ export function ChoiceScreen() {
           <Text style={styles.sectionTitle} accessibilityRole="header">
             {t(`onboarding.progressiveExperience.clinicEntry.${selectedPathId === 'new_clinic' ? 'newClinic' : 'bringYourClinic'}.title`)}
           </Text>
+          {orchestration.organizations.length === 0 ? (
+            <FormField
+              testID="organization-name"
+              label={t('onboarding.progressiveExperience.clinicEntry.form.organizationName')}
+              value={organizationName}
+              onChangeText={setOrganizationName}
+              theme={theme}
+            />
+          ) : null}
           {selectedPathId === 'new_clinic' ? (
             <>
               <FormField inputRef={clinicNameRef} testID="clinic-name" label={t('onboarding.progressiveExperience.clinicEntry.form.clinicName')} value={clinicName} onChangeText={setClinicName} theme={theme} />

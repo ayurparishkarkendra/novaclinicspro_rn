@@ -21,6 +21,7 @@ import {
   ContactVerificationResult,
   EffectiveTenantResult,
   NewClinicInput,
+  InitialOrganizationResult,
   OwnershipStatusResult,
 } from '../clinic-entry';
 
@@ -39,6 +40,7 @@ export interface IOnboardingRepository {
   getSetupWizardProgress(applicationId: string): Promise<SetupWizardProgressResponse>;
   completeSetupWizard(applicationId: string): Promise<{ tenant_id: string }>;
   getOrganizationContext(): Promise<AuthOrganizationContext>;
+  createInitialOrganization(displayName: string): Promise<InitialOrganizationResult>;
   requestContactVerification(
     organizationId: string,
     contactKind: 'email' | 'mobile',

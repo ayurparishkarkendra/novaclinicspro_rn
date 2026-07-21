@@ -113,7 +113,10 @@ describe('ChoiceScreen Clinic Entry presentation', () => {
     fireEvent.changeText(getByTestId('clinic-postal-code'), '411001');
     fireEvent.changeText(getByTestId('clinic-contact-value'), 'owner@example.com');
     fireEvent.press(getByTestId('clinic-entry-submit'));
-    expect(mockSubmitNewClinic).toHaveBeenCalledWith(expect.objectContaining({ clinicName: 'Nova Clinic', countryCode: 'IN' }));
+    expect(mockSubmitNewClinic).toHaveBeenCalledWith(
+      expect.objectContaining({ clinicName: 'Nova Clinic', countryCode: 'IN' }),
+      'Nova Clinic'
+    );
     expect(getByTestId('clinic-entry-path-new_clinic').props.accessibilityState.checked).toBe(true);
     expect(mockReplace).not.toHaveBeenCalled();
   });
@@ -126,7 +129,10 @@ describe('ChoiceScreen Clinic Entry presentation', () => {
     fireEvent.changeText(getByTestId('ownership-reference'), 'opaque-reference');
     fireEvent.changeText(getByTestId('clinic-contact-value'), 'owner@example.com');
     fireEvent.press(getByTestId('clinic-entry-submit'));
-    expect(mockSubmitBringClinic).toHaveBeenCalledWith(expect.objectContaining({ ownershipReference: 'opaque-reference' }));
+    expect(mockSubmitBringClinic).toHaveBeenCalledWith(
+      expect.objectContaining({ ownershipReference: 'opaque-reference' }),
+      'Nova Clinic'
+    );
     expect(getByTestId('clinic-entry-path-bring_your_clinic').props.accessibilityState.checked).toBe(true);
   });
 

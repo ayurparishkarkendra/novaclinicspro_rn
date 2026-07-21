@@ -84,6 +84,13 @@ export interface AuthOrganizationContext {
   sessionRefreshRequired: boolean;
 }
 
+export interface InitialOrganizationResult {
+  organizationId: string;
+  displayName: string;
+  role: 'organization_owner';
+  replayed: boolean;
+}
+
 export interface EffectiveTenantResult {
   organizationId: string;
   effectiveTenantId: string;
@@ -110,6 +117,8 @@ export const clinicEntryErrorToken = (error: unknown): string =>
     ? error.messageToken
     : error instanceof Error && error.message === 'clinic_entry.organization_required'
       ? 'errors.clinicEntry.organizationRequired'
+      : error instanceof Error && error.message === 'clinic_entry.organization_name_required'
+        ? 'errors.clinicEntry.organizationNameRequired'
       : error instanceof Error && error.message === 'clinic_entry.session_refresh_failed'
         ? 'errors.clinicEntry.sessionRefreshFailed'
     : 'errors.clinicEntry.transientFailure';

@@ -4,10 +4,10 @@ import { useRouter } from 'expo-router';
 import { queryClient } from '../../../../core/api/queryClient';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
 import {
-  onboardingKeys,
   useAssociateClinicEntryMutation,
   useContactVerificationStatusMutation,
   useCreateClinicEntryMutation,
+  useCreateInitialOrganizationMutation,
   useOrganizationContextQuery,
   useOwnershipStatusMutation,
   useRefreshEffectiveTenantMutation,
@@ -21,7 +21,10 @@ import {
   NewClinicInput,
   VerificationState,
 } from '../../domain/clinic-entry';
-import { useWizardStore } from '../stores/wizard.store';
+import {
+  clearWizardDraftStorageForIdentity,
+  useWizardStore,
+} from '../stores/wizard.store';
 
 type PendingFlow =
   | {
@@ -42,8 +45,9 @@ const createIdempotencyKey = (operation: string) =>
 
 export function useClinicEntryOrchestration() {
   const router = useRouter();
-  const { refreshSession, logout, setSelectedClinic } = useAuth();
+  const { currentUser, selectedClinicId, refreshSession, logout, setSelectedClinic } = useAuth();
   const organizationQuery = useOrganizationContextQuery();
+  const createOrganization = useCreateInitialOrganizationMutation();
   const contactRequest = useRequestContactVerificationMutation();
   const contactStatus = useContactVerificationStatusMutation();
   const ownershipStatus = useOwnershipStatusMutation();
@@ -86,23 +90,66 @@ export function useClinicEntryOrchestration() {
     setState('error');
   }, []);
 
+  const selectOrganization = useCallback((nextOrganizationId: string) => {
+    setSelectedOrganizationId(nextOrganizationId);
+    setPendingFlow(null);
+    setHandoffTarget(null);
+    setTenantChoices([]);
+    setErrorToken(null);
+    setState('idle');
+    idempotencyKeys.current = {};
+  }, []);
+
+  const ensureOrganization = useCallback(
+    async (displayName: string): Promise<string> => {
+      if (organizationId) return organizationId;
+      if (!displayName.trim()) throw new Error('clinic_entry.organization_name_required');
+      const created = await createOrganization.mutateAsync(displayName.trim());
+      selectOrganization(created.organizationId);
+      await organizationQuery.refetch();
+      return created.organizationId;
+    },
+    [createOrganization, organizationId, organizationQuery, selectOrganization]
+  );
+
   const handoff = useCallback(
     async (resolvedOrganizationId: string, tenantId: string) => {
       setState('refreshing_session');
+      await queryClient.cancelQueries();
+      const outgoingTenantId = selectedClinicId ?? currentUser?.tenantId ?? null;
+      const currentUserId = currentUser?.userId ?? currentUser?.id ?? null;
+      if (outgoingTenantId && outgoingTenantId !== tenantId && currentUserId) {
+        await clearWizardDraftStorageForIdentity({
+          tenantId: outgoingTenantId,
+          userId: currentUserId,
+        });
+      }
       await refreshTenant.mutateAsync(resolvedOrganizationId);
       await refreshSession();
-      await queryClient.invalidateQueries({ queryKey: onboardingKeys.organizationContext() });
+      await queryClient.invalidateQueries();
       const refreshed = await organizationQuery.refetch();
       if (refreshed.data?.effectiveTenantId !== tenantId) {
         throw new Error('clinic_entry.session_refresh_failed');
       }
       setSelectedClinic(tenantId);
       useWizardStore.getState().setTenantId(tenantId);
+      setPendingFlow(null);
       setHandoffTarget(null);
+      setTenantChoices([]);
+      setErrorToken(null);
+      idempotencyKeys.current = {};
       setState('complete');
       router.replace(`/onboarding/wizard-flow?tenantId=${tenantId}` as any);
     },
-    [organizationQuery, refreshSession, refreshTenant, router, setSelectedClinic]
+    [
+      currentUser,
+      organizationQuery,
+      refreshSession,
+      refreshTenant,
+      router,
+      selectedClinicId,
+      setSelectedClinic,
+    ]
   );
 
   const completeResult = useCallback(
@@ -126,29 +173,28 @@ export function useClinicEntryOrchestration() {
   );
 
   const createWithEvidence = useCallback(
-    async (input: NewClinicInput, evidenceReference: string) => {
-      if (!organizationId) throw new Error('clinic_entry.organization_required');
+    async (input: NewClinicInput, evidenceReference: string, resolvedOrganizationId: string) => {
       const result = await createClinic.mutateAsync({
-        organizationId,
+        organizationId: resolvedOrganizationId,
         input,
         evidenceReference,
         idempotencyKey: keyFor('create-clinic'),
       });
-      await completeResult(result, organizationId);
+      await completeResult(result, resolvedOrganizationId);
     },
-    [completeResult, createClinic, keyFor, organizationId]
+    [completeResult, createClinic, keyFor]
   );
 
   const requestContact = useCallback(
     async (
       input: NewClinicInput | BringClinicInput,
-      path: 'new_clinic' | 'bring_your_clinic'
+      path: 'new_clinic' | 'bring_your_clinic',
+      resolvedOrganizationId: string
     ) => {
-      if (!organizationId) throw new Error('clinic_entry.organization_required');
       const intendedOperation =
         path === 'new_clinic' ? 'clinic_entry.create.v1' : 'clinic_entry.associate.v1';
       const response = await contactRequest.mutateAsync({
-        organizationId,
+        organizationId: resolvedOrganizationId,
         contactKind: input.contactKind,
         contactValue: input.contactValue,
         intendedOperation,
@@ -177,15 +223,19 @@ export function useClinicEntryOrchestration() {
         evidenceReference: response.reference,
       } as PendingFlow);
       if (path === 'new_clinic') {
-        await createWithEvidence(input as NewClinicInput, response.reference);
+        await createWithEvidence(
+          input as NewClinicInput,
+          response.reference,
+          resolvedOrganizationId
+        );
       } else {
         const result = await associateClinic.mutateAsync({
-          organizationId,
+          organizationId: resolvedOrganizationId,
           input: input as BringClinicInput,
           evidenceReference: response.reference,
           idempotencyKey: keyFor('associate-clinic'),
         });
-        await completeResult(result, organizationId);
+        await completeResult(result, resolvedOrganizationId);
       }
     },
     [
@@ -194,31 +244,31 @@ export function useClinicEntryOrchestration() {
       contactRequest,
       createWithEvidence,
       keyFor,
-      organizationId,
     ]
   );
 
   const submitNewClinic = useCallback(
-    async (input: NewClinicInput) => {
+    async (input: NewClinicInput, organizationDisplayName = '') => {
       setErrorToken(null);
       setState('submitting');
       try {
-        await requestContact(input, 'new_clinic');
+        const resolvedOrganizationId = await ensureOrganization(organizationDisplayName);
+        await requestContact(input, 'new_clinic', resolvedOrganizationId);
       } catch (error) {
         fail(error);
       }
     },
-    [fail, requestContact]
+    [ensureOrganization, fail, requestContact]
   );
 
   const submitBringClinic = useCallback(
-    async (input: BringClinicInput) => {
+    async (input: BringClinicInput, organizationDisplayName = '') => {
       setErrorToken(null);
       setState('submitting');
       try {
-        if (!organizationId) throw new Error('clinic_entry.organization_required');
+        const resolvedOrganizationId = await ensureOrganization(organizationDisplayName);
         const ownership = await ownershipStatus.mutateAsync({
-          organizationId,
+          organizationId: resolvedOrganizationId,
           ownershipReference: input.ownershipReference,
         });
         if (ownership.status === 'pending') {
@@ -229,12 +279,12 @@ export function useClinicEntryOrchestration() {
         if (ownership.status !== 'approved') {
           throw new Error('clinic_entry.verification_invalid');
         }
-        await requestContact(input, 'bring_your_clinic');
+        await requestContact(input, 'bring_your_clinic', resolvedOrganizationId);
       } catch (error) {
         fail(error);
       }
     },
-    [fail, organizationId, ownershipStatus, requestContact]
+    [ensureOrganization, fail, ownershipStatus, requestContact]
   );
 
   const resumePending = useCallback(async () => {
@@ -254,7 +304,7 @@ export function useClinicEntryOrchestration() {
         if (ownership.status !== 'approved') {
           throw new Error('clinic_entry.verification_invalid');
         }
-        await requestContact(pendingFlow.input, 'bring_your_clinic');
+        await requestContact(pendingFlow.input, 'bring_your_clinic', organizationId);
         return;
       }
       const contact = await contactStatus.mutateAsync({
@@ -269,7 +319,11 @@ export function useClinicEntryOrchestration() {
         throw new Error('clinic_entry.contact_verification_invalid');
       }
       if (pendingFlow.path === 'new_clinic') {
-        await createWithEvidence(pendingFlow.input, pendingFlow.evidenceReference);
+        await createWithEvidence(
+          pendingFlow.input,
+          pendingFlow.evidenceReference,
+          organizationId
+        );
       } else {
         const result = await associateClinic.mutateAsync({
           organizationId,
@@ -332,7 +386,7 @@ export function useClinicEntryOrchestration() {
       errorToken,
       organizations,
       organizationId,
-      setSelectedOrganizationId,
+      setSelectedOrganizationId: selectOrganization,
       tenantChoices,
       isLoadingContext: organizationQuery.isLoading,
       contextError: organizationQuery.error,
@@ -352,6 +406,7 @@ export function useClinicEntryOrchestration() {
       organizationQuery.error,
       organizationQuery.isLoading,
       organizations,
+      selectOrganization,
       resetKey,
       resumePending,
       retry,
