@@ -41,7 +41,7 @@ verification and bounded reconciliation of the following workspace foundation:
 |---|---|---|
 | `TENANT_FOUNDATION` | Active organization-tenant association references an existing, non-inactive tenant. | None. Missing/invalid tenant or association is terminal and returns to Platform Foundation support ownership. |
 | `ACCESS_FOUNDATION` | At least one active tenant user has the approved Clinic Owner role. For New Clinic, TG19's creating actor is that owner. Bring Your Clinic preserves an existing clinic owner and never infers ownership from the association requester. | For New Clinic only, reuse existing idempotent tenant-user/RBAC/role-assignment services to restore the TG19-recorded creating owner's missing access. For Bring Your Clinic, missing owner access is terminal/support-owned; never assign the requester implicitly. Never create a new tenant or organization association. |
-| `ONBOARDING_FOUNDATION` | Existing onboarding/template services can resolve one applicable setup template and return the canonical onboarding status contract for the tenant. | Reuse the existing approved template-assignment/materialization boundary when no assignment exists; do not choose capability-driven card visibility or mark any setup step complete. |
+| `ONBOARDING_FOUNDATION` | Existing onboarding/template services resolve an active clinic-type template or the active `general` fallback, with a canonical template code and readable setup steps. | None. Resolution is read-only. If neither template exists, the unit fails terminally; TG20 never assigns, materializes, creates, or mutates a template or setup progress. |
 | `PERSONALIZATION_HANDOFF` | The preceding units are complete and a refreshed Platform Foundation context still reports the same effective tenant. | No server-side navigation. The backend authorizes `ENTER_PERSONALIZATION`; the frontend performs the accepted refreshed-context equality gate. |
 
 These four units are ordered, mandatory, specialty-neutral, and safe for user
@@ -371,10 +371,13 @@ winning current run only after verifying identical scope/version.
 
 ### 8.2 Executor claim and optimistic locking
 
-An executor request locks the current aggregate or performs a compare-and-swap
-using `aggregate_version`. Each successful transition increments version exactly
-once. A zero-row update is typed stale conflict; the caller reloads and does not
-repeat a mutation before reconciling authoritative evidence.
+The exact database-persisted claim protocol, fields, 30-second default/60-second
+maximum lease, acquisition/renewal/reclaim/release rules, stale-token rejection,
+constraints, and indexes are defined by `final-authorization-contracts.md` §3.
+An executor request uses row locking and `aggregate_version`; neither is
+optional. Each successful claim or transition increments version exactly once.
+A stale claim or zero-row update is a typed conflict; the caller reloads and
+does not repeat a mutation before reconciling authoritative evidence.
 
 ### 8.3 Retry races
 
@@ -531,11 +534,11 @@ exception, provider, SQL, evidence, contact, or credential.
   `onboarding.workspace_preparation.view`; ensure/retry requires
   `onboarding.workspace_preparation.manage`. Both use the existing tenant RBAC
   permission framework, not Platform Capability and not a boolean role shortcut.
-- Version 1 grants both permissions to Organization Owner, Organization Admin,
-  and Clinic Administrator only when Platform Foundation also resolves the
-  effective tenant/active association. Front Desk, Doctor, and Therapist receive
-  neither permission by default. Existing custom-role assignment remains an
-  Administration/RBAC concern and cannot bypass organization/tenant scope.
+- Version 1 maps `CLINIC_OWNER` and `CLINIC_ADMIN` to view/manage and `DOCTOR`
+  to view only. Organization Owner/Admin membership establishes organization
+  context but grants neither tenant permission implicitly; the actor must also
+  hold the applicable tenant RBAC assignment. Existing custom-role assignment
+  may grant either permission and cannot bypass organization/tenant scope.
 - Adding the two permission catalogue/seed entries is an implementation
   responsibility; their codes and default-role policy are constitutional here.
 - Organization audit, organization idempotency, and SQLAlchemy UoW are reused.
@@ -562,7 +565,9 @@ constitutional decisions**:
 - Adapters: implement narrow tenant/access/onboarding-foundation evidence adapters
   over existing repositories/services. No general worker/queue framework.
 - Persistence: add exactly one aggregate model/table and one append-only event
-  model/table through one additive Alembic migration.
+  model/table, execution-claim fields, and migration-owned permission catalogue
+  rows/default mappings through the single additive Alembic migration frozen in
+  `final-authorization-contracts.md` §4.2.
 - Transport/DI: add status, ensure, and retry schemas/routes through existing
   onboarding router/dependency patterns, using Platform Foundation authorization
   and safe typed errors.
@@ -595,9 +600,9 @@ constitutional decisions**:
 - Staging verifies actual New Clinic, Bring Your Clinic, legacy, fast-complete,
   reconciliation, retry, multi-clinic, restart, and rollback journeys.
 
-Exact filenames, import locations, permission reuse, and test commands are fixed
-by the implementation-boundary/re-readiness audit after repository reinspection.
-They may not change the contracts above.
+Exact source-derived file boundaries, permission reuse, and test commands are
+fixed by `tasks.md` as reconciled by `final-authorization-contracts.md`. They may
+not be chosen or expanded during implementation.
 
 ## 14. Cross-contract invariants
 

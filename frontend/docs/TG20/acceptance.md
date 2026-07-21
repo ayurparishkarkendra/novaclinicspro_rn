@@ -1,5 +1,9 @@
 # TG20 Acceptance Strategy
 
+> **Controlling gates:** acceptance must verify every AUTH-1 through AUTH-4 rule
+> and each measurable checkpoint exit in `final-authorization-contracts.md` and
+> `tasks.md`; no implementation shortcut may be waived by this strategy.
+
 Status: **Planning**
 
 ## Acceptance objective

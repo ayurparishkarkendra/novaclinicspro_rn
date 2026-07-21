@@ -1,5 +1,8 @@
 # TG20 Domain Model — Workspace Preparation
 
+> **Controlling persistence detail:** claim fields/protocol and exact aggregate/
+> event schema constraints are frozen in `final-authorization-contracts.md` §§3–4.
+
 Status: **Proposed domain contract**
 
 ## Bounded context

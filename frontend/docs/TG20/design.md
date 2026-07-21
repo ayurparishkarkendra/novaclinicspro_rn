@@ -1,5 +1,10 @@
 # TG20 Design — Workspace Preparation
 
+> **Controlling operational detail:** `final-authorization-contracts.md`
+> freezes the Version 1 read-only onboarding-template resolution, persisted
+> execution claim, exact authorization/migration composition, and checkpoint
+> boundaries. It controls where this design is less specific.
+
 Status: **Design proposal; no code, API, migration, or UI implementation authorized**
 
 ## Design principles

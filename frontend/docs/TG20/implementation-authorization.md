@@ -6,6 +6,14 @@ Branch: `feature/progressive-experience-recovery`
 
 Decision: **TG20 IMPLEMENTATION NOT AUTHORIZED**
 
+> **Post-review constitutional closure — 2026-07-21:**
+> `final-authorization-contracts.md` closes AUTH-1 through AUTH-4 with the
+> source-proven read-only onboarding-template boundary, database-persisted claim
+> protocol, exact tenant-RBAC/migration composition, and independently
+> executable TG20.0–TG20.7 task contract. The historical decision in this file
+> remains the last authorization decision; implementation is still prohibited
+> until a separately requested final authorization re-review supersedes it.
+
 ## 1. Controlling decision
 
 TG20 implementation may not begin. The operational contracts resolve the
@@ -240,6 +248,11 @@ future/out-of-scope requirement and choose exactly `TG20_ACCEPTED` or
 `TG20_NOT_ACCEPTED`.
 
 ## 13. Remaining constitutional blockers
+
+**Closure status:** AUTH-1 through AUTH-4 below are closed by
+`final-authorization-contracts.md`. They are retained as the historical findings
+that caused this review's `NOT AUTHORIZED` decision, not as unresolved planning
+questions.
 
 All four blockers must be resolved in documentation before another authorization
 review:

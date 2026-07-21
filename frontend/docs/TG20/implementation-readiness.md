@@ -17,6 +17,13 @@ Decision: **NOT READY**
 > fit, exact permission/file/migration boundaries, and independently executable
 > task groups. Implementation remains unauthorized.
 
+> **Final-blocker closure — 2026-07-21:**
+> `final-authorization-contracts.md` subsequently resolves the source-fit,
+> execution-claim, permission/migration, and executable-task issues found by the
+> authorization review. This historical readiness decision is not itself
+> changed to READY; the required next activity is the final implementation
+> authorization re-review.
+
 ## Executive decision
 
 TG20 is correctly scoped as Phase 2 E3 Workspace Preparation State and Guidance,
