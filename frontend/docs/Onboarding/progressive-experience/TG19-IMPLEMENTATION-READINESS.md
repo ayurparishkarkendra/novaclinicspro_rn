@@ -844,3 +844,23 @@ verified on PostgreSQL, committed, and pushed. Checkpoint 4, Checkpoint 5,
 frontend orchestration, TG19 acceptance, and TG20 remain unauthorized.
 
 **Manual Verification Provenance Implementation Status: READY**
+
+## 29. Alembic Drift Audit — 2026-07-21
+
+`TG19-ALEMBIC-DRIFT-AUDIT.md` is the controlling evidence for the final
+schema-drift acceptance gate. A fresh PostgreSQL database at head produces 226
+destructive false-positive operations: 80 table removals and 146 index removals.
+All are classified `TG19_REGRESSION`.
+
+Commit `c43ee45` removed all model imports from Alembic's `env.py`, leaving
+`Base.metadata` empty during comparison. This causes every reflected
+application table—including all TG19 Platform Foundation tables—to appear
+database-only. The ancestor already contained separate incomplete-registration
+debt, but it did not contain this empty-registry regression.
+
+**TG19_FINAL_ACCEPTANCE_BLOCKED** — Platform Foundation and Database/Migrations
+must restore deterministic complete model registration, add a fail-closed TG19
+metadata guard, and rerun `alembic check` on a fresh PostgreSQL database. A
+release-gate exception is not justified until that bounded TG19 correction is
+complete. Residual pre-existing drift, if any, must then be classified under a
+separately owned schema-reconciliation initiative.
