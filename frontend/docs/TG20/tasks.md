@@ -2,6 +2,12 @@
 
 Status: **Planning only; implementation requires separate authorization**
 
+Constitutional prerequisite: `operational-contracts.md` defines the Version 1
+executor, evidence, initialization, retry, persistence, concurrency,
+legacy/no-run, and rollback behavior. A readiness re-review must verify that
+contract against current source and replace the historical `NOT READY` decision
+before any checkpoint below begins.
+
 Every checkpoint is independently reviewable and must stop on an undocumented
 product, architecture, security, persistence, or provisioning dependency.
 
@@ -14,7 +20,12 @@ product, architecture, security, persistence, or provisioning dependency.
 - [ ] Prove why tenant/application/onboarding status cannot represent the Version
   1 preparation lifecycle without overload.
 - [ ] Freeze exact allowed/prohibited files and migration boundary.
-- [ ] Resolve initialization policy for accepted TG19/legacy tenants with no run.
+- [ ] Verify the universal lazy `ensure` initialization and no-backfill policy
+  from `operational-contracts.md` against accepted TG19 and legacy source paths.
+- [ ] Verify every implementation boundary conforms to
+  `operational-contracts.md`; implementation may choose files/adapters but may
+  not alter the four Version 1 units, executor authority, retry limit,
+  persistence/history, or legacy/rollback semantics.
 
 Verification: signed reuse matrix, source citations, zero open constitutional
 decision. Stop if authoritative state or provisioning evidence cannot be supplied.

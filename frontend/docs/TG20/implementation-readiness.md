@@ -8,6 +8,15 @@ Planning commit reviewed: `9711040c`
 
 Decision: **NOT READY**
 
+> **Post-review constitutional resolution — 2026-07-21:**
+> `operational-contracts.md` now defines the authoritative Version 1 work units,
+> sole request-driven executor, evidence, initialization, retry, persistence,
+> concurrency, legacy/no-run, authorization, projection, and rollback contracts
+> requested by this review. This historical `NOT READY` decision remains
+> controlling until a separately authorized readiness re-review verifies source
+> fit, exact permission/file/migration boundaries, and independently executable
+> task groups. Implementation remains unauthorized.
+
 ## Executive decision
 
 TG20 is correctly scoped as Phase 2 E3 Workspace Preparation State and Guidance,
@@ -367,3 +376,6 @@ current system. The planning package correctly exposes this through its TG20.0
 stop conditions; those decisions must be completed before coding.
 
 **TG20 IMPLEMENTATION STATUS: NOT READY**
+
+Next authorized activity: TG20 implementation readiness re-review against
+`operational-contracts.md`; do not begin TG20.1 before that decision.
