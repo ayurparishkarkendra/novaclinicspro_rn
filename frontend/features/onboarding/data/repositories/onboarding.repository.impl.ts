@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import { useCallback, useRef } from 'react';
 import {
   getApplicationDetailApi,
   getValidationReportApi,
@@ -18,6 +19,18 @@ import {
   getOnboardingStatusApi,
   submitStepDataApi,
   completeSetupApi,
+  associateClinicEntryApi,
+  createClinicEntryApi,
+  createInitialOrganizationApi,
+  getContactVerificationStatusApi,
+  getOrganizationContextApi,
+  getOwnershipStatusApi,
+  refreshEffectiveTenantApi,
+  requestContactVerificationApi,
+  selectEffectiveTenantApi,
+  ensureWorkspacePreparationApi,
+  getWorkspacePreparationApi,
+  retryWorkspacePreparationApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -33,7 +46,24 @@ import {
   StepSubmitRequest,
   StepSubmitResponse,
   CompleteSetupResponse,
+  WorkspacePreparationDatasourceError,
+  WorkspacePreparationResponseDTO,
 } from '../models/onboarding.dtos';
+import {
+  BringClinicInput,
+  ClinicEntryResult,
+  ContactVerificationResult,
+  EffectiveTenantResult,
+  NewClinicInput,
+  InitialOrganizationResult,
+  OwnershipStatusResult,
+} from '../../domain/clinic-entry';
+import {
+  WORKSPACE_PREPARATION_CONTRACT_V1,
+  WorkspacePreparation,
+  WorkspacePreparationError,
+} from '../../domain/entities/workspace-preparation.entity';
+import { buildWorkspacePreparationViewModel } from '../../domain/usecases/build-workspace-preparation-view-model.usecase';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -53,7 +83,268 @@ export const onboardingKeys = {
   setupWizard: (id: string) => [...onboardingKeys.all, 'setup-wizard', id] as const,
   setupProgress: (id: string) => [...onboardingKeys.setupWizard(id), 'progress'] as const,
   status: (tenantId: string) => [...onboardingKeys.all, 'status', tenantId] as const,
+  organizationContext: () => [...onboardingKeys.all, 'organization-context'] as const,
+  workspacePreparations: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'workspace-preparation', organizationId, tenantId] as const,
+  workspacePreparation: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.workspacePreparations(organizationId, tenantId),
+      WORKSPACE_PREPARATION_CONTRACT_V1,
+    ] as const,
 };
+
+const mapWorkspacePreparation = (
+  dto: WorkspacePreparationResponseDTO
+): WorkspacePreparation =>
+  buildWorkspacePreparationViewModel({
+    contractVersion: dto.contract_version,
+    runId: dto.run_id,
+    state: dto.state,
+    aggregateVersion: dto.aggregate_version,
+    progress: dto.progress,
+    units: dto.units.map((unit) => ({
+      code: unit.code,
+      outcome: unit.outcome,
+      evidenceVersion: unit.evidence_version,
+      attempt: unit.attempt,
+      observedAt: unit.observed_at,
+      recordedAt: unit.recorded_at,
+    })),
+    reasonCode: dto.reason_code,
+    retryAllowed: dto.retry_allowed,
+    userRetryCount: dto.user_retry_count,
+    maxUserRetries: dto.max_user_retries,
+    nextAction: dto.next_action,
+    refreshAfterSeconds: dto.refresh_after_seconds,
+    supportCorrelationId: dto.support_correlation_id,
+    updatedAt: dto.updated_at,
+  });
+
+const mapWorkspacePreparationError = (error: unknown): never => {
+  if (error instanceof WorkspacePreparationError) throw error;
+  if (error instanceof WorkspacePreparationDatasourceError) {
+    throw new WorkspacePreparationError(error.errorCode, error.messageToken, error.retryable);
+  }
+  throw new WorkspacePreparationError(
+    'workspace_preparation.execution_failure',
+    'errors.workspacePreparation.execution_failure',
+    true
+  );
+};
+
+export const workspacePreparationRepository = {
+  async ensureWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(await ensureWorkspacePreparationApi(tenantId));
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+  async getWorkspacePreparation(tenantId: string): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(await getWorkspacePreparationApi(tenantId));
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+  async retryWorkspacePreparation(
+    tenantId: string,
+    aggregateVersion: number,
+    idempotencyKey: string
+  ): Promise<WorkspacePreparation> {
+    try {
+      return mapWorkspacePreparation(
+        await retryWorkspacePreparationApi(tenantId, aggregateVersion, idempotencyKey)
+      );
+    } catch (error) {
+      return mapWorkspacePreparationError(error);
+    }
+  },
+};
+
+export const shouldRetryWorkspacePreparation = (
+  failureCount: number,
+  error: Error
+): boolean =>
+  error instanceof WorkspacePreparationError && error.retryable && failureCount < 2;
+
+export const useWorkspacePreparationQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<WorkspacePreparation, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<WorkspacePreparation, Error>({
+    queryKey: onboardingKeys.workspacePreparation(organizationId, tenantId),
+    queryFn: () => workspacePreparationRepository.getWorkspacePreparation(tenantId),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryWorkspacePreparation,
+    ...options,
+  });
+
+export const useEnsureWorkspacePreparationMutation = (
+  organizationId: string,
+  tenantId: string
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.workspacePreparation(organizationId, tenantId);
+  return useMutation<WorkspacePreparation, Error, void>({
+    mutationFn: () => workspacePreparationRepository.ensureWorkspacePreparation(tenantId),
+    onSuccess: (value) => {
+      queryClient.setQueryData(queryKey, value);
+      queryClient.invalidateQueries({ queryKey });
+    },
+    retry: false,
+  });
+};
+
+export const useRetryWorkspacePreparationMutation = (
+  organizationId: string,
+  tenantId: string
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.workspacePreparation(organizationId, tenantId);
+  const scope = `${organizationId}:${tenantId}`;
+  const pendingIntent = useRef<{
+    scope: string;
+    key: string;
+    aggregateVersion: number;
+  } | null>(null);
+  return useMutation<
+    WorkspacePreparation,
+    Error,
+    { aggregateVersion: number }
+  >({
+    mutationFn: ({ aggregateVersion }) => {
+      if (pendingIntent.current?.scope !== scope) pendingIntent.current = null;
+      pendingIntent.current ??= {
+        scope,
+        key: `workspace-preparation-retry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        aggregateVersion,
+      };
+      return workspacePreparationRepository.retryWorkspacePreparation(
+        tenantId,
+        pendingIntent.current.aggregateVersion,
+        pendingIntent.current.key
+      );
+    },
+    onSuccess: (value) => {
+      queryClient.setQueryData(queryKey, value);
+      queryClient.invalidateQueries({ queryKey });
+      pendingIntent.current = null;
+    },
+    retry: false,
+  });
+};
+
+export const useClearWorkspacePreparationCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.workspacePreparations(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+export const useOrganizationContextQuery = () =>
+  useQuery({
+    queryKey: onboardingKeys.organizationContext(),
+    queryFn: getOrganizationContextApi,
+  });
+
+export const useCreateInitialOrganizationMutation = () =>
+  useMutation<InitialOrganizationResult, Error, string>({
+    mutationFn: createInitialOrganizationApi,
+  });
+
+export const useRequestContactVerificationMutation = () =>
+  useMutation<
+    ContactVerificationResult,
+    Error,
+    {
+      organizationId: string;
+      contactKind: 'email' | 'mobile';
+      contactValue: string;
+      intendedOperation: 'clinic_entry.create.v1' | 'clinic_entry.associate.v1';
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: (variables) =>
+      requestContactVerificationApi(
+        variables.organizationId,
+        variables.contactKind,
+        variables.contactValue,
+        variables.intendedOperation,
+        variables.idempotencyKey
+      ),
+  });
+
+export const useContactVerificationStatusMutation = () =>
+  useMutation<
+    ContactVerificationResult,
+    Error,
+    { organizationId: string; evidenceId: string }
+  >({
+    mutationFn: ({ organizationId, evidenceId }) =>
+      getContactVerificationStatusApi(organizationId, evidenceId),
+  });
+
+export const useOwnershipStatusMutation = () =>
+  useMutation<
+    OwnershipStatusResult,
+    Error,
+    { organizationId: string; ownershipReference: string }
+  >({
+    mutationFn: ({ organizationId, ownershipReference }) =>
+      getOwnershipStatusApi(organizationId, ownershipReference),
+  });
+
+export const useCreateClinicEntryMutation = () =>
+  useMutation<
+    ClinicEntryResult,
+    Error,
+    {
+      organizationId: string;
+      input: NewClinicInput;
+      evidenceReference: string;
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: ({ organizationId, input, evidenceReference, idempotencyKey }) =>
+      createClinicEntryApi(organizationId, input, evidenceReference, idempotencyKey),
+  });
+
+export const useAssociateClinicEntryMutation = () =>
+  useMutation<
+    ClinicEntryResult,
+    Error,
+    {
+      organizationId: string;
+      input: BringClinicInput;
+      evidenceReference: string;
+      idempotencyKey: string;
+    }
+  >({
+    mutationFn: ({ organizationId, input, evidenceReference, idempotencyKey }) =>
+      associateClinicEntryApi(organizationId, input, evidenceReference, idempotencyKey),
+  });
+
+export const useSelectEffectiveTenantMutation = () =>
+  useMutation<
+    EffectiveTenantResult,
+    Error,
+    { organizationId: string; tenantId: string; idempotencyKey: string }
+  >({
+    mutationFn: ({ organizationId, tenantId, idempotencyKey }) =>
+      selectEffectiveTenantApi(organizationId, tenantId, idempotencyKey),
+  });
+
+export const useRefreshEffectiveTenantMutation = () =>
+  useMutation<EffectiveTenantResult, Error, string>({
+    mutationFn: refreshEffectiveTenantApi,
+  });
 
 // ============================================
 // QUERY HOOKS

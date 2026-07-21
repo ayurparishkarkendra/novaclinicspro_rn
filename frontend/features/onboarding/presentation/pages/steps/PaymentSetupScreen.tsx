@@ -10,7 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { useSubmitStepMutation } from '../../../data/repositories/onboarding.repository.impl';
 import { axiosClient } from '../../../../../core/api/axiosClient';
-import { useWizardStore } from '../../stores/wizard.store';
+import { clearStepDraftAndSync, useWizardStore } from '../../stores/wizard.store';
+import { RestoredDraftIndicator } from '../../components/RestoredDraftIndicator';
 
 interface PaymentSetupScreenProps {
   tenantId: string;
@@ -25,7 +26,9 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
   const [loading, setLoading] = useState(true);
   const [selectedMethods, setSelectedMethods] = useState<string[]>(['cash']);
   const { setPaymentMethods, getStepData } = useWizardStore();
+  const [draftRestored, setDraftRestored] = useState(false);
   const initialSnapshotRef = useRef<string | null>(null);
+  const restoredSnapshotRef = useRef<string | null>(null);
 
   const submitStepMutation = useSubmitStepMutation(tenantId, 'payment_setup');
 
@@ -33,47 +36,33 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
     fetchPaymentMethods();
   }, [tenantId]);
 
-  // Register/update the save handler with wizard whenever it changes
-  useEffect(() => {
-    if (onRegisterSaveHandler && isWizardMode) {
-      onRegisterSaveHandler(handleSubmit);
-    }
-    return () => {
-      if (onRegisterSaveHandler && isWizardMode) {
-        onRegisterSaveHandler(null);
-      }
-    };
-  }, [onRegisterSaveHandler, isWizardMode, handleSubmit]);
-
   // Save to Zustand whenever form data changes
   useEffect(() => {
     if (!loading) {
-      setPaymentMethods({
-        payment_methods: selectedMethods,
-      });
+      const currentSnapshot = JSON.stringify({ selectedMethods });
+      if (draftRestored && restoredSnapshotRef.current !== currentSnapshot) {
+        setDraftRestored(false);
+        restoredSnapshotRef.current = null;
+      }
+
+      const timeout = setTimeout(() => {
+        setPaymentMethods({
+          payment_methods: selectedMethods,
+        });
+      }, 500);
+
+      return () => clearTimeout(timeout);
     }
-  }, [selectedMethods, loading, setPaymentMethods]);
+  }, [selectedMethods, loading, setPaymentMethods, draftRestored]);
 
   const fetchPaymentMethods = async () => {
     try {
       setLoading(true);
       console.log('[PaymentSetupScreen] Fetching payment methods for tenant:', tenantId);
       
-      // First, check if we have data in Zustand store
-      const zustandData = getStepData('payment_setup');
-      if (zustandData && zustandData.payment_methods) {
-        console.log('[PaymentSetupScreen] Loading data from Zustand store');
-        setSelectedMethods(zustandData.payment_methods);
-        setLoading(false);
-        
-        // Set initial snapshot with loaded values
-        initialSnapshotRef.current = JSON.stringify({ selectedMethods: zustandData.payment_methods });
-        
-        return;
-      }
-      
       // Track loaded values to set snapshot correctly
       let loadedMethods = ['cash'];
+      let hasServerPaymentMethods = false;
       
       // Try to fetch existing payment methods from tenant settings
       try {
@@ -82,6 +71,7 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
         
         if (response.data.payment_methods && Array.isArray(response.data.payment_methods)) {
           loadedMethods = response.data.payment_methods;
+          hasServerPaymentMethods = true;
           setSelectedMethods(loadedMethods);
           console.log('[PaymentSetupScreen] Loaded existing payment methods:', loadedMethods);
         } else {
@@ -95,6 +85,7 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
           const settingsResponse = await axiosClient.get(`/api/v1/clinic/${tenantId}/settings`);
           if (settingsResponse.data.payment_methods) {
             loadedMethods = settingsResponse.data.payment_methods;
+            hasServerPaymentMethods = true;
             setSelectedMethods(loadedMethods);
             console.log('[PaymentSetupScreen] Loaded payment methods from settings');
           }
@@ -106,6 +97,17 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
       
       // Set initial snapshot with actual loaded values
       initialSnapshotRef.current = JSON.stringify({ selectedMethods: loadedMethods });
+
+      if (!hasServerPaymentMethods) {
+        const zustandData = getStepData('payment_setup');
+        if (zustandData?.payment_methods && Array.isArray(zustandData.payment_methods)) {
+          console.log('[PaymentSetupScreen] Restoring payment methods draft');
+          setSelectedMethods(zustandData.payment_methods);
+          const restoredSnapshot = JSON.stringify({ selectedMethods: zustandData.payment_methods });
+          restoredSnapshotRef.current = restoredSnapshot;
+          setDraftRestored(true);
+        }
+      }
     } catch (error: any) {
       console.error('[PaymentSetupScreen] Error in fetchPaymentMethods:', error);
     } finally {
@@ -168,6 +170,9 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
       
       // Update snapshot after successful save
       initialSnapshotRef.current = currentSnapshot;
+      restoredSnapshotRef.current = null;
+      setDraftRestored(false);
+      await clearStepDraftAndSync('payment_setup');
 
       // In wizard mode, call onSuccess callback
       if (isWizardMode && onSuccess) {
@@ -191,6 +196,18 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
     }
   }, [loading, selectedMethods, submitStepMutation, isWizardMode, onSuccess, tenantId, router]);
 
+  // Register/update the save handler with wizard whenever it changes
+  useEffect(() => {
+    if (onRegisterSaveHandler && isWizardMode) {
+      onRegisterSaveHandler(handleSubmit);
+    }
+    return () => {
+      if (onRegisterSaveHandler && isWizardMode) {
+        onRegisterSaveHandler(null);
+      }
+    };
+  }, [onRegisterSaveHandler, isWizardMode, handleSubmit]);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center' }]}>
@@ -207,6 +224,8 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
       style={[styles.container, { backgroundColor: theme.colors.background.default }]}
       contentContainerStyle={{ padding: theme.spacing.lg }}
     >
+      {draftRestored && <RestoredDraftIndicator />}
+
       <View style={[styles.header, { marginBottom: theme.spacing.xl }]}>
         <Ionicons name="card" size={48} color={theme.colors.primary.default} />
         <Text

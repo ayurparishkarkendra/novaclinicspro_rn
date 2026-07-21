@@ -86,6 +86,32 @@
       "logoutFailed": "Logout failed. Please try again.",
       "tokenRefreshFailed": "Failed to refresh your session. Please log in again."
     },
+    "clinicEntry": {
+      "validation": "Review the highlighted clinic information and try again.",
+      "fieldInvalid": "One or more clinic fields are invalid.",
+      "duplicate": "This clinic is already connected to the organization.",
+      "unauthorized": "You are not authorized to add a clinic to this organization.",
+      "alreadyAssociated": "This clinic is already connected.",
+      "idempotencyConflict": "This request changed while it was being retried. Review it and submit again.",
+      "associationConflict": "This clinic cannot be connected to the selected organization.",
+      "inProgress": "Clinic entry is already in progress. Check again shortly.",
+      "transientFailure": "Clinic entry is temporarily unavailable. Please try again.",
+      "sessionRefreshFailed": "The clinic was saved, but the secure session could not be refreshed. Please try again.",
+      "organizationRequired": "Select an organization before continuing.",
+      "organizationNameRequired": "Enter an organization name before continuing.",
+      "organizationCreationUnauthorized": "Your account cannot create an organization.",
+      "organizationCreationConflict": "Your organization context has changed. Reload and select an organization.",
+      "organizationCreationRetryableFailure": "The organization could not be created. Please try again.",
+      "verificationInvalid": "Ownership verification is invalid or no longer available.",
+      "verificationExpired": "Ownership verification has expired. Request a new approval.",
+      "unsupported": "This clinic entry request is not supported.",
+      "contactVerificationInvalid": "Clinic contact verification is invalid.",
+      "contactVerificationExpired": "Clinic contact verification has expired.",
+      "contactVerificationRevoked": "Clinic contact verification was revoked.",
+      "contactVerificationConsumed": "Clinic contact verification was already used.",
+      "contactVerificationMismatch": "The clinic contact does not match the verified account contact.",
+      "contactVerificationInProgress": "Clinic contact verification is still pending."
+    },
     "generic": {
       "loadFailed": "Failed to load data. Please try again.",
       "saveFailed": "Failed to save. Please try again.",
@@ -565,6 +591,7 @@
       "routes": {
         "prepareClinic": "Prepare Your Clinic",
         "clinicPreparation": "Clinic Preparation",
+        "workspacePreparation": "Workspace Preparation",
         "reviewStep": "Review Step"
       },
       "dashboard": {
@@ -591,17 +618,152 @@
         "preparingSampleClinic": "Preparing your sample clinic...",
         "sampleError": "Unable to create sample clinic. Please try again."
       },
+      "clinicEntry": {
+        "loading": "Loading clinic entry options...",
+        "loadError": "Clinic entry options could not be loaded. Please try again.",
+        "empty": "Clinic entry is unavailable because the application context could not be resolved.",
+        "approvedTitle": "Application approved",
+        "question": "How would you like to add your clinic?",
+        "questionHint": "Choose the path that matches your clinic. Selecting a path does not create or connect a clinic.",
+        "selectionHeading": "Selected clinic path",
+        "selectionPrompt": "Select one clinic path to review its requirements.",
+        "authoritativeHandoff": "Nova continues only after the platform confirms an authorized effective clinic. Multiple clinics require an explicit selection.",
+        "newClinic": {
+          "title": "Create a new clinic",
+          "description": "Use this path when this clinic does not yet exist in Nova.",
+          "badge": "NEW CLINIC",
+          "identity": "Confirm clinic name and business address",
+          "contact": "Provide a primary contact and verified email or mobile",
+          "specialty": "Choose a clinic type or specialty without limiting future specialties",
+          "validation": "Required identity and contact details are validated before Nova can create and associate a clinic. This presentation does not provision a tenant."
+        },
+        "bringYourClinic": {
+          "title": "Bring your clinic",
+          "description": "Use this path to connect an existing Nova-managed clinic to your organization.",
+          "badge": "EXISTING NOVA CLINIC",
+          "novaManaged": "The clinic must already be managed in Nova",
+          "approval": "An authorized clinic administrator must approve ownership",
+          "noImport": "No records, external databases, or clinical data are imported",
+          "validation": "Nova requires authenticated ownership approval before an existing clinic can be associated. Selecting this path is not ownership verification."
+        },
+        "form": {
+          "organization": "Organization",
+          "organizationName": "Organization name",
+          "clinicName": "Clinic name",
+          "specialty": "Clinic type or specialty",
+          "addressLine1": "Address line 1",
+          "addressLine2": "Address line 2 (optional)",
+          "city": "City",
+          "state": "State",
+          "postalCode": "Postal code",
+          "countryCode": "Country code",
+          "ownershipReference": "Ownership approval reference",
+          "contactKind": "Verified contact method",
+          "email": "Email",
+          "mobile": "Mobile",
+          "emailValue": "Clinic email",
+          "mobileValue": "Clinic mobile",
+          "requiredError": "Complete all required fields before continuing.",
+          "submit": "Verify and continue"
+        },
+        "status": {
+          "loading": "Verifying clinic information securely...",
+          "pending": "Verification is pending. You can check again after the authorized review is complete.",
+          "checkAgain": "Check verification status",
+          "retry": "Try again",
+          "logout": "Log out",
+          "selectClinic": "Choose the clinic to use now"
+        }
+      },
+      "workspacePreparation": {
+        "loading": "Preparing your clinic workspace...",
+        "title": "Workspace preparation",
+        "progressSummary": "{{completed}} of {{total}} preparation steps complete",
+        "progressIndeterminate": "Preparation status is being confirmed.",
+        "unitsTitle": "Preparation steps",
+        "states": {
+          "PENDING": "Preparation is ready to begin.",
+          "PREPARING": "Nova is preparing your workspace.",
+          "PERSONALIZATION_AVAILABLE": "Your workspace is ready to personalize.",
+          "RETRYABLE_FAILURE": "Preparation needs your attention.",
+          "TERMINAL_FAILURE": "Preparation cannot continue automatically."
+        },
+        "units": {
+          "TENANT_FOUNDATION": "Clinic foundation",
+          "ACCESS_FOUNDATION": "Access foundation",
+          "ONBOARDING_FOUNDATION": "Onboarding foundation",
+          "PERSONALIZATION_HANDOFF": "Personalization handoff"
+        },
+        "unitStatus": { "completed": "Complete", "current": "In progress", "remaining": "Not started" },
+        "failure": {
+          "title": "Workspace preparation unavailable",
+          "safeMessage": "We could not complete workspace preparation. Your clinic information is safe.",
+          "retryableTitle": "Preparation was interrupted",
+          "terminalTitle": "Support is required"
+        },
+        "retry": {
+          "exhausted": "No more retries are available.",
+          "remaining": "{{count}} retries remaining",
+          "retrying": "Retrying..."
+        },
+        "actions": {
+          "reload": "Reload",
+          "retry": "Retry preparation",
+          "personalize": "Personalize clinic",
+          "START": "Start preparation",
+          "WAIT": "Wait for preparation",
+          "REFRESH": "Refresh preparation",
+          "RETRY": "Retry preparation",
+          "CONTACT_SUPPORT": "Contact support",
+          "ENTER_PERSONALIZATION": "Personalize clinic"
+        },
+        "complete": {
+          "title": "Your workspace is ready",
+          "message": "Continue to review and personalize your clinic setup."
+        },
+        "nextAction": "Next: {{action}}",
+        "accessibility": {
+          "screen": "Workspace preparation status",
+          "progress": "Workspace preparation progress",
+          "progressIndeterminate": "Workspace preparation is in progress"
+        }
+      },
       "statusBanner": {
-        "commercialTrialEnded": "Commercial Trial Ended",
-        "trialEndedMessage": "Your clinic data is safely stored. Choose a subscription plan to continue using Nova.",
+        "commercialTrialEnded": "Access Paused",
+        "trialEndedMessage": "Your clinic data is safely stored. Review subscription options to continue using Nova.",
         "commercialTrial": "Commercial Trial",
-        "sampleClinic": "Sample Clinic",
-        "sampleAccessEndsIn": "Sample access ends in:",
+        "sampleClinic": "Clinic Preparation",
+        "sampleAccessEndsIn": "Preparation access ends in:",
         "commercialTrialEndsIn": "Commercial trial ends in:",
-        "extendSampleAccess": "Extend Sample Access",
-        "choosePlan": "Choose Plan",
+        "extendSampleAccess": "Continue Setup",
+        "choosePlan": "Review Subscription",
         "readyToStart": "Ready to Start",
         "expired": "Expired"
+      },
+      "drafts": {
+        "restored": "Unsaved changes restored"
+      },
+      "journeyCard": {
+        "description": "Review and personalize this clinic preparation step.",
+        "action": "Review step",
+        "status": {
+          "complete": "Complete",
+          "inProgress": "In progress",
+          "notStarted": "Not started",
+          "blocked": "Blocked",
+          "unavailable": "Unavailable"
+        }
+      },
+      "journey": {
+        "heading": "Your clinic preparation journey",
+        "unavailable": "This journey version is not available in this app version. Your saved clinic information has not been changed.",
+        "empty": "No supported journey steps are available yet. Your clinic is not marked complete by this state.",
+        "progress": "{{completed}} of {{total}} journey steps complete"
+      },
+      "offline": {
+        "title": "You're offline",
+        "message": "Changes are saved locally. Connect to the internet to submit this step.",
+        "submitDisabled": "Connect to the internet to submit this step"
       },
       "flow": {
         "saveProgressError": "Failed to save preparation progress. Please try again.",
@@ -621,6 +783,7 @@
         "loadPreparationFailed": "Unable to load clinic preparation",
         "noPreparationSteps": "No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.",
         "prepareYourClinic": "Prepare Your Clinic",
+        "progressUpdatedNotice": "Your onboarding progress has been updated.",
         "readyToStart": "Ready to Start",
         "backToPreparation": "Back to Preparation",
         "clinicPreparation": "Clinic Preparation"

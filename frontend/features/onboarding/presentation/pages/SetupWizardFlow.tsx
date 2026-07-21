@@ -4,22 +4,32 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler, AppState, AppStateStatus } from 'react-native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useOnboardingStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import { useDemoStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { DemoStatusBanner } from '../components/DemoStatusBanner';
+import { JourneySurface } from '../components/JourneySurface';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
 import { GoLiveScreen } from './steps/GoLiveScreen';
 import { getPreparationStepDisplayName, SERVICE_CATALOGUE_ALIASES, ServiceCatalogueAlias } from '../../constants/stepAliases';
-import { useWizardStore } from '../stores/wizard.store';
+import {
+  hydrateWizardDraftFromStorage,
+  resetWizardDraftStorage,
+  syncWizardDraftToStorage,
+  useWizardStore,
+} from '../stores/wizard.store';
 import { useTranslation } from '../../../../core/localization/useTranslation';
+import { useJourneyFoundation } from '../hooks/useJourneyFoundation';
 
 interface Step {
   code: string;
@@ -27,6 +37,9 @@ interface Step {
   status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
   order: number;
 }
+
+const getVisibleStepSignature = (visibleSteps?: string[] | null) =>
+  visibleSteps && visibleSteps.length > 0 ? visibleSteps.join('|') : null;
 
 const createSubmissionId = () => {
   const cryptoRandomUUID = globalThis.crypto?.randomUUID;
@@ -44,6 +57,7 @@ const createSubmissionId = () => {
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
   const { t } = useTranslation();
+  const netInfo = useNetInfo();
   const router = useRouter();
   const { tenantId: tenantIdParam } = useLocalSearchParams<{ tenantId: string }>();
   const { currentUser, isAuthenticated } = useAuth();
@@ -59,23 +73,67 @@ export function SetupWizardFlow() {
   const [isSettingUpSubscription, setIsSettingUpSubscription] = useState(false);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanInfo[]>([]);
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState('BASIC');
+  const [showProgressUpdatedNotice, setShowProgressUpdatedNotice] = useState(false);
   const currentStepSaveHandlerRef = useRef<(() => Promise<void>) | null>(null);
   const submissionIdRef = useRef<string | null>(null);
   const isSubmittingRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const backgroundStepSignatureRef = useRef<string | null>(null);
+  const latestVisibleStepsSignatureRef = useRef<string | null>(null);
   const currentStep = steps[currentStepIndex];
   const submitMutation = useSubmitStepMutation(tenantId, currentStep?.code || '');
+  const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
   const isNextPending = isHandlingNext || submitMutation.isPending;
+  const isNextDisabled = isNextPending || isOffline;
 
   // Fetch onboarding status - only if tenantId is available
-  const { data: statusData, isLoading, error, refetch } = useOnboardingStatusQuery(tenantId, {
+  const {
+    data: statusData,
+    isLoading,
+    error,
+    refetch,
+    journey,
+  } = useJourneyFoundation(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
+  const { data: demoStatusData } = useDemoStatusQuery(tenantId, {
+    enabled: !!tenantId && currentUser?.applicationStatus === 'onboarding',
+    retry: false,
+  });
+  const readyToStartStep = statusData?.per_step_validation?.go_live_checklist;
+  const readyToStartStepIndex = steps.findIndex(step => step.code === 'go_live_checklist');
+  const canOpenReadyToStartChecklist = readyToStartStepIndex >= 0 && readyToStartStep?.actionable === true;
 
   useEffect(() => {
     if (tenantId) {
       setWizardTenantId(tenantId);
     }
   }, [tenantId, setWizardTenantId]);
+
+  useEffect(() => {
+    void hydrateWizardDraftFromStorage();
+
+    let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = useWizardStore.subscribe(
+      state => state.stepDrafts,
+      () => {
+        if (syncTimeout) {
+          clearTimeout(syncTimeout);
+        }
+
+        syncTimeout = setTimeout(() => {
+          void syncWizardDraftToStorage();
+        }, 500);
+      }
+    );
+
+    return () => {
+      if (syncTimeout) {
+        clearTimeout(syncTimeout);
+      }
+      unsubscribe();
+    };
+  }, []);
 
   // Refetch status when screen comes into focus (after navigating back from
   // external screens). refetch() bypasses the query's `enabled` guard and
@@ -101,6 +159,7 @@ export function SetupWizardFlow() {
 
       // Use visible_steps array from backend
       if (statusData.visible_steps && statusData.visible_steps.length > 0) {
+        latestVisibleStepsSignatureRef.current = getVisibleStepSignature(statusData.visible_steps);
         const stepsArray = statusData.visible_steps.map((stepCode, index) => {
           // Get actual status from per_step_validation if available
           const stepValidation = statusData.per_step_validation?.[stepCode];
@@ -161,8 +220,63 @@ export function SetupWizardFlow() {
     }
   }, [statusData, hasManuallyNavigated, tenantId, t]);
 
+  useEffect(() => {
+    setShowProgressUpdatedNotice(false);
+  }, [currentStepIndex]);
+
+  const persistDraftOnLifecyclePause = useCallback(async () => {
+    backgroundStepSignatureRef.current = latestVisibleStepsSignatureRef.current;
+
+    if (!useWizardStore.getState().isDirty) {
+      return;
+    }
+
+    await syncWizardDraftToStorage();
+  }, []);
+
+  const hydrateDraftAndRefreshStatus = useCallback(async () => {
+    await hydrateWizardDraftFromStorage();
+
+    if (!tenantId || !isAuthenticated) {
+      return;
+    }
+
+    const previousSignature = backgroundStepSignatureRef.current;
+    const result = await refetch();
+    const refreshedStatus = (result as { data?: typeof statusData })?.data;
+    const refreshedSignature = getVisibleStepSignature(
+      refreshedStatus?.visible_steps ?? statusData?.visible_steps
+    );
+
+    latestVisibleStepsSignatureRef.current = refreshedSignature;
+    setShowProgressUpdatedNotice(
+      Boolean(previousSignature && refreshedSignature && previousSignature !== refreshedSignature)
+    );
+  }, [tenantId, isAuthenticated, refetch, statusData]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const previousAppState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (nextAppState === 'inactive' || nextAppState === 'background') {
+        void persistDraftOnLifecyclePause();
+        return;
+      }
+
+      if (
+        nextAppState === 'active' &&
+        (previousAppState === 'inactive' || previousAppState === 'background')
+      ) {
+        void hydrateDraftAndRefreshStatus();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [hydrateDraftAndRefreshStatus, persistDraftOnLifecyclePause]);
+
   const handleNext = async () => {
-    if (isSubmittingRef.current || isNextPending) {
+    if (isSubmittingRef.current || isNextPending || isOffline) {
       return;
     }
 
@@ -276,7 +390,7 @@ export function SetupWizardFlow() {
   }, [currentStep?.code, subscriptionPlans.length]);
 
   const handleSetupSubscriptionPayment = async () => {
-    if (!tenantId || isSettingUpSubscription) {
+    if (!tenantId || isSettingUpSubscription || isOffline) {
       return;
     }
 
@@ -365,9 +479,11 @@ export function SetupWizardFlow() {
     }
   };
 
-  const handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(async () => {
     // Mark that user has manually navigated
     setHasManuallyNavigated(true);
+
+    await syncWizardDraftToStorage();
 
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
@@ -377,7 +493,7 @@ export function SetupWizardFlow() {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (currentStepIndex > 0) {
-        handlePrevious();
+        void handlePrevious();
       }
 
       return true;
@@ -394,6 +510,7 @@ export function SetupWizardFlow() {
   }, []);
 
   const handleExit = () => {
+    setShowProgressUpdatedNotice(false);
     Alert.alert(
       t('onboarding.progressiveExperience.flow.exitTitle'),
       t('onboarding.progressiveExperience.flow.exitMessage'),
@@ -403,6 +520,36 @@ export function SetupWizardFlow() {
       ]
     );
   };
+
+  const navigateToStep = useCallback((stepCode: string) => {
+    const stepIndex = steps.findIndex(step => step.code === stepCode);
+    if (stepIndex < 0) {
+      return false;
+    }
+
+    setHasManuallyNavigated(true);
+    setShowProgressUpdatedNotice(false);
+    setCurrentStepIndex(stepIndex);
+    return true;
+  }, [steps]);
+
+  const handleContinueSetupFromBanner = useCallback(() => {
+    const targetStep = statusData?.next_recommended_step;
+    if (targetStep && navigateToStep(targetStep)) {
+      return;
+    }
+
+    const firstActionableStep = steps.find(step => step.status !== 'completed' && step.status !== 'blocked');
+    if (firstActionableStep) {
+      navigateToStep(firstActionableStep.code);
+    }
+  }, [navigateToStep, statusData?.next_recommended_step, steps]);
+
+  const handleReadyToStartFromBanner = useCallback(() => {
+    if (canOpenReadyToStartChecklist) {
+      navigateToStep('go_live_checklist');
+    }
+  }, [canOpenReadyToStartChecklist, navigateToStep]);
 
   const renderStepContent = () => {
     if (steps.length === 0) return null;
@@ -602,10 +749,16 @@ export function SetupWizardFlow() {
                   padding: theme.spacing.md,
                   borderRadius: theme.spacing.sm,
                   alignItems: 'center',
-                  opacity: isSettingUpSubscription ? 0.7 : 1,
+                  opacity: isSettingUpSubscription || isOffline ? 0.7 : 1,
                 },
               ]}
-              disabled={isSettingUpSubscription}
+              disabled={isSettingUpSubscription || isOffline}
+              accessibilityState={{ disabled: isSettingUpSubscription || isOffline }}
+              accessibilityLabel={
+                isOffline
+                  ? t('onboarding.progressiveExperience.offline.submitDisabled')
+                  : t('onboarding.progressiveExperience.flow.reviewSubscription')
+              }
               onPress={handleSetupSubscriptionPayment}
             >
               {isSettingUpSubscription ? (
@@ -623,7 +776,10 @@ export function SetupWizardFlow() {
         return (
           <GoLiveScreen
             tenantId={tenantId || ''}
-            onComplete={() => router.replace(`/clinic-admin?tenantId=${tenantId}`)}
+            onComplete={() => {
+              void resetWizardDraftStorage();
+              router.replace(`/clinic-admin?tenantId=${tenantId}`);
+            }}
             completedSteps={statusData?.completed_steps || 0}
             totalSteps={statusData?.total_steps || 0}
             allSteps={steps}
@@ -711,13 +867,67 @@ export function SetupWizardFlow() {
       {/* Stepper */}
       <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />
 
+      <OfflineBanner isOffline={isOffline} />
+
+      {demoStatusData && (
+        <View style={{ marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md }}>
+          <DemoStatusBanner
+            demoExpiresAt={demoStatusData.demo_expires_at}
+            trialExpiresAt={demoStatusData.trial_expires_at}
+            isDemoExpired={demoStatusData.is_demo_expired}
+            isTrialExpired={demoStatusData.is_trial_expired}
+            onExtendDemo={handleContinueSetupFromBanner}
+            onTransitionToLive={handleReadyToStartFromBanner}
+            isExtendDisabled={isNextPending}
+            isTransitionDisabled={isNextPending || !canOpenReadyToStartChecklist}
+          />
+        </View>
+      )}
+
+      {showProgressUpdatedNotice && (
+        <View
+          accessibilityRole="text"
+          style={[
+            styles.progressUpdatedNotice,
+            {
+              backgroundColor: theme.colors.feedback.warningLight,
+              borderColor: theme.colors.feedback.warning,
+              marginHorizontal: theme.spacing.lg,
+              marginTop: theme.spacing.md,
+              padding: theme.spacing.md,
+              borderRadius: theme.spacing.sm,
+            },
+          ]}
+        >
+          <Ionicons name="information-circle" size={20} color={theme.colors.feedback.warning} />
+          <Text
+            style={[
+              theme.typography.body2,
+              {
+                color: theme.colors.text.primary,
+                marginLeft: theme.spacing.sm,
+                flex: 1,
+              },
+            ]}
+          >
+            {t('onboarding.progressiveExperience.flow.progressUpdatedNotice')}
+          </Text>
+        </View>
+      )}
+
       {/* Step Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ flexGrow: 1 }}>
-        {renderStepContent()}
+        {journey && (
+          <JourneySurface journey={journey} onSelectStep={navigateToStep} />
+        )}
+        {journey?.availability === 'available' && journey.cards.length > 0
+          ? renderStepContent()
+          : null}
       </ScrollView>
 
       {/* Navigation Footer */}
-      <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
+      {journey?.availability === 'available' && journey.cards.length > 0 && (
+        <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
         <TouchableOpacity
           style={[
             styles.navButton,
@@ -752,13 +962,20 @@ export function SetupWizardFlow() {
               borderRadius: theme.spacing.sm,
               flexDirection: 'row',
               alignItems: 'center',
-              opacity: isNextPending ? 0.7 : 1,
-              cursor: isNextPending ? ('not-allowed' as any) : ('pointer' as any),
+              opacity: isNextDisabled ? 0.7 : 1,
+              cursor: isNextDisabled ? ('not-allowed' as any) : ('pointer' as any),
             },
           ]}
           onPress={handleNext}
-          disabled={isNextPending}
-          accessibilityState={{ disabled: isNextPending }}
+          disabled={isNextDisabled}
+          accessibilityState={{ disabled: isNextDisabled }}
+          accessibilityLabel={
+            isOffline
+              ? t('onboarding.progressiveExperience.offline.submitDisabled')
+              : currentStepIndex === steps.length - 1
+                ? t('onboarding.progressiveExperience.flow.readyToStart')
+                : t('common.next')
+          }
         >
           {isNextPending ? (
             <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
@@ -771,7 +988,8 @@ export function SetupWizardFlow() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -797,5 +1015,10 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     // Styles set inline with theme
+  },
+  progressUpdatedNotice: {
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

@@ -85,6 +85,32 @@
       "logoutFailed": "लॉगआउट विफल। कृपया पुनः प्रयास करें।",
       "tokenRefreshFailed": "आपका सत्र रिफ्रेश करने में विफल। कृपया पुनः लॉग इन करें।"
     },
+    "clinicEntry": {
+      "validation": "क्लिनिक की चिह्नित जानकारी जांचें और पुनः प्रयास करें।",
+      "fieldInvalid": "क्लिनिक के एक या अधिक फ़ील्ड अमान्य हैं।",
+      "duplicate": "यह क्लिनिक पहले से संगठन से जुड़ा है।",
+      "unauthorized": "आप इस संगठन में क्लिनिक जोड़ने के लिए अधिकृत नहीं हैं।",
+      "alreadyAssociated": "यह क्लिनिक पहले से जुड़ा है।",
+      "idempotencyConflict": "पुनः प्रयास के दौरान अनुरोध बदल गया। इसे जांचकर फिर सबमिट करें।",
+      "associationConflict": "यह क्लिनिक चुने गए संगठन से नहीं जोड़ा जा सकता।",
+      "inProgress": "क्लिनिक जोड़ने की प्रक्रिया पहले से चल रही है। थोड़ी देर बाद फिर जांचें।",
+      "transientFailure": "क्लिनिक जोड़ने की सेवा अभी उपलब्ध नहीं है। कृपया पुनः प्रयास करें।",
+      "sessionRefreshFailed": "क्लिनिक सहेजा गया, लेकिन सुरक्षित सत्र रिफ्रेश नहीं हो सका। कृपया पुनः प्रयास करें।",
+      "organizationRequired": "आगे बढ़ने से पहले एक संगठन चुनें।",
+      "organizationNameRequired": "आगे बढ़ने से पहले संगठन का नाम दर्ज करें।",
+      "organizationCreationUnauthorized": "आपका अकाउंट संगठन नहीं बना सकता।",
+      "organizationCreationConflict": "आपके संगठन का संदर्भ बदल गया है। पुनः लोड करके संगठन चुनें।",
+      "organizationCreationRetryableFailure": "संगठन बनाया नहीं जा सका। कृपया पुनः प्रयास करें।",
+      "verificationInvalid": "स्वामित्व सत्यापन अमान्य है या अब उपलब्ध नहीं है।",
+      "verificationExpired": "स्वामित्व सत्यापन समाप्त हो गया है। नई स्वीकृति का अनुरोध करें।",
+      "unsupported": "यह क्लिनिक जोड़ने का अनुरोध समर्थित नहीं है।",
+      "contactVerificationInvalid": "क्लिनिक संपर्क सत्यापन अमान्य है।",
+      "contactVerificationExpired": "क्लिनिक संपर्क सत्यापन समाप्त हो गया है।",
+      "contactVerificationRevoked": "क्लिनिक संपर्क सत्यापन रद्द कर दिया गया है।",
+      "contactVerificationConsumed": "क्लिनिक संपर्क सत्यापन पहले ही उपयोग किया जा चुका है।",
+      "contactVerificationMismatch": "क्लिनिक संपर्क सत्यापित अकाउंट संपर्क से मेल नहीं खाता।",
+      "contactVerificationInProgress": "क्लिनिक संपर्क सत्यापन अभी लंबित है।"
+    },
     "generic": {
       "loadFailed": "डेटा लोड करने में विफल। कृपया पुनः प्रयास करें।",
       "saveFailed": "सहेजने में विफल। कृपया पुनः प्रयास करें।",
@@ -406,97 +432,234 @@
   "onboarding": {
     "progressiveExperience": {
       "routes": {
-        "prepareClinic": "Prepare Your Clinic",
-        "clinicPreparation": "Clinic Preparation",
-        "reviewStep": "Review Step"
+        "prepareClinic": "अपना क्लिनिक तैयार करें",
+        "clinicPreparation": "क्लिनिक तैयारी",
+        "workspacePreparation": "वर्कस्पेस तैयारी",
+        "reviewStep": "चरण की समीक्षा करें"
       },
       "dashboard": {
-        "finishPreparingClinic": "Finish Preparing Your Clinic",
-        "readinessStepsComplete": "{{completed}} of {{total}} readiness steps complete"
+        "finishPreparingClinic": "अपने क्लिनिक की तैयारी पूरी करें",
+        "readinessStepsComplete": "{{total}} में से {{completed}} तैयारी चरण पूरे"
       },
       "choice": {
-        "sampleClinicReadyTitle": "Sample Clinic Ready",
-        "sampleClinicReadyMessage": "Your sample clinic is ready with sample data. You can explore Nova without changing your real clinic workspace. Sample access ends in {{durationDays}} days.",
-        "exploreSampleClinic": "Explore Sample Clinic",
-        "startError": "Unable to start clinic preparation. Please try again.",
-        "question": "How would you like to start?",
-        "prepareMyClinic": "Prepare My Clinic",
-        "recommended": "RECOMMENDED",
-        "prepareDescription": "Let Nova prepare your real clinic workspace",
-        "realWorkspace": "Real clinic workspace",
-        "reviewBeforeStart": "Review and personalize before starting",
-        "readyForOperations": "Ready for daily operations",
-        "exploreFeatures": "EXPLORE FEATURES",
-        "sampleDescription": "Explore Nova with sample data",
-        "sampleAccess": "Sample clinic access",
-        "guidedWalkthrough": "Guided product walkthrough",
-        "realClinicSeparate": "Your real clinic is prepared separately",
-        "preparingSampleClinic": "Preparing your sample clinic...",
-        "sampleError": "Unable to create sample clinic. Please try again."
+        "sampleClinicReadyTitle": "सैंपल क्लिनिक तैयार है",
+        "sampleClinicReadyMessage": "आपका सैंपल क्लिनिक सैंपल डेटा के साथ तैयार है। आप अपने असली क्लिनिक वर्कस्पेस को बदले बिना Nova देख सकते हैं। सैंपल एक्सेस {{durationDays}} दिनों में समाप्त होगा।",
+        "exploreSampleClinic": "सैंपल क्लिनिक देखें",
+        "startError": "क्लिनिक तैयारी शुरू नहीं हो सकी। कृपया पुनः प्रयास करें।",
+        "question": "आप कैसे शुरू करना चाहेंगे?",
+        "prepareMyClinic": "मेरा क्लिनिक तैयार करें",
+        "recommended": "अनुशंसित",
+        "prepareDescription": "Nova को आपका असली क्लिनिक वर्कस्पेस तैयार करने दें",
+        "realWorkspace": "असली क्लिनिक वर्कस्पेस",
+        "reviewBeforeStart": "शुरू करने से पहले समीक्षा और बदलाव करें",
+        "readyForOperations": "दैनिक कामकाज के लिए तैयार",
+        "exploreFeatures": "सुविधाएं देखें",
+        "sampleDescription": "सैंपल डेटा के साथ Nova देखें",
+        "sampleAccess": "सैंपल क्लिनिक एक्सेस",
+        "guidedWalkthrough": "गाइडेड प्रोडक्ट वॉकथ्रू",
+        "realClinicSeparate": "आपका असली क्लिनिक अलग से तैयार किया जाएगा",
+        "preparingSampleClinic": "आपका सैंपल क्लिनिक तैयार किया जा रहा है...",
+        "sampleError": "सैंपल क्लिनिक बनाया नहीं जा सका। कृपया पुनः प्रयास करें।"
+      },
+      "clinicEntry": {
+        "loading": "क्लिनिक जोड़ने के विकल्प लोड हो रहे हैं...",
+        "loadError": "क्लिनिक जोड़ने के विकल्प लोड नहीं हो सके। कृपया पुनः प्रयास करें।",
+        "empty": "एप्लिकेशन संदर्भ तय न हो पाने के कारण क्लिनिक जोड़ने का विकल्प उपलब्ध नहीं है।",
+        "approvedTitle": "एप्लिकेशन स्वीकृत",
+        "question": "आप अपना क्लिनिक कैसे जोड़ना चाहेंगे?",
+        "questionHint": "अपने क्लिनिक से मेल खाने वाला मार्ग चुनें। मार्ग चुनने से कोई क्लिनिक बनता या जुड़ता नहीं है।",
+        "selectionHeading": "चुना गया क्लिनिक मार्ग",
+        "selectionPrompt": "आवश्यकताएं देखने के लिए एक क्लिनिक मार्ग चुनें।",
+        "authoritativeHandoff": "Nova केवल तब आगे बढ़ता है जब प्लेटफ़ॉर्म अधिकृत प्रभावी क्लिनिक की पुष्टि करता है। एक से अधिक क्लिनिक होने पर स्पष्ट चयन आवश्यक है।",
+        "newClinic": {
+          "title": "नया क्लिनिक बनाएं",
+          "description": "जब यह क्लिनिक अभी Nova में मौजूद न हो, तब यह मार्ग चुनें।",
+          "badge": "नया क्लिनिक",
+          "identity": "क्लिनिक का नाम और व्यावसायिक पता पुष्ट करें",
+          "contact": "मुख्य संपर्क और सत्यापित ईमेल या मोबाइल दें",
+          "specialty": "भविष्य की विशेषज्ञताओं को सीमित किए बिना क्लिनिक प्रकार या विशेषज्ञता चुनें",
+          "validation": "Nova द्वारा क्लिनिक बनाने और जोड़ने से पहले आवश्यक पहचान और संपर्क विवरण सत्यापित किए जाते हैं। यह प्रस्तुति टेनेंट तैयार नहीं करती।"
+        },
+        "bringYourClinic": {
+          "title": "अपना क्लिनिक जोड़ें",
+          "description": "Nova में पहले से प्रबंधित क्लिनिक को अपने संगठन से जोड़ने के लिए यह मार्ग चुनें।",
+          "badge": "मौजूदा NOVA क्लिनिक",
+          "novaManaged": "क्लिनिक पहले से Nova में प्रबंधित होना चाहिए",
+          "approval": "अधिकृत क्लिनिक एडमिनिस्ट्रेटर को स्वामित्व स्वीकृत करना होगा",
+          "noImport": "कोई रिकॉर्ड, बाहरी डेटाबेस या क्लिनिकल डेटा इम्पोर्ट नहीं किया जाता",
+          "validation": "मौजूदा क्लिनिक जोड़ने से पहले Nova को प्रमाणित स्वामित्व स्वीकृति चाहिए। यह मार्ग चुनना स्वामित्व सत्यापन नहीं है।"
+        },
+        "form": {
+          "organization": "संगठन",
+          "organizationName": "संगठन का नाम",
+          "clinicName": "क्लिनिक का नाम",
+          "specialty": "क्लिनिक प्रकार या विशेषज्ञता",
+          "addressLine1": "पता पंक्ति 1",
+          "addressLine2": "पता पंक्ति 2 (वैकल्पिक)",
+          "city": "शहर",
+          "state": "राज्य",
+          "postalCode": "पिन कोड",
+          "countryCode": "देश कोड",
+          "ownershipReference": "स्वामित्व स्वीकृति संदर्भ",
+          "contactKind": "सत्यापित संपर्क माध्यम",
+          "email": "ईमेल",
+          "mobile": "मोबाइल",
+          "emailValue": "क्लिनिक ईमेल",
+          "mobileValue": "क्लिनिक मोबाइल",
+          "requiredError": "आगे बढ़ने से पहले सभी आवश्यक फ़ील्ड भरें।",
+          "submit": "सत्यापित करें और आगे बढ़ें"
+        },
+        "status": {
+          "loading": "क्लिनिक जानकारी सुरक्षित रूप से सत्यापित की जा रही है...",
+          "pending": "सत्यापन लंबित है। अधिकृत समीक्षा पूरी होने के बाद फिर जांचें।",
+          "checkAgain": "सत्यापन स्थिति जांचें",
+          "retry": "पुनः प्रयास करें",
+          "logout": "लॉग आउट",
+          "selectClinic": "अभी उपयोग करने के लिए क्लिनिक चुनें"
+        }
+      },
+      "workspacePreparation": {
+        "loading": "आपका क्लिनिक वर्कस्पेस तैयार किया जा रहा है...",
+        "title": "वर्कस्पेस तैयारी",
+        "progressSummary": "{{total}} में से {{completed}} तैयारी चरण पूरे",
+        "progressIndeterminate": "तैयारी की स्थिति की पुष्टि की जा रही है।",
+        "unitsTitle": "तैयारी चरण",
+        "states": {
+          "PENDING": "तैयारी शुरू होने के लिए तैयार है।",
+          "PREPARING": "Nova आपका वर्कस्पेस तैयार कर रहा है।",
+          "PERSONALIZATION_AVAILABLE": "आपका वर्कस्पेस अपनी आवश्यकताओं के अनुसार ढालने के लिए तैयार है।",
+          "RETRYABLE_FAILURE": "तैयारी में आपका ध्यान आवश्यक है।",
+          "TERMINAL_FAILURE": "तैयारी अपने आप जारी नहीं रह सकती।"
+        },
+        "units": {
+          "TENANT_FOUNDATION": "क्लिनिक आधार",
+          "ACCESS_FOUNDATION": "एक्सेस आधार",
+          "ONBOARDING_FOUNDATION": "ऑनबोर्डिंग आधार",
+          "PERSONALIZATION_HANDOFF": "व्यक्तिगत बदलाव का हस्तांतरण"
+        },
+        "unitStatus": { "completed": "पूर्ण", "current": "प्रगति में", "remaining": "शुरू नहीं हुआ" },
+        "failure": {
+          "title": "वर्कस्पेस तैयारी उपलब्ध नहीं है",
+          "safeMessage": "हम वर्कस्पेस तैयारी पूरी नहीं कर सके। आपके क्लिनिक की जानकारी सुरक्षित है।",
+          "retryableTitle": "तैयारी बाधित हुई",
+          "terminalTitle": "सहायता आवश्यक है"
+        },
+        "retry": {
+          "exhausted": "अब कोई पुनः प्रयास उपलब्ध नहीं है।",
+          "remaining": "{{count}} पुनः प्रयास शेष",
+          "retrying": "फिर से प्रयास हो रहा है..."
+        },
+        "actions": {
+          "reload": "फिर लोड करें",
+          "retry": "तैयारी फिर से करें",
+          "personalize": "क्लिनिक को अपने अनुसार ढालें",
+          "START": "तैयारी शुरू करें",
+          "WAIT": "तैयारी की प्रतीक्षा करें",
+          "REFRESH": "तैयारी रिफ्रेश करें",
+          "RETRY": "तैयारी फिर से करें",
+          "CONTACT_SUPPORT": "सहायता से संपर्क करें",
+          "ENTER_PERSONALIZATION": "क्लिनिक को अपने अनुसार ढालें"
+        },
+        "complete": {
+          "title": "आपका वर्कस्पेस तैयार है",
+          "message": "अपने क्लिनिक सेटअप की समीक्षा और बदलाव करने के लिए आगे बढ़ें।"
+        },
+        "nextAction": "अगला: {{action}}",
+        "accessibility": {
+          "screen": "वर्कस्पेस तैयारी स्थिति",
+          "progress": "वर्कस्पेस तैयारी प्रगति",
+          "progressIndeterminate": "वर्कस्पेस तैयारी प्रगति में है"
+        }
       },
       "statusBanner": {
-        "commercialTrialEnded": "Commercial Trial Ended",
-        "trialEndedMessage": "Your clinic data is safely stored. Choose a subscription plan to continue using Nova.",
-        "commercialTrial": "Commercial Trial",
-        "sampleClinic": "Sample Clinic",
-        "sampleAccessEndsIn": "Sample access ends in:",
-        "commercialTrialEndsIn": "Commercial trial ends in:",
-        "extendSampleAccess": "Extend Sample Access",
-        "choosePlan": "Choose Plan",
-        "readyToStart": "Ready to Start",
-        "expired": "Expired"
+        "commercialTrialEnded": "एक्सेस रुका हुआ है",
+        "trialEndedMessage": "आपके क्लिनिक का डेटा सुरक्षित रखा गया है। Nova का उपयोग जारी रखने के लिए सब्सक्रिप्शन विकल्पों की समीक्षा करें।",
+        "commercialTrial": "कमर्शियल ट्रायल",
+        "sampleClinic": "क्लिनिक तैयारी",
+        "sampleAccessEndsIn": "तैयारी एक्सेस समाप्त होगा:",
+        "commercialTrialEndsIn": "कमर्शियल ट्रायल समाप्त होगा:",
+        "extendSampleAccess": "सेटअप जारी रखें",
+        "choosePlan": "सब्सक्रिप्शन की समीक्षा करें",
+        "readyToStart": "शुरू करने के लिए तैयार",
+        "expired": "समाप्त"
+      },
+      "drafts": {
+        "restored": "सहेजे नहीं गए बदलाव बहाल किए गए"
+      },
+      "journeyCard": {
+        "description": "क्लिनिक तैयारी के इस चरण की समीक्षा करें और इसे अपनी आवश्यकताओं के अनुसार ढालें।",
+        "action": "चरण की समीक्षा करें",
+        "status": {
+          "complete": "पूर्ण",
+          "inProgress": "प्रगति में",
+          "notStarted": "शुरू नहीं हुआ",
+          "blocked": "अवरुद्ध",
+          "unavailable": "उपलब्ध नहीं"
+        }
+      },
+      "journey": {
+        "heading": "आपके क्लिनिक की तैयारी यात्रा",
+        "unavailable": "यह यात्रा संस्करण इस ऐप संस्करण में उपलब्ध नहीं है। आपके सहेजे गए क्लिनिक की जानकारी में कोई बदलाव नहीं किया गया है।",
+        "empty": "अभी कोई समर्थित यात्रा चरण उपलब्ध नहीं है। इस स्थिति से आपका क्लिनिक पूर्ण चिह्नित नहीं होता है।",
+        "progress": "{{total}} में से {{completed}} यात्रा चरण पूर्ण"
+      },
+      "offline": {
+        "title": "आप ऑफलाइन हैं",
+        "message": "बदलाव स्थानीय रूप से सहेजे गए हैं। यह चरण जमा करने के लिए इंटरनेट से कनेक्ट करें।",
+        "submitDisabled": "यह चरण जमा करने के लिए इंटरनेट से कनेक्ट करें"
       },
       "flow": {
-        "saveProgressError": "Failed to save preparation progress. Please try again.",
-        "refreshProgressError": "Failed to refresh preparation progress. Please try again.",
-        "exitTitle": "Exit Preparation?",
-        "exitMessage": "You can continue reviewing and personalizing your clinic later from the dashboard.",
-        "treatmentsDescription": "Review your Ayurvedic treatments and therapy services in the full management screen. After adding items, return here to continue preparing your clinic.",
-        "operatingHoursDescription": "Review your clinic operating hours in the full management screen. After setting your hours, return here to continue preparing your clinic.",
-        "roomsDescription": "Review your treatment rooms and therapy beds in the full management screen. After adding items, return here to continue preparing your clinic.",
-        "staffDescription": "Review staff members and assign roles & permissions in the full management screen. After adding staff, return here to continue preparing your clinic.",
-        "inventoryTitle": "Inventory Readiness",
-        "inventoryDescription": "Review your herbal medicines and supplies inventory in the full management screen. After adding inventory items, return here to continue preparing your clinic.",
-        "subscriptionTitle": "Subscription Options",
-        "subscriptionDescription": "Review subscription options. Your commercial trial starts after your clinic is Ready to Start.",
-        "reviewSubscription": "Review Subscription",
-        "loadingPreparation": "Loading clinic preparation...",
-        "loadPreparationFailed": "Unable to load clinic preparation",
-        "noPreparationSteps": "No preparation steps found. Nova may not have generated readiness steps for your clinic type yet.",
-        "prepareYourClinic": "Prepare Your Clinic",
-        "readyToStart": "Ready to Start",
-        "backToPreparation": "Back to Preparation",
-        "clinicPreparation": "Clinic Preparation"
+        "saveProgressError": "तैयारी की प्रगति सहेजी नहीं जा सकी। कृपया पुनः प्रयास करें।",
+        "refreshProgressError": "तैयारी की प्रगति रिफ्रेश नहीं हो सकी। कृपया पुनः प्रयास करें।",
+        "exitTitle": "तैयारी से बाहर निकलें?",
+        "exitMessage": "आप बाद में डैशबोर्ड से अपने क्लिनिक की समीक्षा और बदलाव जारी रख सकते हैं।",
+        "treatmentsDescription": "पूरी प्रबंधन स्क्रीन में अपने आयुर्वेदिक उपचार और थेरेपी सेवाओं की समीक्षा करें। आइटम जोड़ने के बाद, क्लिनिक तैयारी जारी रखने के लिए यहां लौटें।",
+        "operatingHoursDescription": "पूरी प्रबंधन स्क्रीन में अपने क्लिनिक के कामकाजी घंटों की समीक्षा करें। घंटे सेट करने के बाद, क्लिनिक तैयारी जारी रखने के लिए यहां लौटें।",
+        "roomsDescription": "पूरी प्रबंधन स्क्रीन में अपने उपचार कक्ष और थेरेपी बेड की समीक्षा करें। आइटम जोड़ने के बाद, क्लिनिक तैयारी जारी रखने के लिए यहां लौटें।",
+        "staffDescription": "पूरी प्रबंधन स्क्रीन में स्टाफ सदस्यों की समीक्षा करें और भूमिकाएं व अनुमतियां असाइन करें। स्टाफ जोड़ने के बाद, क्लिनिक तैयारी जारी रखने के लिए यहां लौटें।",
+        "inventoryTitle": "इन्वेंटरी तैयारी",
+        "inventoryDescription": "पूरी प्रबंधन स्क्रीन में अपनी हर्बल दवाओं और सप्लाई इन्वेंटरी की समीक्षा करें। इन्वेंटरी आइटम जोड़ने के बाद, क्लिनिक तैयारी जारी रखने के लिए यहां लौटें।",
+        "subscriptionTitle": "सब्सक्रिप्शन विकल्प",
+        "subscriptionDescription": "सब्सक्रिप्शन विकल्पों की समीक्षा करें। आपका कमर्शियल ट्रायल क्लिनिक के शुरू करने के लिए तैयार होने के बाद शुरू होगा।",
+        "reviewSubscription": "सब्सक्रिप्शन की समीक्षा करें",
+        "loadingPreparation": "क्लिनिक तैयारी लोड हो रही है...",
+        "loadPreparationFailed": "क्लिनिक तैयारी लोड नहीं हो सकी",
+        "noPreparationSteps": "कोई तैयारी चरण नहीं मिला। हो सकता है Nova ने अभी आपके क्लिनिक प्रकार के लिए तैयारी चरण जनरेट न किए हों।",
+        "prepareYourClinic": "अपना क्लिनिक तैयार करें",
+        "progressUpdatedNotice": "आपकी ऑनबोर्डिंग प्रगति अपडेट कर दी गई है।",
+        "readyToStart": "शुरू करने के लिए तैयार",
+        "backToPreparation": "तैयारी पर वापस जाएं",
+        "clinicPreparation": "क्लिनिक तैयारी"
       },
       "stepLabels": {
-        "clinicProfile": "Clinic Profile",
-        "operatingHours": "Operating Hours",
-        "roomsAndTherapyBeds": "Rooms & Therapy Beds",
-        "staffAndRoles": "Staff & Roles",
-        "inventoryReadiness": "Inventory Readiness",
-        "billingPreferences": "Billing Preferences",
-        "paymentMethods": "Payment Methods",
-        "subscriptionOptions": "Subscription Options",
-        "readyToStart": "Ready to Start",
-        "treatmentsAndTherapies": "Treatments & Therapies"
+        "clinicProfile": "क्लिनिक प्रोफ़ाइल",
+        "operatingHours": "कामकाजी घंटे",
+        "roomsAndTherapyBeds": "कक्ष और थेरेपी बेड",
+        "staffAndRoles": "स्टाफ और भूमिकाएं",
+        "inventoryReadiness": "इन्वेंटरी तैयारी",
+        "billingPreferences": "बिलिंग प्राथमिकताएं",
+        "paymentMethods": "भुगतान विधियां",
+        "subscriptionOptions": "सब्सक्रिप्शन विकल्प",
+        "readyToStart": "शुरू करने के लिए तैयार",
+        "treatmentsAndTherapies": "उपचार और थेरेपी"
       },
       "stepDetail": {
-        "readyToStartChecklistMessage": "Ready to Start Checklist - This step confirms your clinic is ready to start. Finish the previous preparation steps first."
+        "readyToStartChecklistMessage": "शुरू करने की तैयारी चेकलिस्ट - यह चरण पुष्टि करता है कि आपका क्लिनिक शुरू करने के लिए तैयार है। पहले पिछले तैयारी चरण पूरे करें।"
       },
       "readyToStart": {
-        "agreementRequiredTitle": "Agreement Required",
-        "agreementRequiredMessage": "Please agree to the terms and conditions to proceed.",
-        "notReadyTitle": "Clinic Not Ready Yet",
-        "notReadyMessage": "Please finish the previous preparation steps before starting.",
-        "successMessage": "Your clinic is ready to start using Nova.",
-        "errorMessage": "Failed to mark clinic as ready. Please try again.",
-        "title": "Ready to Start",
-        "preparedCount": "Nova has prepared {{completed}} of {{total}} clinic readiness steps",
-        "checklistTitle": "Clinic Readiness Checklist",
-        "confirmAccuracy": "I confirm that all information is accurate and I am ready to start accepting patients",
-        "info": "Once you start, your clinic workspace is ready for appointments, patients, and daily operations.",
-        "successTitle": "Congratulations!",
-        "goToDashboard": "Go to Dashboard"
+        "agreementRequiredTitle": "सहमति आवश्यक है",
+        "agreementRequiredMessage": "आगे बढ़ने के लिए कृपया नियम और शर्तों से सहमत हों।",
+        "notReadyTitle": "क्लिनिक अभी तैयार नहीं है",
+        "notReadyMessage": "शुरू करने से पहले कृपया पिछले तैयारी चरण पूरे करें।",
+        "successMessage": "आपका क्लिनिक Nova का उपयोग शुरू करने के लिए तैयार है।",
+        "errorMessage": "क्लिनिक को तैयार के रूप में चिह्नित नहीं किया जा सका। कृपया पुनः प्रयास करें।",
+        "title": "शुरू करने के लिए तैयार",
+        "preparedCount": "Nova ने {{total}} में से {{completed}} क्लिनिक तैयारी चरण पूरे कर दिए हैं",
+        "checklistTitle": "क्लिनिक तैयारी चेकलिस्ट",
+        "confirmAccuracy": "मैं पुष्टि करता/करती हूं कि सभी जानकारी सही है और मैं मरीजों को स्वीकार करना शुरू करने के लिए तैयार हूं",
+        "info": "शुरू करने के बाद आपका क्लिनिक वर्कस्पेस अपॉइंटमेंट, मरीजों और दैनिक कामकाज के लिए तैयार रहेगा।",
+        "successTitle": "बधाई हो!",
+        "goToDashboard": "डैशबोर्ड पर जाएं"
       }
     }
   }

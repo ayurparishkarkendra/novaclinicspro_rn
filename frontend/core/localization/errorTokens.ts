@@ -36,6 +36,28 @@ export const ErrorTokens = {
     tokenRefreshFailed: 'errors.auth.tokenRefreshFailed',
   },
 
+  clinicEntry: {
+    validation: 'errors.clinicEntry.validation',
+    fieldInvalid: 'errors.clinicEntry.fieldInvalid',
+    duplicate: 'errors.clinicEntry.duplicate',
+    unauthorized: 'errors.clinicEntry.unauthorized',
+    alreadyAssociated: 'errors.clinicEntry.alreadyAssociated',
+    idempotencyConflict: 'errors.clinicEntry.idempotencyConflict',
+    associationConflict: 'errors.clinicEntry.associationConflict',
+    inProgress: 'errors.clinicEntry.inProgress',
+    transientFailure: 'errors.clinicEntry.transientFailure',
+    sessionRefreshFailed: 'errors.clinicEntry.sessionRefreshFailed',
+    organizationNameRequired: 'errors.clinicEntry.organizationNameRequired',
+    organizationCreationUnauthorized: 'errors.clinicEntry.organizationCreationUnauthorized',
+    organizationCreationConflict: 'errors.clinicEntry.organizationCreationConflict',
+    organizationCreationRetryableFailure:
+      'errors.clinicEntry.organizationCreationRetryableFailure',
+    verificationInvalid: 'errors.clinicEntry.verificationInvalid',
+    verificationExpired: 'errors.clinicEntry.verificationExpired',
+    contactVerificationMismatch: 'errors.clinicEntry.contactVerificationMismatch',
+    contactVerificationInProgress: 'errors.clinicEntry.contactVerificationInProgress',
+  },
+
   // Generic CRUD Operations
   generic: {
     loadFailed: 'errors.generic.loadFailed',

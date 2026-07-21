@@ -13,6 +13,7 @@ import { useAuthStore } from '../providers/auth.store';
 import { authRepository } from '../../data/repositories/auth.repository.impl';
 import { BootstrapSessionUseCase } from '../../domain/usecases/bootstrap-session.usecase';
 import { AuthUserSession, getLandingRoute } from '../../domain/entities/auth.entity';
+import { clearWizardDraftStorageForIdentity } from '../../../onboarding/presentation/stores/wizard.store';
 
 interface UseAuthReturn {
   currentUser: AuthUserSession | null;
@@ -160,6 +161,16 @@ export const useAuth = (): UseAuthReturn => {
     // issued with a valid token during this transition.
     setLoggingOut(true);
     try {
+      const outgoingTenantId = selectedClinicId || currentUser?.tenantId || null;
+      const outgoingUserId = currentUser?.userId || currentUser?.id || null;
+
+      if (outgoingUserId) {
+        await clearWizardDraftStorageForIdentity({
+          tenantId: outgoingTenantId,
+          userId: outgoingUserId,
+        });
+      }
+
       // Step 2: clear local session (includes selectedClinicId reset).
       // clearSession() itself marks isAuthenticated:false synchronously as
       // its first action (see auth.store.ts), before its own awaited
@@ -198,7 +209,7 @@ export const useAuth = (): UseAuthReturn => {
     } finally {
       setLoggingOut(false);
     }
-  }, [clearSession, router]);
+  }, [clearSession, currentUser, router, selectedClinicId]);
 
   /**
    * Bootstrap session on app start

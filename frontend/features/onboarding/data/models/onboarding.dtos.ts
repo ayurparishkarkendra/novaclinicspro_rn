@@ -209,3 +209,69 @@ export interface CompleteSetupResponse {
     };
   };
 }
+
+// === Workspace Preparation (TG20 Version 1) ===
+export type WorkspacePreparationStateDTO =
+  | 'PENDING'
+  | 'PREPARING'
+  | 'PERSONALIZATION_AVAILABLE'
+  | 'RETRYABLE_FAILURE'
+  | 'TERMINAL_FAILURE';
+
+export interface WorkspacePreparationStartRequestDTO {
+  contract_version: 'workspace_preparation_v1';
+}
+
+export interface WorkspacePreparationRetryRequestDTO
+  extends WorkspacePreparationStartRequestDTO {
+  aggregate_version: number;
+}
+
+export interface WorkspacePreparationProgressDTO {
+  completed: number;
+  total: number;
+  indeterminate: boolean;
+}
+
+export interface WorkspacePreparationUnitDTO {
+  code: string;
+  outcome: string;
+  evidence_version: string;
+  attempt: number;
+  observed_at: string;
+  recorded_at: string;
+}
+
+export interface WorkspacePreparationResponseDTO {
+  contract_version: string;
+  run_id: string;
+  state: WorkspacePreparationStateDTO;
+  aggregate_version: number;
+  progress: WorkspacePreparationProgressDTO;
+  units: WorkspacePreparationUnitDTO[];
+  reason_code: string | null;
+  retry_allowed: boolean;
+  user_retry_count: number;
+  max_user_retries: number;
+  next_action: string;
+  refresh_after_seconds: number | null;
+  support_correlation_id: string;
+  updated_at: string;
+}
+
+export interface WorkspacePreparationErrorDTO {
+  error_code: string;
+  message_token: string;
+  retryable: boolean;
+}
+
+export class WorkspacePreparationDatasourceError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean
+  ) {
+    super(messageToken);
+    this.name = 'WorkspacePreparationDatasourceError';
+  }
+}

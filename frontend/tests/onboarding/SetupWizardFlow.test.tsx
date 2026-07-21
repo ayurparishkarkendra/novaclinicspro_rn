@@ -16,8 +16,9 @@
 import React from 'react';
 import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BackHandler } from 'react-native';
+import { AppState, BackHandler } from 'react-native';
 import { SetupWizardFlow } from '../../features/onboarding/presentation/pages/SetupWizardFlow';
+import * as wizardStore from '../../features/onboarding/presentation/stores/wizard.store';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -68,15 +69,45 @@ jest.mock('../../core/theme/useClinicTheme', () => ({
   }),
 }));
 
+const mockNetInfoState = {
+  isConnected: true as boolean | null,
+  isInternetReachable: true as boolean | null,
+};
+
+jest.mock('@react-native-community/netinfo', () => ({
+  useNetInfo: () => mockNetInfoState,
+}));
+
+const mockAuthState = {
+  currentUser: { tenantId: 'test-tenant-456', applicationStatus: 'onboarding' },
+  isAuthenticated: false,
+};
+
 jest.mock('../../features/auth/presentation/hooks/useAuth', () => ({
   useAuth: () => ({
-    currentUser: { tenantId: 'test-tenant-456' },
+    currentUser: mockAuthState.currentUser,
+    isAuthenticated: mockAuthState.isAuthenticated,
   }),
 }));
 
 // Stub child components — their internal behaviour is not under test here.
 jest.mock('../../features/onboarding/presentation/components/WizardStepper', () => ({
   WizardStepper: () => null,
+}));
+jest.mock('../../features/onboarding/presentation/components/StepCard', () => ({
+  StepCard: ({ journeyCard, onPress }: any) => {
+    const React = require('react');
+    const { Text, TouchableOpacity } = require('react-native');
+    return (
+      <TouchableOpacity
+        testID={`journey-card-${journeyCard.stepCode}`}
+        onPress={onPress}
+        disabled={!journeyCard.isActionable}
+      >
+        <Text>{journeyCard.stepCode}</Text>
+      </TouchableOpacity>
+    );
+  },
 }));
 jest.mock('../../features/onboarding/presentation/pages/steps/ClinicProfileScreen', () => ({
   ClinicProfileScreen: () => null,
@@ -88,7 +119,15 @@ jest.mock('../../features/onboarding/presentation/pages/steps/PaymentSetupScreen
   PaymentSetupScreen: () => null,
 }));
 jest.mock('../../features/onboarding/presentation/pages/steps/GoLiveScreen', () => ({
-  GoLiveScreen: () => null,
+  GoLiveScreen: ({ onComplete }: { onComplete: () => void }) => {
+    const React = require('react');
+    const { Text, TouchableOpacity } = require('react-native');
+    return (
+      <TouchableOpacity onPress={onComplete}>
+        <Text>Complete Ready to Start</Text>
+      </TouchableOpacity>
+    );
+  },
 }));
 jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   submitStepDataApi: jest.fn(),
@@ -98,8 +137,10 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
 const mockRefetch = jest.fn();
 const mockMutateAsync = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
+const mockUseDemoStatusQuery = jest.fn();
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: any[]) => mockUseOnboardingStatusQuery(...args),
+  useDemoStatusQuery: (...args: any[]) => mockUseDemoStatusQuery(...args),
   useSubmitStepMutation: () => ({
     mutateAsync: (...args: any[]) => mockMutateAsync(...args),
     isPending: false,
@@ -129,9 +170,25 @@ const buildStatus = (visible_steps: string[] | null) => ({
   actionable_steps: visible_steps ?? [],
 });
 
+type StepValidationMock = {
+  step_code: string;
+  status: 'completed' | 'in_progress' | 'not_started' | 'blocked';
+  is_complete: boolean;
+  is_valid: boolean;
+  issues: any[];
+  blocked_reason: string | null;
+  action_url_template: string | null;
+  entity_type: string | null;
+  icon: string | null;
+  category: string | null;
+  visible: boolean;
+  actionable: boolean;
+};
+
 const buildValidation = (
   visibleSteps: string[],
-  completedStepCodes: string[] = []
+  completedStepCodes: string[] = [],
+  overrides: Record<string, Partial<StepValidationMock>> = {}
 ) => Object.fromEntries(
   visibleSteps.map(stepCode => [
     stepCode,
@@ -142,27 +199,43 @@ const buildValidation = (
       is_valid: completedStepCodes.includes(stepCode),
       issues: [],
       blocked_reason: null,
-      action_url_template: null,
+      action_url_template: `/clinic/{tenant_id}/${stepCode}`,
       entity_type: null,
       icon: null,
       category: null,
       visible: true,
       actionable: true,
+      ...overrides[stepCode],
     },
   ])
 );
 
 const buildStatusWithSteps = (
   visibleSteps: string[],
-  completedStepCodes: string[] = []
+  completedStepCodes: string[] = [],
+  validationOverrides: Record<string, Partial<StepValidationMock>> = {}
 ) => ({
   ...buildStatus(visibleSteps),
   total_steps: visibleSteps.length,
   completed_steps: completedStepCodes.length,
   pending_steps: visibleSteps.length - completedStepCodes.length,
-  per_step_validation: buildValidation(visibleSteps, completedStepCodes),
+  per_step_validation: buildValidation(visibleSteps, completedStepCodes, validationOverrides),
   visible_steps: visibleSteps,
   actionable_steps: visibleSteps,
+});
+
+const buildDemoStatus = () => ({
+  demo_tenant_id: 'test-tenant-456',
+  display_name: 'Clinic Preparation',
+  status: 'TRIAL',
+  demo_expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+  trial_expires_at: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+  demo_time_remaining_seconds: 5 * 24 * 60 * 60,
+  trial_time_remaining_seconds: 25 * 24 * 60 * 60,
+  is_demo_expired: false,
+  is_trial_expired: false,
+  demo_url: '',
+  created_at: new Date().toISOString(),
 });
 
 const renderFlow = () => {
@@ -183,10 +256,20 @@ const renderFlow = () => {
 describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNetInfoState.isConnected = true;
+    mockNetInfoState.isInternetReachable = true;
+    mockAuthState.currentUser = { tenantId: 'test-tenant-456', applicationStatus: 'onboarding' };
+    mockAuthState.isAuthenticated = false;
+    wizardStore.useWizardStore.getState().reset();
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
     mockMutateAsync.mockResolvedValue({});
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -342,6 +425,83 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     );
   });
 
+  it('renders Journey Cards in authoritative backend visible-step order', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['staff_setup', 'clinic_profile', 'operating_hours']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getAllByTestId, getByRole, getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByRole('header')).toHaveTextContent('Your clinic preparation journey');
+      expect(getByText('0 of 3 journey steps complete')).toBeTruthy();
+      expect(getAllByTestId(/^journey-card-/).map(card => card.props.testID)).toEqual([
+        'journey-card-staff_setup',
+        'journey-card-clinic_profile',
+        'journey-card-operating_hours',
+      ]);
+    });
+  });
+
+  it('selects the existing wizard step when a Journey Card action is pressed', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'staff_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByTestId, getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByTestId('journey-card-staff_setup')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('journey-card-staff_setup'));
+
+    await waitFor(() => {
+      expect(getByText('Staff & Roles')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('does not render a fabricated Journey Card for an unknown backend step', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['unknown_step', 'staff_setup']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByTestId, getByTestId } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByTestId('journey-card-staff_setup')).toBeTruthy();
+    });
+    expect(queryByTestId('journey-card-unknown_step')).toBeNull();
+  });
+
+  it('shows the explicit empty journey state and hides navigation when all steps are unknown', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['unknown_step']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText(/No supported journey steps are available yet/)).toBeTruthy();
+    });
+    expect(queryByText('Next')).toBeNull();
+    expect(queryByText(/Step unknown_step/)).toBeNull();
+  });
+
   it('renders the Treatments redirect card for all service catalogue aliases', async () => {
     for (const stepCode of ['services', 'services_and_specialities', 'treatment_services']) {
       jest.clearAllMocks();
@@ -361,6 +521,187 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
 
       unmount();
     }
+  });
+
+  it('shows the offline banner and keeps step content visible when NetInfo reports offline', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText("You're offline")).toBeTruthy();
+      expect(getByText('Changes are saved locally. Connect to the internet to submit this step.')).toBeTruthy();
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+  });
+
+  it('does not render the offline banner when NetInfo reports online', async () => {
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByText, getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Treatments & Therapies')).toBeTruthy();
+    });
+
+    expect(queryByText("You're offline")).toBeNull();
+  });
+
+  it('disables submit while offline and re-enables it when connectivity returns', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText, rerender } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Connect to the internet to submit this step')).toHaveProp(
+        'accessibilityState',
+        { disabled: true }
+      );
+    });
+
+    mockNetInfoState.isConnected = true;
+    mockNetInfoState.isInternetReachable = true;
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })}
+      >
+        <SetupWizardFlow />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(getByLabelText('Ready to Start')).toHaveProp('accessibilityState', { disabled: false });
+    });
+  });
+
+  it('does not dispatch submit mutation when offline submit is pressed', async () => {
+    mockNetInfoState.isConnected = false;
+    mockNetInfoState.isInternetReachable = false;
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['services']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Connect to the internet to submit this step')).toBeTruthy();
+    });
+
+    fireEvent.press(getByLabelText('Connect to the internet to submit this step'));
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes the banner continue setup action to the backend recommended step', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: {
+        ...buildStatusWithSteps(['clinic_profile', 'operating_hours', 'go_live_checklist']),
+        next_recommended_step: 'operating_hours',
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Clinic Preparation')).toBeTruthy();
+      expect(queryByText(/Demo/i)).toBeNull();
+      expect(queryByText(/Go Live/i)).toBeNull();
+    });
+
+    fireEvent.press(getByText('Continue Setup'));
+
+    await waitFor(() => {
+      expect(getByText('Operating Hours')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes the banner Ready to Start action to the existing checklist step', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'go_live_checklist']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Ready to Start')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Ready to Start'));
+
+    await waitFor(() => {
+      expect(getByText('Complete Ready to Start')).toBeTruthy();
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('disables the banner Ready to Start action when backend readiness is not actionable', async () => {
+    mockUseDemoStatusQuery.mockReturnValue({
+      data: buildDemoStatus(),
+      isLoading: false,
+      error: null,
+    });
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(
+        ['clinic_profile', 'go_live_checklist'],
+        [],
+        { go_live_checklist: { actionable: false } }
+      ),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByLabelText, queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByLabelText('Ready to Start')).toHaveProp('accessibilityState', { disabled: true });
+    });
+
+    fireEvent.press(getByLabelText('Ready to Start'));
+
+    expect(queryByText('Complete Ready to Start')).toBeNull();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('submits an external step only once during rapid Next taps and sends the idempotency key', async () => {
@@ -474,6 +815,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
   });
 
   it('uses Android hardware back to move to the previous step without exiting', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
     let hardwareBackHandler: (() => boolean) | undefined;
     const addEventListenerSpy = jest
       .spyOn(BackHandler, 'addEventListener')
@@ -503,6 +847,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     const consumed = hardwareBackHandler?.();
 
     expect(consumed).toBe(true);
+    expect(syncSpy).toHaveBeenCalled();
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
 
@@ -511,6 +856,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     });
 
     addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
   });
 
   it('consumes Android hardware back on the first step without navigation', async () => {
@@ -542,5 +888,272 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     expect(mockRouterReplace).not.toHaveBeenCalled();
 
     addEventListenerSpy.mockRestore();
+  });
+
+  it('clears onboarding drafts when Ready to Start completes', async () => {
+    const resetSpy = jest
+      .spyOn(wizardStore, 'resetWizardDraftStorage')
+      .mockResolvedValue(undefined);
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['go_live_checklist'], ['go_live_checklist']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(getByText('Complete Ready to Start')).toBeTruthy();
+    });
+
+    fireEvent.press(getByText('Complete Ready to Start'));
+
+    expect(resetSpy).toHaveBeenCalled();
+    expect(mockRouterReplace).toHaveBeenCalledWith('/clinic-admin?tenantId=test-tenant-456');
+
+    resetSpy.mockRestore();
+  });
+
+  it('persists dirty wizard drafts when the app moves to background', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile', 'operating_hours']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      wizardStore.useWizardStore.getState().setStepDraft('clinic_profile', { name: 'Nova Clinic' });
+      appStateHandler?.('background');
+    });
+
+    await waitFor(() => {
+      expect(syncSpy).toHaveBeenCalledTimes(1);
+    });
+
+    addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
+  });
+
+  it('skips background persistence when the wizard draft store is clean', async () => {
+    const syncSpy = jest
+      .spyOn(wizardStore, 'syncWizardDraftToStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+    });
+
+    expect(syncSpy).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+    syncSpy.mockRestore();
+  });
+
+  it('hydrates drafts and refreshes backend status when returning active', async () => {
+    mockAuthState.isAuthenticated = true;
+    const hydrateSpy = jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile']) });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    mockRefetch.mockClear();
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(hydrateSpy).toHaveBeenCalled();
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    expect(hydrateSpy.mock.invocationCallOrder[0]).toBeLessThan(mockRefetch.mock.invocationCallOrder[0]);
+
+    addEventListenerSpy.mockRestore();
+    hydrateSpy.mockRestore();
+  });
+
+  it('does not refetch on foreground when authentication is missing', async () => {
+    mockAuthState.isAuthenticated = false;
+    const hydrateSpy = jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    mockRefetch.mockClear();
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(hydrateSpy).toHaveBeenCalled();
+    });
+    expect(mockRefetch).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+    hydrateSpy.mockRestore();
+  });
+
+  it('shows a localized notice when backend visible steps change after foreground refresh', async () => {
+    mockAuthState.isAuthenticated = true;
+    jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile', 'operating_hours']) });
+
+    const { getByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(getByText('Your onboarding progress has been updated.')).toBeTruthy();
+    });
+
+    addEventListenerSpy.mockRestore();
+    jest.restoreAllMocks();
+  });
+
+  it('does not show a notice when backend visible steps are unchanged after foreground refresh', async () => {
+    mockAuthState.isAuthenticated = true;
+    jest
+      .spyOn(wizardStore, 'hydrateWizardDraftFromStorage')
+      .mockResolvedValue(undefined);
+    let appStateHandler: ((state: string) => void) | undefined;
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventName, handler) => {
+        appStateHandler = handler as (state: string) => void;
+        return { remove: jest.fn() } as any;
+      });
+
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: buildStatusWithSteps(['clinic_profile']),
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile']) });
+
+    const { queryByText } = renderFlow();
+
+    await waitFor(() => {
+      expect(appStateHandler).toBeDefined();
+    });
+
+    act(() => {
+      appStateHandler?.('background');
+      appStateHandler?.('active');
+    });
+
+    await waitFor(() => {
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    expect(queryByText('Your onboarding progress has been updated.')).toBeNull();
+
+    addEventListenerSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 });

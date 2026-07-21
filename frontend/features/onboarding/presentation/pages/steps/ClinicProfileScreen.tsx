@@ -12,7 +12,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
 import { useSubmitStepMutation } from '../../../data/repositories/onboarding.repository.impl';
 import { axiosClient } from '../../../../../core/api/axiosClient';
-import { useWizardStore } from '../../stores/wizard.store';
+import { clearStepDraftAndSync, useWizardStore } from '../../stores/wizard.store';
+import { RestoredDraftIndicator } from '../../components/RestoredDraftIndicator';
 
 interface ClinicProfileScreenProps {
   tenantId: string;
@@ -61,43 +62,125 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState<any>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const restoredSnapshotRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchTenantData();
   }, [tenantId]);
 
-  // Save to Zustand whenever form data changes (debounced via state updates)
+  const getCurrentSnapshot = useCallback(() => JSON.stringify({
+    clinicName,
+    email,
+    phones,
+    website,
+    street,
+    city,
+    state,
+    pincode,
+    country,
+    registrationNumber,
+    panNumber,
+    gstNumber,
+    logoUrl,
+  }), [
+    clinicName,
+    email,
+    phones,
+    website,
+    street,
+    city,
+    state,
+    pincode,
+    country,
+    registrationNumber,
+    panNumber,
+    gstNumber,
+    logoUrl,
+  ]);
+
+  const restoreClinicDraft = useCallback((zustandData: any) => {
+    setClinicName(zustandData.name || '');
+    setClinicType(zustandData.clinic_type || '');
+    setEmail(zustandData.email || '');
+    const phonesValue = Array.isArray(zustandData.phones)
+      ? zustandData.phones.join(', ')
+      : (zustandData.phones || '');
+    setPhones(phonesValue);
+    setWebsite(zustandData.website_address || '');
+
+    if (zustandData.address) {
+      setStreet(zustandData.address.street || '');
+      setCity(zustandData.address.city || '');
+      setState(zustandData.address.state || '');
+      setPincode(zustandData.address.pincode || '');
+      setCountry(zustandData.address.country || 'India');
+    }
+
+    setRegistrationNumber(zustandData.clinic_registration || '');
+    setPanNumber(zustandData.clinic_pan || '');
+    setGstNumber(zustandData.clinic_gst || '');
+    setLogoUrl(zustandData.clinic_logo || '');
+
+    restoredSnapshotRef.current = JSON.stringify({
+      clinicName: zustandData.name || '',
+      email: zustandData.email || '',
+      phones: phonesValue,
+      website: zustandData.website_address || '',
+      street: zustandData.address?.street || '',
+      city: zustandData.address?.city || '',
+      state: zustandData.address?.state || '',
+      pincode: zustandData.address?.pincode || '',
+      country: zustandData.address?.country || 'India',
+      registrationNumber: zustandData.clinic_registration || '',
+      panNumber: zustandData.clinic_pan || '',
+      gstNumber: zustandData.clinic_gst || '',
+      logoUrl: zustandData.clinic_logo || '',
+    });
+    setDraftRestored(true);
+  }, []);
+
+  // Save to Zustand whenever form data changes.
   useEffect(() => {
     if (!loading) {
-      // Save current form state to Zustand
-      const phonesArray = phones.includes(',') 
-        ? phones.split(',').map(p => p.trim()) 
-        : phones.trim() ? [phones.trim()] : [];
+      const currentSnapshot = getCurrentSnapshot();
+      if (draftRestored && restoredSnapshotRef.current !== currentSnapshot) {
+        setDraftRestored(false);
+        restoredSnapshotRef.current = null;
+      }
 
-      setClinicProfile({
-        name: clinicName,
-        clinic_type: clinicType,
-        email: email,
-        phones: phonesArray,
-        website_address: website || undefined,
-        address: {
-          street,
-          city,
-          state,
-          pincode,
-          country,
-        },
-        clinic_registration: registrationNumber || undefined,
-        clinic_pan: panNumber || undefined,
-        clinic_gst: gstNumber || undefined,
-        clinic_logo: logoUrl || undefined,
-      });
+      const timeout = setTimeout(() => {
+        const phonesArray = phones.includes(',')
+          ? phones.split(',').map(p => p.trim())
+          : phones.trim() ? [phones.trim()] : [];
+
+        setClinicProfile({
+          name: clinicName,
+          clinic_type: clinicType,
+          email: email,
+          phones: phonesArray,
+          website_address: website || undefined,
+          address: {
+            street,
+            city,
+            state,
+            pincode,
+            country,
+          },
+          clinic_registration: registrationNumber || undefined,
+          clinic_pan: panNumber || undefined,
+          clinic_gst: gstNumber || undefined,
+          clinic_logo: logoUrl || undefined,
+        });
+      }, 500);
+
+      return () => clearTimeout(timeout);
     }
   }, [
     clinicName, clinicType, email, phones, website,
     street, city, state, pincode, country,
     registrationNumber, panNumber, gstNumber, logoUrl,
-    loading, setClinicProfile
+    loading, setClinicProfile, draftRestored, getCurrentSnapshot
   ]);
 
   const fetchTenantData = async () => {
@@ -112,56 +195,6 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
           currentTenantId: tenantId,
         });
         wizardStore.setTenantId(tenantId);
-      }
-      
-      // First, check if we have data in Zustand store
-      const zustandData = useWizardStore.getState().getStepData('clinic_profile');
-      if (zustandData) {
-        console.log('[ClinicProfileScreen] Loading data from Zustand store');
-        setClinicName(zustandData.name || '');
-        setClinicType(zustandData.clinic_type || '');
-        setEmail(zustandData.email || '');
-        const phonesValue = Array.isArray(zustandData.phones) 
-          ? zustandData.phones.join(', ') 
-          : (zustandData.phones || '');
-        setPhones(phonesValue);
-        setWebsite(zustandData.website_address || '');
-        
-        if (zustandData.address) {
-          setStreet(zustandData.address.street || '');
-          setCity(zustandData.address.city || '');
-          setState(zustandData.address.state || '');
-          setPincode(zustandData.address.pincode || '');
-          setCountry(zustandData.address.country || 'India');
-        }
-        
-        setRegistrationNumber(zustandData.clinic_registration || '');
-        setPanNumber(zustandData.clinic_pan || '');
-        setGstNumber(zustandData.clinic_gst || '');
-        setLogoUrl(zustandData.clinic_logo || '');
-        
-        setLoading(false);
-        
-        // Set initial snapshot after loading data
-        initialSnapshotRef.current = JSON.stringify({
-          clinicName: zustandData.name || '',
-          email: zustandData.email || '',
-          phones: Array.isArray(zustandData.phones) 
-            ? zustandData.phones.join(', ') 
-            : (zustandData.phones || ''),
-          website: zustandData.website_address || '',
-          street: zustandData.address?.street || '',
-          city: zustandData.address?.city || '',
-          state: zustandData.address?.state || '',
-          pincode: zustandData.address?.pincode || '',
-          country: zustandData.address?.country || 'India',
-          registrationNumber: zustandData.clinic_registration || '',
-          panNumber: zustandData.clinic_pan || '',
-          gstNumber: zustandData.clinic_gst || '',
-          logoUrl: zustandData.clinic_logo || '',
-        });
-        
-        return; // Don't fetch from API if we have Zustand data
       }
       
       const response = await axiosClient.get(`/api/v1/tenants/${tenantId}`);
@@ -270,6 +303,23 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         gstNumber: tenantData.clinic_gst || '',
         logoUrl: tenantData.clinic_logo || '',
       });
+
+      const hasServerProfileData = Boolean(
+        tenantData.name ||
+        tenantData.email ||
+        tenantData.phones ||
+        tenantData.address ||
+        tenantData.website_address ||
+        tenantData.clinic_registration ||
+        tenantData.clinic_pan ||
+        tenantData.clinic_gst ||
+        tenantData.clinic_logo
+      );
+      const zustandData = useWizardStore.getState().getStepData('clinic_profile');
+      if (!hasServerProfileData && zustandData) {
+        console.log('[ClinicProfileScreen] Restoring clinic profile draft');
+        restoreClinicDraft(zustandData);
+      }
     } catch (error: any) {
       console.error('[ClinicProfileScreen] Error fetching tenant data:', error);
       console.error('[ClinicProfileScreen] Error response:', error.response?.data);
@@ -471,6 +521,9 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         gstNumber,
         logoUrl: finalLogoUrl,
       });
+      restoredSnapshotRef.current = null;
+      setDraftRestored(false);
+      await clearStepDraftAndSync('clinic_profile');
 
       // In wizard mode, call onSuccess callback
       if (isWizardMode && onSuccess) {
@@ -599,6 +652,8 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
 
       {/* Tab Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ padding: theme.spacing.lg }}>
+        {draftRestored && <RestoredDraftIndicator />}
+
         {/* Basic Information Tab */}
         {activeTab === 'basic' && (
           <View>
