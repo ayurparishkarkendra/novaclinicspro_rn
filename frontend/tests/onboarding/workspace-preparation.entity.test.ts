@@ -1,6 +1,7 @@
 import {
   WORKSPACE_PREPARATION_CONTRACT_V1,
   WorkspacePreparationError,
+  WORKSPACE_PREPARATION_UNIT_ORDER,
 } from '../../features/onboarding/domain/entities/workspace-preparation.entity';
 
 describe('Workspace Preparation domain contract', () => {
@@ -19,5 +20,15 @@ describe('Workspace Preparation domain contract', () => {
       message: 'errors.workspacePreparation.stale_version',
       retryable: true,
     });
+  });
+
+  it('keeps the approved preparation unit order immutable', () => {
+    expect(WORKSPACE_PREPARATION_UNIT_ORDER).toEqual([
+      'TENANT_FOUNDATION',
+      'ACCESS_FOUNDATION',
+      'ONBOARDING_FOUNDATION',
+      'PERSONALIZATION_HANDOFF',
+    ]);
+    expect(Object.isFrozen(WORKSPACE_PREPARATION_UNIT_ORDER)).toBe(true);
   });
 });
