@@ -885,3 +885,35 @@ missing migrations, stale model metadata, or reflection/naming differences.
 
 **TG19_FINAL_ACCEPTANCE_READY** — Historical repository metadata reconciliation
 remains separately owned and must not be folded into TG19.
+
+## 31. ADR-PF-017 Automatic Authority Closure — 2026-07-21
+
+**Decision:** `VERIFICATION_STRATEGY_AUTHORITY_READY`
+
+ADR-PF-018 resolves both ADR-PF-017 implementation-preflight gaps:
+
+- contact `AUTOMATIC` uses the backend-only
+  `IAuthoritativeUserIdentityProvider` Supabase adapter and immutable
+  `supabase_auth_identity_v1`, with normalized exact-match and fail-closed
+  confirmation rules;
+- ownership `AUTO_APPROVE` and test-only `DISABLED` use
+  `verification_strategy_system_authority` with immutable
+  `nonprod_ownership_strategy_v1`, never a real or fabricated human approver.
+
+The additive implementation boundary comprises strategy interfaces and
+selection, typed configuration and startup validation, the Supabase adapter,
+lifecycle-mediated decisions, and the smallest ownership system-provenance
+persistence/migration extension defined by ADR-PF-018. Existing repositories,
+lifecycle services, authorization, Platform/organization audit, idempotency,
+unit of work, isolation, transactions, and Clinic Entry consumption must be
+reused.
+
+Focused verification must cover confirmed/unconfirmed exact matching, adapter
+failure, no contact copying, system provenance without a fake user, lifecycle,
+audit, idempotency, rollback, no direct association, test/QA restrictions,
+staging `REQUIRED`, production rejection, and ambiguous-configuration failure.
+
+No product, frontend orchestration, staff identity, TG20, or clinical scope is
+authorized.
+
+**ADR-PF-017 Verification Strategy Implementation Status:** `READY`

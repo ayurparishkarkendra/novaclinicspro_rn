@@ -200,3 +200,24 @@ contract. No existing API is silently treated as verification. Implementations
 add a platform issuer/validator, persistent state, RBAC permission, idempotency,
 typed errors, and audit integration while preserving existing identifiers and
 isolation behavior.
+
+## ADR-PF-018 Non-production System-authority Addendum
+
+ADR-PF-018 approves `verification_strategy_system_authority` with immutable
+method/version `nonprod_ownership_strategy_v1` for ownership `AUTO_APPROVE` in
+approved non-production environments and ownership `DISABLED` only in narrowly
+controlled automated/integration tests.
+
+This authority is not an approver, tenant-RBAC user, organization member,
+platform administrator, or fabricated human principal. The normal `REQUIRED`
+path and all human authority rules remain unchanged. The system path must issue
+normal target/evidence, apply its decision through the ownership lifecycle,
+persist mutually exclusive typed system provenance, write Platform Audit,
+complete idempotency, and use the existing transaction. It cannot associate a
+clinic; Clinic Entry remains the sole consumer and association owner.
+
+The nullable human `approver_id` remains null for system decisions. ADR-PF-018
+authorizes the smallest additive extension recording actor classification,
+strategy, environment, method/version, safe reason, decision timestamp, and
+safe correlation. Production and staging require `REQUIRED`; ambiguous or
+bypass-capable production configuration fails startup.

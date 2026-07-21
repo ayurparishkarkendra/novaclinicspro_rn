@@ -222,3 +222,19 @@ separate Platform Foundation prerequisite governed by
 `E2-CONTACT-VERIFICATION-IMPLEMENTATION-BOUNDARY.md`. TG19 Backend Clinic Entry
 Transport remains blocked until that implementation and focused verification
 are complete.
+
+## ADR-PF-018 Automatic Identity Addendum
+
+ADR-PF-018 approves one additional Version 1 decision source behind this
+lifecycle: the backend Supabase authoritative identity adapter with immutable
+method/version `supabase_auth_identity_v1`. It may verify only an explicitly
+submitted email or mobile that, under `clinic_identity_v1` normalization,
+exactly matches the authenticated user's corresponding Supabase-confirmed
+attribute.
+
+This addendum does not approve email/SMS challenge delivery, client assertions,
+profile copying, or authentication alone as evidence. The Platform Clinic
+Contact Verification service still issues, binds, transitions, persists,
+audits, idempotently completes, and transactionally consumes normal opaque
+evidence. Missing, unconfirmed, ambiguous, unavailable, or mismatched provider
+identity fails closed or requires the approved manual flow.

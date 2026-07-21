@@ -214,3 +214,18 @@ evidence model, one lifecycle per verification type, and one auditable
 transaction path.
 
 Verification Strategy Architecture Status: **APPROVED**
+
+## ADR-PF-018 Authority Clarification
+
+ADR-PF-018 controls the Version 1 authority implementations authorized here.
+Contact `AUTOMATIC` uses only `IAuthoritativeUserIdentityProvider`, the explicit
+Supabase backend adapter, and immutable method/version
+`supabase_auth_identity_v1`. Ownership `AUTO_APPROVE` and test-only `DISABLED`
+use only the non-human `verification_strategy_system_authority` classification
+and immutable method/version `nonprod_ownership_strategy_v1`; they never
+fabricate or borrow a human approver.
+
+ADR-PF-018's environment restrictions, startup validation, system-decision
+provenance, and additive ownership persistence boundary are mandatory. This
+clarification changes no evidence, lifecycle, authorization, audit,
+idempotency, isolation, transaction, or Clinic Entry ownership.
