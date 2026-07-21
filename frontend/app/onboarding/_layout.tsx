@@ -42,6 +42,10 @@ export default function OnboardingLayout() {
           headerShown: false, // Hide header since wizard has its own
         }} 
       />
+      <Stack.Screen
+        name="workspace-preparation"
+        options={{ title: t('onboarding.progressiveExperience.routes.workspacePreparation') }}
+      />
       <Stack.Screen 
         name="step-detail" 
         options={{ title: t('onboarding.progressiveExperience.routes.reviewStep') }} 

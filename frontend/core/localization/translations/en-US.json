@@ -591,6 +591,7 @@
       "routes": {
         "prepareClinic": "Prepare Your Clinic",
         "clinicPreparation": "Clinic Preparation",
+        "workspacePreparation": "Workspace Preparation",
         "reviewStep": "Review Step"
       },
       "dashboard": {
@@ -672,6 +673,59 @@
           "retry": "Try again",
           "logout": "Log out",
           "selectClinic": "Choose the clinic to use now"
+        }
+      },
+      "workspacePreparation": {
+        "loading": "Preparing your clinic workspace...",
+        "title": "Workspace preparation",
+        "progressSummary": "{{completed}} of {{total}} preparation steps complete",
+        "progressIndeterminate": "Preparation status is being confirmed.",
+        "unitsTitle": "Preparation steps",
+        "states": {
+          "PENDING": "Preparation is ready to begin.",
+          "PREPARING": "Nova is preparing your workspace.",
+          "PERSONALIZATION_AVAILABLE": "Your workspace is ready to personalize.",
+          "RETRYABLE_FAILURE": "Preparation needs your attention.",
+          "TERMINAL_FAILURE": "Preparation cannot continue automatically."
+        },
+        "units": {
+          "TENANT_FOUNDATION": "Clinic foundation",
+          "ACCESS_FOUNDATION": "Access foundation",
+          "ONBOARDING_FOUNDATION": "Onboarding foundation",
+          "PERSONALIZATION_HANDOFF": "Personalization handoff"
+        },
+        "unitStatus": { "completed": "Complete", "current": "In progress", "remaining": "Not started" },
+        "failure": {
+          "title": "Workspace preparation unavailable",
+          "safeMessage": "We could not complete workspace preparation. Your clinic information is safe.",
+          "retryableTitle": "Preparation was interrupted",
+          "terminalTitle": "Support is required"
+        },
+        "retry": {
+          "exhausted": "No more retries are available.",
+          "remaining": "{{count}} retries remaining",
+          "retrying": "Retrying..."
+        },
+        "actions": {
+          "reload": "Reload",
+          "retry": "Retry preparation",
+          "personalize": "Personalize clinic",
+          "START": "Start preparation",
+          "WAIT": "Wait for preparation",
+          "REFRESH": "Refresh preparation",
+          "RETRY": "Retry preparation",
+          "CONTACT_SUPPORT": "Contact support",
+          "ENTER_PERSONALIZATION": "Personalize clinic"
+        },
+        "complete": {
+          "title": "Your workspace is ready",
+          "message": "Continue to review and personalize your clinic setup."
+        },
+        "nextAction": "Next: {{action}}",
+        "accessibility": {
+          "screen": "Workspace preparation status",
+          "progress": "Workspace preparation progress",
+          "progressIndeterminate": "Workspace preparation is in progress"
         }
       },
       "statusBanner": {

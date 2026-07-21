@@ -139,7 +139,9 @@ export function useClinicEntryOrchestration() {
       setErrorToken(null);
       idempotencyKeys.current = {};
       setState('complete');
-      router.replace(`/onboarding/wizard-flow?tenantId=${tenantId}` as any);
+      router.replace(
+        `/onboarding/workspace-preparation?organizationId=${resolvedOrganizationId}&tenantId=${tenantId}` as any
+      );
     },
     [
       currentUser,

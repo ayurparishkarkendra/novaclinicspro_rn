@@ -136,7 +136,9 @@ describe('useClinicEntryOrchestration', () => {
     expect(mockRefreshTenant).toHaveBeenCalledWith('org-1');
     expect(mockRefreshSession).toHaveBeenCalledTimes(1);
     expect(mockSetSelectedClinic).toHaveBeenCalledWith('tenant-1');
-    expect(mockReplace).toHaveBeenCalledWith('/onboarding/wizard-flow?tenantId=tenant-1');
+    expect(mockReplace).toHaveBeenCalledWith(
+      '/onboarding/workspace-preparation?organizationId=org-1&tenantId=tenant-1'
+    );
     expect(result.current.state).toBe('complete');
   });
 
@@ -220,7 +222,9 @@ describe('useClinicEntryOrchestration', () => {
     });
     expect(queryClient.invalidateQueries).toHaveBeenCalled();
     expect(mockSetTenantId).toHaveBeenCalledWith('tenant-2');
-    expect(mockReplace).toHaveBeenCalledWith('/onboarding/wizard-flow?tenantId=tenant-2');
+    expect(mockReplace).toHaveBeenCalledWith(
+      '/onboarding/workspace-preparation?organizationId=org-1&tenantId=tenant-2'
+    );
   });
 
   it('retries only session handoff after a stale-session failure', async () => {

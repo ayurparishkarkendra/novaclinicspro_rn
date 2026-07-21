@@ -45,7 +45,9 @@ const STATES: readonly WorkspacePreparationState[] = [
 ];
 
 const NEXT_ACTIONS: readonly WorkspacePreparationNextAction[] = [
+  'START',
   'WAIT',
+  'REFRESH',
   'RETRY',
   'ENTER_PERSONALIZATION',
   'CONTACT_SUPPORT',
@@ -138,6 +140,10 @@ export const deriveWorkspacePreparationState = (
     progress: Object.freeze({
       completedUnits: Object.freeze(completedUnits),
       remainingUnits: Object.freeze(remainingUnits),
+      currentUnit:
+        preparation.state === 'PREPARING' ? (remainingUnits[0] ?? null) : null,
+      completed: preparation.progress.completed,
+      total: preparation.progress.total,
       percentage: Math.floor(
         (preparation.progress.completed / preparation.progress.total) * 100
       ),

@@ -117,14 +117,18 @@ describe('Workspace Preparation repository', () => {
       { wrapper }
     );
     await act(async () => {
-      await result.current.mutateAsync({ aggregateVersion: 4, idempotencyKey: 'retry-1' });
+      await result.current.mutateAsync({ aggregateVersion: 4 });
     });
     await waitFor(() =>
       expect(invalidate).toHaveBeenCalledWith({
         queryKey: onboardingKeys.workspacePreparation('org-1', 'tenant-1'),
       })
     );
-    expect(retryWorkspacePreparationApi).toHaveBeenCalledWith('tenant-1', 4, 'retry-1');
+    expect(retryWorkspacePreparationApi).toHaveBeenCalledWith(
+      'tenant-1',
+      4,
+      expect.stringMatching(/^workspace-preparation-retry-/)
+    );
     queryClient.clear();
   });
 });

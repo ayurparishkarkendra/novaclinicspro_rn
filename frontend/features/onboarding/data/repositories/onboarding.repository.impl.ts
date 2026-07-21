@@ -205,13 +205,13 @@ export const useRetryWorkspacePreparationMutation = (
   return useMutation<
     WorkspacePreparation,
     Error,
-    { aggregateVersion: number; idempotencyKey: string }
+    { aggregateVersion: number }
   >({
-    mutationFn: ({ aggregateVersion, idempotencyKey }) =>
+    mutationFn: ({ aggregateVersion }) =>
       workspacePreparationRepository.retryWorkspacePreparation(
         tenantId,
         aggregateVersion,
-        idempotencyKey
+        `workspace-preparation-retry-${Date.now()}-${Math.random().toString(36).slice(2)}`
       ),
     onSuccess: (value) => {
       queryClient.setQueryData(queryKey, value);

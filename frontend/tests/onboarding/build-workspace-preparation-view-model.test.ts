@@ -60,6 +60,11 @@ describe('buildWorkspacePreparationViewModel', () => {
     );
     expect(result.progress.percentage).toBe(25);
     expect(result.progress.completedUnits).toEqual(['TENANT_FOUNDATION']);
+    expect(result.progress).toMatchObject({
+      currentUnit: null,
+      completed: 1,
+      total: 4,
+    });
     expect(result.progress.remainingUnits).toEqual([
       'ACCESS_FOUNDATION',
       'ONBOARDING_FOUNDATION',
@@ -160,5 +165,11 @@ describe('buildWorkspacePreparationViewModel', () => {
         units: [{ ...projection().units[0], code: 'UNKNOWN_UNIT' }],
       })
     ).toThrow(InvalidWorkspacePreparationProjectionError);
+  });
+
+  it.each(['START', 'REFRESH'] as const)('accepts backend-authoritative %s actions', (nextAction) => {
+    expect(
+      buildWorkspacePreparationViewModel({ ...projection(), nextAction }).nextAction
+    ).toBe(nextAction);
   });
 });

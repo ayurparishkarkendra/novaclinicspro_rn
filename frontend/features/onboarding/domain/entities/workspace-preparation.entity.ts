@@ -18,7 +18,9 @@ export type WorkspacePreparationUnitCode =
   (typeof WORKSPACE_PREPARATION_UNIT_ORDER)[number];
 
 export type WorkspacePreparationNextAction =
+  | 'START'
   | 'WAIT'
+  | 'REFRESH'
   | 'RETRY'
   | 'ENTER_PERSONALIZATION'
   | 'CONTACT_SUPPORT';
@@ -55,6 +57,9 @@ export interface WorkspacePreparationFailureInformation {
 export interface WorkspacePreparationProgressSummary {
   readonly completedUnits: readonly WorkspacePreparationUnitCode[];
   readonly remainingUnits: readonly WorkspacePreparationUnitCode[];
+  readonly currentUnit: WorkspacePreparationUnitCode | null;
+  readonly completed: number;
+  readonly total: number;
   readonly percentage: number;
   readonly indeterminate: boolean;
 }
