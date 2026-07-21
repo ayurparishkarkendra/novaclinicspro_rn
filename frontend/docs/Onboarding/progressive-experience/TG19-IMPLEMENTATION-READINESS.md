@@ -917,3 +917,27 @@ No product, frontend orchestration, staff identity, TG20, or clinical scope is
 authorized.
 
 **ADR-PF-017 Verification Strategy Implementation Status:** `READY`
+
+## 32. TG19 Final Acceptance — 2026-07-21
+
+`TG19-FINAL-ACCEPTANCE.md` is the controlling final-acceptance evidence.
+
+The isolated PostgreSQL TG19 suite passes 159 tests; fresh migration to the
+single `20260721_020000` head and the latest downgrade/re-upgrade pass. Backend
+Clinic Entry and Platform Foundation are verified. The known historical
+`org_staff` metadata target still prevents a literal clean `alembic check` and
+remains separately owned under the completed drift audit.
+
+TG19 is not accepted because the frozen frontend orchestration checkpoint was
+not implemented. Choice-card presentation exists, but there is no path-specific
+input/mutation, verification integration, retry lifecycle, session refresh,
+effective-tenant validation, stale-state cleanup, or authoritative handoff. In
+addition, the ADR-PF-017/018 strategy resolvers are not consumed by operational
+dependency/transport composition, leaving configured automatic/disabled
+strategies unreachable in the product flow.
+
+**TG19_FINAL_ACCEPTANCE_NOT_ACCEPTED**
+
+TG20 remains unauthorized. The next activity must close the already-approved
+TG19 frontend orchestration and runtime strategy-composition boundaries, then
+repeat final acceptance.

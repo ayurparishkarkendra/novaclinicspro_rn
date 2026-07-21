@@ -1516,6 +1516,18 @@ review before any implementation.
 
 ## Notes
 
+### TG19 Final Acceptance — NOT ACCEPTED (2026-07-21)
+
+- Backend Platform Foundation, Clinic Entry, verification, audit, capability,
+  idempotency, transaction, and PostgreSQL evidence: verified (159 tests).
+- Clinic Entry choice presentation, English/Hindi parity, central Theme, and
+  focused accessibility semantics: verified (8 tests).
+- Required frontend Clinic Entry orchestration: not implemented.
+- ADR-PF-017/018 runtime strategy resolution: implemented as resolvers but not
+  consumed by an operational composition path.
+- Controlling evidence: `TG19-FINAL-ACCEPTANCE.md`.
+- Decision: `TG19_NOT_ACCEPTED`; TG20 remains unauthorized.
+
 - Tasks marked with `*` are optional and can be skipped for a faster MVP; all core implementation tasks are mandatory.
 - Tasks 11.1 and 11.2 are verification/validation tasks — they require manual confirmation on staging and recording results. No automated test can substitute for the staging environment check.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).
