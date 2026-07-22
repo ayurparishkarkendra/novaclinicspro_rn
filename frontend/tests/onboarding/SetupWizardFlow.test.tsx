@@ -103,18 +103,18 @@ jest.mock('immer', () => ({
   },
 }), { virtual: true });
 
+const mockTranslate = (key: string, params?: Record<string, string | number>) => {
+  const translations = require('../../core/localization/translations/en-US.json');
+  const value = key.split('.').reduce((current: any, segment) => current?.[segment], translations);
+  if (typeof value !== 'string') return key;
+  return Object.entries(params ?? {}).reduce(
+    (text, [name, replacement]) => text.replace(`{{${name}}}`, String(replacement)),
+    value
+  );
+};
+
 jest.mock('../../core/localization/useTranslation', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, string | number>) => {
-      const translations = require('../../core/localization/translations/en-US.json');
-      const value = key.split('.').reduce((current: any, segment) => current?.[segment], translations);
-      if (typeof value !== 'string') return key;
-      return Object.entries(params ?? {}).reduce(
-        (text, [name, replacement]) => text.replace(`{{${name}}}`, String(replacement)),
-        value
-      );
-    },
-  }),
+  useTranslation: () => ({ t: mockTranslate }),
 }));
 
 const mockAuthState = {
@@ -174,6 +174,7 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
 
 // Mutable query mock — tests override return value per case.
 const mockRefetch = jest.fn();
+const mockVisibilityRefetch = jest.fn();
 const mockOrganizationRefetch = jest.fn().mockResolvedValue({
   data: {
     effectiveOrganizationId: 'org-1',
@@ -198,7 +199,7 @@ jest.mock('../../features/onboarding/data/repositories/onboarding.repository.imp
         isLoading: false,
         isRefetching: false,
         error: null,
-        refetch: mockRefetch,
+        refetch: mockVisibilityRefetch,
       };
     }
     const projection = {
@@ -224,7 +225,7 @@ jest.mock('../../features/onboarding/data/repositories/onboarding.repository.imp
       isLoading: false,
       isRefetching: false,
       error: null,
-      refetch: mockRefetch,
+      refetch: mockVisibilityRefetch,
     };
   },
   useOrganizationContextQuery: () => ({
@@ -363,6 +364,7 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
+    mockVisibilityRefetch.mockResolvedValue({ data: undefined });
     mockMutateAsync.mockResolvedValue({});
     mockUseDemoStatusQuery.mockReturnValue({
       data: null,
@@ -755,9 +757,9 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
   });
 
   it('does not advance until refetch resolves after submit', async () => {
-    let resolveRefetch: (() => void) | undefined;
+    let resolveRefetch: ((value: unknown) => void) | undefined;
     mockMutateAsync.mockResolvedValue({});
-    mockRefetch.mockImplementation(() => new Promise<void>(resolve => {
+    mockRefetch.mockImplementation(() => new Promise<unknown>(resolve => {
       resolveRefetch = resolve;
     }));
     mockUseOnboardingStatusQuery.mockReturnValue({
@@ -782,7 +784,7 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
     expect(queryByText('Inventory Readiness')).toBeNull();
 
     await act(async () => {
-      resolveRefetch?.();
+      resolveRefetch?.({ data: buildStatusWithSteps(['services', 'inventory_setup']) });
     });
 
     await waitFor(() => {
@@ -1107,6 +1109,14 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
       refetch: mockRefetch,
     });
     mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile', 'operating_hours']) });
+    mockVisibilityRefetch.mockResolvedValue({
+      data: {
+        visibleSteps: [
+          { stepId: 'clinic_profile' },
+          { stepId: 'operating_hours' },
+        ],
+      },
+    });
 
     const { getByText } = renderFlow();
 
