@@ -313,7 +313,7 @@ Platform Foundation work must remain traceable to the Product Experience epics i
 
 **Risks:** Frontend capability truth; alias drift; disappearing steps with unsaved drafts; specialty assumptions; unstable ordering.
 
-**Future backend work:** Confirm or define authoritative capabilities/template/version and visible-step contract.
+**Future backend work:** Implement the Requirement 33 authoritative capability/template projection identity and visible-step contract.
 
 **Future frontend work:** Map authoritative capabilities through repository/domain models into existing wizard/card surfaces; preserve safe draft behavior.
 
@@ -1018,7 +1018,7 @@ Task groups may be split or reordered after design review. Numbers remain roadma
 | Product definition of Bring Your Clinic | TG19 |
 | Effective tenant selection for multi-clinic owners | TG19 and every tenant-sensitive group |
 | Workspace preparation state/refresh/retry contract | TG20 |
-| Capability/template authority and versioning | TG21 |
+| Capability/template authority and versioning — resolved by Requirement 33 and the E4 design contract | Resolved for TG21 planning |
 | Readiness provider/blocker/action contract | TG22, TG26 |
 | Mandatory per-step timestamp/revision contract | TG23 |
 | Central error taxonomy and analytics provider/stub | TG24–TG31 |

@@ -139,6 +139,89 @@ Core Layer
 | Presentation hooks (`presentation/hooks/`) | Repository hooks, Zustand stores | Service functions directly |
 | Components / pages | Presentation hooks, Zustand selectors | APIs directly |
 
+### E4 Capability-Driven Journey Visibility Constitutional Contract (Req 33)
+
+#### Ownership
+
+| Concern | Authoritative owner | Prohibited owner |
+|---|---|---|
+| Ordered journey steps and stable step identity | Journey Template | Frontend presentation or capability registry |
+| Capability definitions and lifecycle | Capability Registry | Journey Template or frontend |
+| Step-to-capability mapping and tenant visibility | Backend Journey Visibility Projection | Frontend hooks, components, stores, or route configuration |
+| Projection rendering | Frontend onboarding repository/domain/presentation flow | Backend presentation policy |
+
+The Backend Journey Visibility Projection is the only composition boundary. It
+consumes an authoritative ordered Journey Template and authoritative
+tenant-scoped capability state. It produces one complete ordered projection;
+the frontend never intersects template steps with capability state itself.
+
+#### Projection identity and validity
+
+```text
+JourneyVisibilityProjectionIdentity =
+  (template_version, capability_revision)
+```
+
+- Both values are backend-authoritative.
+- A projection is valid only while both values match current authority.
+- A change to either value invalidates the prior identity and triggers backend
+  recalculation before a replacement projection is served.
+- Identical tenant input and identical identity must produce deterministic
+  visibility and ordering.
+- Revision validation, DTO generation, typed errors, transaction ownership, and
+  rollback remain backend responsibilities.
+
+#### Fail-closed capability policy
+
+For a step whose required capability is unknown, unavailable, disabled,
+unsupported, or missing, the Backend Journey Visibility Projection excludes the
+step. The backend does not delegate this decision, and the frontend does not
+restore, infer, or substitute visibility. Unknown step codes continue through
+the existing Journey diagnostics/safe-state boundary; they never authorize an
+action by fallback.
+
+#### Active-onboarding lifecycle
+
+```text
+Current complete projection
+  └─ template_version or capability_revision changes
+       └─ backend detects identity mismatch
+            └─ backend recalculates complete replacement projection
+                 ├─ same stable step identity → preserve valid progress
+                 ├─ removed step → retire from the new projection
+                 └─ newly applicable step → introduce as incomplete
+```
+
+An active session continues against its current complete projection until the
+backend supplies the recalculated complete projection. The frontend must not
+compose a partial projection or migrate progress/drafts. Draft payloads remain
+tenant/user scoped under the existing Wizard Draft contract and are not
+rewritten by the frontend. Projection and completed-progress transition remain
+backend-owned and step-identity based.
+
+#### Frontend boundary
+
+The existing onboarding datasource and repository receive the authoritative
+projection. The journey domain maps the returned ordered steps into existing
+Journey Card models, and presentation renders loading, error, empty, changed,
+and available states using localization, accessibility, and central Theme
+contracts. No frontend capability mapping, clinic-type branching, new global
+store, duplicate API client, or presentation-layer capability policy is
+permitted.
+
+#### Acceptance invariants
+
+1. Visibility originates only from the backend projection.
+2. Projection output is deterministic for an identical identity and tenant.
+3. Template or capability revision changes trigger backend recalculation.
+4. Unknown or non-effective capabilities fail closed.
+5. Reordered or removed steps preserve progress only through stable identity.
+6. Frontend source contains no step-to-capability mapping logic.
+7. Tenant isolation applies to projection identity, steps, progress, caches,
+   errors, and rendering.
+8. Tests cover version changes, capability changes, fail-closed states,
+   progress preservation, and tenant switching/isolation.
+
 ---
 
 ## Error Handling
@@ -176,6 +259,13 @@ The `submissionId` guard silently drops stale callbacks — no user-visible erro
 ### Property 5: Alias Routing Is Exhaustive and Consistent
 
 Both `StepDetailScreen.redirectSteps` and `SetupWizardFlow.renderStepContent` derive their lists from the single `SERVICE_CATALOGUE_ALIASES` constant. They cannot diverge.
+
+### Property 6: Capability Visibility Is Backend-Authoritative
+
+For a fixed tenant and identical `(template_version, capability_revision)`, the
+Backend Journey Visibility Projection returns the same ordered visible-step
+result. The frontend cannot add a step omitted by that result. Unknown or
+non-effective capability state therefore fails closed.
 
 ### Deferred Properties (Post-Release)
 

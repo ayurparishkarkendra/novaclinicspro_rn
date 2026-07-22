@@ -1516,15 +1516,15 @@ review before any implementation.
 
 ## Notes
 
-### TG21 Scope Discovery and Implementation Readiness — BLOCKED (2026-07-22)
+### TG21 E4 Constitutional Contract — APPROVED (2026-07-22)
 
 The approved Phase 2 roadmap defines TG21 as **Capability-Driven Journey
 Visibility**. Its product objective is to drive applicable journey steps and
 Journey Cards from authoritative capability/template state while preserving
 specialty extensibility, deterministic ordering, unknown-state safety, draft
 recovery, tenant isolation, localization, accessibility, and central Theme
-usage. The roadmap maps TG21 to Requirements 1–4, 15, and 23–25 and explicitly
-requires a new E4 requirement before implementation.
+usage. The roadmap maps TG21 to Requirements 1–4, 15, and 23–25. Requirement 33
+now supplies the accepted E4 capability-driven visibility contract.
 
 TG21 is cross-repository. The backend owns tenant capability resolution,
 template resolution, visibility authority, authorization, and tenant-scoped
@@ -1545,42 +1545,39 @@ Source-backed dependency and reuse findings:
 | Template authority | Backend `OrgTemplate`, `TemplateRepository`, and `SQLAlchemyTemplateRepository` | Reuse as authoritative ordered setup-step source. Templates have a version, but setup steps contain no approved capability eligibility contract. |
 | Current onboarding visibility | Backend `OnboardingService.get_onboarding_status` and the existing onboarding status transport | Current `visible_steps` is every resolved template step and `actionable_steps` is the same list. Capability state is not consumed. |
 | Frontend capability access | `useCapabilities`, centralized tenant-scoped capability query keys, and `CapabilityGate` | Reuse where contract-compatible; presentation gating is not authority and cannot independently define journey visibility. |
-| Draft behavior | Existing tenant/user-scoped Wizard Draft persistence and lifecycle handling | Reuse, but no accepted rule defines what happens to a draft when a capability change removes or restores its step. |
+| Draft behavior | Existing tenant/user-scoped Wizard Draft persistence and lifecycle handling | Reuse unchanged; the E4 contract prohibits frontend migration and assigns projection/progress transition to the backend using stable step identity. |
 
-Implementation is blocked by permanent decisions that the roadmap's Open
-Decisions Register still assigns to TG21:
+The following constitutional decisions are approved:
 
-1. Define the authoritative Version 1 step-eligibility model, including where
-   step-to-capability relationships live and how template order combines with
-   effective capability state. The implementation must not infer this mapping
-   from clinic type, category, localized labels, or frontend constants.
-2. Define the capability/template visibility version contract returned to
-   clients, including compatibility, stale-response detection, and whether an
-   atomic snapshot/revision is required when capability and template state are
-   read together.
-3. Define deterministic behavior for unknown capability codes, unknown step
-   codes, deprecated/disabled/unavailable capabilities, missing mappings, and
-   empty applicable journeys.
-4. Define the lifecycle and draft-change policy when a step disappears,
-   reappears, or changes order, including user notice, retained-data rules, and
-   cross-device recovery behavior.
-5. Define the accepted backend DTO and error contract, authorization and
-   effective-tenant enforcement, cache invalidation/refresh behavior, and a
-   rollback or approved disable strategy.
-6. Add the new E4 functional/non-functional requirements and measurable
-   acceptance tests for specialty combinations, ordering, aliases, unknowns,
-   tenant switching, localization, accessibility, and draft preservation.
+1. The Journey Template owns ordered steps and stable step identity; the
+   Capability Registry owns capability definitions/lifecycle; only the Backend
+   Journey Visibility Projection maps the two for a tenant.
+2. Projection identity is `(template_version, capability_revision)`. Either
+   value changing invalidates the identity and requires backend recalculation.
+3. Unknown, unavailable, disabled, unsupported, or missing capability state
+   fails closed by excluding its corresponding step. Frontend fallback is
+   prohibited.
+4. Active onboarding uses its current complete projection until the backend
+   supplies a recalculated complete projection. Stable step identity preserves
+   valid progress; removed steps retire; new steps enter incomplete; frontend
+   migration logic is prohibited.
+5. The backend owns calculation, ordering, DTOs, typed errors, revision checks,
+   transactions, and rollback. The frontend renders the projection only.
+6. TG21 acceptance requires deterministic projection, revision-change
+   recalculation, fail-closed behavior, progress preservation, no frontend
+   mapping logic, tenant isolation, and focused regression evidence.
 
-After those decisions are approved in `requirements.md` and `design.md`, the
-smallest independently verifiable implementation checkpoint is the backend
+With these decisions approved in `requirements.md` and `design.md`, the smallest
+independently verifiable implementation checkpoint is the backend
 domain/application projection that combines an ordered versioned template with
 an authoritative tenant capability snapshot and produces a tenant-scoped,
 versioned visible-step result with fail-closed diagnostics. It must be covered
 by focused pure/application tests before transport or frontend integration.
 
 There are eleven Phase 2 roadmap task groups remaining after TG20 (TG21–TG31).
-No TG21 source or test implementation is authorized by this review, no task is
-marked in progress, and TG22 remains out of scope.
+This approval freezes constitutional behavior only. It adds no implementation
+task, makes no source/test/API/schema change, does not mark TG21 in progress,
+and does not authorize TG22.
 
 ### TG19 Final Acceptance — NOT ACCEPTED (2026-07-21)
 

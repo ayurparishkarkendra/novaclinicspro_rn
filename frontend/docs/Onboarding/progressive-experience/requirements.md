@@ -670,3 +670,57 @@ All UI work must use `useClinicTheme()` exclusively — zero hardcoded colours, 
    - [ ] All four E2E runs (A–D above) passed on physical Android hardware
 
 5. IF a physical Android device is not available for Runs C and D, THE team SHALL use the Android Emulator with network throttling enabled in the AVD settings. Emulator results are acceptable but MUST be noted as such in the release checklist.
+
+---
+
+### Requirement 33: Capability-Driven Journey Visibility (E4/TG21)
+
+**User Story:** As a person preparing a clinic workspace, I want the Review &
+Personalize journey to show only the setup steps that apply to the clinic's
+authoritative enabled capabilities, so that setup stays relevant without
+embedding specialty or clinic-type rules in the client.
+
+#### Constitutional Ownership
+
+1. THE Journey Template SHALL own the ordered set of journey steps and their
+   stable step identities.
+2. THE Capability Registry SHALL own capability definitions and capability
+   lifecycle.
+3. THE Backend Journey Visibility Projection SHALL be the only component that
+   maps Journey Template steps to authoritative tenant capability state.
+4. THE frontend SHALL render the backend projection and SHALL NOT derive, own,
+   substitute, or repair step-to-capability visibility.
+
+#### Acceptance Criteria
+
+1. THE authoritative projection identity SHALL be the pair
+   `(template_version, capability_revision)`.
+2. A projection SHALL remain valid only while both its `template_version` and
+   `capability_revision` match the current authoritative values. A change to
+   either value SHALL require backend recalculation before the replacement
+   projection is served.
+3. FOR identical tenant input and identical
+   `(template_version, capability_revision)`, THE backend projection SHALL
+   return the same visible steps and deterministic order.
+4. WHEN a step's required capability is unknown, unavailable, disabled,
+   unsupported, or missing, THE backend SHALL omit that step from visibility.
+   The frontend SHALL NOT substitute visibility or infer a fallback mapping.
+5. WHEN the Journey Template or Capability Registry changes during active
+   onboarding, THE active session SHALL continue against its current complete
+   projection until the backend detects the version mismatch and atomically
+   supplies a recalculated projection. The frontend SHALL NOT combine values
+   from different projection identities.
+6. WHEN a recalculated projection retains a stable step identity, THE backend
+   SHALL preserve valid completed progress for that step. Removed steps SHALL
+   become retired; newly applicable steps SHALL enter as incomplete. The
+   frontend SHALL perform no progress or draft migration logic.
+7. THE backend SHALL own visibility calculation, ordering, projection DTO
+   generation, typed errors, revision validation, transaction boundaries, and
+   rollback. THE frontend SHALL own projection rendering only.
+8. THE projection SHALL remain tenant-scoped and SHALL NOT expose or reuse
+   capability state, progress, ordering, or projection identity across tenants.
+9. TG21 acceptance SHALL include backend and frontend regression evidence for
+   template-version changes, capability-revision changes, deterministic
+   projection, unknown-capability fail-closed behavior, reordered and removed
+   step progress preservation, tenant isolation, and absence of frontend
+   capability-mapping logic.
