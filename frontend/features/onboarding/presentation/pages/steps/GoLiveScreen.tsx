@@ -1,249 +1,410 @@
-/**
- * GoLiveScreen
- * Final step - Review clinic preparation and mark clinic as ready to start
- */
-
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import { useClinicTheme } from '../../../../../core/theme/useClinicTheme';
-import { useAuth } from '../../../../auth/presentation/hooks/useAuth';
-import { useSubmitStepMutation, onboardingKeys, useCompleteSetupMutation } from '../../../data/repositories/onboarding.repository.impl';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  findNodeHandle,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import { hasTranslation } from '../../../../../core/localization/i18n';
 import { useTranslation } from '../../../../../core/localization/useTranslation';
+import { ClinicTheme, useClinicTheme } from '../../../../../core/theme/useClinicTheme';
+import {
+  ChecklistItem,
+  NextAction,
+  ReadinessState,
+  ReadyToStartError,
+} from '../../../domain/entities/ready-to-start.entity';
+import { ErrorScreen } from '../../components/ErrorScreen';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { useReadyToStart } from '../../hooks/useReadyToStart';
 
 interface GoLiveScreenProps {
   tenantId: string;
   onComplete: () => void;
-  completedSteps: number;
-  totalSteps: number;
-  allSteps?: Array<{ code: string; name: string; status: string }>; // Add all steps for dynamic checklist
-  isWizardMode?: boolean; // Hide internal button when in wizard mode
-  onRegisterSaveHandler?: (handler: (() => Promise<void>) | null) => void;
+  onNavigateToSetupStep?: (stepCode: string) => void | Promise<void>;
+  onOpenWorkspacePreparation?: () => void | Promise<void>;
 }
 
-export function GoLiveScreen({ tenantId, onComplete, completedSteps, totalSteps, allSteps = [], isWizardMode = false, onRegisterSaveHandler }: GoLiveScreenProps) {
+const stateIcon: Record<ReadinessState, React.ComponentProps<typeof Ionicons>['name']> = {
+  READY: 'checkmark-circle',
+  NOT_READY: 'alert-circle',
+  EVALUATING: 'time',
+  UNKNOWN: 'help-circle',
+  UNAVAILABLE: 'cloud-offline',
+  STALE: 'refresh-circle',
+};
+
+const statusIcon: Record<ChecklistItem['status'], React.ComponentProps<typeof Ionicons>['name']> = {
+  COMPLETE: 'checkmark-circle',
+  BLOCKED: 'alert-circle',
+  ADVISORY: 'information-circle',
+  EVALUATING: 'time',
+  UNKNOWN: 'help-circle',
+  UNAVAILABLE: 'cloud-offline',
+  STALE: 'refresh-circle',
+};
+
+const errorKey = (error: unknown): string => {
+  if (!(error instanceof ReadyToStartError)) {
+    return 'onboarding.progressiveExperience.readyToStart.presentation.errors.generic';
+  }
+  return {
+    UNAUTHORIZED: 'onboarding.progressiveExperience.readyToStart.presentation.errors.unauthorized',
+    FORBIDDEN: 'onboarding.progressiveExperience.readyToStart.presentation.errors.forbidden',
+    TENANT_MISMATCH: 'onboarding.progressiveExperience.readyToStart.presentation.errors.tenantMismatch',
+    ORGANIZATION_MISMATCH: 'onboarding.progressiveExperience.readyToStart.presentation.errors.organizationMismatch',
+    UNSUPPORTED_CONTRACT: 'onboarding.progressiveExperience.readyToStart.presentation.errors.unsupportedContract',
+    STALE_PROJECTION: 'onboarding.progressiveExperience.readyToStart.presentation.errors.stale',
+    READINESS_UNAVAILABLE: 'onboarding.progressiveExperience.readyToStart.presentation.errors.unavailable',
+    INVALID_AGGREGATE: 'onboarding.progressiveExperience.readyToStart.presentation.errors.invalidAggregate',
+    BACKEND_FAILURE: 'onboarding.progressiveExperience.readyToStart.presentation.errors.generic',
+  }[error.kind];
+};
+
+export function GoLiveScreen({
+  tenantId,
+  onComplete,
+  onNavigateToSetupStep,
+  onOpenWorkspacePreparation,
+}: GoLiveScreenProps) {
   const theme = useClinicTheme();
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const { refreshSession } = useAuth();
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const submitStepMutation = useSubmitStepMutation(tenantId, 'go_live_checklist');
-  const completeSetupMutation = useCompleteSetupMutation(tenantId);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const readiness = useReadyToStart(tenantId);
+  const readinessState = readiness.data?.state;
+  const summaryRef = useRef<View>(null);
+  const actionInFlight = useRef(false);
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
-  // Generate checklist dynamically from all steps (excluding go_live_checklist itself)
-  const checklistItems = allSteps
-    .filter(step => step.code !== 'go_live_checklist')
-    .map((step, index) => ({
-      id: index + 1,
-      label: step.name,
-      completed: step.status === 'completed',
-    }));
-
-  const allComplete = checklistItems.every(item => item.completed);
-  const isGoLivePending = submitStepMutation.isPending || completeSetupMutation.isPending;
-
-  const handleGoLive = useCallback(async () => {
-    if (!agreedToTerms) {
-      Alert.alert(t('onboarding.progressiveExperience.readyToStart.agreementRequiredTitle'), t('onboarding.progressiveExperience.readyToStart.agreementRequiredMessage'));
-      return;
-    }
-
-    if (!allComplete) {
-      Alert.alert(t('onboarding.progressiveExperience.readyToStart.notReadyTitle'), t('onboarding.progressiveExperience.readyToStart.notReadyMessage'));
-      return;
-    }
-
-    try {
-      console.log('[GoLiveScreen] Starting go-live process...');
-      
-      // First, mark the go_live_checklist step as complete
-      console.log('[GoLiveScreen] Marking go_live_checklist step as complete...');
-      await submitStepMutation.mutateAsync({
-        data: { ready_to_go_live: true },
-        mark_complete: true,
-      });
-
-      // Then, call the complete setup endpoint to finalize everything
-      console.log('[GoLiveScreen] Calling complete setup endpoint...');
-      await completeSetupMutation.mutateAsync();
-
-      // Refresh auth session to get updated application_status
-      console.log('[GoLiveScreen] Refreshing auth session to get updated status...');
-      await refreshSession();
-
-      // Invalidate all onboarding queries to refresh status
-      await queryClient.invalidateQueries({ queryKey: onboardingKeys.all });
-      await queryClient.invalidateQueries({ queryKey: onboardingKeys.status(tenantId) });
-
-      console.log('[GoLiveScreen] Go-live process completed successfully!');
-      
-      // Navigate to clinic admin (router.replace prevents going back to wizard)
-      Alert.alert(
-        t('onboarding.progressiveExperience.readyToStart.successTitle'),
-        t('onboarding.progressiveExperience.readyToStart.successMessage'),
-        [
-          {
-            text: t('onboarding.progressiveExperience.readyToStart.goToDashboard'),
-            onPress: () => {
-              onComplete();
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('[GoLiveScreen] Error during go-live:', error);
-      Alert.alert(t('common.error'), error.message || t('onboarding.progressiveExperience.readyToStart.errorMessage'));
-    }
-  }, [agreedToTerms, allComplete, completeSetupMutation, onComplete, queryClient, refreshSession, submitStepMutation, tenantId, t]);
+  const safeTranslation = useCallback(
+    (token: string, fallback = 'onboarding.progressiveExperience.readyToStart.presentation.unavailableExplanation') =>
+      hasTranslation(token) ? t(token) : t(fallback),
+    [t]
+  );
 
   useEffect(() => {
-    if (!isWizardMode || !onRegisterSaveHandler) {
-      return;
+    if (!readinessState) return;
+    const node = summaryRef.current ? findNodeHandle(summaryRef.current) : null;
+    if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    AccessibilityInfo.announceForAccessibility(
+      t(`onboarding.progressiveExperience.readyToStart.presentation.states.${readinessState}`)
+    );
+  }, [readinessState, t]);
+
+  useEffect(() => {
+    if (!readiness.refreshing) return;
+    AccessibilityInfo.announceForAccessibility(
+      t('onboarding.progressiveExperience.readyToStart.presentation.refreshing')
+    );
+  }, [readiness.refreshing, t]);
+
+  const actionSupported = useCallback(
+    (action: NextAction): boolean => {
+      if (!readiness.scopeMatches || !hasTranslation(action.labelToken)) return false;
+      if (action.kind === 'REFRESH') {
+        return action.ownerId === 'ready_to_start' && action.actionId === 'readiness.refresh';
+      }
+      if (action.kind !== 'NAVIGATE') return false;
+      if (
+        action.ownerId === 'setup_wizard' &&
+        action.actionId === 'readiness.navigate_setup_step' &&
+        action.targetId?.startsWith('setup_step.')
+      ) return Boolean(onNavigateToSetupStep);
+      return Boolean(
+        action.ownerId === 'workspace_preparation' &&
+          action.actionId === 'readiness.open_workspace_preparation' &&
+          action.targetId === 'onboarding.workspace_preparation' &&
+          onOpenWorkspacePreparation
+      );
+    },
+    [onNavigateToSetupStep, onOpenWorkspacePreparation, readiness.scopeMatches]
+  );
+
+  const runAction = useCallback(
+    async (action: NextAction) => {
+      if (actionInFlight.current || !actionSupported(action)) return;
+      actionInFlight.current = true;
+      setActiveActionId(action.actionId);
+      try {
+        if (!(await readiness.revalidateTenant())) return;
+        if (action.kind === 'REFRESH') {
+          await readiness.refresh();
+        } else if (action.ownerId === 'setup_wizard' && action.targetId) {
+          await onNavigateToSetupStep?.(action.targetId.slice('setup_step.'.length));
+        } else if (action.ownerId === 'workspace_preparation') {
+          await onOpenWorkspacePreparation?.();
+        }
+      } finally {
+        actionInFlight.current = false;
+        setActiveActionId(null);
+      }
+    },
+    [actionSupported, onNavigateToSetupStep, onOpenWorkspacePreparation, readiness]
+  );
+
+  const handleHandoff = useCallback(async () => {
+    if (
+      actionInFlight.current ||
+      !readiness.data?.authorizesHandoff ||
+      readiness.data.state !== 'READY'
+    ) return;
+    actionInFlight.current = true;
+    setActiveActionId('readiness.handoff');
+    try {
+      if (await readiness.revalidateTenant()) onComplete();
+    } finally {
+      actionInFlight.current = false;
+      setActiveActionId(null);
     }
+  }, [onComplete, readiness]);
 
-    onRegisterSaveHandler(handleGoLive);
+  if (readiness.loading) {
+    return (
+      <LoadingScreen
+        message={t('onboarding.progressiveExperience.readyToStart.presentation.loading')}
+      />
+    );
+  }
 
-    return () => {
-      onRegisterSaveHandler(null);
-    };
-  }, [handleGoLive, isWizardMode, onRegisterSaveHandler]);
+  if (readiness.error || !readiness.data) {
+    return (
+      <ErrorScreen
+        title={t('onboarding.progressiveExperience.readyToStart.presentation.errorTitle')}
+        message={t(errorKey(readiness.error))}
+        retryLabel={t('onboarding.progressiveExperience.readyToStart.presentation.actions.retryQuery')}
+        onRetry={() => void readiness.refresh()}
+      />
+    );
+  }
+
+  const aggregate = readiness.data;
+  const stateLabel = t(
+    `onboarding.progressiveExperience.readyToStart.presentation.states.${aggregate.state}`
+  );
+  const stateColor = aggregate.state === 'READY'
+    ? theme.colors.feedback.success
+    : aggregate.state === 'NOT_READY'
+      ? theme.colors.feedback.warning
+      : theme.colors.feedback.info;
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: theme.spacing.lg }}>
-      {/* Header */}
-      <View style={{ alignItems: 'center', marginBottom: theme.spacing.xl }}>
-        <View
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            backgroundColor: theme.colors.feedback.successLight,
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: theme.spacing.md,
-          }}
-        >
-          <Ionicons name="rocket" size={40} color={theme.colors.feedback.success} />
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      accessibilityLabel={t('onboarding.progressiveExperience.readyToStart.presentation.screenLabel')}
+      accessibilityState={{ busy: readiness.refreshing }}
+      refreshControl={(
+        <RefreshControl
+          refreshing={readiness.refreshing}
+          onRefresh={() => void readiness.refresh()}
+          tintColor={theme.colors.primary.default}
+          colors={[theme.colors.primary.default]}
+        />
+      )}
+    >
+      <View
+        ref={summaryRef}
+        style={styles.summaryCard}
+        accessible
+        accessibilityRole={aggregate.state === 'READY' ? 'summary' : 'alert'}
+        accessibilityLiveRegion={aggregate.state === 'READY' ? 'polite' : 'assertive'}
+        accessibilityLabel={`${t('onboarding.progressiveExperience.readyToStart.presentation.title')}. ${stateLabel}`}
+      >
+        <Ionicons name={stateIcon[aggregate.state]} size={theme.spacing.xl} color={stateColor} />
+        <View style={styles.summaryText}>
+          <Text style={styles.title} accessibilityRole="header">
+            {t('onboarding.progressiveExperience.readyToStart.presentation.title')}
+          </Text>
+          <Text style={styles.stateLabel}>{stateLabel}</Text>
         </View>
-        <Text style={[theme.typography.h4, { color: theme.colors.text.primary, textAlign: 'center' }]}>
-          {t('onboarding.progressiveExperience.readyToStart.title')}
-        </Text>
-        <Text style={[theme.typography.body1, { color: theme.colors.text.secondary, textAlign: 'center', marginTop: theme.spacing.sm }]}>
-          {t('onboarding.progressiveExperience.readyToStart.preparedCount', { completed: completedSteps, total: totalSteps })}
-        </Text>
       </View>
 
-      {/* Readiness Summary */}
-      <View
-        style={{
-          backgroundColor: theme.colors.surface.default,
-          borderRadius: 12,
-          padding: theme.spacing.lg,
-          marginBottom: theme.spacing.lg,
-        }}
-      >
-        <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginBottom: theme.spacing.md }]}>
-          {t('onboarding.progressiveExperience.readyToStart.checklistTitle')}
+      {readiness.refreshing && (
+        <Text style={styles.refreshing} accessibilityLiveRegion="polite">
+          {t('onboarding.progressiveExperience.readyToStart.presentation.refreshing')}
         </Text>
+      )}
 
-        {checklistItems.map((item) => (
-          <View
-            key={item.id}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: theme.spacing.sm,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.border.default,
-            }}
-          >
-            <Ionicons
-              name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-              size={24}
-              color={item.completed ? theme.colors.feedback.success : theme.colors.text.disabled}
-            />
-            <Text
-              style={[
-                theme.typography.body2,
-                {
-                  color: item.completed ? theme.colors.text.primary : theme.colors.text.disabled,
-                  marginLeft: theme.spacing.sm,
-                  flex: 1,
-                },
-              ]}
-            >
-              {item.label}
-            </Text>
-          </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {t('onboarding.progressiveExperience.readyToStart.presentation.explanationTitle')}
+        </Text>
+        {aggregate.providers.map(provider => (
+          <Text key={`${provider.providerId}:${provider.providerVersion}`} style={styles.explanation}>
+            {safeTranslation(provider.explanationToken)}
+          </Text>
         ))}
       </View>
 
-      {/* Terms Agreement */}
-      <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: theme.spacing.md,
-          backgroundColor: theme.colors.surface.default,
-          borderRadius: 8,
-          marginBottom: theme.spacing.lg,
-        }}
-        onPress={() => setAgreedToTerms(!agreedToTerms)}
-      >
-        <Ionicons
-          name={agreedToTerms ? 'checkbox' : 'square-outline'}
-          size={24}
-          color={agreedToTerms ? theme.colors.primary.default : theme.colors.text.secondary}
-        />
-        <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          {t('onboarding.progressiveExperience.readyToStart.confirmAccuracy')}
+      <View style={styles.section} accessibilityRole="list">
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {t('onboarding.progressiveExperience.readyToStart.presentation.checklistTitle')}
         </Text>
-      </TouchableOpacity>
+        {aggregate.checklist.map(item => {
+          const itemStatus = t(
+            `onboarding.progressiveExperience.readyToStart.presentation.itemStates.${item.status}`
+          );
+          const action = item.nextAction;
+          const supported = action ? actionSupported(action) : false;
+          const pending = action ? activeActionId === action.actionId : false;
+          return (
+            <View
+              key={`${item.providerId}:${item.itemId}`}
+              style={styles.checklistCard}
+              accessible
+              accessibilityRole="summary"
+              accessibilityLabel={`${safeTranslation(item.titleToken)}. ${itemStatus}. ${safeTranslation(item.explanationToken)}`}
+            >
+              <View style={styles.checklistHeading}>
+                <Ionicons
+                  name={statusIcon[item.status]}
+                  size={theme.spacing.lg}
+                  color={
+                    item.status === 'COMPLETE'
+                      ? theme.colors.feedback.success
+                      : item.status === 'ADVISORY'
+                        ? theme.colors.feedback.info
+                        : theme.colors.feedback.warning
+                  }
+                />
+                <View style={styles.checklistText}>
+                  <Text style={styles.itemTitle}>{safeTranslation(item.titleToken)}</Text>
+                  <Text style={styles.itemStatus}>{itemStatus}</Text>
+                </View>
+              </View>
+              <Text style={styles.explanation}>{safeTranslation(item.explanationToken)}</Text>
+              {action && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={safeTranslation(
+                    action.labelToken,
+                    'onboarding.progressiveExperience.readyToStart.presentation.actions.unavailable'
+                  )}
+                  accessibilityState={{ disabled: !supported || pending, busy: pending }}
+                  disabled={!supported || pending}
+                  onPress={() => void runAction(action)}
+                  style={[styles.actionButton, (!supported || pending) && styles.disabledButton]}
+                >
+                  {pending ? (
+                    <ActivityIndicator color={theme.colors.text.onPrimary} />
+                  ) : (
+                    <Text style={styles.actionButtonText}>
+                      {safeTranslation(
+                        action.labelToken,
+                        'onboarding.progressiveExperience.readyToStart.presentation.actions.unavailable'
+                      )}
+                    </Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          );
+        })}
+      </View>
 
-      {/* Info Box */}
-      <View
-        style={{
-          backgroundColor: theme.colors.feedback.infoLight,
-          padding: theme.spacing.md,
-          borderRadius: 8,
-          flexDirection: 'row',
-          marginBottom: theme.spacing.xl,
-        }}
-      >
-        <Ionicons name="information-circle" size={20} color={theme.colors.feedback.info} />
-        <Text style={[theme.typography.body2, { color: theme.colors.text.primary, marginLeft: theme.spacing.sm, flex: 1 }]}>
-          {t('onboarding.progressiveExperience.readyToStart.info')}
+      <View style={styles.counts} accessible accessibilityRole="summary">
+        <Text style={styles.countText}>
+          {t('onboarding.progressiveExperience.readyToStart.presentation.blockerCount', {
+            count: aggregate.blockers.length,
+          })}
+        </Text>
+        <Text style={styles.countText}>
+          {t('onboarding.progressiveExperience.readyToStart.presentation.advisoryCount', {
+            count: aggregate.advisories.length,
+          })}
         </Text>
       </View>
 
-      {/* Ready to Start Button - Only show in standalone mode, not in wizard */}
-      {!isWizardMode && (
-        <TouchableOpacity
-          style={{
-            backgroundColor: allComplete && agreedToTerms ? theme.colors.feedback.success : theme.colors.surface.elevated,
-            padding: theme.spacing.md,
-            borderRadius: theme.spacing.sm,
-            alignItems: 'center',
-            opacity: allComplete && agreedToTerms && !isGoLivePending ? 1 : 0.5,
-          }}
-          onPress={handleGoLive}
-          disabled={!allComplete || !agreedToTerms || isGoLivePending}
-          accessibilityState={{ disabled: !allComplete || !agreedToTerms || isGoLivePending }}
-        >
-          {isGoLivePending ? (
-            <ActivityIndicator size="small" color={theme.colors.text.onPrimary} />
-          ) : (
-            <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-              {t('onboarding.progressiveExperience.readyToStart.title')}
-            </Text>
-          )}
-        </TouchableOpacity>
-      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('onboarding.progressiveExperience.readyToStart.presentation.actions.continue')}
+        accessibilityState={{
+          disabled: !aggregate.authorizesHandoff || activeActionId !== null,
+          busy: activeActionId === 'readiness.handoff',
+        }}
+        disabled={!aggregate.authorizesHandoff || activeActionId !== null}
+        onPress={() => void handleHandoff()}
+        style={[
+          styles.handoffButton,
+          (!aggregate.authorizesHandoff || activeActionId !== null) && styles.disabledButton,
+        ]}
+      >
+        {activeActionId === 'readiness.handoff' ? (
+          <ActivityIndicator color={theme.colors.text.onPrimary} />
+        ) : (
+          <Text style={styles.actionButtonText}>
+            {t('onboarding.progressiveExperience.readyToStart.presentation.actions.continue')}
+          </Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  // Styles set inline with theme
-});
+const createStyles = (theme: ClinicTheme) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.colors.background.default },
+    content: { padding: theme.spacing.lg },
+    summaryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface.default,
+      borderColor: theme.colors.border.default,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: theme.spacing.sm,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    summaryText: { flex: 1, marginLeft: theme.spacing.md },
+    title: { ...theme.typography.h4, color: theme.colors.text.primary },
+    stateLabel: { ...theme.typography.subtitle1, color: theme.colors.text.secondary, marginTop: theme.spacing.xs },
+    refreshing: { ...theme.typography.caption, color: theme.colors.text.secondary, marginBottom: theme.spacing.md },
+    section: { marginBottom: theme.spacing.lg },
+    sectionTitle: { ...theme.typography.h6, color: theme.colors.text.primary, marginBottom: theme.spacing.sm },
+    explanation: { ...theme.typography.body2, color: theme.colors.text.secondary, marginBottom: theme.spacing.sm },
+    checklistCard: {
+      backgroundColor: theme.colors.surface.default,
+      borderColor: theme.colors.border.default,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: theme.spacing.sm,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    checklistHeading: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
+    checklistText: { flex: 1, marginLeft: theme.spacing.sm },
+    itemTitle: { ...theme.typography.subtitle1, color: theme.colors.text.primary },
+    itemStatus: { ...theme.typography.caption, color: theme.colors.text.secondary },
+    actionButton: {
+      minHeight: theme.spacing.xxl,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.primary.default,
+      borderRadius: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+    },
+    handoffButton: {
+      minHeight: theme.spacing.xxl,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.primary.default,
+      borderRadius: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+    },
+    disabledButton: { backgroundColor: theme.colors.interactive.disabled },
+    actionButtonText: { ...theme.typography.button, color: theme.colors.text.onPrimary },
+    counts: {
+      backgroundColor: theme.colors.surface.muted,
+      borderRadius: theme.spacing.sm,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+    },
+    countText: { ...theme.typography.body2, color: theme.colors.text.secondary },
+  });

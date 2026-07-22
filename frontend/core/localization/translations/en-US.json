@@ -827,7 +827,100 @@
         "confirmAccuracy": "I confirm that all information is accurate and I am ready to start accepting patients",
         "info": "Once you start, your clinic workspace is ready for appointments, patients, and daily operations.",
         "successTitle": "Congratulations!",
-        "goToDashboard": "Go to Dashboard"
+        "goToDashboard": "Go to Dashboard",
+        "presentation": {
+          "title": "Clinic readiness",
+          "screenLabel": "Clinic readiness checklist",
+          "loading": "Checking whether your clinic is ready...",
+          "refreshing": "Refreshing clinic readiness...",
+          "errorTitle": "Readiness could not be loaded",
+          "explanationTitle": "Why this status",
+          "checklistTitle": "What is ready and what needs attention",
+          "unavailableExplanation": "This readiness detail is currently unavailable.",
+          "blockerCount": "Blocking items: {{count}}",
+          "advisoryCount": "Advisory items: {{count}}",
+          "states": {
+            "READY": "Ready",
+            "NOT_READY": "Not ready",
+            "EVALUATING": "Evaluating",
+            "UNKNOWN": "Unknown",
+            "UNAVAILABLE": "Unavailable",
+            "STALE": "Needs refresh"
+          },
+          "itemStates": {
+            "COMPLETE": "Complete",
+            "BLOCKED": "Blocking readiness",
+            "ADVISORY": "Advisory",
+            "EVALUATING": "Being evaluated",
+            "UNKNOWN": "Unknown",
+            "UNAVAILABLE": "Unavailable",
+            "STALE": "Needs refresh"
+          },
+          "actions": {
+            "continue": "Continue to clinic workspace",
+            "retryQuery": "Check again",
+            "unavailable": "Action unavailable"
+          },
+          "errors": {
+            "unauthorized": "Please sign in again to check clinic readiness.",
+            "forbidden": "You do not have permission to view readiness for this clinic.",
+            "tenantMismatch": "The selected clinic changed. Return to the current clinic and check again.",
+            "organizationMismatch": "This clinic is not available in the selected organization.",
+            "unsupportedContract": "This app version cannot display the current readiness result.",
+            "stale": "Readiness changed while it was loading. Check again for the latest result.",
+            "unavailable": "Clinic readiness is temporarily unavailable. Please check again.",
+            "invalidAggregate": "The readiness result could not be safely displayed.",
+            "generic": "Clinic readiness could not be loaded. Please try again."
+          }
+        }
+      }
+    },
+    "progressive_experience": {
+      "ready_to_start": {
+        "providers": {
+          "journey_setup_progress": {
+            "severity": "Clinic setup progress",
+            "ready": "All required clinic setup steps are complete.",
+            "not_ready": "One or more clinic setup steps still need attention.",
+            "evaluating": "Clinic setup progress is being checked.",
+            "unknown": "Clinic setup progress could not be determined.",
+            "unavailable": "Clinic setup progress is temporarily unavailable.",
+            "stale": "Clinic setup progress has changed and must be refreshed.",
+            "steps": {
+              "clinic_profile": { "title": "Clinic profile", "complete": "Clinic profile is complete.", "blocked": "Complete the clinic profile.", "advisory": "Review the optional clinic profile details." },
+              "operating_hours": { "title": "Operating hours", "complete": "Operating hours are complete.", "blocked": "Add the clinic operating hours.", "advisory": "Review the optional operating-hour details." },
+              "rooms_and_therapy_beds": { "title": "Rooms and therapy beds", "complete": "Rooms and therapy beds are complete.", "blocked": "Add the required rooms or therapy beds.", "advisory": "Review the optional room and therapy-bed details." },
+              "treatments_and_therapies": { "title": "Treatments and therapies", "complete": "Treatments and therapies are complete.", "blocked": "Add the required treatments or therapies.", "advisory": "Review the optional treatment and therapy details." },
+              "staff_and_roles": { "title": "Staff and roles", "complete": "Staff and roles are complete.", "blocked": "Add the required staff and roles.", "advisory": "Review the optional staff and role details." },
+              "inventory_setup": { "title": "Inventory setup", "complete": "Inventory setup is complete.", "blocked": "Complete the required inventory setup.", "advisory": "Review the optional inventory details." },
+              "financials_and_tax": { "title": "Financial and tax details", "complete": "Financial and tax details are complete.", "blocked": "Complete the required financial and tax details.", "advisory": "Review the optional financial and tax details." },
+              "subscription_payment": { "title": "Subscription preferences", "complete": "Subscription preferences are complete.", "blocked": "Complete the required subscription preferences.", "advisory": "Review the optional subscription preferences." },
+              "go_live_checklist": { "title": "Clinic readiness", "complete": "Clinic readiness review is complete.", "blocked": "Review the clinic readiness checklist.", "advisory": "Review the optional readiness details." }
+            }
+          },
+          "workspace_preparation": {
+            "severity": "Clinic workspace preparation",
+            "ready": "Your clinic workspace is prepared.",
+            "not_ready": "Your clinic workspace still needs preparation.",
+            "evaluating": "Your clinic workspace is being prepared.",
+            "unknown": "Workspace preparation could not be determined.",
+            "unavailable": "Workspace preparation is temporarily unavailable.",
+            "stale": "Workspace preparation has changed and must be refreshed.",
+            "states": {
+              "ready": { "title": "Clinic workspace", "explanation": "Your clinic workspace is prepared." },
+              "not_ready": { "title": "Clinic workspace", "explanation": "Your clinic workspace still needs preparation." },
+              "evaluating": { "title": "Clinic workspace", "explanation": "Your clinic workspace is being prepared." },
+              "unknown": { "title": "Clinic workspace", "explanation": "Workspace preparation could not be determined." },
+              "unavailable": { "title": "Clinic workspace", "explanation": "Workspace preparation is temporarily unavailable." },
+              "stale": { "title": "Clinic workspace", "explanation": "Workspace preparation has changed and must be refreshed." }
+            },
+            "actions": {
+              "refresh": "Refresh readiness",
+              "retry": "Retry workspace preparation",
+              "open": "Open workspace preparation"
+            }
+          }
+        }
       }
     }
   }

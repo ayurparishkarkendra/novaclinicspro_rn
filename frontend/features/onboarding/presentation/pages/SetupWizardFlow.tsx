@@ -769,11 +769,10 @@ export function SetupWizardFlow() {
               void resetWizardDraftStorage();
               router.replace(`/clinic-admin?tenantId=${tenantId}`);
             }}
-            completedSteps={statusData?.completed_steps || 0}
-            totalSteps={statusData?.total_steps || 0}
-            allSteps={steps}
-            isWizardMode={true}
-            onRegisterSaveHandler={registerSaveHandler}
+            onNavigateToSetupStep={navigateToProjectedStep}
+            onOpenWorkspacePreparation={() => {
+              router.push(`/onboarding/workspace-preparation?tenantId=${tenantId}` as any);
+            }}
           />
         );
 
@@ -899,7 +898,9 @@ export function SetupWizardFlow() {
       </ScrollView>
 
       {/* Navigation Footer */}
-      {journey?.availability === 'available' && journey.cards.length > 0 && (
+      {journey?.availability === 'available' &&
+        journey.cards.length > 0 &&
+        currentStep?.code !== 'go_live_checklist' && (
         <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
         <TouchableOpacity
           style={[
