@@ -25,6 +25,8 @@ import {
   WorkspacePreparationStartRequestDTO,
   JourneyVisibilityDatasourceError,
   JourneyVisibilityResponseDTO,
+  ReadyToStartDatasourceError,
+  ReadyToStartResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   AuthOrganizationContext,
@@ -71,6 +73,33 @@ const throwJourneyVisibilityError = (error: any): never => {
     Boolean(body.retryable),
     error?.response?.status
   );
+};
+
+const throwReadyToStartError = (error: any): never => {
+  if (error?.code === 'ERR_CANCELED') throw error;
+  const detail = error?.response?.data?.detail ?? {};
+  const body = detail.error ?? detail;
+  throw new ReadyToStartDatasourceError(
+    body.error_code ?? 'readiness.evaluation_failure',
+    body.message_token ?? 'errors.readyToStart.evaluation_failure',
+    Boolean(body.retryable),
+    error?.response?.status
+  );
+};
+
+export const getReadyToStartApi = async (
+  tenantId: string,
+  signal?: AbortSignal
+): Promise<ReadyToStartResponseDTO> => {
+  try {
+    const response = await axiosClient.get<ReadyToStartResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/ready-to-start`,
+      { signal }
+    );
+    return response.data;
+  } catch (error) {
+    return throwReadyToStartError(error);
+  }
 };
 
 export const getJourneyVisibilityApi = async (

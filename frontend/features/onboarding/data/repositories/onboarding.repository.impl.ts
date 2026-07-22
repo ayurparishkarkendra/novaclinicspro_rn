@@ -32,6 +32,7 @@ import {
   getWorkspacePreparationApi,
   retryWorkspacePreparationApi,
   getJourneyVisibilityApi,
+  getReadyToStartApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -51,6 +52,11 @@ import {
   WorkspacePreparationResponseDTO,
   JourneyVisibilityDatasourceError,
   JourneyVisibilityResponseDTO,
+  ReadinessChecklistItemDTO,
+  ReadinessNextActionDTO,
+  ReadinessProviderDTO,
+  ReadyToStartDatasourceError,
+  ReadyToStartResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -72,7 +78,20 @@ import {
   JourneyVisibilityError,
   JourneyVisibilityProjection,
 } from '../../domain/entities/journey-visibility.entity';
-import { IJourneyVisibilityRepository } from '../../domain/repositories/onboarding.repository';
+import {
+  IJourneyVisibilityRepository,
+  IReadyToStartRepository,
+} from '../../domain/repositories/onboarding.repository';
+import {
+  Advisory,
+  Blocker,
+  ChecklistItem,
+  NextAction,
+  READY_TO_START_CONTRACT_V1,
+  ReadinessProvider,
+  ReadyToStart,
+  ReadyToStartError,
+} from '../../domain/entities/ready-to-start.entity';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -110,6 +129,13 @@ export const onboardingKeys = {
     ] as const,
   journeyVisibilities: (organizationId: string, tenantId: string) =>
     [...onboardingKeys.all, 'journey-visibility', organizationId, tenantId] as const,
+  readinesses: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'ready-to-start', organizationId, tenantId] as const,
+  readiness: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.readinesses(organizationId, tenantId),
+      READY_TO_START_CONTRACT_V1,
+    ] as const,
 };
 
 const CAPABILITY_REVISION_V1 = /^cap-v1:[0-9a-f]{64}$/;
@@ -229,6 +255,276 @@ export const useClearJourneyVisibilityCache = () => {
   return useCallback(
     async (organizationId: string, tenantId: string): Promise<void> => {
       const queryKey = onboardingKeys.journeyVisibilities(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+const READINESS_STATES = [
+  'READY',
+  'NOT_READY',
+  'EVALUATING',
+  'UNKNOWN',
+  'UNAVAILABLE',
+  'STALE',
+] as const;
+const CHECKLIST_STATUSES = [
+  'COMPLETE',
+  'BLOCKED',
+  'ADVISORY',
+  'EVALUATING',
+  'UNKNOWN',
+  'UNAVAILABLE',
+  'STALE',
+] as const;
+const PROVIDER_OUTCOMES = ['SATISFIED', 'BLOCKER', 'ADVISORY'] as const;
+const NEXT_ACTION_KINDS = ['NAVIGATE', 'REFRESH', 'RETRY', 'CONTACT_SUPPORT'] as const;
+
+const present = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+const timestamp = (value: string): boolean => present(value) && !Number.isNaN(Date.parse(value));
+
+const invalidAggregate = (messageToken = 'errors.readyToStart.invalid_aggregate'): never => {
+  throw new ReadyToStartError(
+    'INVALID_AGGREGATE',
+    'readiness.invalid_aggregate',
+    messageToken,
+    false
+  );
+};
+
+const mapReadinessNextAction = (dto: ReadinessNextActionDTO | null): NextAction | null => {
+  if (dto === null) return null;
+  if (
+    !present(dto.action_id) ||
+    !present(dto.label_token) ||
+    !present(dto.owner_id) ||
+    !NEXT_ACTION_KINDS.includes(dto.kind) ||
+    !present(dto.authorization_requirement) ||
+    (dto.target_id !== null && !present(dto.target_id))
+  ) invalidAggregate();
+  return Object.freeze({
+    actionId: dto.action_id,
+    labelToken: dto.label_token,
+    ownerId: dto.owner_id,
+    kind: dto.kind,
+    authorizationRequirement: dto.authorization_requirement,
+    targetId: dto.target_id,
+  });
+};
+
+const mapReadinessChecklistItem = (dto: ReadinessChecklistItemDTO): ChecklistItem => {
+  const classificationMatchesStatus =
+    (dto.status === 'COMPLETE' && dto.classification === null) ||
+    (dto.status === 'ADVISORY' && dto.classification === 'ADVISORY') ||
+    (!['COMPLETE', 'ADVISORY'].includes(dto.status) && dto.classification === 'BLOCKER');
+  if (
+    !present(dto.provider_id) ||
+    !present(dto.item_id) ||
+    !present(dto.item_version) ||
+    !present(dto.title_token) ||
+    !present(dto.explanation_token) ||
+    !CHECKLIST_STATUSES.includes(dto.status) ||
+    (dto.classification !== null && !['BLOCKER', 'ADVISORY'].includes(dto.classification)) ||
+    !timestamp(dto.evidence_timestamp) ||
+    !Number.isInteger(dto.order) ||
+    dto.order < 0 ||
+    typeof dto.applicable !== 'boolean' ||
+    !classificationMatchesStatus
+  ) invalidAggregate();
+  return Object.freeze({
+    providerId: dto.provider_id,
+    itemId: dto.item_id,
+    itemVersion: dto.item_version,
+    titleToken: dto.title_token,
+    explanationToken: dto.explanation_token,
+    status: dto.status,
+    classification: dto.classification,
+    evidenceTimestamp: dto.evidence_timestamp,
+    order: dto.order,
+    applicable: dto.applicable,
+    nextAction: mapReadinessNextAction(dto.next_action),
+  });
+};
+
+const mapReadinessProvider = (dto: ReadinessProviderDTO): ReadinessProvider => {
+  if (
+    !present(dto.provider_id) ||
+    !present(dto.provider_version) ||
+    !Number.isInteger(dto.provider_order) ||
+    dto.provider_order < 0 ||
+    typeof dto.applicable !== 'boolean' ||
+    !READINESS_STATES.includes(dto.state) ||
+    !PROVIDER_OUTCOMES.includes(dto.outcome) ||
+    !present(dto.evidence_revision) ||
+    !timestamp(dto.observed_at) ||
+    !present(dto.severity) ||
+    !present(dto.explanation_token)
+  ) invalidAggregate();
+  return Object.freeze({
+    providerId: dto.provider_id,
+    providerVersion: dto.provider_version,
+    providerOrder: dto.provider_order,
+    applicable: dto.applicable,
+    state: dto.state,
+    outcome: dto.outcome,
+    evidenceRevision: dto.evidence_revision,
+    observedAt: dto.observed_at,
+    severity: dto.severity,
+    explanationToken: dto.explanation_token,
+    nextAction: mapReadinessNextAction(dto.next_action),
+  });
+};
+
+export const mapReadyToStart = (
+  dto: ReadyToStartResponseDTO,
+  requestedTenantId: string
+): ReadyToStart => {
+  if (!dto.identity) invalidAggregate();
+  if (dto.identity.tenant_id !== requestedTenantId) {
+    throw new ReadyToStartError(
+      'TENANT_MISMATCH',
+      'readiness.tenant_mismatch',
+      'errors.readyToStart.tenant_mismatch',
+      false
+    );
+  }
+  if (dto.identity.readiness_contract_version !== READY_TO_START_CONTRACT_V1) {
+    throw new ReadyToStartError(
+      'UNSUPPORTED_CONTRACT',
+      'readiness.unsupported_contract',
+      'errors.readyToStart.unsupported_contract',
+      false
+    );
+  }
+  if (
+    !present(dto.identity.journey_projection_identity?.template_version) ||
+    !present(dto.identity.journey_projection_identity?.capability_revision) ||
+    !present(dto.identity.provider_set_revision) ||
+    !present(dto.identity.evidence_revision) ||
+    !READINESS_STATES.includes(dto.state) ||
+    !Array.isArray(dto.providers) ||
+    !Array.isArray(dto.checklist) ||
+    !Array.isArray(dto.blockers) ||
+    !Array.isArray(dto.advisories) ||
+    !timestamp(dto.evaluated_at) ||
+    typeof dto.authorizes_handoff !== 'boolean' ||
+    dto.authorizes_handoff !== (dto.state === 'READY')
+  ) invalidAggregate();
+
+  const identity = Object.freeze({
+    readinessContractVersion: READY_TO_START_CONTRACT_V1,
+    tenantId: dto.identity.tenant_id,
+    journeyProjectionIdentity: Object.freeze({
+      templateVersion: dto.identity.journey_projection_identity.template_version,
+      capabilityRevision: dto.identity.journey_projection_identity.capability_revision,
+    }),
+    providerSetRevision: dto.identity.provider_set_revision,
+    evidenceRevision: dto.identity.evidence_revision,
+  });
+  const providers = Object.freeze(dto.providers.map(mapReadinessProvider));
+  const checklist = Object.freeze(dto.checklist.map(mapReadinessChecklistItem));
+  const blockers = Object.freeze(
+    dto.blockers.map((item) => {
+      const mapped = mapReadinessChecklistItem(item);
+      if (mapped.classification !== 'BLOCKER') invalidAggregate();
+      return mapped as Blocker;
+    })
+  );
+  const advisories = Object.freeze(
+    dto.advisories.map((item) => {
+      const mapped = mapReadinessChecklistItem(item);
+      if (mapped.classification !== 'ADVISORY') invalidAggregate();
+      return mapped as Advisory;
+    })
+  );
+  return Object.freeze({
+    identity,
+    state: dto.state,
+    providers,
+    checklist,
+    blockers,
+    advisories,
+    evaluatedAt: dto.evaluated_at,
+    authorizesHandoff: dto.authorizes_handoff,
+  });
+};
+
+const readinessFailureKind = (
+  error: ReadyToStartDatasourceError
+): ReadyToStartError['kind'] => {
+  if (error.httpStatus === 401) return 'UNAUTHORIZED';
+  if (error.errorCode === 'readiness.tenant_mismatch') return 'TENANT_MISMATCH';
+  if (error.errorCode === 'readiness.organization_mismatch') return 'ORGANIZATION_MISMATCH';
+  if (error.httpStatus === 403 || error.errorCode === 'readiness.forbidden') return 'FORBIDDEN';
+  if (error.errorCode === 'readiness.unsupported_contract') return 'UNSUPPORTED_CONTRACT';
+  if (error.errorCode === 'readiness.stale') return 'STALE_PROJECTION';
+  if (
+    error.errorCode === 'readiness.provider_unavailable' ||
+    error.errorCode === 'readiness.effective_tenant_unavailable'
+  ) return 'READINESS_UNAVAILABLE';
+  if (
+    error.errorCode === 'readiness.provider_configuration' ||
+    error.errorCode === 'readiness.invalid_aggregate'
+  ) return 'INVALID_AGGREGATE';
+  return 'BACKEND_FAILURE';
+};
+
+const mapReadyToStartError = (error: unknown): never => {
+  if (
+    error instanceof Error &&
+    (error.name === 'CanceledError' || (error as Error & { code?: string }).code === 'ERR_CANCELED')
+  ) throw error;
+  if (error instanceof ReadyToStartError) throw error;
+  if (error instanceof ReadyToStartDatasourceError) {
+    throw new ReadyToStartError(
+      readinessFailureKind(error),
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new ReadyToStartError(
+    'BACKEND_FAILURE',
+    'readiness.evaluation_failure',
+    'errors.readyToStart.evaluation_failure',
+    true
+  );
+};
+
+export const readyToStartRepository: IReadyToStartRepository = {
+  async getReadyToStart(tenantId: string, signal?: AbortSignal): Promise<ReadyToStart> {
+    try {
+      return mapReadyToStart(await getReadyToStartApi(tenantId, signal), tenantId);
+    } catch (error) {
+      return mapReadyToStartError(error);
+    }
+  },
+};
+
+export const shouldRetryReadyToStart = (failureCount: number, error: Error): boolean =>
+  error instanceof ReadyToStartError && error.retryable && failureCount < 2;
+
+export const useReadyToStartQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<ReadyToStart, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<ReadyToStart, Error>({
+    queryKey: onboardingKeys.readiness(organizationId, tenantId),
+    queryFn: ({ signal }) => readyToStartRepository.getReadyToStart(tenantId, signal),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryReadyToStart,
+    ...options,
+  });
+
+export const useClearReadyToStartCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.readinesses(organizationId, tenantId);
       await queryClient.cancelQueries({ queryKey });
       queryClient.removeQueries({ queryKey });
     },

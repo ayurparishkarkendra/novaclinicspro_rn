@@ -29,9 +29,14 @@ import {
   WorkspacePreparationError,
 } from '../entities/workspace-preparation.entity';
 import { JourneyVisibilityProjection } from '../entities/journey-visibility.entity';
+import { ReadyToStart } from '../entities/ready-to-start.entity';
 
 export interface IJourneyVisibilityRepository {
   getJourneyVisibility(tenantId: string): Promise<JourneyVisibilityProjection>;
+}
+
+export interface IReadyToStartRepository {
+  getReadyToStart(tenantId: string, signal?: AbortSignal): Promise<ReadyToStart>;
 }
 
 export interface IOnboardingRepository {
@@ -91,6 +96,7 @@ export interface IOnboardingRepository {
     idempotencyKey: string
   ): Promise<WorkspacePreparation>;
   getJourneyVisibility(tenantId: string): Promise<JourneyVisibilityProjection>;
+  getReadyToStart(tenantId: string, signal?: AbortSignal): Promise<ReadyToStart>;
 }
 
 export type OnboardingRepositoryError = WorkspacePreparationError;

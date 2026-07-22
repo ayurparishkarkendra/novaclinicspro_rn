@@ -306,3 +306,102 @@ export class JourneyVisibilityDatasourceError extends Error {
     this.name = 'JourneyVisibilityDatasourceError';
   }
 }
+
+// === Ready to Start (TG22 Version 1) ===
+export type ReadinessStateDTO =
+  | 'READY'
+  | 'NOT_READY'
+  | 'EVALUATING'
+  | 'UNKNOWN'
+  | 'UNAVAILABLE'
+  | 'STALE';
+
+export type ReadinessChecklistStatusDTO =
+  | 'COMPLETE'
+  | 'BLOCKED'
+  | 'ADVISORY'
+  | 'EVALUATING'
+  | 'UNKNOWN'
+  | 'UNAVAILABLE'
+  | 'STALE';
+
+export type ReadinessClassificationDTO = 'BLOCKER' | 'ADVISORY';
+export type ReadinessProviderOutcomeDTO = 'SATISFIED' | 'BLOCKER' | 'ADVISORY';
+export type ReadinessNextActionKindDTO =
+  | 'NAVIGATE'
+  | 'REFRESH'
+  | 'RETRY'
+  | 'CONTACT_SUPPORT';
+
+export interface ReadinessProjectionIdentityDTO {
+  readonly template_version: string;
+  readonly capability_revision: string;
+}
+
+export interface ReadinessIdentityDTO {
+  readonly readiness_contract_version: 'ready_to_start_v1';
+  readonly tenant_id: string;
+  readonly journey_projection_identity: ReadinessProjectionIdentityDTO;
+  readonly provider_set_revision: string;
+  readonly evidence_revision: string;
+}
+
+export interface ReadinessNextActionDTO {
+  readonly action_id: string;
+  readonly label_token: string;
+  readonly owner_id: string;
+  readonly kind: ReadinessNextActionKindDTO;
+  readonly authorization_requirement: string;
+  readonly target_id: string | null;
+}
+
+export interface ReadinessChecklistItemDTO {
+  readonly provider_id: string;
+  readonly item_id: string;
+  readonly item_version: string;
+  readonly title_token: string;
+  readonly explanation_token: string;
+  readonly status: ReadinessChecklistStatusDTO;
+  readonly classification: ReadinessClassificationDTO | null;
+  readonly evidence_timestamp: string;
+  readonly order: number;
+  readonly applicable: boolean;
+  readonly next_action: ReadinessNextActionDTO | null;
+}
+
+export interface ReadinessProviderDTO {
+  readonly provider_id: string;
+  readonly provider_version: string;
+  readonly provider_order: number;
+  readonly applicable: boolean;
+  readonly state: ReadinessStateDTO;
+  readonly outcome: ReadinessProviderOutcomeDTO;
+  readonly evidence_revision: string;
+  readonly observed_at: string;
+  readonly severity: string;
+  readonly explanation_token: string;
+  readonly next_action: ReadinessNextActionDTO | null;
+}
+
+export interface ReadyToStartResponseDTO {
+  readonly identity: ReadinessIdentityDTO;
+  readonly state: ReadinessStateDTO;
+  readonly providers: readonly ReadinessProviderDTO[];
+  readonly checklist: readonly ReadinessChecklistItemDTO[];
+  readonly blockers: readonly ReadinessChecklistItemDTO[];
+  readonly advisories: readonly ReadinessChecklistItemDTO[];
+  readonly evaluated_at: string;
+  readonly authorizes_handoff: boolean;
+}
+
+export class ReadyToStartDatasourceError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly httpStatus?: number
+  ) {
+    super(messageToken);
+    this.name = 'ReadyToStartDatasourceError';
+  }
+}
