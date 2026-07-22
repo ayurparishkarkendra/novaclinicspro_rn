@@ -756,9 +756,20 @@
       },
       "journey": {
         "heading": "Your clinic preparation journey",
+        "loading": "Loading your clinic preparation journey...",
+        "refreshing": "Refreshing your clinic preparation journey...",
+        "retry": "Try again",
         "unavailable": "This journey version is not available in this app version. Your saved clinic information has not been changed.",
         "empty": "No supported journey steps are available yet. Your clinic is not marked complete by this state.",
-        "progress": "{{completed}} of {{total}} journey steps complete"
+        "progress": "{{completed}} of {{total}} journey steps complete",
+        "failure": {
+          "unauthorized": "Please sign in again to view this clinic journey.",
+          "forbidden": "You do not have permission to view this clinic journey.",
+          "tenantMismatch": "The selected clinic changed. Return to the clinic selector and try again.",
+          "unavailable": "Your clinic journey is temporarily unavailable. Please try again.",
+          "contractMismatch": "This clinic journey cannot be safely displayed by this app version.",
+          "generic": "Your clinic journey could not be loaded. Please try again."
+        }
       },
       "offline": {
         "title": "You're offline",

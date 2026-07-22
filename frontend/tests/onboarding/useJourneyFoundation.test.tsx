@@ -1,102 +1,156 @@
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
+
 import { useJourneyFoundation } from '../../features/onboarding/presentation/hooks/useJourneyFoundation';
 
 const mockUseOnboardingStatusQuery = jest.fn();
+const mockUseJourneyVisibilityQuery = jest.fn();
+const mockUseOrganizationContextQuery = jest.fn();
+const mockClearJourneyVisibilityCache = jest.fn();
 
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: unknown[]) => mockUseOnboardingStatusQuery(...args),
+  useJourneyVisibilityQuery: (...args: unknown[]) => mockUseJourneyVisibilityQuery(...args),
+  useOrganizationContextQuery: () => mockUseOrganizationContextQuery(),
+  useClearJourneyVisibilityCache: () => mockClearJourneyVisibilityCache,
 }));
 
-const buildStep = (
-  stepCode: string,
-  status: 'completed' | 'in_progress' | 'not_started' | 'blocked'
-) => ({
+const revision = `cap-v1:${'a'.repeat(64)}`;
+const buildProjection = (tenantId: string, stepIds: string[]) => ({
+  identity: {
+    contractVersion: '1.0',
+    templateVersion: 'template-v2',
+    capabilityRevision: revision,
+    tenantId,
+  },
+  projectedAt: new Date('2026-07-22T10:00:00Z'),
+  visibleSteps: stepIds.map((stepId, order) => ({
+    stepId,
+    order,
+    visibility: 'VISIBLE',
+    progress: order === 0 ? 'INCOMPLETE' : 'COMPLETED',
+  })),
+});
+
+const buildStep = (stepCode: string) => ({
   step_code: stepCode,
-  status,
-  is_complete: status === 'completed',
-  is_valid: status === 'completed',
+  status: 'not_started',
+  is_complete: false,
+  is_valid: true,
   issues: [],
   blocked_reason: null,
-  action_url_template: `/clinic/{tenant_id}/${stepCode}`,
+  action_url_template: `/onboarding/{tenant_id}/${stepCode}`,
   entity_type: stepCode,
   icon: 'ellipse-outline',
   category: 'setup',
   visible: true,
-  actionable: status !== 'blocked',
+  actionable: true,
 });
 
-const buildStatus = (tenantId: string, visibleSteps: string[]) => ({
+const buildStatus = (tenantId: string, stepIds: string[]) => ({
   tenant_id: tenantId,
   template_id: 'template-a',
   clinic_type: 'specialty-neutral',
-  total_steps: visibleSteps.length,
-  completed_steps: 1,
-  in_progress_steps: 1,
-  pending_steps: Math.max(visibleSteps.length - 2, 0),
+  total_steps: stepIds.length,
+  completed_steps: 0,
+  in_progress_steps: 0,
+  pending_steps: stepIds.length,
   blocked_steps: 0,
-  completion_percentage: 50,
-  current_step: visibleSteps[0] ?? null,
-  next_recommended_step: visibleSteps[0] ?? null,
+  completion_percentage: 0,
+  current_step: stepIds[0] ?? null,
+  next_recommended_step: stepIds[0] ?? null,
   is_ready_to_go_live: false,
-  per_step_validation: Object.fromEntries(
-    visibleSteps.map((stepCode, index) => [
-      stepCode,
-      buildStep(stepCode, index === 1 ? 'completed' : 'in_progress'),
-    ])
-  ),
-  visible_steps: visibleSteps,
-  actionable_steps: visibleSteps,
+  per_step_validation: Object.fromEntries(stepIds.map(step => [step, buildStep(step)])),
+  visible_steps: stepIds,
+  actionable_steps: stepIds,
 });
 
-describe('useJourneyFoundation', () => {
+const queryResult = (data: unknown) => ({
+  data,
+  isLoading: false,
+  isRefetching: false,
+  error: null,
+  refetch: jest.fn().mockResolvedValue({ data }),
+});
+
+describe('useJourneyFoundation authoritative projection integration', () => {
+  let effectiveTenantId = 'tenant-a';
+
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('reuses the existing status query and projects cards in backend order', () => {
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: buildStatus('tenant-a', ['staff_setup', 'clinic_profile']),
+    effectiveTenantId = 'tenant-a';
+    mockUseOrganizationContextQuery.mockImplementation(() => ({
+      data: {
+        effectiveOrganizationId: 'org-1',
+        effectiveTenantId,
+        sessionRefreshRequired: false,
+      },
       isLoading: false,
       error: null,
-      refetch: jest.fn(),
-    });
+      refetch: jest.fn().mockImplementation(async () => ({
+        data: {
+          effectiveOrganizationId: 'org-1',
+          effectiveTenantId,
+          sessionRefreshRequired: false,
+        },
+      })),
+    }));
+    mockUseOnboardingStatusQuery.mockImplementation((tenantId: string) =>
+      queryResult(buildStatus(tenantId, ['clinic_profile', 'staff_setup', 'inventory_setup']))
+    );
+    mockUseJourneyVisibilityQuery.mockImplementation((_org: string, tenantId: string) =>
+      queryResult(buildProjection(tenantId, ['staff_setup', 'clinic_profile']))
+    );
+  });
 
+  it('renders only projected cards in backend order and preserves projection identity', () => {
     const { result } = renderHook(() => useJourneyFoundation('tenant-a'));
 
-    expect(mockUseOnboardingStatusQuery).toHaveBeenCalledWith('tenant-a', { enabled: true });
-    expect(result.current.journey?.identity.tenantId).toBe('tenant-a');
     expect(result.current.journey?.cards.map(card => card.stepCode)).toEqual([
       'staff_setup',
       'clinic_profile',
     ]);
-    expect(result.current.journey?.progress).toEqual({ completed: 1, total: 2 });
+    expect(result.current.journey?.identity.projection).toEqual({
+      templateVersion: 'template-v2',
+      capabilityRevision: revision,
+    });
+    expect(result.current.journey?.cards.map(card => card.status)).toEqual([
+      'not_started',
+      'complete',
+    ]);
   });
 
-  it('omits unknown backend steps without fabricating cards', () => {
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: buildStatus('tenant-a', ['unknown_step', 'staff_setup']),
-      isLoading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-
+  it('treats an empty projection as authoritative', () => {
+    mockUseJourneyVisibilityQuery.mockReturnValue(queryResult(buildProjection('tenant-a', [])));
     const { result } = renderHook(() => useJourneyFoundation('tenant-a'));
-
-    expect(result.current.journey?.cards.map(card => card.stepCode)).toEqual(['staff_setup']);
-    expect(result.current.journey?.diagnostics.unknownStepCodes).toEqual(['unknown_step']);
+    expect(result.current.journey?.cards).toEqual([]);
+    expect(result.current.journey?.progress).toEqual({ completed: 0, total: 0 });
   });
 
-  it('does not expose stale status from a different tenant', () => {
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: buildStatus('tenant-a', ['clinic_profile']),
-      isLoading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-
+  it('rejects a stale outgoing-tenant projection', () => {
+    effectiveTenantId = 'tenant-b';
+    mockUseJourneyVisibilityQuery.mockReturnValue(
+      queryResult(buildProjection('tenant-a', ['clinic_profile']))
+    );
     const { result } = renderHook(() => useJourneyFoundation('tenant-b'));
-
-    expect(result.current.data).toBeUndefined();
     expect(result.current.journey).toBeNull();
+    expect(result.current.projection).toBeUndefined();
+  });
+
+  it('removes the outgoing tenant projection cache on tenant switch', async () => {
+    let requestedTenantId = 'tenant-a';
+    const { rerender } = renderHook(() => useJourneyFoundation(requestedTenantId));
+    effectiveTenantId = 'tenant-b';
+    requestedTenantId = 'tenant-b';
+    rerender(undefined);
+
+    await waitFor(() =>
+      expect(mockClearJourneyVisibilityCache).toHaveBeenCalledWith('org-1', 'tenant-a')
+    );
+  });
+
+  it('blocks navigation revalidation after an effective-tenant change', async () => {
+    const { result } = renderHook(() => useJourneyFoundation('tenant-a'));
+    effectiveTenantId = 'tenant-b';
+    await expect(result.current.revalidateTenant()).resolves.toBe(false);
   });
 });

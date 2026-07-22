@@ -11,16 +11,29 @@ import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 interface ErrorScreenProps {
   message: string;
   onRetry?: () => void;
+  title?: string;
+  retryLabel?: string;
 }
 
-export const ErrorScreen: React.FC<ErrorScreenProps> = ({ message, onRetry }) => {
+export const ErrorScreen: React.FC<ErrorScreenProps> = ({
+  message,
+  onRetry,
+  title = 'Something went wrong',
+  retryLabel = 'Try Again',
+}) => {
   const theme = useClinicTheme();
 
   return (
-    <View style={[styles.container, { 
-      backgroundColor: theme.colors.background.default,
-      padding: theme.spacing.xl 
-    }]}>
+    <View
+      accessible
+      accessibilityRole="alert"
+      accessibilityLabel={`${title}. ${message}`}
+      accessibilityLiveRegion="assertive"
+      style={[styles.container, {
+        backgroundColor: theme.colors.background.default,
+        padding: theme.spacing.xl,
+      }]}
+    >
       <Ionicons 
         name="alert-circle" 
         size={64} 
@@ -35,7 +48,7 @@ export const ErrorScreen: React.FC<ErrorScreenProps> = ({ message, onRetry }) =>
           marginBottom: theme.spacing.sm 
         }
       ]}>
-        Something went wrong
+        {title}
       </Text>
       <Text style={[
         styles.message, 
@@ -52,15 +65,18 @@ export const ErrorScreen: React.FC<ErrorScreenProps> = ({ message, onRetry }) =>
           style={[styles.retryButton, { 
             backgroundColor: theme.colors.primary.default,
             paddingHorizontal: theme.spacing.lg,
-            paddingVertical: 12 
+            paddingVertical: theme.spacing.md,
+            borderRadius: theme.spacing.sm,
           }]}
           onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={retryLabel}
         >
           <Text style={[
             theme.typography.button, 
             { color: theme.colors.text.onPrimary }
           ]}>
-            Try Again
+            {retryLabel}
           </Text>
         </TouchableOpacity>
       )}
@@ -81,6 +97,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    borderRadius: 8,
+    minHeight: 48,
+    justifyContent: 'center',
   },
 });

@@ -108,6 +108,8 @@ export const onboardingKeys = {
       tenantId,
       JOURNEY_VISIBILITY_CONTRACT_V1,
     ] as const,
+  journeyVisibilities: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'journey-visibility', organizationId, tenantId] as const,
 };
 
 const CAPABILITY_REVISION_V1 = /^cap-v1:[0-9a-f]{64}$/;
@@ -221,6 +223,18 @@ export const useJourneyVisibilityQuery = (
     retry: shouldRetryJourneyVisibility,
     ...options,
   });
+
+export const useClearJourneyVisibilityCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.journeyVisibilities(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
 
 const mapWorkspacePreparation = (
   dto: WorkspacePreparationResponseDTO
