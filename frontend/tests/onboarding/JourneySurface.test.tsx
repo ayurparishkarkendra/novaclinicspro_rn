@@ -9,6 +9,20 @@ import {
 import enUS from '../../core/localization/translations/en-US.json';
 import hiIN from '../../core/localization/translations/hi-IN.json';
 
+jest.mock('../../core/localization/useTranslation', () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, string | number>) => {
+      const translations = require('../../core/localization/translations/en-US.json');
+      const value = key.split('.').reduce((current: any, segment) => current?.[segment], translations);
+      if (typeof value !== 'string') return key;
+      return Object.entries(params ?? {}).reduce(
+        (text, [name, replacement]) => text.replace(`{{${name}}}`, String(replacement)),
+        value
+      );
+    },
+  }),
+}));
+
 jest.mock('../../core/theme/useClinicTheme', () => ({
   useClinicTheme: () => ({
     colors: {
@@ -144,15 +158,38 @@ describe('JourneySurface', () => {
     expect(onSelectStep).toHaveBeenCalledWith('clinic_profile');
   });
 
+  it('announces tenant-scoped refresh without replacing the current cards', () => {
+    const { getByText, getByTestId } = render(
+      <JourneySurface journey={journey()} onSelectStep={jest.fn()} refreshing />
+    );
+
+    expect(getByText('Refreshing your clinic preparation journey...')).toHaveProp(
+      'accessibilityLiveRegion',
+      'polite'
+    );
+    expect(getByTestId('surface-card-clinic_profile')).toBeTruthy();
+  });
+
   it('keeps English and Hindi journey keys and interpolation placeholders compatible', () => {
     const english = enUS.onboarding.progressiveExperience.journey;
     const hindi = hiIN.onboarding.progressiveExperience.journey;
+    const flatten = (value: unknown, prefix = ''): Record<string, string> =>
+      Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
+        (result, [key, item]) => {
+          const path = prefix ? `${prefix}.${key}` : key;
+          if (typeof item === 'string') result[path] = item;
+          else Object.assign(result, flatten(item, path));
+          return result;
+        },
+        {}
+      );
+    const englishStrings = flatten(english);
+    const hindiStrings = flatten(hindi);
     const placeholders = (value: string) => value.match(/{{[^}]+}}/g)?.sort() ?? [];
 
-    expect(Object.keys(hindi).sort()).toEqual(Object.keys(english).sort());
-    Object.keys(english).forEach(key => {
-      const typedKey = key as keyof typeof english;
-      expect(placeholders(hindi[typedKey])).toEqual(placeholders(english[typedKey]));
+    expect(Object.keys(hindiStrings).sort()).toEqual(Object.keys(englishStrings).sort());
+    Object.keys(englishStrings).forEach(key => {
+      expect(placeholders(hindiStrings[key])).toEqual(placeholders(englishStrings[key]));
     });
   });
 });

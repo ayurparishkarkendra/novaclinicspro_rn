@@ -670,3 +670,252 @@ All UI work must use `useClinicTheme()` exclusively — zero hardcoded colours, 
    - [ ] All four E2E runs (A–D above) passed on physical Android hardware
 
 5. IF a physical Android device is not available for Runs C and D, THE team SHALL use the Android Emulator with network throttling enabled in the AVD settings. Emulator results are acceptable but MUST be noted as such in the release checklist.
+
+---
+
+### Requirement 33: Capability-Driven Journey Visibility (E4/TG21)
+
+**User Story:** As a person preparing a clinic workspace, I want the Review &
+Personalize journey to show only the setup steps that apply to the clinic's
+authoritative enabled capabilities, so that setup stays relevant without
+embedding specialty or clinic-type rules in the client.
+
+#### Constitutional Ownership
+
+1. THE Journey Template SHALL own the ordered set of journey steps and their
+   stable step identities.
+2. THE Capability Registry SHALL own capability definitions and capability
+   lifecycle.
+3. THE Backend Journey Visibility Projection SHALL be the only component that
+   maps Journey Template steps to authoritative tenant capability state.
+4. THE frontend SHALL render the backend projection and SHALL NOT derive, own,
+   substitute, or repair step-to-capability visibility.
+
+#### Acceptance Criteria
+
+1. THE authoritative projection identity SHALL be the pair
+   `(template_version, capability_revision)`.
+2. A projection SHALL remain valid only while both its `template_version` and
+   `capability_revision` match the current authoritative values. A change to
+   either value SHALL require backend recalculation before the replacement
+   projection is served.
+3. FOR identical tenant input and identical
+   `(template_version, capability_revision)`, THE backend projection SHALL
+   return the same visible steps and deterministic order.
+4. WHEN a step's required capability is unknown, unavailable, disabled,
+   unsupported, or missing, THE backend SHALL omit that step from visibility.
+   The frontend SHALL NOT substitute visibility or infer a fallback mapping.
+5. WHEN the Journey Template or Capability Registry changes during active
+   onboarding, THE active session SHALL continue against its current complete
+   projection until the backend detects the version mismatch and atomically
+   supplies a recalculated projection. The frontend SHALL NOT combine values
+   from different projection identities.
+6. WHEN a recalculated projection retains a stable step identity, THE backend
+   SHALL preserve valid completed progress for that step. Removed steps SHALL
+   become retired; newly applicable steps SHALL enter as incomplete. The
+   frontend SHALL perform no progress or draft migration logic.
+7. THE backend SHALL own visibility calculation, ordering, projection DTO
+   generation, typed errors, revision validation, transaction boundaries, and
+   rollback. THE frontend SHALL own projection rendering only.
+8. THE projection SHALL remain tenant-scoped and SHALL NOT expose or reuse
+   capability state, progress, ordering, or projection identity across tenants.
+9. TG21 acceptance SHALL include backend and frontend regression evidence for
+   template-version changes, capability-revision changes, deterministic
+   projection, unknown-capability fail-closed behavior, reordered and removed
+   step progress preservation, tenant isolation, and absence of frontend
+   capability-mapping logic.
+
+---
+
+### Requirement 34: Ready-to-Start Checklist and Readiness Explanation (E5/TG22)
+
+**User Story:** As an Organization Owner, Organization Admin, or Clinic
+Administrator preparing a clinic, I want one plain-language, authoritative
+checklist that explains whether the effective clinic is ready and where I can
+resolve each blocker, so that I never have to infer readiness from visited
+screens, card completion, or local wizard state.
+
+#### Constitutional ownership
+
+1. THE backend Ready-to-Start application composition SHALL be the sole
+   aggregate readiness authority. It SHALL compose, but SHALL NOT replace, the
+   evidence owned by the applicable domain providers.
+2. THE TG21 Journey Visibility Projection SHALL supply the applicable ordered
+   setup-step set; existing onboarding progress/validation SHALL own setup-step
+   evidence; TG20 Workspace Preparation SHALL own workspace-preparation
+   evidence. Commercial activation remains outside TG22.
+3. THE frontend SHALL render the complete backend result only. Route visits,
+   Journey Card state, locally persisted drafts, and client calculations SHALL
+   never establish Ready-to-Start.
+4. THE application composition SHALL resolve the authenticated organization and
+   effective tenant, verify their active association, and require existing
+   tenant RBAC (`tenant.read`) without an `is_org_admin` bypass.
+
+#### Provider and checklist contract
+
+5. EACH provider result SHALL contain a stable provider identifier and version,
+   applicability, evidence revision and observed timestamp, outcome
+   (`SATISFIED`, `BLOCKER`, or `ADVISORY`), severity, safe localized explanation
+   token, and zero or one safe next action. Raw records, contact values,
+   capability internals, and provider exceptions SHALL NOT be exposed.
+6. Version 1 SHALL compose exactly these domain-owned inputs:
+   `journey_setup_progress` from TG21 plus onboarding validation and
+   `workspace_preparation` from TG20. A missing required provider or an
+   incomplete provider response SHALL fail closed. Additional providers require
+   an additive contract revision.
+7. EACH checklist item SHALL contain a stable item identifier, title token,
+   explanation token, status (`COMPLETE`, `BLOCKED`, `ADVISORY`, `EVALUATING`,
+   `UNKNOWN`, `UNAVAILABLE`, or `STALE`), blocker/advisory classification,
+   evidence timestamp, source provider, order, applicability, item version, and
+   zero or one next action.
+8. A next action SHALL use a stable identifier and one of the bounded Version 1
+   kinds `NAVIGATE`, `REFRESH`, `RETRY`, or `CONTACT_SUPPORT`. It SHALL identify
+   an approved existing owner/route, require fresh effective-tenant validation,
+   and expose no action when an owner is missing or stale. TG22 SHALL NOT create
+   a general Journey Action Execution engine.
+
+#### Aggregate state and blocker semantics
+
+9. THE aggregate state SHALL be one of `READY`, `NOT_READY`, `EVALUATING`,
+   `UNKNOWN`, `UNAVAILABLE`, or `STALE`:
+   - `READY`: every applicable required provider returned a complete current
+     result and no blocker exists; advisories may coexist;
+   - `NOT_READY`: evaluation is complete and at least one blocker exists;
+   - `EVALUATING`: a request-driven evaluation is in progress and no readiness
+     claim is available;
+   - `UNKNOWN`: required evidence or provider applicability cannot be determined;
+   - `UNAVAILABLE`: a required provider or aggregate evaluation is unavailable;
+   - `STALE`: the returned identity no longer matches current authoritative
+     provider/evidence revisions.
+10. ONLY `READY` SHALL authorize Ready-to-Start confirmation or handoff. `UNKNOWN`,
+    `UNAVAILABLE`, `STALE`, partial results, provider failures, and unsupported
+    versions SHALL fail closed.
+11. `BLOCKER` prevents `READY`; `ADVISORY` is informational and may coexist with
+    `READY`. Items SHALL be deduplicated by `(provider_id, item_id)`, ordered by
+    blocker before advisory, provider order, item order, then stable item ID.
+    Conflicting results from the same identity SHALL make the aggregate
+    `UNAVAILABLE`. Version 1 provides no readiness override.
+
+#### Refresh, versioning, errors, and safety
+
+12. Evaluation SHALL be request-driven. Initial view, explicit refresh,
+    successful blocker-resolution return, application foreground, and effective
+    tenant change SHALL request a fresh complete evaluation. Logout and tenant
+    switch SHALL cancel and remove the outgoing tenant cache.
+13. Providers MAY evaluate independently, but the backend SHALL publish only a
+    complete aggregate. Partial provider success SHALL NOT be returned as
+    readiness. Version 1 adds no background worker or provider cache; existing
+    domain stores remain authoritative.
+14. Readiness identity SHALL be
+    `(readiness_contract_version, tenant_id, journey_projection_identity,
+    provider_set_revision, evidence_revision)`. The backend composition owns
+    the contract and provider-set revisions; TG21 owns journey projection
+    identity; providers own their evidence revisions. Any member change requires
+    recalculation and invalidates cached frontend results.
+15. Safe typed failures SHALL cover organization unavailable, effective tenant
+    unavailable, authorization denied, provider unavailable, unsupported
+    contract version, stale result, provider configuration error, and aggregate
+    evaluation failure. Raw exceptions and evidence SHALL never cross transport.
+16. State-changing next actions remain owned, authorized, transacted, and
+    audited by their existing domain services; this read-only readiness
+    composition SHALL NOT mutate provider state.
+
+#### Localization, accessibility, and acceptance
+
+17. Titles, explanations, statuses, errors, and action labels SHALL use
+    localization tokens with `en-US`/`hi-IN` key and placeholder parity. Copy
+    SHALL use plain operational language and SHALL NOT expose provider,
+    capability, revision, or database terminology.
+18. Loading/evaluating SHALL expose busy semantics; unavailable and blocking
+    state changes SHALL use appropriate alert/live-region semantics; checklist
+    order SHALL equal focus order; actions SHALL expose role, label, disabled
+    state, and compliant touch targets; no meaning SHALL rely only on color.
+    Layout SHALL support font scaling and longer Hindi text.
+19. TG22 acceptance SHALL prove deterministic aggregation, domain ownership,
+    fail-closed unknown/partial/provider-failure behavior, blocker/advisory
+    distinction, tenant and organization isolation, RBAC, approved action
+    owners, empty/loading/stale/unavailable/not-ready/ready states,
+    localization/accessibility/security leakage, multi-clinic switching, TG18–
+    TG21 regressions, and defined rollback to the prior read-only journey
+    experience. TG22 SHALL NOT activate a trial, subscription, payment, or
+    commercial lifecycle.
+
+#### Version 1 provider-specific readiness policy
+
+20. `journey_setup_progress` SHALL evaluate exactly the current TG21 projected
+    steps. The template owner's `setupsteps[].optional` field SHALL be the sole
+    required/optional authority: absent or `false` means required and `true`
+    means optional. Version 1 has no informational-step template value;
+    introducing one requires an additive template/readiness contract revision.
+21. A required visible incomplete step SHALL produce `BLOCKED`/`BLOCKER` and
+    prevent `READY`. An optional visible incomplete step SHALL produce
+    `ADVISORY`/`ADVISORY` and SHALL NOT prevent `READY`. Completed required and
+    optional steps SHALL remain visible as `COMPLETE` with no classification or
+    action. Non-projected and hidden steps SHALL be omitted; retired steps SHALL
+    remain governed by TG21 and SHALL NOT re-enter the current checklist.
+22. Existing validation severity `blocker` SHALL map to
+    `BLOCKED`/`BLOCKER`; existing severity `warning` SHALL map to
+    `ADVISORY`/`ADVISORY`. No other severity is accepted in Version 1. A missing
+    or malformed validation `error_key`, unknown severity, unavailable evidence,
+    or stale TG21 identity SHALL fail closed without raw validation text.
+23. Setup item IDs SHALL be `journey_setup_progress.step.<step_code>` and
+    validation item IDs SHALL be
+    `journey_setup_progress.validation.<step_code>.<error_key>`. IDs SHALL use
+    authoritative codes only. They SHALL NOT use titles, translated text,
+    routes, database IDs, or frontend state. Current computed setup evidence
+    SHALL use the evaluation timestamp as its evidence timestamp; that timestamp
+    SHALL NOT enter an evidence-revision hash.
+24. `workspace_preparation` SHALL emit one provider-owned current-state item,
+    not one item per TG20 unit. Supported state mapping SHALL be:
+    `PENDING → NOT_READY/BLOCKED/BLOCKER`,
+    `PREPARING → EVALUATING/EVALUATING/BLOCKER`,
+    `PERSONALIZATION_AVAILABLE → READY/COMPLETE/no classification`,
+    `RETRYABLE_FAILURE → NOT_READY/BLOCKED/BLOCKER`, and
+    `TERMINAL_FAILURE → NOT_READY/BLOCKED/BLOCKER`.
+    A missing run SHALL be `NOT_READY/BLOCKED/BLOCKER`; unsupported or unknown
+    contract/state SHALL be `UNKNOWN/UNKNOWN/BLOCKER`; stale evidence SHALL be
+    `STALE/STALE/BLOCKER`; an unavailable query SHALL use the typed
+    `readiness.provider_unavailable` failure. Partial TG20 unit progress SHALL
+    follow its authoritative enclosing state and SHALL NOT become another state.
+25. The workspace item ID SHALL remain `workspace_preparation.workspace` for
+    every supported lifecycle state. Typed exceptional items, when a complete
+    safe result exists, SHALL use `workspace_preparation.system.missing`,
+    `.unknown`, `.stale`, or `.unavailable`. Its evidence timestamp SHALL be the
+    TG20 `updated_at`. Its evidence revision SHALL canonically include safe
+    semantic TG20 identity/state/version/progress/retry/unit-version inputs and
+    SHALL exclude timestamps, correlation IDs, raw reasons, and evidence payloads.
+26. Aggregate state precedence SHALL be `STALE`, `UNAVAILABLE`, `UNKNOWN`,
+    `EVALUATING`, `NOT_READY`, then `READY`. Only two complete, applicable,
+    current Version 1 provider results with no blocker may yield `READY`.
+    Both Version 1 providers are required and applicable after authoritative
+    effective-tenant resolution; false/unknown applicability is a fail-closed
+    provider-configuration/`UNKNOWN` condition. Provider exceptions and missing
+    providers SHALL return a safe typed application failure and no partial
+    aggregate. Conflicting duplicate item values SHALL yield `UNAVAILABLE`;
+    identical duplicates collapse by `(provider_id, item_id)`.
+27. Checklist status/classification SHALL be exact:
+    `COMPLETE → none`, `ADVISORY → ADVISORY`, and `BLOCKED`, `EVALUATING`,
+    `UNKNOWN`, `UNAVAILABLE`, or `STALE → BLOCKER`. Blockers sort before
+    advisories, then provider order, provider item order, and item ID.
+28. Version 1 SHALL allow only these descriptors: setup navigation
+    (`readiness.navigate_setup_step`, `NAVIGATE`, owner `setup_wizard`, target
+    `setup_step.<step_code>`, `tenant.read`); readiness refresh
+    (`readiness.refresh`, `REFRESH`, owner `ready_to_start`, no target,
+    `tenant.read`); workspace navigation/start handoff
+    (`readiness.open_workspace_preparation`, `NAVIGATE`, owner
+    `workspace_preparation`, target `onboarding.workspace_preparation`,
+    `tenant.read`); and TG20 retry (`readiness.retry_workspace_preparation`,
+    `RETRY`, owner `workspace_preparation`, target
+    `workspace_preparation.retry`,
+    `onboarding.workspace_preparation.manage`). Every action requires fresh
+    effective-tenant validation. Arbitrary URLs, unknown owners/targets, stale
+    actions, and frontend-supplied targets SHALL be rejected. No
+    `CONTACT_SUPPORT` action SHALL be emitted until a dedicated owner exists.
+29. Backend outputs SHALL use safe localization tokens under
+    `onboarding.progressive_experience.ready_to_start.providers.<provider>`.
+    Step tokens SHALL be keyed by authoritative step code; validation tokens by
+    validated `error_key`; workspace tokens by approved state/failure class.
+    Version 1 permits no interpolation. Missing tokens or `en-US`/`hi-IN`
+    parity failure SHALL fall back to the generic localized unavailable token,
+    omit actions, and fail acceptance; raw keys, reasons, exceptions, provider
+    jargon, and capability jargon SHALL never be presented.

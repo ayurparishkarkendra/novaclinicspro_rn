@@ -23,6 +23,10 @@ import {
   WorkspacePreparationResponseDTO,
   WorkspacePreparationRetryRequestDTO,
   WorkspacePreparationStartRequestDTO,
+  JourneyVisibilityDatasourceError,
+  JourneyVisibilityResponseDTO,
+  ReadyToStartDatasourceError,
+  ReadyToStartResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   AuthOrganizationContext,
@@ -58,6 +62,57 @@ const throwWorkspacePreparationError = (error: any): never => {
     body.message_token ?? 'errors.workspacePreparation.execution_failure',
     Boolean(body.retryable)
   );
+};
+
+const throwJourneyVisibilityError = (error: any): never => {
+  const detail = error?.response?.data?.detail ?? {};
+  const body = detail.error ?? detail;
+  throw new JourneyVisibilityDatasourceError(
+    body.error_code ?? 'journey_visibility.unavailable',
+    body.message_token ?? 'errors.journeyVisibility.unavailable',
+    Boolean(body.retryable),
+    error?.response?.status
+  );
+};
+
+const throwReadyToStartError = (error: any): never => {
+  if (error?.code === 'ERR_CANCELED') throw error;
+  const detail = error?.response?.data?.detail ?? {};
+  const body = detail.error ?? detail;
+  throw new ReadyToStartDatasourceError(
+    body.error_code ?? 'readiness.evaluation_failure',
+    body.message_token ?? 'errors.readyToStart.evaluation_failure',
+    Boolean(body.retryable),
+    error?.response?.status
+  );
+};
+
+export const getReadyToStartApi = async (
+  tenantId: string,
+  signal?: AbortSignal
+): Promise<ReadyToStartResponseDTO> => {
+  try {
+    const response = await axiosClient.get<ReadyToStartResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/ready-to-start`,
+      { signal }
+    );
+    return response.data;
+  } catch (error) {
+    return throwReadyToStartError(error);
+  }
+};
+
+export const getJourneyVisibilityApi = async (
+  tenantId: string
+): Promise<JourneyVisibilityResponseDTO> => {
+  try {
+    const response = await axiosClient.get<JourneyVisibilityResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/journey-visibility`
+    );
+    return response.data;
+  } catch (error) {
+    return throwJourneyVisibilityError(error);
+  }
 };
 
 export const ensureWorkspacePreparationApi = async (

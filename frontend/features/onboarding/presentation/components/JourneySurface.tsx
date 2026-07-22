@@ -9,12 +9,14 @@ import { StepCard } from './StepCard';
 
 interface JourneySurfaceProps {
   journey: JourneyViewModel;
-  onSelectStep: (stepCode: string) => void;
+  onSelectStep: (stepCode: string) => void | Promise<void>;
+  refreshing?: boolean;
 }
 
 export const JourneySurface: React.FC<JourneySurfaceProps> = ({
   journey,
   onSelectStep,
+  refreshing = false,
 }) => {
   const theme = useClinicTheme();
   const { t } = useTranslation();
@@ -78,6 +80,15 @@ export const JourneySurface: React.FC<JourneySurfaceProps> = ({
         {heading}
       </Text>
       <Text style={styles.progressText}>{progressText}</Text>
+      {refreshing && (
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="text"
+          style={styles.refreshingText}
+        >
+          {t('onboarding.progressiveExperience.journey.refreshing')}
+        </Text>
+      )}
       <ProgressBar
         percentage={progressPercentage}
         showLabel={false}
@@ -109,6 +120,11 @@ const createStyles = (theme: ClinicTheme) =>
     },
     progressText: {
       ...theme.typography.body2,
+      color: theme.colors.text.secondary,
+      marginBottom: theme.spacing.sm,
+    },
+    refreshingText: {
+      ...theme.typography.caption,
       color: theme.colors.text.secondary,
       marginBottom: theme.spacing.sm,
     },

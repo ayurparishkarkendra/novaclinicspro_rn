@@ -76,6 +76,45 @@ const mockNetInfoState = {
 
 jest.mock('@react-native-community/netinfo', () => ({
   useNetInfo: () => mockNetInfoState,
+}), { virtual: true });
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+}));
+
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('expo-web-browser', () => ({ openBrowserAsync: jest.fn() }));
+jest.mock('lz-string', () => ({
+  compressToUTF16: (value: string) => value,
+  decompressFromUTF16: (value: string) => value,
+}), { virtual: true });
+jest.mock('expo-secure-store', () => ({
+  setItemAsync: jest.fn(),
+  getItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+}));
+jest.mock('immer', () => ({
+  produce: (recipe: (draft: any) => void) => (state: any) => {
+    const draft = JSON.parse(JSON.stringify(state));
+    recipe(draft);
+    return draft;
+  },
+}), { virtual: true });
+
+const mockTranslate = (key: string, params?: Record<string, string | number>) => {
+  const translations = require('../../core/localization/translations/en-US.json');
+  const value = key.split('.').reduce((current: any, segment) => current?.[segment], translations);
+  if (typeof value !== 'string') return key;
+  return Object.entries(params ?? {}).reduce(
+    (text, [name, replacement]) => text.replace(`{{${name}}}`, String(replacement)),
+    value
+  );
+};
+
+jest.mock('../../core/localization/useTranslation', () => ({
+  useTranslation: () => ({ t: mockTranslate }),
 }));
 
 const mockAuthState = {
@@ -135,11 +174,71 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
 
 // Mutable query mock — tests override return value per case.
 const mockRefetch = jest.fn();
+const mockVisibilityRefetch = jest.fn();
+const mockOrganizationRefetch = jest.fn().mockResolvedValue({
+  data: {
+    effectiveOrganizationId: 'org-1',
+    effectiveTenantId: 'test-tenant-456',
+    sessionRefreshRequired: false,
+  },
+});
 const mockMutateAsync = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
 const mockUseDemoStatusQuery = jest.fn();
+const mockClearJourneyVisibilityCache = jest.fn();
+const mockProjectionCache = new WeakMap<object, object>();
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: any[]) => mockUseOnboardingStatusQuery(...args),
+  useJourneyVisibilityQuery: (_organizationId: string, tenantId: string) => {
+    const status = mockUseOnboardingStatusQuery().data;
+    const visibleSteps = status?.visible_steps ?? [];
+    const cached = status ? mockProjectionCache.get(status) : undefined;
+    if (cached) {
+      return {
+        data: cached,
+        isLoading: false,
+        isRefetching: false,
+        error: null,
+        refetch: mockVisibilityRefetch,
+      };
+    }
+    const projection = {
+      identity: {
+        contractVersion: '1.0',
+        templateVersion: 'template-v1',
+        capabilityRevision: `cap-v1:${'a'.repeat(64)}`,
+        tenantId,
+      },
+      projectedAt: new Date('2026-07-22T10:00:00Z'),
+      visibleSteps: visibleSteps.map((stepId: string, order: number) => ({
+        stepId,
+        order,
+        visibility: 'VISIBLE',
+        progress: status?.per_step_validation?.[stepId]?.is_complete
+          ? 'COMPLETED'
+          : 'INCOMPLETE',
+      })),
+    };
+    if (status) mockProjectionCache.set(status, projection);
+    return {
+      data: projection,
+      isLoading: false,
+      isRefetching: false,
+      error: null,
+      refetch: mockVisibilityRefetch,
+    };
+  },
+  useOrganizationContextQuery: () => ({
+    data: {
+      effectiveOrganizationId: 'org-1',
+      effectiveTenantId: 'test-tenant-456',
+      sessionRefreshRequired: false,
+    },
+    isLoading: false,
+    error: null,
+    refetch: mockOrganizationRefetch,
+  }),
+  useClearJourneyVisibilityCache: () => mockClearJourneyVisibilityCache,
   useDemoStatusQuery: (...args: any[]) => mockUseDemoStatusQuery(...args),
   useSubmitStepMutation: () => ({
     mutateAsync: (...args: any[]) => mockMutateAsync(...args),
@@ -253,7 +352,7 @@ const renderFlow = () => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', () => {
+describe('SetupWizardFlow — authoritative journey presentation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNetInfoState.isConnected = true;
@@ -263,7 +362,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     wizardStore.useWizardStore.getState().reset();
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
     mockRefetch.mockResolvedValue({});
+    mockVisibilityRefetch.mockResolvedValue({ data: undefined });
     mockMutateAsync.mockResolvedValue({});
     mockUseDemoStatusQuery.mockReturnValue({
       data: null,
@@ -276,92 +377,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     jest.restoreAllMocks();
   });
 
-  // ── 1. console.error fires on visible_steps: null ─────────────────────────
-  it('fires console.error with FR-097 message when visible_steps is null', async () => {
-    const statusData = buildStatus(null);
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: statusData,
-      isLoading: false,
-      error: null,
-      refetch: mockRefetch,
-    });
-
-    renderFlow();
-
-    await waitFor(() => {
-      expect(console.error).toHaveBeenCalledWith(
-        '[SetupWizardFlow] visible_steps is empty/null for tenant',
-        'test-tenant-456',
-        expect.stringContaining('FR-097'),
-        statusData
-      );
-    });
-  });
-
-  // ── 2. console.error fires on visible_steps: [] ───────────────────────────
-  it('fires console.error with FR-097 message when visible_steps is []', async () => {
-    const statusData = buildStatus([]);
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: statusData,
-      isLoading: false,
-      error: null,
-      refetch: mockRefetch,
-    });
-
-    renderFlow();
-
-    await waitFor(() => {
-      expect(console.error).toHaveBeenCalledWith(
-        '[SetupWizardFlow] visible_steps is empty/null for tenant',
-        'test-tenant-456',
-        expect.stringContaining('FR-097'),
-        statusData
-      );
-    });
-  });
-
-  // ── 3. console.log is NOT called instead of console.error (replacement confirmed) ─
-  it('does NOT call console.log for the empty visible_steps path', async () => {
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: buildStatus(null),
-      isLoading: false,
-      error: null,
-      refetch: mockRefetch,
-    });
-
-    renderFlow();
-
-    await waitFor(() => {
-      expect(console.error).toHaveBeenCalled();
-    });
-
-    // The old console.log message must not appear — confirms it was replaced, not supplemented.
-    const logCalls: string[] = (console.log as jest.Mock).mock.calls
-      .map((args: any[]) => String(args[0]));
-    expect(logCalls).not.toContain('[SetupWizardFlow] No visible_steps in response');
-  });
-
-  // ── 4. Existing error+retry UI still renders (null) ───────────────────────
-  it('renders the error+retry UI when visible_steps is null', async () => {
-    mockUseOnboardingStatusQuery.mockReturnValue({
-      data: buildStatus(null),
-      isLoading: false,
-      error: null,
-      refetch: mockRefetch,
-    });
-
-    const { getByText } = renderFlow();
-
-    await waitFor(() => {
-      expect(getByText('Unable to load clinic preparation')).toBeTruthy();
-      // The "no steps" descriptive message
-      expect(getByText(/No preparation steps found/)).toBeTruthy();
-      expect(getByText('Retry')).toBeTruthy();
-    });
-  });
-
-  // ── 5. Existing error+retry UI still renders ([]) ─────────────────────────
-  it('renders the error+retry UI when visible_steps is []', async () => {
+  it('renders an empty projection as authoritative without fallback cards or navigation', async () => {
     mockUseOnboardingStatusQuery.mockReturnValue({
       data: buildStatus([]),
       isLoading: false,
@@ -369,17 +385,16 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       refetch: mockRefetch,
     });
 
-    const { getByText } = renderFlow();
+    const { getByText, queryByTestId, queryByText } = renderFlow();
 
     await waitFor(() => {
-      expect(getByText('Unable to load clinic preparation')).toBeTruthy();
-      expect(getByText(/No preparation steps found/)).toBeTruthy();
-      expect(getByText('Retry')).toBeTruthy();
+      expect(getByText(/No supported journey steps are available yet/)).toBeTruthy();
     });
+    expect(queryByTestId(/^journey-card-/)).toBeNull();
+    expect(queryByText('Next')).toBeNull();
   });
 
-  // ── 6. No hardcoded navigation occurs on empty visible_steps ──────────────
-  it('does NOT navigate to clinic_profile (or any hardcoded step) when visible_steps is null', async () => {
+  it('does not navigate or log a template error for an empty projection', async () => {
     mockUseOnboardingStatusQuery.mockReturnValue({
       data: buildStatus(null),
       isLoading: false,
@@ -389,16 +404,15 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
 
     renderFlow();
 
-    // Wait for the error log to confirm effects have settled.
     await waitFor(() => {
-      expect(console.error).toHaveBeenCalled();
+      expect(mockUseOnboardingStatusQuery).toHaveBeenCalled();
     });
-
-    const allNavArgs = [
-      ...mockRouterPush.mock.calls.map((a: any[]) => String(a[0])),
-      ...mockRouterReplace.mock.calls.map((a: any[]) => String(a[0])),
-    ];
-    expect(allNavArgs.some(s => s.includes('clinic_profile'))).toBe(false);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('visible_steps'),
+      expect.anything()
+    );
   });
 
   // ── 7. Happy path: console.error NOT called when visible_steps is populated ─
@@ -743,9 +757,9 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
   });
 
   it('does not advance until refetch resolves after submit', async () => {
-    let resolveRefetch: (() => void) | undefined;
+    let resolveRefetch: ((value: unknown) => void) | undefined;
     mockMutateAsync.mockResolvedValue({});
-    mockRefetch.mockImplementation(() => new Promise<void>(resolve => {
+    mockRefetch.mockImplementation(() => new Promise<unknown>(resolve => {
       resolveRefetch = resolve;
     }));
     mockUseOnboardingStatusQuery.mockReturnValue({
@@ -770,7 +784,7 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
     expect(queryByText('Inventory Readiness')).toBeNull();
 
     await act(async () => {
-      resolveRefetch?.();
+      resolveRefetch?.({ data: buildStatusWithSteps(['services', 'inventory_setup']) });
     });
 
     await waitFor(() => {
@@ -1095,6 +1109,14 @@ describe('SetupWizardFlow — visible_steps empty/null observability (FR-097)', 
       refetch: mockRefetch,
     });
     mockRefetch.mockResolvedValue({ data: buildStatusWithSteps(['clinic_profile', 'operating_hours']) });
+    mockVisibilityRefetch.mockResolvedValue({
+      data: {
+        visibleSteps: [
+          { stepId: 'clinic_profile' },
+          { stepId: 'operating_hours' },
+        ],
+      },
+    });
 
     const { getByText } = renderFlow();
 

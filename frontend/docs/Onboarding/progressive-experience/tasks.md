@@ -1516,6 +1516,188 @@ review before any implementation.
 
 ## Notes
 
+### TG21 E4 Constitutional Contract — APPROVED (2026-07-22)
+
+The approved Phase 2 roadmap defines TG21 as **Capability-Driven Journey
+Visibility**. Its product objective is to drive applicable journey steps and
+Journey Cards from authoritative capability/template state while preserving
+specialty extensibility, deterministic ordering, unknown-state safety, draft
+recovery, tenant isolation, localization, accessibility, and central Theme
+usage. The roadmap maps TG21 to Requirements 1–4, 15, and 23–25. Requirement 33
+now supplies the accepted E4 capability-driven visibility contract.
+
+TG21 is cross-repository. The backend owns tenant capability resolution,
+template resolution, visibility authority, authorization, and tenant-scoped
+response contracts. The frontend may only map that authoritative state through
+the existing onboarding repository, journey domain, and Journey Card
+presentation boundaries. Frontend-owned capability truth, hardcoded clinic-type
+branches, new stores, duplicate API clients/repositories, TG22 readiness policy,
+clinical workflows, scheduling, inventory, billing/payment implementation, and
+Doctor Module work are prohibited.
+
+Source-backed dependency and reuse findings:
+
+| Area | Existing owner and evidence | TG21 finding |
+|---|---|---|
+| Journey foundation | `journey.entity.ts`, `build-journey-view-model.usecase.ts`, `useJourneyFoundation.ts`, and existing Journey Card surfaces | Reuse and extend; TG18 already owns journey identity, mapping, diagnostics, progress, and presentation. |
+| Workspace preparation | Accepted TG20 domain, persistence, application, transport, and frontend handoff | Reuse only as the completed upstream dependency; TG21 must not change TG20 lifecycle truth. |
+| Capability authority | Backend `CapabilityResolutionService`, capability catalog/tenant models, and `/tenants/{tenant_id}/capabilities` | Reuse as authoritative capability state. The response has per-capability state/version but no journey-step relationship or visibility snapshot version. |
+| Template authority | Backend `OrgTemplate`, `TemplateRepository`, and `SQLAlchemyTemplateRepository` | Reuse as authoritative ordered setup-step source. Templates have a version, but setup steps contain no approved capability eligibility contract. |
+| Current onboarding visibility | Backend `OnboardingService.get_onboarding_status` and the existing onboarding status transport | Current `visible_steps` is every resolved template step and `actionable_steps` is the same list. Capability state is not consumed. |
+| Frontend capability access | `useCapabilities`, centralized tenant-scoped capability query keys, and `CapabilityGate` | Reuse where contract-compatible; presentation gating is not authority and cannot independently define journey visibility. |
+| Draft behavior | Existing tenant/user-scoped Wizard Draft persistence and lifecycle handling | Reuse unchanged; the E4 contract prohibits frontend migration and assigns projection/progress transition to the backend using stable step identity. |
+
+The following constitutional decisions are approved:
+
+1. The Journey Template owns ordered steps and stable step identity; the
+   Capability Registry owns capability definitions/lifecycle; only the Backend
+   Journey Visibility Projection maps the two for a tenant.
+2. Projection identity is `(template_version, capability_revision)`. Either
+   value changing invalidates the identity and requires backend recalculation.
+3. Unknown, unavailable, disabled, unsupported, or missing capability state
+   fails closed by excluding its corresponding step. Frontend fallback is
+   prohibited.
+4. Active onboarding uses its current complete projection until the backend
+   supplies a recalculated complete projection. Stable step identity preserves
+   valid progress; removed steps retire; new steps enter incomplete; frontend
+   migration logic is prohibited.
+5. The backend owns calculation, ordering, DTOs, typed errors, revision checks,
+   transactions, and rollback. The frontend renders the projection only.
+6. TG21 acceptance requires deterministic projection, revision-change
+   recalculation, fail-closed behavior, progress preservation, no frontend
+   mapping logic, tenant isolation, and focused regression evidence.
+
+With these decisions approved in `requirements.md` and `design.md`, the smallest
+independently verifiable implementation checkpoint is the backend
+domain/application projection that combines an ordered versioned template with
+an authoritative tenant capability snapshot and produces a tenant-scoped,
+versioned visible-step result with fail-closed diagnostics. It must be covered
+by focused pure/application tests before transport or frontend integration.
+
+There are eleven Phase 2 roadmap task groups remaining after TG20 (TG21–TG31).
+This approval freezes constitutional behavior only. It adds no implementation
+task, makes no source/test/API/schema change, does not mark TG21 in progress,
+and does not authorize TG22.
+
+### TG22 E5 Constitutional Contract — APPROVED (2026-07-22)
+
+TG22 is **Ready-to-Start Checklist and Readiness Explanation**. Requirement 34
+and the E5 design contract now freeze backend aggregate authority, domain-owned
+providers, deterministic checklist/blocker/advisory semantics, bounded existing
+next-action owners, request-driven refresh, readiness identity, typed errors,
+tenant/RBAC security, localization/accessibility, acceptance, and rollback.
+
+Source audit classification:
+
+| Capability | Classification | Authorized treatment |
+|---|---|---|
+| Readiness provider interface | `MISSING` | Add narrow E5 port; preserve domain truth. |
+| Readiness aggregate | `MISSING` | Add immutable tenant-scoped E5 domain/read model. |
+| Checklist model | `EXTEND` | Replace local positional derivation with backend result; reuse UI primitives. |
+| Blocker model | `EXTEND` | Adapt safe onboarding/TG20 evidence; expose no internals. |
+| Next-action model | `EXTEND` | Bounded descriptors to audited existing owners only. |
+| Ready-to-Start service | `MISSING` | Add read-only application composition; activation remains separate. |
+| Backend endpoint | `MISSING` | Add Version 1 read transport after domain/application checkpoints. |
+| Frontend domain model | `MISSING` | Add immutable mapping after transport. |
+| Existing resolution routes | `REUSE` | Allowlist TG17 wizard navigation and domain-owned refresh/retry/support. |
+| Tenant-scoped readiness query | `EXTEND` | Extend existing onboarding repository/query-key/cache boundaries. |
+| Readiness permission | `REUSE` | Effective Tenant, active association/user, and `tenant.read`; no bypass. |
+
+The following independently verifiable implementation groups are authorized in
+this exact order. Each group must stop after its own focused verification and
+must not begin the next group without a separate prompt.
+
+#### TG22.1A — Backend Readiness and Provider Domain Contract
+
+- **Objective:** Implement pure E5 states, identity, provider result, checklist
+  item, blocker/advisory, bounded next-action, and typed domain errors.
+- **Boundary:** Backend domain and pure tests only. No repository, database,
+  application service, DI, transport, migration, or frontend.
+- **Dependencies:** Requirement 34 and E5 design; existing TG20/TG21 value
+  contracts inspected read-only.
+- **Acceptance:** Unknown versions/states fail closed; ordering,
+  deduplication/conflict, identity, provider-set completeness, and immutable
+  safe shapes pass focused pure tests.
+- **Stop:** Stop if a required value cannot be represented without redefining
+  TG20/TG21 or adding a provider/product decision.
+
+#### TG22.1B — Backend Readiness Application Composition
+
+- **Objective:** Compose `journey_setup_progress` and
+  `workspace_preparation` adapters through existing domain owners and produce
+  one complete deterministic aggregate.
+- **Boundary:** Backend application services/adapters and focused tests; reuse
+  current UoW, TG21 query/projection, onboarding validation, and TG20 query.
+  No transport, migration, new persistence, activation, or frontend.
+- **Exact inputs:** Current TG21 projection identity/ordered visible steps;
+  template `setupsteps[].optional`; existing setup status plus only `blocker`
+  and `warning` validation results; TG20 read model/state; corrected evaluation
+  context and identity helper. Both Version 1 providers are required/applicable.
+- **Exact outputs:** The provider tables, item IDs/token families, state
+  precedence, one workspace item, and four-action allowlist frozen in Req 34/E5.
+  Provider exceptions return safe typed failures and never partial aggregates.
+- **Acceptance:** Effective organization/tenant scope, provider completeness,
+  required/optional/validation mappings, all five TG20 states plus missing/
+  unsupported/stale/failure, precedence, stable ordering/deduplication,
+  allowlisted actions, fail-closed partial/failure behavior, deterministic
+  provider/evidence revisions, all aggregate states, and transaction-neutral
+  reads pass. Tests reject unknown severity/error key, provider/action owner,
+  arbitrary target, cross-scope/projection evidence, and raw leakage.
+- **Stop:** Stop if an adapter would duplicate domain rules or needs a new
+  persistence/worker boundary.
+
+#### TG22.1C — Backend Readiness Transport and Authorization
+
+- **Objective:** Add the read-only Version 1 endpoint, schemas, typed error
+  mapping, and DI composition.
+- **Boundary:** Existing FastAPI/onboarding patterns only; no mutation endpoint,
+  migration, permission seed, or frontend.
+- **Acceptance:** Active organization association, Effective Tenant, tenant
+  user, `tenant.read`, Version 1 schema, leakage safety, and cross-tenant/
+  cross-organization rejection pass focused transport tests.
+- **Stop:** Stop if authorization needs an admin bypass or new permission.
+
+#### TG22.2A — Frontend Readiness Data and Domain Integration
+
+- **Objective:** Extend the existing onboarding datasource/repository/query
+  architecture with typed DTO mapping, immutable E5 domain values, safe errors,
+  scoped cache identity, stale rejection, and cleanup.
+- **Boundary:** Frontend data/domain/hooks and focused tests only; no screen or
+  navigation change and no client readiness calculation.
+- **Acceptance:** Contract validation, all states, error mapping, organization+
+  tenant cache isolation, logout/tenant-switch cleanup, and stale response
+  rejection pass.
+- **Stop:** Stop if mapping requires provider rules or client aggregation.
+
+#### TG22.2B — Frontend Ready-to-Start Presentation
+
+- **Objective:** Render the authoritative checklist/explanation and delegate
+  only enabled bounded actions to existing audited owners.
+- **Boundary:** Reuse `GoLiveScreen`, `SetupWizardFlow`, Journey/status/card,
+  loading/error, Theme, localization, and navigation primitives. Do not activate
+  trial/subscription/payment or add a general action engine.
+- **Acceptance:** Empty, evaluating/loading, stale, unavailable, not-ready, and
+  ready UX; blocker/advisory meaning; disabled/no-action behavior; tenant
+  revalidation; duplicate navigation prevention; English/Hindi parity; and
+  accessibility pass.
+- **Stop:** Stop when an action lacks an existing owner/route.
+
+#### TG22.3 — Final Verification and Acceptance
+
+- **Objective:** Verify the complete E5 contract without new feature scope.
+- **Boundary:** Fix only TG22-owned acceptance defects. No TG23 work.
+- **Acceptance:** Backend/domain/application/transport, frontend data/domain/
+  presentation, security/leakage, multi-clinic, localization/accessibility,
+  TG18–TG21 regressions, diff/static checks, and rollback evidence pass. Confirm
+  no migration and no commercial activation.
+- **Stop:** TG22 is not accepted while any required provider, state, action
+  owner, isolation, or fail-closed case is unverified.
+
+TG22 authorization does not authorize TG23, a general Journey Action Execution
+engine, background readiness processing, new persistence, trial/subscription/
+payment activation, Doctor Module, Clinical Workspace, scheduling, inventory,
+billing implementation, or architecture rewrites.
+
 ### TG19 Final Acceptance — NOT ACCEPTED (2026-07-21)
 
 - Backend Platform Foundation, Clinic Entry, verification, audit, capability,

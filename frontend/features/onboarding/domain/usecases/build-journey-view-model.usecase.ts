@@ -9,6 +9,7 @@ import {
   JourneyProgress,
   JourneyViewModel,
 } from '../entities/journey.entity';
+import { JourneyVisibilityProjection } from '../entities/journey-visibility.entity';
 
 export const calculateJourneyProgressPercentage = (
   progress: JourneyProgress
@@ -124,6 +125,77 @@ export const buildJourneyViewModel = (
       isVisible: true as const,
       isActionable: step?.isActionable ?? false,
       order: cards.length,
+    });
+  });
+
+  return {
+    identity,
+    cards,
+    progress: {
+      completed: cards.filter((card) => card.status === 'complete').length,
+      total: cards.length,
+    },
+    diagnostics: freezeDiagnostics(diagnostics),
+    availability: 'available',
+  };
+};
+
+export const buildJourneyViewModelFromVisibilityProjection = (
+  definition: JourneyDefinition,
+  projection: JourneyVisibilityProjection,
+  status: OnboardingStatus
+): JourneyViewModel => {
+  const diagnostics = createDiagnostics();
+  const identity = {
+    journeyId: definition.id,
+    journeyVersion: definition.version,
+    tenantId: projection.identity.tenantId,
+    projection: {
+      templateVersion: projection.identity.templateVersion,
+      capabilityRevision: projection.identity.capabilityRevision,
+    },
+  };
+
+  if (!isSupportedJourneyVersion(definition.version)) {
+    return {
+      identity,
+      cards: [],
+      progress: { completed: 0, total: 0 },
+      diagnostics: freezeDiagnostics(diagnostics),
+      availability: 'unsupported_version',
+    };
+  }
+
+  const seenStepCodes = new Set<string>();
+  const cards: JourneyCardModel[] = [];
+
+  projection.visibleSteps.forEach((projectedStep) => {
+    const stepCode = projectedStep.stepId;
+    if (seenStepCodes.has(stepCode)) {
+      diagnostics.duplicateStepCodes.push(stepCode);
+      return;
+    }
+    seenStepCodes.add(stepCode);
+
+    const cardDefinition = definition.stepMappings[stepCode];
+    if (!cardDefinition) {
+      diagnostics.unknownStepCodes.push(stepCode);
+      return;
+    }
+    if (!isValidDefinition(stepCode, cardDefinition)) {
+      diagnostics.invalidDefinitionStepCodes.push(stepCode);
+      return;
+    }
+
+    const statusStep = status.steps.get(stepCode);
+    if (!statusStep) diagnostics.missingValidationStepCodes.push(stepCode);
+    cards.push({
+      ...cardDefinition,
+      status: projectedStep.progress === 'COMPLETED' ? 'complete' : 'not_started',
+      isEligible: true as const,
+      isVisible: true as const,
+      isActionable: statusStep?.isActionable ?? false,
+      order: projectedStep.order,
     });
   });
 

@@ -17,6 +17,8 @@ import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { DemoStatusBanner } from '../components/DemoStatusBanner';
 import { JourneySurface } from '../components/JourneySurface';
+import { LoadingScreen } from '../components/LoadingScreen';
+import { ErrorScreen } from '../components/ErrorScreen';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
 import { BillingSetupScreen } from './steps/BillingSetupScreen';
 import { PaymentSetupScreen } from './steps/PaymentSetupScreen';
@@ -30,6 +32,7 @@ import {
 } from '../stores/wizard.store';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useJourneyFoundation } from '../hooks/useJourneyFoundation';
+import { JourneyVisibilityError } from '../../domain/entities/journey-visibility.entity';
 
 interface Step {
   code: string;
@@ -40,6 +43,20 @@ interface Step {
 
 const getVisibleStepSignature = (visibleSteps?: string[] | null) =>
   visibleSteps && visibleSteps.length > 0 ? visibleSteps.join('|') : null;
+
+const getJourneyFailureKey = (error: unknown): string => {
+  if (!(error instanceof JourneyVisibilityError)) {
+    return 'onboarding.progressiveExperience.journey.failure.generic';
+  }
+  return {
+    UNAUTHORIZED: 'onboarding.progressiveExperience.journey.failure.unauthorized',
+    FORBIDDEN: 'onboarding.progressiveExperience.journey.failure.forbidden',
+    TENANT_MISMATCH: 'onboarding.progressiveExperience.journey.failure.tenantMismatch',
+    PROJECTION_UNAVAILABLE: 'onboarding.progressiveExperience.journey.failure.unavailable',
+    CONTRACT_MISMATCH: 'onboarding.progressiveExperience.journey.failure.contractMismatch',
+    BACKEND_FAILURE: 'onboarding.progressiveExperience.journey.failure.generic',
+  }[error.kind];
+};
 
 const createSubmissionId = () => {
   const cryptoRandomUUID = globalThis.crypto?.randomUUID;
@@ -93,6 +110,10 @@ export function SetupWizardFlow() {
     error,
     refetch,
     journey,
+    projection,
+    isRefreshing,
+    revalidateTenant,
+    scopeMatches,
   } = useJourneyFoundation(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
@@ -148,77 +169,28 @@ export function SetupWizardFlow() {
   );
 
   useEffect(() => {
-    if (statusData) {
-      console.log('[SetupWizardFlow] Status data received:', {
-        totalSteps: statusData.total_steps,
-        completedSteps: statusData.completed_steps,
-        visibleSteps: statusData.visible_steps,
-        nextRecommendedStep: statusData.next_recommended_step,
-      });
-      console.log('[SetupWizardFlow] Full status data:', JSON.stringify(statusData, null, 2));
-
-      // Use visible_steps array from backend
-      if (statusData.visible_steps && statusData.visible_steps.length > 0) {
-        latestVisibleStepsSignatureRef.current = getVisibleStepSignature(statusData.visible_steps);
-        const stepsArray = statusData.visible_steps.map((stepCode, index) => {
-          // Get actual status from per_step_validation if available
-          const stepValidation = statusData.per_step_validation?.[stepCode];
-          const actualStatus = stepValidation?.status ||
-            (index < (statusData.completed_steps || 0) ? 'completed' : 'not_started');
-
-          console.log(`[SetupWizardFlow] Step ${stepCode}:`, {
-            index,
-            completedSteps: statusData.completed_steps,
-            hasValidation: !!stepValidation,
-            validationStatus: stepValidation?.status,
-            finalStatus: actualStatus,
-          });
-
-          return {
-            code: stepCode,
-            name: getPreparationStepDisplayName(stepCode, t),
-            status: actualStatus,
-            order: index + 1,
-          };
-        });
-
-        console.log('[SetupWizardFlow] Steps array:', stepsArray);
-        console.log('[SetupWizardFlow] per_step_validation:', statusData.per_step_validation);
-        setSteps(stepsArray);
-
-        // Only auto-navigate if user hasn't manually navigated
-        if (!hasManuallyNavigated) {
-          // Find the FIRST not_started step (this is the actual next step)
-          const firstIncompleteIndex = stepsArray.findIndex(s => s.status === 'not_started');
-
-          if (firstIncompleteIndex >= 0) {
-            console.log('[SetupWizardFlow] Setting current step index to first incomplete:', firstIncompleteIndex);
-            setCurrentStepIndex(firstIncompleteIndex);
-          } else {
-            // All steps complete - go to last step (go-live)
-            console.log('[SetupWizardFlow] All steps complete, going to last step');
-            setCurrentStepIndex(stepsArray.length - 1);
-          }
-        } else {
-          console.log('[SetupWizardFlow] User has manually navigated, keeping current position');
-        }
-      } else {
-        // visible_steps is empty/null — this should not happen post-FR-097 fix.
-        // Log at error severity so monitoring/alerting catches any regression.
-        // Neither case is a transient timing race — the backend returns synchronously —
-        // so an empty response is always a real problem, not a "still generating" state.
-        console.error(
-          '[SetupWizardFlow] visible_steps is empty/null for tenant',
-          tenantId,
-          '— this indicates either an FR-097 template-generation regression or a ' +
-          'tenant whose template was never seeded. The status response was:',
-          statusData
-        );
-      }
-    } else {
-      console.log('[SetupWizardFlow] No status data available');
+    if (!journey || journey.identity.tenantId !== tenantId) {
+      setSteps([]);
+      return;
     }
-  }, [statusData, hasManuallyNavigated, tenantId, t]);
+    const stepsArray: Step[] = journey.cards.map(card => ({
+      code: card.stepCode,
+      name: getPreparationStepDisplayName(card.stepCode, t),
+      status: card.status === 'complete' ? 'completed' : 'not_started',
+      order: card.order,
+    }));
+    latestVisibleStepsSignatureRef.current = getVisibleStepSignature(
+      journey.cards.map(card => card.stepCode)
+    );
+    setSteps(stepsArray);
+
+    if (!hasManuallyNavigated && stepsArray.length > 0) {
+      const firstIncompleteIndex = stepsArray.findIndex(step => step.status === 'not_started');
+      setCurrentStepIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : stepsArray.length - 1);
+    } else if (currentStepIndex >= stepsArray.length && stepsArray.length > 0) {
+      setCurrentStepIndex(stepsArray.length - 1);
+    }
+  }, [currentStepIndex, hasManuallyNavigated, journey, t, tenantId]);
 
   useEffect(() => {
     setShowProgressUpdatedNotice(false);
@@ -243,16 +215,17 @@ export function SetupWizardFlow() {
 
     const previousSignature = backgroundStepSignatureRef.current;
     const result = await refetch();
-    const refreshedStatus = (result as { data?: typeof statusData })?.data;
+    const refreshedProjection = result.projection;
     const refreshedSignature = getVisibleStepSignature(
-      refreshedStatus?.visible_steps ?? statusData?.visible_steps
+      refreshedProjection?.visibleSteps.map(step => step.stepId) ??
+        projection?.visibleSteps.map(step => step.stepId)
     );
 
     latestVisibleStepsSignatureRef.current = refreshedSignature;
     setShowProgressUpdatedNotice(
       Boolean(previousSignature && refreshedSignature && previousSignature !== refreshedSignature)
     );
-  }, [tenantId, isAuthenticated, refetch, statusData]);
+  }, [tenantId, isAuthenticated, projection, refetch]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
@@ -522,6 +495,7 @@ export function SetupWizardFlow() {
   };
 
   const navigateToStep = useCallback((stepCode: string) => {
+    if (!scopeMatches || journey?.identity.tenantId !== tenantId) return false;
     const stepIndex = steps.findIndex(step => step.code === stepCode);
     if (stepIndex < 0) {
       return false;
@@ -531,7 +505,22 @@ export function SetupWizardFlow() {
     setShowProgressUpdatedNotice(false);
     setCurrentStepIndex(stepIndex);
     return true;
-  }, [steps]);
+  }, [journey?.identity.tenantId, scopeMatches, steps, tenantId]);
+
+  const journeyNavigationInFlight = useRef(false);
+  const navigateToProjectedStep = useCallback(async (stepCode: string) => {
+    if (journeyNavigationInFlight.current || !journey?.cards.some(card => card.stepCode === stepCode)) {
+      return;
+    }
+    journeyNavigationInFlight.current = true;
+    try {
+      if (await revalidateTenant()) navigateToStep(stepCode);
+    } catch {
+      return;
+    } finally {
+      journeyNavigationInFlight.current = false;
+    }
+  }, [journey?.cards, navigateToStep, revalidateTenant]);
 
   const handleContinueSetupFromBanner = useCallback(() => {
     const targetStep = statusData?.next_recommended_step;
@@ -780,11 +769,10 @@ export function SetupWizardFlow() {
               void resetWizardDraftStorage();
               router.replace(`/clinic-admin?tenantId=${tenantId}`);
             }}
-            completedSteps={statusData?.completed_steps || 0}
-            totalSteps={statusData?.total_steps || 0}
-            allSteps={steps}
-            isWizardMode={true}
-            onRegisterSaveHandler={registerSaveHandler}
+            onNavigateToSetupStep={navigateToProjectedStep}
+            onOpenWorkspacePreparation={() => {
+              router.push(`/onboarding/workspace-preparation?tenantId=${tenantId}` as any);
+            }}
           />
         );
 
@@ -810,43 +798,18 @@ export function SetupWizardFlow() {
   }
 
   if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.default} />
-        <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.md }]}>
-          {t('onboarding.progressiveExperience.flow.loadingPreparation')}
-        </Text>
-      </View>
-    );
+    return <LoadingScreen message={t('onboarding.progressiveExperience.journey.loading')} />;
   }
 
-  if (error || steps.length === 0) {
-    console.log('[SetupWizardFlow] Error or no steps:', { error, stepsLength: steps.length, statusData });
+  if (error) {
+    const errorMessage = t(getJourneyFailureKey(error));
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background.default, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg }]}>
-        <Ionicons name="alert-circle" size={48} color={theme.colors.feedback.error} />
-        <Text style={[theme.typography.h6, { color: theme.colors.text.primary, marginTop: theme.spacing.md, textAlign: 'center' }]}>
-          {t('onboarding.progressiveExperience.flow.loadPreparationFailed')}
-        </Text>
-        {error && (
-          <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
-            {error.message || 'Unknown error'}
-          </Text>
-        )}
-        {!error && steps.length === 0 && (
-          <Text style={[theme.typography.body2, { color: theme.colors.text.secondary, marginTop: theme.spacing.sm, textAlign: 'center' }]}>
-            {t('onboarding.progressiveExperience.flow.noPreparationSteps')}
-          </Text>
-        )}
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, marginTop: theme.spacing.lg, borderRadius: theme.spacing.sm }]}
-          onPress={() => refetch()}
-        >
-          <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
-            Retry
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorScreen
+        title={t('onboarding.progressiveExperience.flow.loadPreparationFailed')}
+        message={errorMessage}
+        retryLabel={t('onboarding.progressiveExperience.journey.retry')}
+        onRetry={() => void refetch()}
+      />
     );
   }
 
@@ -865,7 +828,7 @@ export function SetupWizardFlow() {
       </View>
 
       {/* Stepper */}
-      <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />
+      {steps.length > 0 && <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />}
 
       <OfflineBanner isOffline={isOffline} />
 
@@ -916,9 +879,18 @@ export function SetupWizardFlow() {
       )}
 
       {/* Step Content */}
-      <ScrollView style={styles.content} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ flexGrow: 1 }}
+        accessibilityLabel={t('onboarding.progressiveExperience.journey.heading')}
+        accessibilityState={{ busy: isRefreshing }}
+      >
         {journey && (
-          <JourneySurface journey={journey} onSelectStep={navigateToStep} />
+          <JourneySurface
+            journey={journey}
+            onSelectStep={navigateToProjectedStep}
+            refreshing={isRefreshing}
+          />
         )}
         {journey?.availability === 'available' && journey.cards.length > 0
           ? renderStepContent()
@@ -926,7 +898,9 @@ export function SetupWizardFlow() {
       </ScrollView>
 
       {/* Navigation Footer */}
-      {journey?.availability === 'available' && journey.cards.length > 0 && (
+      {journey?.availability === 'available' &&
+        journey.cards.length > 0 &&
+        currentStep?.code !== 'go_live_checklist' && (
         <View style={[styles.footer, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderTopWidth: 1, borderTopColor: theme.colors.border.default, flexDirection: 'row', justifyContent: 'space-between' }]}>
         <TouchableOpacity
           style={[

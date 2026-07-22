@@ -19,6 +19,10 @@ export interface JourneyRuntimeIdentity {
   journeyId: JourneyId;
   journeyVersion: JourneyVersion;
   tenantId: string;
+  projection?: {
+    readonly templateVersion: string;
+    readonly capabilityRevision: string;
+  };
 }
 
 export interface ExistingJourneyDestination {
