@@ -1579,6 +1579,114 @@ This approval freezes constitutional behavior only. It adds no implementation
 task, makes no source/test/API/schema change, does not mark TG21 in progress,
 and does not authorize TG22.
 
+### TG22 E5 Constitutional Contract — APPROVED (2026-07-22)
+
+TG22 is **Ready-to-Start Checklist and Readiness Explanation**. Requirement 34
+and the E5 design contract now freeze backend aggregate authority, domain-owned
+providers, deterministic checklist/blocker/advisory semantics, bounded existing
+next-action owners, request-driven refresh, readiness identity, typed errors,
+tenant/RBAC security, localization/accessibility, acceptance, and rollback.
+
+Source audit classification:
+
+| Capability | Classification | Authorized treatment |
+|---|---|---|
+| Readiness provider interface | `MISSING` | Add narrow E5 port; preserve domain truth. |
+| Readiness aggregate | `MISSING` | Add immutable tenant-scoped E5 domain/read model. |
+| Checklist model | `EXTEND` | Replace local positional derivation with backend result; reuse UI primitives. |
+| Blocker model | `EXTEND` | Adapt safe onboarding/TG20 evidence; expose no internals. |
+| Next-action model | `EXTEND` | Bounded descriptors to audited existing owners only. |
+| Ready-to-Start service | `MISSING` | Add read-only application composition; activation remains separate. |
+| Backend endpoint | `MISSING` | Add Version 1 read transport after domain/application checkpoints. |
+| Frontend domain model | `MISSING` | Add immutable mapping after transport. |
+| Existing resolution routes | `REUSE` | Allowlist TG17 wizard navigation and domain-owned refresh/retry/support. |
+| Tenant-scoped readiness query | `EXTEND` | Extend existing onboarding repository/query-key/cache boundaries. |
+| Readiness permission | `REUSE` | Effective Tenant, active association/user, and `tenant.read`; no bypass. |
+
+The following independently verifiable implementation groups are authorized in
+this exact order. Each group must stop after its own focused verification and
+must not begin the next group without a separate prompt.
+
+#### TG22.1A — Backend Readiness and Provider Domain Contract
+
+- **Objective:** Implement pure E5 states, identity, provider result, checklist
+  item, blocker/advisory, bounded next-action, and typed domain errors.
+- **Boundary:** Backend domain and pure tests only. No repository, database,
+  application service, DI, transport, migration, or frontend.
+- **Dependencies:** Requirement 34 and E5 design; existing TG20/TG21 value
+  contracts inspected read-only.
+- **Acceptance:** Unknown versions/states fail closed; ordering,
+  deduplication/conflict, identity, provider-set completeness, and immutable
+  safe shapes pass focused pure tests.
+- **Stop:** Stop if a required value cannot be represented without redefining
+  TG20/TG21 or adding a provider/product decision.
+
+#### TG22.1B — Backend Readiness Application Composition
+
+- **Objective:** Compose `journey_setup_progress` and
+  `workspace_preparation` adapters through existing domain owners and produce
+  one complete deterministic aggregate.
+- **Boundary:** Backend application services/adapters and focused tests; reuse
+  current UoW, TG21 query/projection, onboarding validation, and TG20 query.
+  No transport, migration, new persistence, activation, or frontend.
+- **Acceptance:** Effective organization/tenant scope, provider completeness,
+  fail-closed partial/failure behavior, evidence revision, all aggregate
+  states, and transaction-neutral reads pass.
+- **Stop:** Stop if an adapter would duplicate domain rules or needs a new
+  persistence/worker boundary.
+
+#### TG22.1C — Backend Readiness Transport and Authorization
+
+- **Objective:** Add the read-only Version 1 endpoint, schemas, typed error
+  mapping, and DI composition.
+- **Boundary:** Existing FastAPI/onboarding patterns only; no mutation endpoint,
+  migration, permission seed, or frontend.
+- **Acceptance:** Active organization association, Effective Tenant, tenant
+  user, `tenant.read`, Version 1 schema, leakage safety, and cross-tenant/
+  cross-organization rejection pass focused transport tests.
+- **Stop:** Stop if authorization needs an admin bypass or new permission.
+
+#### TG22.2A — Frontend Readiness Data and Domain Integration
+
+- **Objective:** Extend the existing onboarding datasource/repository/query
+  architecture with typed DTO mapping, immutable E5 domain values, safe errors,
+  scoped cache identity, stale rejection, and cleanup.
+- **Boundary:** Frontend data/domain/hooks and focused tests only; no screen or
+  navigation change and no client readiness calculation.
+- **Acceptance:** Contract validation, all states, error mapping, organization+
+  tenant cache isolation, logout/tenant-switch cleanup, and stale response
+  rejection pass.
+- **Stop:** Stop if mapping requires provider rules or client aggregation.
+
+#### TG22.2B — Frontend Ready-to-Start Presentation
+
+- **Objective:** Render the authoritative checklist/explanation and delegate
+  only enabled bounded actions to existing audited owners.
+- **Boundary:** Reuse `GoLiveScreen`, `SetupWizardFlow`, Journey/status/card,
+  loading/error, Theme, localization, and navigation primitives. Do not activate
+  trial/subscription/payment or add a general action engine.
+- **Acceptance:** Empty, evaluating/loading, stale, unavailable, not-ready, and
+  ready UX; blocker/advisory meaning; disabled/no-action behavior; tenant
+  revalidation; duplicate navigation prevention; English/Hindi parity; and
+  accessibility pass.
+- **Stop:** Stop when an action lacks an existing owner/route.
+
+#### TG22.3 — Final Verification and Acceptance
+
+- **Objective:** Verify the complete E5 contract without new feature scope.
+- **Boundary:** Fix only TG22-owned acceptance defects. No TG23 work.
+- **Acceptance:** Backend/domain/application/transport, frontend data/domain/
+  presentation, security/leakage, multi-clinic, localization/accessibility,
+  TG18–TG21 regressions, diff/static checks, and rollback evidence pass. Confirm
+  no migration and no commercial activation.
+- **Stop:** TG22 is not accepted while any required provider, state, action
+  owner, isolation, or fail-closed case is unverified.
+
+TG22 authorization does not authorize TG23, a general Journey Action Execution
+engine, background readiness processing, new persistence, trial/subscription/
+payment activation, Doctor Module, Clinical Workspace, scheduling, inventory,
+billing implementation, or architecture rewrites.
+
 ### TG19 Final Acceptance — NOT ACCEPTED (2026-07-21)
 
 - Backend Platform Foundation, Clinic Entry, verification, audit, capability,

@@ -724,3 +724,118 @@ embedding specialty or clinic-type rules in the client.
    projection, unknown-capability fail-closed behavior, reordered and removed
    step progress preservation, tenant isolation, and absence of frontend
    capability-mapping logic.
+
+---
+
+### Requirement 34: Ready-to-Start Checklist and Readiness Explanation (E5/TG22)
+
+**User Story:** As an Organization Owner, Organization Admin, or Clinic
+Administrator preparing a clinic, I want one plain-language, authoritative
+checklist that explains whether the effective clinic is ready and where I can
+resolve each blocker, so that I never have to infer readiness from visited
+screens, card completion, or local wizard state.
+
+#### Constitutional ownership
+
+1. THE backend Ready-to-Start application composition SHALL be the sole
+   aggregate readiness authority. It SHALL compose, but SHALL NOT replace, the
+   evidence owned by the applicable domain providers.
+2. THE TG21 Journey Visibility Projection SHALL supply the applicable ordered
+   setup-step set; existing onboarding progress/validation SHALL own setup-step
+   evidence; TG20 Workspace Preparation SHALL own workspace-preparation
+   evidence. Commercial activation remains outside TG22.
+3. THE frontend SHALL render the complete backend result only. Route visits,
+   Journey Card state, locally persisted drafts, and client calculations SHALL
+   never establish Ready-to-Start.
+4. THE application composition SHALL resolve the authenticated organization and
+   effective tenant, verify their active association, and require existing
+   tenant RBAC (`tenant.read`) without an `is_org_admin` bypass.
+
+#### Provider and checklist contract
+
+5. EACH provider result SHALL contain a stable provider identifier and version,
+   applicability, evidence revision and observed timestamp, outcome
+   (`SATISFIED`, `BLOCKER`, or `ADVISORY`), severity, safe localized explanation
+   token, and zero or one safe next action. Raw records, contact values,
+   capability internals, and provider exceptions SHALL NOT be exposed.
+6. Version 1 SHALL compose exactly these domain-owned inputs:
+   `journey_setup_progress` from TG21 plus onboarding validation and
+   `workspace_preparation` from TG20. A missing required provider or an
+   incomplete provider response SHALL fail closed. Additional providers require
+   an additive contract revision.
+7. EACH checklist item SHALL contain a stable item identifier, title token,
+   explanation token, status (`COMPLETE`, `BLOCKED`, `ADVISORY`, `EVALUATING`,
+   `UNKNOWN`, `UNAVAILABLE`, or `STALE`), blocker/advisory classification,
+   evidence timestamp, source provider, order, applicability, item version, and
+   zero or one next action.
+8. A next action SHALL use a stable identifier and one of the bounded Version 1
+   kinds `NAVIGATE`, `REFRESH`, `RETRY`, or `CONTACT_SUPPORT`. It SHALL identify
+   an approved existing owner/route, require fresh effective-tenant validation,
+   and expose no action when an owner is missing or stale. TG22 SHALL NOT create
+   a general Journey Action Execution engine.
+
+#### Aggregate state and blocker semantics
+
+9. THE aggregate state SHALL be one of `READY`, `NOT_READY`, `EVALUATING`,
+   `UNKNOWN`, `UNAVAILABLE`, or `STALE`:
+   - `READY`: every applicable required provider returned a complete current
+     result and no blocker exists; advisories may coexist;
+   - `NOT_READY`: evaluation is complete and at least one blocker exists;
+   - `EVALUATING`: a request-driven evaluation is in progress and no readiness
+     claim is available;
+   - `UNKNOWN`: required evidence or provider applicability cannot be determined;
+   - `UNAVAILABLE`: a required provider or aggregate evaluation is unavailable;
+   - `STALE`: the returned identity no longer matches current authoritative
+     provider/evidence revisions.
+10. ONLY `READY` SHALL authorize Ready-to-Start confirmation or handoff. `UNKNOWN`,
+    `UNAVAILABLE`, `STALE`, partial results, provider failures, and unsupported
+    versions SHALL fail closed.
+11. `BLOCKER` prevents `READY`; `ADVISORY` is informational and may coexist with
+    `READY`. Items SHALL be deduplicated by `(provider_id, item_id)`, ordered by
+    blocker before advisory, provider order, item order, then stable item ID.
+    Conflicting results from the same identity SHALL make the aggregate
+    `UNAVAILABLE`. Version 1 provides no readiness override.
+
+#### Refresh, versioning, errors, and safety
+
+12. Evaluation SHALL be request-driven. Initial view, explicit refresh,
+    successful blocker-resolution return, application foreground, and effective
+    tenant change SHALL request a fresh complete evaluation. Logout and tenant
+    switch SHALL cancel and remove the outgoing tenant cache.
+13. Providers MAY evaluate independently, but the backend SHALL publish only a
+    complete aggregate. Partial provider success SHALL NOT be returned as
+    readiness. Version 1 adds no background worker or provider cache; existing
+    domain stores remain authoritative.
+14. Readiness identity SHALL be
+    `(readiness_contract_version, tenant_id, journey_projection_identity,
+    provider_set_revision, evidence_revision)`. The backend composition owns
+    the contract and provider-set revisions; TG21 owns journey projection
+    identity; providers own their evidence revisions. Any member change requires
+    recalculation and invalidates cached frontend results.
+15. Safe typed failures SHALL cover organization unavailable, effective tenant
+    unavailable, authorization denied, provider unavailable, unsupported
+    contract version, stale result, provider configuration error, and aggregate
+    evaluation failure. Raw exceptions and evidence SHALL never cross transport.
+16. State-changing next actions remain owned, authorized, transacted, and
+    audited by their existing domain services; this read-only readiness
+    composition SHALL NOT mutate provider state.
+
+#### Localization, accessibility, and acceptance
+
+17. Titles, explanations, statuses, errors, and action labels SHALL use
+    localization tokens with `en-US`/`hi-IN` key and placeholder parity. Copy
+    SHALL use plain operational language and SHALL NOT expose provider,
+    capability, revision, or database terminology.
+18. Loading/evaluating SHALL expose busy semantics; unavailable and blocking
+    state changes SHALL use appropriate alert/live-region semantics; checklist
+    order SHALL equal focus order; actions SHALL expose role, label, disabled
+    state, and compliant touch targets; no meaning SHALL rely only on color.
+    Layout SHALL support font scaling and longer Hindi text.
+19. TG22 acceptance SHALL prove deterministic aggregation, domain ownership,
+    fail-closed unknown/partial/provider-failure behavior, blocker/advisory
+    distinction, tenant and organization isolation, RBAC, approved action
+    owners, empty/loading/stale/unavailable/not-ready/ready states,
+    localization/accessibility/security leakage, multi-clinic switching, TG18–
+    TG21 regressions, and defined rollback to the prior read-only journey
+    experience. TG22 SHALL NOT activate a trial, subscription, payment, or
+    commercial lifecycle.

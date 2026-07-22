@@ -755,15 +755,19 @@ Every group below inherits all mandatory principles in §9.
 
 - **Objective:** Deliver authoritative readiness explanation and safe commercial handoff.
 - **Scope:** Checklist/blocker/action UX and confirmation; no trial/subscription activation unless separately authorized.
-- **Requirements:** Req 13, 15, 17, 23–28, 32; new readiness requirements required.
-- **Design references:** E5; TG17 routing; Backend Dependencies; E2E strategy.
-- **Dependencies:** TG18, TG21, readiness-provider and blocker/action contracts.
+- **Requirements:** Req 13, 15, 17, 23–28, 32, and Req 34.
+- **Design references:** E5 Ready-to-Start Constitutional Contract; TG17 routing; TG20 state ownership; TG21 projection ownership; Backend Dependencies; E2E strategy.
+- **Dependencies:** TG18, TG20, TG21, and the approved Req 34/E5 readiness-provider and blocker/action contracts.
 - **Reusable components:** `GoLiveScreen`, `SetupWizardFlow`, compatibility `DemoStatusBanner`, step/status/card primitives.
 - **Reusable repositories:** Onboarding status/complete/demo-status repositories where semantically valid.
-- **Reusable services:** Existing onboarding readiness/status services; no presentation API calls.
+- **Reusable services:** Existing onboarding progress/validation, TG20 Workspace Preparation query, TG21 Journey Visibility query, Effective Tenant, tenant RBAC, and existing resolution owners; no presentation API calls.
 - **Expected tests:** Ready/not-ready/stale/error, action routing, disabled reasons, no early trial, tenant switch, a11y/i18n.
-- **Expected documentation updates:** Readiness contract/design, terminology, task evidence, release cases.
-- **Stop condition:** Stop if readiness eligibility or blocker resolution is not authoritative and accepted.
+- **Expected documentation updates:** Task completion evidence only; Req 34 and E5 are frozen.
+- **Implementation order:** TG22.1A backend domain/provider contract; TG22.1B backend application composition; TG22.1C transport/authorization; TG22.2A frontend data/domain; TG22.2B presentation; TG22.3 final acceptance.
+- **Constitutional boundary:** Backend composition is the sole aggregate readiness authority; domain providers retain evidence truth; frontend renders only complete authoritative results. Next actions are bounded navigation/refresh/retry/support descriptors to approved existing owners. No override, general Journey Action engine, background processor, readiness persistence, migration, or commercial activation is authorized.
+- **Version 1 providers:** `journey_setup_progress` and `workspace_preparation`. Missing, partial, unknown, stale, conflicting, or failed required provider input fails closed.
+- **Readiness identity:** `(readiness_contract_version, tenant_id, journey_projection_identity, provider_set_revision, evidence_revision)`.
+- **Stop condition:** Stop if readiness eligibility, provider evidence, or blocker resolution cannot be obtained from the approved authoritative owners without redefining their domain contracts.
 
 ### TG23 — Draft Conflict and Multi-Clinic Recovery
 

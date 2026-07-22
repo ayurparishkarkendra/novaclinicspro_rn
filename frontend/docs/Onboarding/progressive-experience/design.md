@@ -224,6 +224,153 @@ permitted.
 
 ---
 
+### E5 Ready-to-Start Constitutional Contract (Req 34)
+
+#### Source audit and reuse decision
+
+| Required capability | Current evidence | Classification | E5 decision |
+|---|---|---|---|
+| Readiness provider interface | No shared provider port exists. `OnboardingProgressService.compute_all_steps_status` owns setup validation and TG20 owns workspace state separately. | `MISSING` | Add a narrow E5 provider result port; adapters call existing domain owners and do not move their rules. |
+| Readiness aggregate | `is_ready_to_go_live` is a derived onboarding-status boolean and is not versioned or provider-complete. | `MISSING` | Add an immutable, tenant-scoped Ready-to-Start aggregate/read model in the backend domain/application boundary. |
+| Checklist model | `GoLiveScreen` builds positional checklist rows locally from wizard steps. | `EXTEND` | Replace local derivation with the E5 authoritative checklist DTO/domain model; reuse presentation primitives only. |
+| Blocker model | Onboarding validation exposes issues, dependency reasons, visibility, and actionable state; no cross-provider safe blocker model exists. | `EXTEND` | Adapt safe existing evidence into E5 items; do not expose raw validation/provider data. |
+| Next-action model | Onboarding status has `next_recommended_step`/`action_url_template`; TG20 has workspace-specific `NextAction`; TG17 routes known wizard steps. | `EXTEND` | Define bounded E5 action descriptors pointing only to existing owners/routes. Do not generalize TG20 actions or create an execution engine. |
+| Ready-to-Start service | `GoLiveService` activates tenants and `OnboardingService` derives legacy completion; neither is a read-only multi-provider E5 composition. | `MISSING` | Add a read-only Ready-to-Start application composition. Do not change or call activation as evaluation. |
+| Backend endpoint | Existing onboarding status/complete transports do not return a versioned provider aggregate. | `MISSING` | Later transport checkpoint adds one read-only Version 1 endpoint using existing DI/auth patterns. |
+| Frontend domain model | Onboarding status and Journey models exist; no E5 identity/state/checklist domain exists. | `MISSING` | Later frontend domain checkpoint adds immutable mapping without readiness calculation. |
+| Existing resolution routes | TG17/SetupWizard routes known wizard steps and TG20 owns refresh/retry. No generic support route was proven. | `REUSE` | Allowlist only audited existing owners. Missing or stale owner, including support without an approved route, means no action. |
+| Tenant-scoped readiness query | Existing onboarding React Query keys are tenant scoped; no E5 query exists. | `EXTEND` | Add an organization+tenant+contract keyed query and outgoing-tenant cleanup through existing repository infrastructure. |
+| Readiness permission | TG21 read projection uses existing `tenant.read`; Effective Tenant and organization association checks already exist. | `REUSE` | Reuse the same context, active association, tenant user, and `tenant.read` checks; no admin bypass or new permission. |
+
+The legacy `GoLiveService` is activation authority, not readiness authority. E5
+must not treat its mutable precondition helper, frontend route visitation, or
+the legacy `is_ready_to_go_live` boolean as the new constitutional aggregate.
+
+#### Authority and provider composition
+
+```text
+Authenticated user
+  -> Effective Organization + Effective Tenant + active association + tenant.read
+  -> ReadyToStartReadiness composition (read only)
+       -> TG21 Journey Visibility (applicable ordered setup steps)
+       -> Onboarding Progress/Validation (setup evidence)
+       -> TG20 Workspace Preparation (workspace evidence)
+  -> one complete immutable E5 aggregate
+  -> repository/domain mapping
+  -> presentation only
+```
+
+The backend application composition is the sole aggregate authority. Provider
+rules remain owned by their domains. Version 1 provider IDs are
+`journey_setup_progress` and `workspace_preparation`. The first consumes the
+TG21 projection and existing onboarding validation for only projected steps;
+the second translates TG20 state without redefining it. Commercial readiness,
+trial activation, subscription, billing, payment, clinical readiness, and
+inventory policy are not E5 providers.
+
+A provider result is immutable and contains: `provider_id`, `provider_version`,
+`applicable`, `evidence_revision`, `observed_at`, `outcome`, `severity`, safe
+explanation token, and optional next action. Provider failures are returned to
+the composition as typed failures, never as provider-authored raw text.
+
+#### Aggregate, checklist, and ordering
+
+`ReadyToStartState` is exactly `READY | NOT_READY | EVALUATING | UNKNOWN |
+UNAVAILABLE | STALE`. Only a complete current provider set with no blocker may
+be `READY`. Advisories may coexist with `READY`; every other non-ready state is
+fail closed. No override exists in Version 1.
+
+Checklist items contain stable ID, title/explanation tokens, item status,
+classification, evidence timestamp, source provider, bounded next action,
+order, applicability, and version. Items are deduplicated by
+`(provider_id, item_id)` and sorted by classification (blocker first), provider
+order (`journey_setup_progress`, then `workspace_preparation`), provider item
+order, and stable ID. Duplicate conflicting values make the aggregate
+`UNAVAILABLE`; identical duplicates collapse deterministically.
+
+The composition returns an explicit empty checklist only when the complete
+current provider set proves that no checklist item applies. Empty or partial
+provider input never implies readiness.
+
+#### Bounded next actions
+
+Version 1 action kinds are `NAVIGATE`, `REFRESH`, `RETRY`, and
+`CONTACT_SUPPORT`. Each descriptor has a stable action ID, localization token,
+owner ID, kind, opaque allowlisted target ID (when applicable), authorization
+requirement, and source identity. Navigation may target only existing audited
+wizard routes. Refresh re-runs E5 evaluation. Retry delegates to an existing
+domain retry owner such as TG20 and does not execute inside E5. A missing,
+unauthorized, or stale owner produces no enabled action. Every action requires
+effective-tenant revalidation immediately before delegation.
+
+#### Refresh, identity, and consistency
+
+Evaluation is request-driven on initial query, explicit refresh, return from a
+resolution owner, foreground, and effective-tenant change. Providers may be
+called independently, but the application publishes only after every required
+provider completes against the same resolved organization/tenant and source
+identities. Partial failure yields `UNAVAILABLE`; unknown applicability yields
+`UNKNOWN`; revision mismatch yields `STALE`. Version 1 adds no worker or E5
+provider cache.
+
+```text
+ReadyToStartIdentity =
+  (readiness_contract_version,
+   tenant_id,
+   journey_template_version,
+   journey_capability_revision,
+   provider_set_revision,
+   evidence_revision)
+```
+
+E5 owns `readiness_contract_version` and deterministic
+`provider_set_revision`; TG21 owns template/capability identity; the composition
+derives `evidence_revision` deterministically from ordered provider IDs,
+versions, evidence revisions, and observed evidence identity—not from response
+time. Any member change requires recalculation. Frontend caches are scoped by
+organization, tenant, and contract, reject identity regression, and are
+cancelled/removed on tenant switch or logout.
+
+#### Errors, security, localization, and accessibility
+
+Typed errors are: `readiness.organization_unavailable`,
+`readiness.effective_tenant_unavailable`, `readiness.forbidden`,
+`readiness.provider_unavailable`, `readiness.unsupported_contract`,
+`readiness.stale`, `readiness.provider_configuration`, and
+`readiness.evaluation_failure`. Transport maps them to safe tokens and retry
+eligibility; raw exceptions and evidence never leave the backend.
+
+E5 reuses authenticated organization context, active organization-tenant
+association, active tenant user, and `tenant.read`. It never trusts a client
+readiness flag, provider result, organization/tenant relationship, or
+`is_org_admin` bypass. The read path performs no audit write; later delegated
+mutations retain their owner service's authorization, transaction, idempotency,
+and audit obligations.
+
+All visible text is tokenized with `en-US`/`hi-IN` key and placeholder parity.
+Presentation uses plain clinic language, central Theme, existing cards/loading/
+error primitives, busy and live-region semantics, programmatic blocker and
+advisory labels, ordered focus, disabled state, non-color meaning, compliant
+touch targets, font scaling, and layouts tolerant of longer Hindi content.
+
+#### Acceptance and rollback
+
+Backend tests must cover deterministic ordering/revisions, complete and empty
+provider sets, every aggregate state, blocker/advisory coexistence,
+deduplication/conflict, provider failure, stale identity, authorization,
+organization/tenant isolation, and safe errors. Transport tests must cover the
+Version 1 schema and leakage. Frontend tests must cover immutable mapping,
+tenant-scoped caching and cleanup, stale rejection, all UX states, approved
+actions only, localization parity, accessibility, and multi-clinic switching.
+TG18–TG21 regressions remain mandatory.
+
+Rollback removes the E5 query/surface and returns to the prior read-only Journey
+experience. It must not change provider data, TG20/TG21 identities, progress,
+drafts, activation, trial, subscription, or payment state. No migration is
+authorized by this constitutional contract.
+
+---
+
 ## Error Handling
 
 ### Tier 1 Error Handling
