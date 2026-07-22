@@ -839,3 +839,83 @@ screens, card completion, or local wizard state.
     TG21 regressions, and defined rollback to the prior read-only journey
     experience. TG22 SHALL NOT activate a trial, subscription, payment, or
     commercial lifecycle.
+
+#### Version 1 provider-specific readiness policy
+
+20. `journey_setup_progress` SHALL evaluate exactly the current TG21 projected
+    steps. The template owner's `setupsteps[].optional` field SHALL be the sole
+    required/optional authority: absent or `false` means required and `true`
+    means optional. Version 1 has no informational-step template value;
+    introducing one requires an additive template/readiness contract revision.
+21. A required visible incomplete step SHALL produce `BLOCKED`/`BLOCKER` and
+    prevent `READY`. An optional visible incomplete step SHALL produce
+    `ADVISORY`/`ADVISORY` and SHALL NOT prevent `READY`. Completed required and
+    optional steps SHALL remain visible as `COMPLETE` with no classification or
+    action. Non-projected and hidden steps SHALL be omitted; retired steps SHALL
+    remain governed by TG21 and SHALL NOT re-enter the current checklist.
+22. Existing validation severity `blocker` SHALL map to
+    `BLOCKED`/`BLOCKER`; existing severity `warning` SHALL map to
+    `ADVISORY`/`ADVISORY`. No other severity is accepted in Version 1. A missing
+    or malformed validation `error_key`, unknown severity, unavailable evidence,
+    or stale TG21 identity SHALL fail closed without raw validation text.
+23. Setup item IDs SHALL be `journey_setup_progress.step.<step_code>` and
+    validation item IDs SHALL be
+    `journey_setup_progress.validation.<step_code>.<error_key>`. IDs SHALL use
+    authoritative codes only. They SHALL NOT use titles, translated text,
+    routes, database IDs, or frontend state. Current computed setup evidence
+    SHALL use the evaluation timestamp as its evidence timestamp; that timestamp
+    SHALL NOT enter an evidence-revision hash.
+24. `workspace_preparation` SHALL emit one provider-owned current-state item,
+    not one item per TG20 unit. Supported state mapping SHALL be:
+    `PENDING → NOT_READY/BLOCKED/BLOCKER`,
+    `PREPARING → EVALUATING/EVALUATING/BLOCKER`,
+    `PERSONALIZATION_AVAILABLE → READY/COMPLETE/no classification`,
+    `RETRYABLE_FAILURE → NOT_READY/BLOCKED/BLOCKER`, and
+    `TERMINAL_FAILURE → NOT_READY/BLOCKED/BLOCKER`.
+    A missing run SHALL be `NOT_READY/BLOCKED/BLOCKER`; unsupported or unknown
+    contract/state SHALL be `UNKNOWN/UNKNOWN/BLOCKER`; stale evidence SHALL be
+    `STALE/STALE/BLOCKER`; an unavailable query SHALL use the typed
+    `readiness.provider_unavailable` failure. Partial TG20 unit progress SHALL
+    follow its authoritative enclosing state and SHALL NOT become another state.
+25. The workspace item ID SHALL remain `workspace_preparation.workspace` for
+    every supported lifecycle state. Typed exceptional items, when a complete
+    safe result exists, SHALL use `workspace_preparation.system.missing`,
+    `.unknown`, `.stale`, or `.unavailable`. Its evidence timestamp SHALL be the
+    TG20 `updated_at`. Its evidence revision SHALL canonically include safe
+    semantic TG20 identity/state/version/progress/retry/unit-version inputs and
+    SHALL exclude timestamps, correlation IDs, raw reasons, and evidence payloads.
+26. Aggregate state precedence SHALL be `STALE`, `UNAVAILABLE`, `UNKNOWN`,
+    `EVALUATING`, `NOT_READY`, then `READY`. Only two complete, applicable,
+    current Version 1 provider results with no blocker may yield `READY`.
+    Both Version 1 providers are required and applicable after authoritative
+    effective-tenant resolution; false/unknown applicability is a fail-closed
+    provider-configuration/`UNKNOWN` condition. Provider exceptions and missing
+    providers SHALL return a safe typed application failure and no partial
+    aggregate. Conflicting duplicate item values SHALL yield `UNAVAILABLE`;
+    identical duplicates collapse by `(provider_id, item_id)`.
+27. Checklist status/classification SHALL be exact:
+    `COMPLETE → none`, `ADVISORY → ADVISORY`, and `BLOCKED`, `EVALUATING`,
+    `UNKNOWN`, `UNAVAILABLE`, or `STALE → BLOCKER`. Blockers sort before
+    advisories, then provider order, provider item order, and item ID.
+28. Version 1 SHALL allow only these descriptors: setup navigation
+    (`readiness.navigate_setup_step`, `NAVIGATE`, owner `setup_wizard`, target
+    `setup_step.<step_code>`, `tenant.read`); readiness refresh
+    (`readiness.refresh`, `REFRESH`, owner `ready_to_start`, no target,
+    `tenant.read`); workspace navigation/start handoff
+    (`readiness.open_workspace_preparation`, `NAVIGATE`, owner
+    `workspace_preparation`, target `onboarding.workspace_preparation`,
+    `tenant.read`); and TG20 retry (`readiness.retry_workspace_preparation`,
+    `RETRY`, owner `workspace_preparation`, target
+    `workspace_preparation.retry`,
+    `onboarding.workspace_preparation.manage`). Every action requires fresh
+    effective-tenant validation. Arbitrary URLs, unknown owners/targets, stale
+    actions, and frontend-supplied targets SHALL be rejected. No
+    `CONTACT_SUPPORT` action SHALL be emitted until a dedicated owner exists.
+29. Backend outputs SHALL use safe localization tokens under
+    `onboarding.progressive_experience.ready_to_start.providers.<provider>`.
+    Step tokens SHALL be keyed by authoritative step code; validation tokens by
+    validated `error_key`; workspace tokens by approved state/failure class.
+    Version 1 permits no interpolation. Missing tokens or `en-US`/`hi-IN`
+    parity failure SHALL fall back to the generic localized unavailable token,
+    omit actions, and fail acceptance; raw keys, reasons, exceptions, provider
+    jargon, and capability jargon SHALL never be presented.

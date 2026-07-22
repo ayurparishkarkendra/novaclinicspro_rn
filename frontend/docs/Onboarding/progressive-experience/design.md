@@ -273,6 +273,96 @@ A provider result is immutable and contains: `provider_id`, `provider_version`,
 explanation token, and optional next action. Provider failures are returned to
 the composition as typed failures, never as provider-authored raw text.
 
+#### Provider-specific Version 1 mapping
+
+`journey_setup_progress` intersects the current TG21 projected step IDs with
+`OnboardingProgressService.compute_all_steps_status`. Template
+`setupsteps[].optional` is authoritative (`false`/absent required, `true`
+optional); Version 1 has no informational value. Projection order is retained.
+
+| Authoritative setup evidence | Checklist status | Classification | Aggregate effect | Item identity | Action |
+|---|---|---|---|---|---|
+| Required, complete, valid | `COMPLETE` | none | none | `journey_setup_progress.step.<step_code>` | none |
+| Required, incomplete or dependency-blocked | `BLOCKED` | `BLOCKER` | `NOT_READY` | same step ID | `readiness.navigate_setup_step` when the projected step has an audited setup route |
+| Optional, complete, valid | `COMPLETE` | none | none | same step ID | none |
+| Optional, incomplete | `ADVISORY` | `ADVISORY` | may coexist with `READY` | same step ID | setup navigation when audited |
+| Validation `blocker` | `BLOCKED` | `BLOCKER` | `NOT_READY` | `journey_setup_progress.validation.<step_code>.<error_key>` | setup navigation when audited |
+| Validation `warning` | `ADVISORY` | `ADVISORY` | may coexist with `READY` | same validation pattern | setup navigation when audited |
+| Hidden/non-projected or retired | omitted | none | none | none | none |
+| Unknown severity, malformed/missing `error_key`, unavailable evidence | no unsafe partial item | none | typed provider/configuration failure | none | none |
+| TG21 identity mismatch | `STALE` | `BLOCKER` | `STALE` | `journey_setup_progress.system.stale` | none |
+
+Computed setup outcomes use evaluation time as `evidence_timestamp`. The setup
+evidence revision hashes projection identity plus ordered step code/order,
+required/optional value, progress/status, validation severity, and validated
+`error_key`; it excludes evaluation time and raw validation values.
+
+`workspace_preparation` calls only `GetWorkspacePreparationQueryService` and
+emits one item. It never ensures, starts, retries, claims, or expands TG20 units.
+
+| TG20 source result | Provider state | Item status / class | Aggregate effect | Action |
+|---|---|---|---|---|
+| `PENDING` | `NOT_READY` | `BLOCKED` / `BLOCKER` | blocks | navigate to fixed workspace-preparation screen; that owner retains start authorization |
+| `PREPARING` | `EVALUATING` | `EVALUATING` / `BLOCKER` | fail closed | refresh readiness only |
+| `PERSONALIZATION_AVAILABLE` | `READY` | `COMPLETE` / none | ready if the other provider permits | none |
+| `RETRYABLE_FAILURE`, retry allowed | `NOT_READY` | `BLOCKED` / `BLOCKER` | blocks | delegate `RETRY` to TG20 |
+| `TERMINAL_FAILURE`, including retry exhaustion | `NOT_READY` | `BLOCKED` / `BLOCKER` | blocks | none; no proven support owner |
+| Not found/no run | `NOT_READY` | `BLOCKED` / `BLOCKER` | blocks | workspace navigation/start handoff |
+| Unsupported/unknown contract or state | `UNKNOWN` | `UNKNOWN` / `BLOCKER` | fail closed | none |
+| Stale run/evidence | `STALE` | `STALE` / `BLOCKER` | fail closed | none |
+| Query/provider unavailable | typed `readiness.provider_unavailable` | no partial item | no aggregate | none |
+
+The normal workspace ID is always `workspace_preparation.workspace`; exception
+IDs use `workspace_preparation.system.missing|unknown|stale|unavailable`.
+`updated_at` is the evidence timestamp. The provider evidence revision hashes
+contract/run/aggregate version, state, safe progress counters, retry booleans
+and counters, safe reason classification, next-action enum, and ordered unit
+codes/evidence versions. It excludes timestamps, correlation IDs, raw reasons,
+and evidence payloads.
+
+#### Aggregate precedence and checklist vocabulary
+
+After validating the complete provider set, scope, versions, and TG21 identity,
+the reducer uses `STALE > UNAVAILABLE > UNKNOWN > EVALUATING > NOT_READY >
+READY`. Both Version 1 providers are required/applicable. A false or unknown
+applicability result fails closed; it is not silently skipped. Provider
+exceptions/missing providers return a typed application failure with no partial
+aggregate. Identical duplicate items collapse; conflicting duplicates produce
+`UNAVAILABLE`.
+
+| Item status | Classification | Meaning |
+|---|---|---|
+| `COMPLETE` | none | Current evidence is satisfied. |
+| `ADVISORY` | `ADVISORY` | Optional improvement; never independently blocks. |
+| `BLOCKED` | `BLOCKER` | Complete evaluation found unresolved required work. |
+| `EVALUATING` | `BLOCKER` | Current evaluation cannot make a readiness claim. |
+| `UNKNOWN` | `BLOCKER` | Applicability/evidence cannot be determined. |
+| `UNAVAILABLE` | `BLOCKER` | Required evidence cannot be obtained. |
+| `STALE` | `BLOCKER` | Evidence identity is no longer current. |
+
+#### Bounded action and localization allowlists
+
+| Action ID | Kind | Owner | Opaque target | Permission | Presence |
+|---|---|---|---|---|---|
+| `readiness.navigate_setup_step` | `NAVIGATE` | `setup_wizard` | `setup_step.<step_code>` from the current projection/TG17 alias resolver | `tenant.read` | Incomplete/advisory/validation setup item with an audited route |
+| `readiness.refresh` | `REFRESH` | `ready_to_start` | none | `tenant.read` | `PREPARING`/explicit refresh; reruns read-only composition |
+| `readiness.open_workspace_preparation` | `NAVIGATE` | `workspace_preparation` | `onboarding.workspace_preparation` | `tenant.read` | `PENDING` or missing run |
+| `readiness.retry_workspace_preparation` | `RETRY` | `workspace_preparation` | `workspace_preparation.retry` | `onboarding.workspace_preparation.manage` | TG20 says retry is allowed |
+
+Every descriptor is tenant-bound and revalidates Effective Tenant immediately
+before delegation. Unknown owner/kind/target, arbitrary URL, and stale source
+identity are rejected as provider configuration/stale failures. The existing
+source proves no dedicated support route owner, so Version 1 emits no
+`CONTACT_SUPPORT` descriptor.
+
+Tokens use
+`onboarding.progressive_experience.ready_to_start.providers.<provider>` with
+step-code, validated `error_key`, or approved workspace state/failure suffixes.
+Version 1 has no interpolation. Both locales must contain every token; a missing
+token uses the generic localized unavailable token, exposes no action, and fails
+acceptance. No raw reason, exception, database/capability/provider jargon, or
+token key is user-visible.
+
 #### Aggregate, checklist, and ordering
 
 `ReadyToStartState` is exactly `READY | NOT_READY | EVALUATING | UNKNOWN |
@@ -363,6 +453,15 @@ Version 1 schema and leakage. Frontend tests must cover immutable mapping,
 tenant-scoped caching and cleanup, stale rejection, all UX states, approved
 actions only, localization parity, accessibility, and multi-clinic switching.
 TG18–TG21 regressions remain mandatory.
+
+Provider-specific backend acceptance additionally covers required/optional and
+completed setup steps, both actual validation severities, hidden/retired steps,
+stale TG21 identity, every TG20 state plus missing/unsupported/stale/query
+failure, retry allowed/exhausted, the full aggregate precedence order,
+identical/conflicting duplicates, stable IDs/revisions, tenant/organization
+isolation, action allowlist rejection, arbitrary-target rejection, and absence
+of raw evidence/errors. Later transport/frontend acceptance covers locale-token
+parity and safe generic fallback without changing provider policy.
 
 Rollback removes the E5 query/surface and returns to the prior read-only Journey
 experience. It must not change provider data, TG20/TG21 identities, progress,

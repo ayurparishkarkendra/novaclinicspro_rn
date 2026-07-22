@@ -1629,9 +1629,20 @@ must not begin the next group without a separate prompt.
 - **Boundary:** Backend application services/adapters and focused tests; reuse
   current UoW, TG21 query/projection, onboarding validation, and TG20 query.
   No transport, migration, new persistence, activation, or frontend.
+- **Exact inputs:** Current TG21 projection identity/ordered visible steps;
+  template `setupsteps[].optional`; existing setup status plus only `blocker`
+  and `warning` validation results; TG20 read model/state; corrected evaluation
+  context and identity helper. Both Version 1 providers are required/applicable.
+- **Exact outputs:** The provider tables, item IDs/token families, state
+  precedence, one workspace item, and four-action allowlist frozen in Req 34/E5.
+  Provider exceptions return safe typed failures and never partial aggregates.
 - **Acceptance:** Effective organization/tenant scope, provider completeness,
-  fail-closed partial/failure behavior, evidence revision, all aggregate
-  states, and transaction-neutral reads pass.
+  required/optional/validation mappings, all five TG20 states plus missing/
+  unsupported/stale/failure, precedence, stable ordering/deduplication,
+  allowlisted actions, fail-closed partial/failure behavior, deterministic
+  provider/evidence revisions, all aggregate states, and transaction-neutral
+  reads pass. Tests reject unknown severity/error key, provider/action owner,
+  arbitrary target, cross-scope/projection evidence, and raw leakage.
 - **Stop:** Stop if an adapter would duplicate domain rules or needs a new
   persistence/worker boundary.
 
