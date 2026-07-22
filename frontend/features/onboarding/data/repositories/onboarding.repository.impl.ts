@@ -31,6 +31,7 @@ import {
   ensureWorkspacePreparationApi,
   getWorkspacePreparationApi,
   retryWorkspacePreparationApi,
+  getJourneyVisibilityApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -48,6 +49,8 @@ import {
   CompleteSetupResponse,
   WorkspacePreparationDatasourceError,
   WorkspacePreparationResponseDTO,
+  JourneyVisibilityDatasourceError,
+  JourneyVisibilityResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -64,6 +67,12 @@ import {
   WorkspacePreparationError,
 } from '../../domain/entities/workspace-preparation.entity';
 import { buildWorkspacePreparationViewModel } from '../../domain/usecases/build-workspace-preparation-view-model.usecase';
+import {
+  JOURNEY_VISIBILITY_CONTRACT_V1,
+  JourneyVisibilityError,
+  JourneyVisibilityProjection,
+} from '../../domain/entities/journey-visibility.entity';
+import { IJourneyVisibilityRepository } from '../../domain/repositories/onboarding.repository';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -91,7 +100,127 @@ export const onboardingKeys = {
       ...onboardingKeys.workspacePreparations(organizationId, tenantId),
       WORKSPACE_PREPARATION_CONTRACT_V1,
     ] as const,
+  journeyVisibility: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.all,
+      'journey-visibility',
+      organizationId,
+      tenantId,
+      JOURNEY_VISIBILITY_CONTRACT_V1,
+    ] as const,
 };
+
+const CAPABILITY_REVISION_V1 = /^cap-v1:[0-9a-f]{64}$/;
+
+export const mapJourneyVisibility = (
+  dto: JourneyVisibilityResponseDTO,
+  requestedTenantId: string
+): JourneyVisibilityProjection => {
+  const projectedAt = new Date(dto.projected_at);
+  const invalidStep = dto.visible_steps.some(
+    (step) =>
+      !step.step_id ||
+      !Number.isInteger(step.order) ||
+      step.order < 0 ||
+      step.visibility !== 'VISIBLE' ||
+      !['INCOMPLETE', 'COMPLETED'].includes(step.progress)
+  );
+  if (
+    dto.contract_version !== JOURNEY_VISIBILITY_CONTRACT_V1 ||
+    !dto.template_version ||
+    !CAPABILITY_REVISION_V1.test(dto.capability_revision) ||
+    dto.tenant_id !== requestedTenantId ||
+    Number.isNaN(projectedAt.getTime()) ||
+    invalidStep
+  ) {
+    throw new JourneyVisibilityError(
+      dto.tenant_id !== requestedTenantId ? 'TENANT_MISMATCH' : 'CONTRACT_MISMATCH',
+      dto.tenant_id !== requestedTenantId
+        ? 'journey_visibility.scope_mismatch'
+        : 'journey_visibility.contract_mismatch',
+      dto.tenant_id !== requestedTenantId
+        ? 'errors.journeyVisibility.scope_mismatch'
+        : 'errors.journeyVisibility.contract_mismatch',
+      false
+    );
+  }
+
+  const identity = Object.freeze({
+    contractVersion: JOURNEY_VISIBILITY_CONTRACT_V1,
+    templateVersion: dto.template_version,
+    capabilityRevision: dto.capability_revision,
+    tenantId: dto.tenant_id,
+  });
+  const visibleSteps = Object.freeze(
+    dto.visible_steps.map((step) =>
+      Object.freeze({
+        stepId: step.step_id,
+        order: step.order,
+        visibility: step.visibility,
+        progress: step.progress,
+      })
+    )
+  );
+  return Object.freeze({ identity, projectedAt, visibleSteps });
+};
+
+const journeyVisibilityFailureKind = (
+  error: JourneyVisibilityDatasourceError
+): JourneyVisibilityError['kind'] => {
+  if (error.httpStatus === 401) return 'UNAUTHORIZED';
+  if (error.errorCode === 'journey_visibility.scope_mismatch') return 'TENANT_MISMATCH';
+  if (error.httpStatus === 403) return 'FORBIDDEN';
+  if (error.errorCode === 'journey_visibility.contract_mismatch') return 'CONTRACT_MISMATCH';
+  if (
+    error.errorCode === 'journey_visibility.projection_unavailable' ||
+    error.errorCode === 'journey_visibility.capability_snapshot_unavailable'
+  ) return 'PROJECTION_UNAVAILABLE';
+  return 'BACKEND_FAILURE';
+};
+
+const mapJourneyVisibilityError = (error: unknown): never => {
+  if (error instanceof JourneyVisibilityError) throw error;
+  if (error instanceof JourneyVisibilityDatasourceError) {
+    throw new JourneyVisibilityError(
+      journeyVisibilityFailureKind(error),
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new JourneyVisibilityError(
+    'BACKEND_FAILURE',
+    'journey_visibility.unavailable',
+    'errors.journeyVisibility.unavailable',
+    true
+  );
+};
+
+export const journeyVisibilityRepository: IJourneyVisibilityRepository = {
+  async getJourneyVisibility(tenantId: string): Promise<JourneyVisibilityProjection> {
+    try {
+      return mapJourneyVisibility(await getJourneyVisibilityApi(tenantId), tenantId);
+    } catch (error) {
+      return mapJourneyVisibilityError(error);
+    }
+  },
+};
+
+export const shouldRetryJourneyVisibility = (failureCount: number, error: Error): boolean =>
+  error instanceof JourneyVisibilityError && error.retryable && failureCount < 2;
+
+export const useJourneyVisibilityQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<JourneyVisibilityProjection, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<JourneyVisibilityProjection, Error>({
+    queryKey: onboardingKeys.journeyVisibility(organizationId, tenantId),
+    queryFn: () => journeyVisibilityRepository.getJourneyVisibility(tenantId),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryJourneyVisibility,
+    ...options,
+  });
 
 const mapWorkspacePreparation = (
   dto: WorkspacePreparationResponseDTO

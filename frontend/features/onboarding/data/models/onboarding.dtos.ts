@@ -275,3 +275,34 @@ export class WorkspacePreparationDatasourceError extends Error {
     this.name = 'WorkspacePreparationDatasourceError';
   }
 }
+
+// === Journey Visibility (TG21 Version 1) ===
+export type JourneyVisibilityProgressDTO = 'INCOMPLETE' | 'COMPLETED';
+
+export interface JourneyVisibilityStepDTO {
+  step_id: string;
+  order: number;
+  visibility: 'VISIBLE';
+  progress: JourneyVisibilityProgressDTO;
+}
+
+export interface JourneyVisibilityResponseDTO {
+  contract_version: '1.0';
+  template_version: string;
+  capability_revision: string;
+  tenant_id: string;
+  projected_at: string;
+  visible_steps: JourneyVisibilityStepDTO[];
+}
+
+export class JourneyVisibilityDatasourceError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly httpStatus?: number
+  ) {
+    super(messageToken);
+    this.name = 'JourneyVisibilityDatasourceError';
+  }
+}

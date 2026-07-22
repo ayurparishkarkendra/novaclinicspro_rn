@@ -23,6 +23,8 @@ import {
   WorkspacePreparationResponseDTO,
   WorkspacePreparationRetryRequestDTO,
   WorkspacePreparationStartRequestDTO,
+  JourneyVisibilityDatasourceError,
+  JourneyVisibilityResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   AuthOrganizationContext,
@@ -58,6 +60,30 @@ const throwWorkspacePreparationError = (error: any): never => {
     body.message_token ?? 'errors.workspacePreparation.execution_failure',
     Boolean(body.retryable)
   );
+};
+
+const throwJourneyVisibilityError = (error: any): never => {
+  const detail = error?.response?.data?.detail ?? {};
+  const body = detail.error ?? detail;
+  throw new JourneyVisibilityDatasourceError(
+    body.error_code ?? 'journey_visibility.unavailable',
+    body.message_token ?? 'errors.journeyVisibility.unavailable',
+    Boolean(body.retryable),
+    error?.response?.status
+  );
+};
+
+export const getJourneyVisibilityApi = async (
+  tenantId: string
+): Promise<JourneyVisibilityResponseDTO> => {
+  try {
+    const response = await axiosClient.get<JourneyVisibilityResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/journey-visibility`
+    );
+    return response.data;
+  } catch (error) {
+    return throwJourneyVisibilityError(error);
+  }
 };
 
 export const ensureWorkspacePreparationApi = async (

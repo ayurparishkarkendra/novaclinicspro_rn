@@ -28,6 +28,11 @@ import {
   WorkspacePreparation,
   WorkspacePreparationError,
 } from '../entities/workspace-preparation.entity';
+import { JourneyVisibilityProjection } from '../entities/journey-visibility.entity';
+
+export interface IJourneyVisibilityRepository {
+  getJourneyVisibility(tenantId: string): Promise<JourneyVisibilityProjection>;
+}
 
 export interface IOnboardingRepository {
   getApplicationDetail(applicationId: string): Promise<ApplicationDetailResponse>;
@@ -85,6 +90,7 @@ export interface IOnboardingRepository {
     aggregateVersion: number,
     idempotencyKey: string
   ): Promise<WorkspacePreparation>;
+  getJourneyVisibility(tenantId: string): Promise<JourneyVisibilityProjection>;
 }
 
 export type OnboardingRepositoryError = WorkspacePreparationError;
