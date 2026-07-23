@@ -470,6 +470,32 @@ authorized by this constitutional contract.
 
 ---
 
+### Progressive Experience Epic Design Coverage Index
+
+This index reconciles design ownership without duplicating or redesigning the
+accepted contracts. A roadmap entry is not implementation design by itself.
+
+| Epic | Design authority | Current coverage |
+|---|---|---|
+| E1 Journey Foundation and Cards | `E1-JOURNEY-DOMAIN-DESIGN.md`, `E1-JOURNEY-VERSIONING.md`, `E1-JOURNEY-CARD-CONTRACT.md`, and `E1-REUSE-AUDIT.md` | Accepted and implemented by TG18. |
+| E2 Clinic Entry and Bring Your Clinic | E2 constitutional documents, `E2-OPERATIONAL-CONTRACT.md`, `E2-IMPLEMENTATION-BOUNDARY.md`, and ADR-PF-002–018 as referenced by those contracts | Accepted and implemented by TG19. |
+| E3 Workspace Preparation | `frontend/docs/TG20/design.md`, `domain-model.md`, `operational-contracts.md`, `final-authorization-contracts.md`, and `acceptance.md` | Accepted and implemented by TG20. |
+| E4 Capability Visibility | Req 33 and the E4 constitutional contract in this document | Accepted and implemented by TG21. |
+| E5 Ready-to-Start Experience | Req 34 and the E5 constitutional contract in this document | Accepted and implemented by TG22. |
+| E6 Conflict and Multi-Clinic Recovery | Existing Req 9, 11, 16, 17, and 29–32 design fragments plus the roadmap | Incomplete. Req 29 revision/timestamp authority and the conflict lifecycle require an accepted constitutional design before TG23. |
+| E7 Offline Mutation Recovery | Deferred data model, error flow, and Req 8/12/20/22–24/26/28/30/32 material in this document | Incomplete. Queue operations, persistence security, retry/dead-letter ownership, and replay contract remain unresolved. |
+| E8 Commercial Trial | Historical Req 13 intent, Req 18, and roadmap E8 | Incomplete. The former direct Demo/Live mutation is superseded; trial lifecycle and commercial authority require an accepted design. |
+| E9 Subscription Conversion and Payment Recovery | Req 12, 18–20, 23–28, 30, 32 and roadmap E9 | Incomplete. Payment ownership, verification, recovery, and security contracts are not accepted. |
+| E10 Informational Dunning | Req 20, 24, 25, 28 and roadmap E10 | Incomplete. Trigger, timing, channel, severity, and owned-action design is absent. |
+| E11 Dashboard First Actions and Progressive Guidance | Req 14, 15, 21, 23–25, 28 and roadmap E11 | Incomplete. Dashboard ownership, first-action authority, growth eligibility, and branding criteria are absent. |
+| E12 Cross-Cutting Completion and Release | Cross-cutting sections in this document, Req 14, 15, 19–25, 28, 30–32, and roadmap E12 | Partially covered. Hindi review ownership, staging/device matrix, analytics completion, security audit, and release evidence remain open. |
+
+The E4 and E5 sections above are the TG21/TG22 constitutional updates. They
+supersede any older implication that the frontend may derive capability
+visibility or readiness locally. Likewise, the historical Demo/Live transition
+design must not be used to bypass Req 34 or the future E8 commercial contract.
+No other design section is declared obsolete by this reconciliation.
+
 ## Error Handling
 
 ### Tier 1 Error Handling

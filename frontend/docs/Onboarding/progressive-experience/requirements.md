@@ -919,3 +919,34 @@ screens, card completion, or local wizard state.
     parity failure SHALL fall back to the generic localized unavailable token,
     omit actions, and fail acceptance; raw keys, reasons, exceptions, provider
     jargon, and capability jargon SHALL never be presented.
+
+## Requirements Governance and Current-State Authority
+
+Requirement numbers 1–34 are permanent. This file remains the authority for
+product intent and acceptance criteria; it is not an execution ledger. Current
+implementation, verification, roadmap, design, and Task Group ownership are
+governed by `requirements-traceability-matrix.md`, with `tasks.md` retaining the
+execution record.
+
+As reconciled after TG18–TG22, the requirements inventory is:
+
+- 11 `COMPLETE`;
+- 19 `PARTIALLY COMPLETE`;
+- 3 `NOT STARTED`;
+- 1 `SUPERSEDED`.
+
+Requirement 13 is the sole superseded requirement. Its direct Demo/Live
+mutation and Demo Mode contract was replaced by the accepted E5 Ready-to-Start
+contract in Requirement 34 and by the future E8 commercial-trial ownership in
+TG26. Its reusable non-commercial status/navigation intent survives through
+those contracts; the obsolete mutation behavior is not an implementation gap.
+The original wording is retained above as historical evidence and must not be
+implemented independently.
+
+E1–E3 were delivered from their approved constitutional requirement and design
+documents before numbered Requirements 33 and 34 established the later E4/E5
+pattern. They are not renumbered or duplicated here. Their acceptance and
+implementation ownership is mapped explicitly in the RTM. E6–E12 remain owned
+by their existing numbered requirements and roadmap destinations; no future
+Task Group may treat roadmap prose alone as sufficient implementation
+authorization.

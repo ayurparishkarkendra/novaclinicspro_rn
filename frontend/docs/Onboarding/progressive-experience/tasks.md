@@ -1514,6 +1514,24 @@ inventory, billing/payment implementation, analytics-platform implementation,
 backend redesign, or architecture rewrites. TG19 requires its own readiness
 review before any implementation.
 
+### TG18–TG22 Execution Ledger Reconciliation (2026-07-23)
+
+This ledger records execution evidence only. Requirements and acceptance
+criteria remain governed by `requirements.md`; bidirectional ownership and
+current status are governed by `requirements-traceability-matrix.md`.
+
+| TG | Implemented requirements and scope | Implementation summary | Verification summary | Status and acceptance reference |
+|---|---|---|---|---|
+| TG18 | E1 constitutional scope; contributes to Req 5, 14, 15, 21, 23–25, 28 | Versioned tenant-scoped journey domain, projection, reusable Journey Cards, progress, empty/unsupported handling, and existing navigation/onboarding reuse. | 7 focused frontend suites / 77 tests; localization, Theme, accessibility, tenant mismatch, unsupported version, and empty journey verified. | **COMPLETE**. E1 constitutional documents and `TG18-IMPLEMENTATION-READINESS.md`; no numbered requirement is claimed complete solely by TG18. |
+| TG19 | E2 constitutional scope; contributes to Req 11, 19, 24, 25, 30 | Clinic Entry/New Clinic/Bring Your Clinic, organization and tenant foundation, identity and verified-contact persistence, verification strategy, audit, idempotency, effective-tenant handoff, and frontend orchestration. | Final acceptance classified 27 Version 1 items verified and 1 out of scope; backend 154 focused tests plus prior 161 isolated-PostgreSQL tests, frontend 4 suites / 15 tests, Ruff, compileall, ESLint, and Alembic head verified. | **COMPLETE / ACCEPTED**. `TG19-FINAL-ACCEPTANCE.md` and the final acceptance entry below. Shared numbered requirements remain partial where their broader ACs extend beyond E2. |
+| TG20 | E3 constitutional scope; completes Req 15 coverage for its owned surfaces and contributes to Req 11, 23–25, 27, 28 | Workspace Preparation domain, persistence/migration, query services, execution and retry boundaries, transport, frontend data/domain/presentation, and handoff. | TG20.1–TG20.3 focused domain, PostgreSQL, application, transport, frontend, regression, static-analysis, migration, and Supabase acceptance gates passed. | **COMPLETE / ACCEPTED**. `frontend/docs/TG20/acceptance.md` (final acceptance evidence) and `frontend/docs/TG20/tasks.md` (TG20.7 execution record). |
+| TG21 | Req 33; shares regression ownership for Req 1–4, 15, 23–25 | Backend-authoritative capability/template projection, source authority, query/transport, frontend data/domain integration, and Journey presentation consumption. | Backend projection/query/transport suites and TG18/onboarding regressions; frontend datasource/repository/domain/presentation, JourneySurface, and SetupWizardFlow verification; fail-closed revision/tenant behavior verified. | **COMPLETE / ACCEPTED**. Req 33, the E4 design contract, and TG21 final verification and acceptance. Req 33 is complete. |
+| TG22 | Req 34; contributes to Req 13, 15, 17, 23–28, 32 | Provider-owned readiness aggregation over TG21 setup and TG20 workspace evidence, read transport/authorization, frontend data/domain integration, checklist explanation, and bounded next actions. | Backend readiness/TG21/onboarding regressions (100 tests); frontend onboarding verification (33 suites / 235 tests) including isolated TG22 (5 suites / 45 tests); Ruff, compileall, ESLint, scoped TypeScript, localization, accessibility, and Alembic head `20260721_030000` verified. | **COMPLETE / ACCEPTED**. Req 34, the E5 design contract, and TG22.3 final acceptance. Req 34 is complete; commercial activation remains outside TG22. |
+
+No ledger entry authorizes a later Task Group. TG23 remains documentation-
+incomplete until E6 resolves the Req 29 per-step revision/timestamp authority
+and freezes the conflict/multi-device lifecycle and implementation boundary.
+
 ## Notes
 
 ### TG21 E4 Constitutional Contract — APPROVED (2026-07-22)
