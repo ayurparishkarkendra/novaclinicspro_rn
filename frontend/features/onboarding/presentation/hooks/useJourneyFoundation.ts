@@ -83,12 +83,20 @@ export const useJourneyFoundation = (
   }, [hasMatchingProjection, hasMatchingTenant, scopeMatches, statusQuery.data, visibilityQuery.data]);
 
   const refetch = useCallback(async () => {
-    if (!scopeMatches) return { data: undefined, projection: undefined };
+    if (!scopeMatches) {
+      return { data: undefined, projection: undefined, statusDomain: null };
+    }
     const [statusResult, visibilityResult] = await Promise.all([
       refetchStatus(),
       refetchVisibility(),
     ]);
-    return { data: statusResult.data, projection: visibilityResult.data };
+    return {
+      data: statusResult.data,
+      projection: visibilityResult.data,
+      statusDomain: statusResult.data
+        ? mapOnboardingStatusToDomain(statusResult.data)
+        : null,
+    };
   }, [refetchStatus, refetchVisibility, scopeMatches]);
 
   const revalidateTenant = useCallback(async (): Promise<boolean> => {
@@ -109,6 +117,13 @@ export const useJourneyFoundation = (
           false
         )
       : null;
+  const statusDomain = useMemo(
+    () =>
+      scopeMatches && hasMatchingTenant && statusQuery.data
+        ? mapOnboardingStatusToDomain(statusQuery.data)
+        : null,
+    [hasMatchingTenant, scopeMatches, statusQuery.data]
+  );
 
   return {
     ...statusQuery,
@@ -119,6 +134,8 @@ export const useJourneyFoundation = (
     error: organizationContext.error ?? scopeError ?? visibilityQuery.error ?? statusQuery.error,
     data: hasMatchingTenant ? statusQuery.data : undefined,
     projection: scopeMatches && hasMatchingProjection ? visibilityQuery.data : undefined,
+    organizationId,
+    statusDomain,
     journey,
     refetch,
     revalidateTenant,

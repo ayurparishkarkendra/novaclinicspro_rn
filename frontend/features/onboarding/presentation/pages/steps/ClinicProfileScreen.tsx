@@ -14,17 +14,20 @@ import { useSubmitStepMutation } from '../../../data/repositories/onboarding.rep
 import { axiosClient } from '../../../../../core/api/axiosClient';
 import { clearStepDraftAndSync, useWizardStore } from '../../stores/wizard.store';
 import { RestoredDraftIndicator } from '../../components/RestoredDraftIndicator';
+import { DraftRevisionEvidence, StepConflictError } from '../../../domain/entities/step-revision.entity';
+import { RevisionAwareSaveContext, RevisionAwareSaveHandler } from '../../hooks/useDraftConflictRecovery';
 
 interface ClinicProfileScreenProps {
   tenantId: string;
   isWizardMode?: boolean;
   onSuccess?: () => void;
-  onRegisterSaveHandler?: (handler: (() => Promise<void>) | null) => void;
+  onRegisterSaveHandler?: (handler: RevisionAwareSaveHandler | null) => void;
+  draftBaseEvidence?: DraftRevisionEvidence;
 }
 
 type TabType = 'basic' | 'business' | 'contact' | 'branding';
 
-export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler }: ClinicProfileScreenProps) {
+export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler, draftBaseEvidence }: ClinicProfileScreenProps) {
   const theme = useClinicTheme();
   const router = useRouter();
   const submitStepMutation = useSubmitStepMutation(tenantId, 'clinic_profile');
@@ -37,7 +40,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
   const initialSnapshotRef = useRef<string | null>(null);
   
   // Store latest handleSubmit in a ref so wizard always calls the latest version
-  const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  const handleSubmitRef = useRef<RevisionAwareSaveHandler | null>(null);
   
   // Basic Information (Required)
   const [clinicName, setClinicName] = useState('');
@@ -171,7 +174,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
           clinic_pan: panNumber || undefined,
           clinic_gst: gstNumber || undefined,
           clinic_logo: logoUrl || undefined,
-        });
+        }, draftBaseEvidence);
       }, 500);
 
       return () => clearTimeout(timeout);
@@ -180,7 +183,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
     clinicName, clinicType, email, phones, website,
     street, city, state, pincode, country,
     registrationNumber, panNumber, gstNumber, logoUrl,
-    loading, setClinicProfile, draftRestored, getCurrentSnapshot
+    loading, setClinicProfile, draftRestored, getCurrentSnapshot, draftBaseEvidence
   ]);
 
   const fetchTenantData = async () => {
@@ -402,7 +405,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
     }
   };
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (saveContext?: RevisionAwareSaveContext) => {
     // Guard: don't submit if still loading
     if (loading) {
       console.log('[ClinicProfileScreen] Skipping submit - still loading');
@@ -481,6 +484,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         : [phones.trim()];
 
       const result = await submitStepMutation.mutateAsync({
+        idempotencyKey: saveContext?.idempotencyKey,
         data: {
           name: clinicName,
           clinic_type: clinicType,
@@ -500,6 +504,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
           clinic_logo: finalLogoUrl || undefined,
         },
         mark_complete: true,
+        expected_revision: saveContext?.expectedRevision,
       });
 
       console.log('[ClinicProfileScreen] Step completed successfully');
@@ -542,7 +547,9 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save clinic profile');
+      if (!(error instanceof StepConflictError)) {
+        Alert.alert('Error', 'Failed to save clinic profile');
+      }
       throw error; // Re-throw so wizard knows save failed
     }
   }, [
@@ -977,7 +984,7 @@ export function ClinicProfileScreen({ tenantId, isWizardMode = false, onSuccess,
         <View style={[styles.footer, { padding: theme.spacing.lg, backgroundColor: theme.colors.surface.default, borderTopWidth: 1, borderTopColor: theme.colors.border.default }]}>
           <TouchableOpacity
             style={[styles.submitButton, { backgroundColor: theme.colors.primary.default, padding: theme.spacing.md, marginBottom: theme.spacing.sm, borderRadius: 8, alignItems: 'center' }]}
-            onPress={handleSubmit}
+            onPress={() => void handleSubmit()}
             disabled={submitStepMutation.isPending}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>

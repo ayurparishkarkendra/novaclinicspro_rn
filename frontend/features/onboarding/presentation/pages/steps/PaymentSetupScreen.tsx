@@ -12,15 +12,18 @@ import { useSubmitStepMutation } from '../../../data/repositories/onboarding.rep
 import { axiosClient } from '../../../../../core/api/axiosClient';
 import { clearStepDraftAndSync, useWizardStore } from '../../stores/wizard.store';
 import { RestoredDraftIndicator } from '../../components/RestoredDraftIndicator';
+import { DraftRevisionEvidence, StepConflictError } from '../../../domain/entities/step-revision.entity';
+import { RevisionAwareSaveContext, RevisionAwareSaveHandler } from '../../hooks/useDraftConflictRecovery';
 
 interface PaymentSetupScreenProps {
   tenantId: string;
   isWizardMode?: boolean;
   onSuccess?: () => void;
-  onRegisterSaveHandler?: (handler: (() => Promise<void>) | null) => void;
+  onRegisterSaveHandler?: (handler: RevisionAwareSaveHandler | null) => void;
+  draftBaseEvidence?: DraftRevisionEvidence;
 }
 
-export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler }: PaymentSetupScreenProps) {
+export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler, draftBaseEvidence }: PaymentSetupScreenProps) {
   const theme = useClinicTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -48,12 +51,12 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
       const timeout = setTimeout(() => {
         setPaymentMethods({
           payment_methods: selectedMethods,
-        });
+        }, draftBaseEvidence);
       }, 500);
 
       return () => clearTimeout(timeout);
     }
-  }, [selectedMethods, loading, setPaymentMethods, draftRestored]);
+  }, [selectedMethods, loading, setPaymentMethods, draftRestored, draftBaseEvidence]);
 
   const fetchPaymentMethods = async () => {
     try {
@@ -134,7 +137,7 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
     }
   };
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (saveContext?: RevisionAwareSaveContext) => {
     if (loading) {
       console.log('[PaymentSetupScreen] Skipping submit - still loading');
       return;
@@ -159,10 +162,12 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
     
     try {
       const result = await submitStepMutation.mutateAsync({
+        idempotencyKey: saveContext?.idempotencyKey,
         data: {
           payment_methods: selectedMethods,
         },
         mark_complete: true,
+        expected_revision: saveContext?.expectedRevision,
       });
 
       console.log('[PaymentSetupScreen] Step completed successfully');
@@ -191,7 +196,9 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
         router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save payment methods');
+      if (!(error instanceof StepConflictError)) {
+        Alert.alert('Error', 'Failed to save payment methods');
+      }
       throw error;
     }
   }, [loading, selectedMethods, submitStepMutation, isWizardMode, onSuccess, tenantId, router]);
@@ -312,7 +319,7 @@ export function PaymentSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
             alignItems: 'center',
           },
         ]}
-        onPress={handleSubmit}
+        onPress={() => void handleSubmit()}
         disabled={submitStepMutation.isPending}
       >
         <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>

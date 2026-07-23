@@ -743,6 +743,40 @@
       "drafts": {
         "restored": "Unsaved changes restored"
       },
+      "conflict": {
+        "title": "Choose which changes to continue with",
+        "description": "Newer clinic setup progress is available from another device or session.",
+        "reassurance": "Your unsaved changes are still safe. Choose whether to use the latest clinic setup or keep your local changes.",
+        "actions": {
+          "useLatest": "Use Latest",
+          "keepLocal": "Keep Local"
+        },
+        "pending": {
+          "useLatest": "Loading the latest clinic setup...",
+          "keepLocal": "Saving your local changes..."
+        },
+        "success": {
+          "useLatest": "The latest clinic setup is now displayed.",
+          "keepLocal": "Your local changes were saved successfully."
+        },
+        "errors": {
+          "refresh": "The latest clinic setup could not be loaded. Your local changes are still safe. Try again.",
+          "draft": "Your local changes could not be updated safely. Nothing was discarded.",
+          "secondConflict": "Clinic setup changed again. Review the choices and try again.",
+          "tenantMismatch": "The selected clinic changed. Return to the current clinic before continuing.",
+          "unauthorized": "You no longer have permission to update this clinic setup.",
+          "unsupported": "This app cannot safely resolve the current setup changes. Refresh the app or contact support.",
+          "generic": "The changes could not be saved. Your local changes are still safe. Try again."
+        },
+        "accessibility": {
+          "dialog": "Clinic setup changes need your choice",
+          "opened": "Newer clinic setup progress is available. Choose Use Latest or Keep Local.",
+          "useLatestLabel": "Use the latest clinic setup",
+          "useLatestHint": "Discards the local draft for this step after the latest setup is loaded safely",
+          "keepLocalLabel": "Keep and save local changes",
+          "keepLocalHint": "Keeps the local draft and attempts to save it against the latest clinic setup"
+        }
+      },
       "journeyCard": {
         "description": "Review and personalize this clinic preparation step.",
         "action": "Review step",

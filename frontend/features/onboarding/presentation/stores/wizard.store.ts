@@ -141,12 +141,21 @@ interface WizardState {
   reset: () => void;
   restoreStepDrafts: (stepDrafts: Record<string, DraftEntry>) => void;
 
-  setClinicProfile: (data: Partial<ClinicProfileData>) => void;
-  setOperatingHours: (data: OperatingHoursData) => void;
-  setRooms: (data: RoomsData) => void;
-  setStaff: (data: StaffData) => void;
-  setPaymentMethods: (data: PaymentData) => void;
-  setBilling: (data: BillingData) => void;
+  setClinicProfile: (
+    data: Partial<ClinicProfileData>,
+    baseEvidence?: DraftRevisionEvidence
+  ) => void;
+  setOperatingHours: (
+    data: OperatingHoursData,
+    baseEvidence?: DraftRevisionEvidence
+  ) => void;
+  setRooms: (data: RoomsData, baseEvidence?: DraftRevisionEvidence) => void;
+  setStaff: (data: StaffData, baseEvidence?: DraftRevisionEvidence) => void;
+  setPaymentMethods: (
+    data: PaymentData,
+    baseEvidence?: DraftRevisionEvidence
+  ) => void;
+  setBilling: (data: BillingData, baseEvidence?: DraftRevisionEvidence) => void;
 
   getStepData: (stepCode: string) => any;
   resetWizard: () => void;
@@ -420,7 +429,9 @@ export const useWizardStore = create<WizardState>()(
             data,
             createdAt: existing?.createdAt ?? now,
             lastSavedAt: now,
-            baseEvidence: baseEvidence ?? existing?.baseEvidence ?? null,
+            baseEvidence: existing
+              ? existing.baseEvidence
+              : baseEvidence ?? null,
           };
           state.isDirty = true;
         }),
@@ -460,23 +471,28 @@ export const useWizardStore = create<WizardState>()(
           state.isDirty = false;
         }),
 
-      setClinicProfile: (data) => {
+      setClinicProfile: (data, baseEvidence) => {
         const existing = get().stepDrafts.clinic_profile?.data as Partial<ClinicProfileData> | undefined;
         get().setStepDraft('clinic_profile', {
           ...existing,
           ...data,
-        });
+        }, baseEvidence);
       },
 
-      setOperatingHours: (data) => get().setStepDraft('operating_hours', data),
+      setOperatingHours: (data, baseEvidence) =>
+        get().setStepDraft('operating_hours', data, baseEvidence),
 
-      setRooms: (data) => get().setStepDraft('rooms_and_therapy_beds', data),
+      setRooms: (data, baseEvidence) =>
+        get().setStepDraft('rooms_and_therapy_beds', data, baseEvidence),
 
-      setStaff: (data) => get().setStepDraft('staff_and_roles', data),
+      setStaff: (data, baseEvidence) =>
+        get().setStepDraft('staff_and_roles', data, baseEvidence),
 
-      setPaymentMethods: (data) => get().setStepDraft('payment_setup', data),
+      setPaymentMethods: (data, baseEvidence) =>
+        get().setStepDraft('payment_setup', data, baseEvidence),
 
-      setBilling: (data) => get().setStepDraft('financials_and_tax', data),
+      setBilling: (data, baseEvidence) =>
+        get().setStepDraft('financials_and_tax', data, baseEvidence),
 
       getStepData: (stepCode) => get().stepDrafts[stepCode]?.data,
 

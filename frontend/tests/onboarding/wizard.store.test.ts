@@ -368,4 +368,35 @@ describe('wizard.store draft persistence', () => {
       invoice_prefix: 'INV',
     });
   });
+
+  it('does not silently replace an existing draft revision during local edits', () => {
+    const firstEvidence = createDraftRevisionEvidence({
+      organizationId: 'org-a',
+      tenantId: 'tenant-a',
+      stepCode: 'clinic_profile',
+      revision: `step-rev-v1:${'a'.repeat(64)}`,
+      templateVersion: 'template-v1',
+      capabilityRevision: `cap-v1:${'c'.repeat(64)}`,
+    });
+    const newerEvidence = createDraftRevisionEvidence({
+      organizationId: 'org-a',
+      tenantId: 'tenant-a',
+      stepCode: 'clinic_profile',
+      revision: `step-rev-v1:${'b'.repeat(64)}`,
+      templateVersion: 'template-v1',
+      capabilityRevision: `cap-v1:${'c'.repeat(64)}`,
+    });
+
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'First' }, firstEvidence);
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'Edited' }, newerEvidence);
+
+    expect(
+      useWizardStore.getState().stepDrafts.clinic_profile.baseEvidence?.revision
+        .value
+    ).toBe(firstEvidence.revision.value);
+  });
 });

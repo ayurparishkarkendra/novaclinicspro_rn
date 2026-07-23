@@ -284,6 +284,10 @@ type StepValidationMock = {
   category: string | null;
   visible: boolean;
   actionable: boolean;
+  revision: string;
+  updated_at: string;
+  template_version: string;
+  capability_revision: string;
 };
 
 const buildValidation = (
@@ -306,6 +310,10 @@ const buildValidation = (
       category: null,
       visible: true,
       actionable: true,
+      revision: `step-rev-v1:${'a'.repeat(64)}`,
+      updated_at: '2026-07-23T10:00:00Z',
+      template_version: 'template-v1',
+      capability_revision: `cap-v1:${'a'.repeat(64)}`,
       ...overrides[stepCode],
     },
   ])
