@@ -10,6 +10,7 @@ import {
   retryWorkspacePreparationApi,
   submitStepDataApi,
 } from '../../features/onboarding/data/datasources/onboarding.api';
+import { StepSubmissionDatasourceError } from '../../features/onboarding/data/models/onboarding.dtos';
 import { axiosClient } from '../../core/api/axiosClient';
 
 jest.mock('../../core/api/axiosClient', () => ({
@@ -67,6 +68,63 @@ describe('submitStepDataApi', () => {
           'X-Tenant-ID': 'tenant-123',
         },
       }
+    );
+  });
+
+  it('maps only the approved stale-revision 409 and ignores internal fields', async () => {
+    mockPost.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          error: {
+            error_code: 'onboarding.step_revision_conflict',
+            message_token: 'errors.onboarding.stepRevisionConflict',
+            conflict: {
+              classification: 'STALE_REVISION',
+              step_code: 'services',
+              current_revision: `step-rev-v1:${'a'.repeat(64)}`,
+              template_version: 'template-v1',
+              capability_revision: `cap-v1:${'b'.repeat(64)}`,
+            },
+          },
+          stack_trace: 'must not propagate',
+        },
+      },
+    });
+
+    await expect(
+      submitStepDataApi(
+        'tenant-123',
+        'services',
+        {
+          data: {},
+          expected_revision: `step-rev-v1:${'c'.repeat(64)}`,
+        },
+        'submission-uuid-123'
+      )
+    ).rejects.toEqual(
+      expect.objectContaining({
+        kind: 'STALE_REVISION',
+        conflict: expect.objectContaining({
+          step_code: 'services',
+          current_revision: `step-rev-v1:${'a'.repeat(64)}`,
+        }),
+      })
+    );
+  });
+
+  it('does not misclassify an unrelated or malformed 409', async () => {
+    mockPost.mockRejectedValueOnce({
+      response: { status: 409, data: { detail: 'idempotency conflict' } },
+    });
+
+    await expect(
+      submitStepDataApi('tenant-123', 'services', { data: {} })
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<StepSubmissionDatasourceError>>({
+        kind: 'MALFORMED_CONFLICT',
+        conflict: null,
+      })
     );
   });
 });

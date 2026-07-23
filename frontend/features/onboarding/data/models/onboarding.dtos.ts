@@ -141,12 +141,28 @@ export interface StepValidationDTO {
   is_valid: boolean;
   issues: ValidationIssueDTO[];
   blocked_reason: string | null;
-  action_url_template: string;
-  entity_type: string;
-  icon: string;
-  category: string;
+  action_url_template: string | null;
+  entity_type: string | null;
+  icon: string | null;
+  category: string | null;
   visible: boolean;
   actionable: boolean;
+  revision?: string | null;
+  updated_at?: string | null;
+  template_version?: string | null;
+  capability_revision?: string | null;
+}
+
+export class OnboardingStatusDatasourceError extends Error {
+  constructor(
+    readonly kind: 'TENANT_MISMATCH' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'BACKEND_FAILURE',
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean
+  ) {
+    super(messageToken);
+    this.name = 'OnboardingStatusDatasourceError';
+  }
 }
 
 export interface ValidationIssueDTO {
@@ -161,6 +177,7 @@ export interface ValidationIssueDTO {
 export interface StepSubmitRequest {
   data: Record<string, any>;
   mark_complete?: boolean;
+  expected_revision?: string;
 }
 
 export interface StepSubmitResponse {
@@ -170,6 +187,45 @@ export interface StepSubmitResponse {
   validation_errors: StepValidationError[];
   next_step: string | null;
   message: string;
+  revision?: string | null;
+  template_version?: string | null;
+  capability_revision?: string | null;
+}
+
+export interface StepConflictResponseDTO {
+  error: {
+    error_code: 'onboarding.step_revision_conflict';
+    message_token: string;
+    conflict: {
+      classification: 'STALE_REVISION';
+      step_code: string;
+      current_revision: string;
+      template_version: string;
+      capability_revision: string;
+    };
+  };
+}
+
+export type StepSubmissionDatasourceFailureKind =
+  | 'STALE_REVISION'
+  | 'MALFORMED_CONFLICT'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'TENANT_MISMATCH'
+  | 'ORGANIZATION_MISMATCH'
+  | 'BACKEND_FAILURE';
+
+export class StepSubmissionDatasourceError extends Error {
+  constructor(
+    readonly kind: StepSubmissionDatasourceFailureKind,
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly conflict: StepConflictResponseDTO['error']['conflict'] | null = null
+  ) {
+    super(messageToken);
+    this.name = 'StepSubmissionDatasourceError';
+  }
 }
 
 export interface CreatedEntity {

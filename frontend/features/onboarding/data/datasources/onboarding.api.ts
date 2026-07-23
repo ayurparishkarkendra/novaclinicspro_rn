@@ -16,8 +16,11 @@ import {
   SetupWizardContextResponse,
   SetupWizardProgressResponse,
   OnboardingStatusResponse,
+  OnboardingStatusDatasourceError,
+  StepConflictResponseDTO,
   StepSubmitRequest,
   StepSubmitResponse,
+  StepSubmissionDatasourceError,
   CompleteSetupResponse,
   WorkspacePreparationDatasourceError,
   WorkspacePreparationResponseDTO,
@@ -525,21 +528,34 @@ export const completeSetupWizardApi = async (
  * We pass it as a custom header as a workaround
  */
 export const getOnboardingStatusApi = async (
-  tenantId: string
+  tenantId: string,
+  signal?: AbortSignal
 ): Promise<OnboardingStatusResponse> => {
   try {
     console.log('[getOnboardingStatusApi] Fetching status for tenant:', tenantId);
     const response = await axiosClient.get<OnboardingStatusResponse>(
       `/api/v1/onboarding/${tenantId}/status`,
       {
+        signal,
         headers: {
           'X-Tenant-ID': tenantId, // Workaround: Backend should accept this instead of requiring JWT
         },
       }
     );
+    if (response.data.tenant_id !== tenantId) {
+      throw new OnboardingStatusDatasourceError(
+        'TENANT_MISMATCH',
+        'onboarding.status_tenant_mismatch',
+        'errors.onboarding.statusTenantMismatch',
+        false
+      );
+    }
     console.log('[getOnboardingStatusApi] Status fetched successfully');
     return response.data;
   } catch (error: any) {
+    if (error?.code === 'ERR_CANCELED' || error instanceof OnboardingStatusDatasourceError) {
+      throw error;
+    }
     if (error?.response?.status === 401) {
       console.log('[getOnboardingStatusApi] Skipping status fetch: no authenticated session');
     } else {
@@ -548,13 +564,108 @@ export const getOnboardingStatusApi = async (
     
     // If 403, provide helpful error message
     if (error?.response?.status === 403) {
-      throw new Error(
-        'Unable to access onboarding. The backend requires tenant_id in JWT token, but it was not updated after demo creation. Please contact support or try logging out and back in.'
+      throw new OnboardingStatusDatasourceError(
+        'FORBIDDEN',
+        'onboarding.status_forbidden',
+        'errors.onboarding.statusForbidden',
+        false
       );
     }
-    
-    throw new Error(getErrorMessage(error, 'Unable to load onboarding status. Please try again.'));
+    if (error?.response?.status === 401) {
+      throw new OnboardingStatusDatasourceError(
+        'UNAUTHORIZED',
+        'onboarding.status_unauthorized',
+        'errors.onboarding.statusUnauthorized',
+        false
+      );
+    }
+    throw new OnboardingStatusDatasourceError(
+      'BACKEND_FAILURE',
+      'onboarding.status_unavailable',
+      'errors.onboarding.statusUnavailable',
+      true
+    );
   }
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const parseStepConflict = (value: unknown): StepConflictResponseDTO['error'] | null => {
+  if (!isRecord(value) || !isRecord(value.error)) return null;
+  const error = value.error;
+  if (
+    error.error_code !== 'onboarding.step_revision_conflict' ||
+    typeof error.message_token !== 'string' ||
+    !isRecord(error.conflict) ||
+    error.conflict.classification !== 'STALE_REVISION' ||
+    typeof error.conflict.step_code !== 'string' ||
+    typeof error.conflict.current_revision !== 'string' ||
+    typeof error.conflict.template_version !== 'string' ||
+    typeof error.conflict.capability_revision !== 'string'
+  ) {
+    return null;
+  }
+  return error as unknown as StepConflictResponseDTO['error'];
+};
+
+const throwStepSubmissionError = (error: any): never => {
+  const status = error?.response?.status;
+  const body = error?.response?.data;
+  const detail = isRecord(body?.detail)
+    ? isRecord(body.detail.error)
+      ? body.detail.error
+      : body.detail
+    : {};
+  if (status === 409) {
+    const conflict = parseStepConflict(body);
+    if (conflict) {
+      throw new StepSubmissionDatasourceError(
+        'STALE_REVISION',
+        conflict.error_code,
+        conflict.message_token,
+        false,
+        conflict.conflict
+      );
+    }
+    throw new StepSubmissionDatasourceError(
+      'MALFORMED_CONFLICT',
+      'onboarding.step_revision_conflict_malformed',
+      'errors.onboarding.stepRevisionConflictMalformed',
+      false
+    );
+  }
+  if (status === 401) {
+    throw new StepSubmissionDatasourceError(
+      'UNAUTHORIZED',
+      'onboarding.step_submission_unauthorized',
+      'errors.onboarding.stepSubmissionUnauthorized',
+      false
+    );
+  }
+  if (status === 403) {
+    const errorCode =
+      typeof detail.error_code === 'string' ? detail.error_code : '';
+    const kind = errorCode.includes('organization')
+      ? 'ORGANIZATION_MISMATCH'
+      : errorCode.includes('tenant') || errorCode.includes('scope')
+        ? 'TENANT_MISMATCH'
+        : 'FORBIDDEN';
+    throw new StepSubmissionDatasourceError(
+      kind,
+      errorCode || 'onboarding.step_submission_forbidden',
+      typeof detail.message_token === 'string'
+        ? detail.message_token
+        : 'errors.onboarding.stepSubmissionForbidden',
+      false
+    );
+  }
+  throw new StepSubmissionDatasourceError(
+    'BACKEND_FAILURE',
+    'onboarding.step_submission_failed',
+    'errors.onboarding.stepSubmissionFailed',
+    true
+  );
 };
 
 /**
@@ -588,9 +699,7 @@ export const submitStepDataApi = async (
     console.log('[submitStepDataApi] Response:', JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (error: any) {
-    logError('submitStepDataApi', error);
-    console.error('[submitStepDataApi] Error response:', error.response?.data);
-    throw new Error(getErrorMessage(error, 'Unable to save step data. Please try again.'));
+    return throwStepSubmissionError(error);
   }
 };
 

@@ -8,12 +8,16 @@ import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 import { create, type StateCreator } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { useAuthStore } from '../../../auth/presentation/providers/auth.store';
+import {
+  DraftRevisionEvidence,
+  createDraftRevisionEvidence,
+} from '../../domain/entities/step-revision.entity';
 
 const { produce } = require('immer') as {
   produce: (recipe: (draft: any) => void) => unknown;
 };
 
-export const WIZARD_DRAFT_SCHEMA_VERSION = 1;
+export const WIZARD_DRAFT_SCHEMA_VERSION = 2;
 export const MAX_DRAFT_SIZE_KB = 500;
 export const DRAFT_EXPIRY_DAYS = 30;
 
@@ -89,6 +93,7 @@ export interface DraftEntry {
   data: unknown;
   createdAt: number;
   lastSavedAt: number;
+  baseEvidence: DraftRevisionEvidence | null;
 }
 
 export interface DraftPayload {
@@ -110,6 +115,7 @@ interface DraftIdentity {
   tenantId: string | null;
   userId: string | null;
   storageKey: string | null;
+  legacyV1StorageKey: string | null;
 }
 
 interface WizardState {
@@ -122,7 +128,15 @@ interface WizardState {
   setTenantId: (tenantId: string) => void;
   setCurrentStepIndex: (index: number) => void;
 
-  setStepDraft: (stepCode: string, data: unknown) => void;
+  setStepDraft: (
+    stepCode: string,
+    data: unknown,
+    baseEvidence?: DraftRevisionEvidence
+  ) => void;
+  acceptStepAuthoritativeEvidence: (
+    stepCode: string,
+    baseEvidence: DraftRevisionEvidence
+  ) => void;
   clearStepDraft: (stepCode: string) => void;
   reset: () => void;
   restoreStepDrafts: (stepDrafts: Record<string, DraftEntry>) => void;
@@ -187,6 +201,7 @@ const getDraftIdentity = (): DraftIdentity => {
       tenantId,
       userId,
       storageKey: `@novaclinics/${tenantId}/user_${userId}/wizard_draft_v${WIZARD_DRAFT_SCHEMA_VERSION}`,
+      legacyV1StorageKey: `@novaclinics/${tenantId}/user_${userId}/wizard_draft_v1`,
     };
   }
 
@@ -196,11 +211,17 @@ const getDraftIdentity = (): DraftIdentity => {
       tenantId: null,
       userId,
       storageKey: `@novaclinics/user_${userId}/wizard_draft_v${WIZARD_DRAFT_SCHEMA_VERSION}`,
+      legacyV1StorageKey: `@novaclinics/user_${userId}/wizard_draft_v1`,
     };
   }
 
   console.warn('[WizardStore] Cannot persist wizard draft without user identity');
-  return { tenantId: null, userId: null, storageKey: null };
+  return {
+    tenantId: null,
+    userId: null,
+    storageKey: null,
+    legacyV1StorageKey: null,
+  };
 };
 
 const getByteLength = (value: string): number => unescape(encodeURIComponent(value)).length;
@@ -215,8 +236,31 @@ const isDraftEntry = (value: unknown): value is DraftEntry => {
     typeof value.createdAt === 'number' &&
     Number.isFinite(value.createdAt) &&
     typeof value.lastSavedAt === 'number' &&
-    Number.isFinite(value.lastSavedAt)
+    Number.isFinite(value.lastSavedAt) &&
+    ('baseEvidence' in value)
   );
+};
+
+const normalizeDraftBaseEvidence = (
+  value: unknown,
+  stepCode: string
+): DraftRevisionEvidence | null => {
+  if (value === null) return null;
+  if (!isRecord(value) || !isRecord(value.revision) || !isRecord(value.projectionIdentity)) {
+    throw new DraftMigrationError(`Invalid draft revision evidence for ${stepCode}`);
+  }
+  const evidence = createDraftRevisionEvidence({
+    organizationId: value.organizationId,
+    tenantId: value.tenantId,
+    stepCode: value.stepCode,
+    revision: value.revision.value,
+    templateVersion: value.projectionIdentity.templateVersion,
+    capabilityRevision: value.projectionIdentity.capabilityRevision,
+  });
+  if (evidence.stepCode !== stepCode) {
+    throw new DraftMigrationError(`Draft revision step mismatch for ${stepCode}`);
+  }
+  return evidence;
 };
 
 const normalizeStepDrafts = (value: unknown): Record<string, DraftEntry> => {
@@ -233,6 +277,7 @@ const normalizeStepDrafts = (value: unknown): Record<string, DraftEntry> => {
       data: entry.data,
       createdAt: entry.createdAt,
       lastSavedAt: entry.lastSavedAt,
+      baseEvidence: normalizeDraftBaseEvidence(entry.baseEvidence, stepCode),
     };
     return acc;
   }, {});
@@ -284,9 +329,13 @@ const parseStoredDraft = (storedValue: string): DraftPayload => {
 };
 
 // Migration map:
-// v0 -> v1: convert legacy raw/split wizardData payloads into unified DraftEntry.
+// v0/v1 -> v2: preserve local data/timestamps and mark server evidence unavailable.
 export function migrateDraft(fromVersion: number, toVersion: number, payload: unknown): DraftPayload {
-  if (fromVersion !== 0 || toVersion !== WIZARD_DRAFT_SCHEMA_VERSION || !isRecord(payload)) {
+  if (
+    ![0, 1].includes(fromVersion) ||
+    toVersion !== WIZARD_DRAFT_SCHEMA_VERSION ||
+    !isRecord(payload)
+  ) {
     throw new DraftMigrationError(`Unsupported draft migration ${fromVersion} -> ${toVersion}`);
   }
 
@@ -299,16 +348,26 @@ export function migrateDraft(fromVersion: number, toVersion: number, payload: un
       : {};
   const rawMetadata = isRecord(state.draftMetadata) ? state.draftMetadata : {};
 
-  const stepDrafts = Object.entries(rawDrafts).reduce<Record<string, DraftEntry>>((acc, [stepCode, data]) => {
-    if (data === undefined) return acc;
+  const stepDrafts = Object.entries(rawDrafts).reduce<Record<string, DraftEntry>>((acc, [stepCode, rawEntry]) => {
+    if (rawEntry === undefined) return acc;
 
     const metadata = isRecord(rawMetadata[stepCode]) ? rawMetadata[stepCode] : {};
-    const lastSavedAt = typeof metadata.lastSavedAt === 'number' ? metadata.lastSavedAt : now;
-    const createdAt = typeof metadata.createdAt === 'number'
-      ? metadata.createdAt
-      : lastSavedAt;
+    const v1Entry = fromVersion === 1 && isRecord(rawEntry) ? rawEntry : null;
+    const data = v1Entry && 'data' in v1Entry ? v1Entry.data : rawEntry;
+    const lastSavedAt =
+      v1Entry && typeof v1Entry.lastSavedAt === 'number'
+        ? v1Entry.lastSavedAt
+        : typeof metadata.lastSavedAt === 'number'
+          ? metadata.lastSavedAt
+          : now;
+    const createdAt =
+      v1Entry && typeof v1Entry.createdAt === 'number'
+        ? v1Entry.createdAt
+        : typeof metadata.createdAt === 'number'
+          ? metadata.createdAt
+          : lastSavedAt;
 
-    acc[stepCode] = { data, createdAt, lastSavedAt };
+    acc[stepCode] = { data, createdAt, lastSavedAt, baseEvidence: null };
     return acc;
   }, {});
 
@@ -350,14 +409,31 @@ export const useWizardStore = create<WizardState>()(
           state.currentStepIndex = index;
         }),
 
-      setStepDraft: (stepCode, data) =>
+      setStepDraft: (stepCode, data, baseEvidence) =>
         set((state: WizardState) => {
           const now = Date.now();
           const existing = state.stepDrafts[stepCode];
+          if (baseEvidence && baseEvidence.stepCode !== stepCode) {
+            throw new DraftMigrationError('Draft evidence step identity does not match');
+          }
           state.stepDrafts[stepCode] = {
             data,
             createdAt: existing?.createdAt ?? now,
             lastSavedAt: now,
+            baseEvidence: baseEvidence ?? existing?.baseEvidence ?? null,
+          };
+          state.isDirty = true;
+        }),
+
+      acceptStepAuthoritativeEvidence: (stepCode, baseEvidence) =>
+        set((state: WizardState) => {
+          const existing = state.stepDrafts[stepCode];
+          if (!existing || baseEvidence.stepCode !== stepCode) {
+            throw new DraftMigrationError('Cannot bind evidence to a missing or different draft');
+          }
+          state.stepDrafts[stepCode] = {
+            ...existing,
+            baseEvidence,
           };
           state.isDirty = true;
         }),
@@ -540,6 +616,23 @@ export async function hydrateWizardDraftFromStorage(): Promise<void> {
   if (scopedValue) {
     await hydrateFromValue(scopedValue, identity.storageKey, true, false);
     return;
+  }
+
+  if (identity.legacyV1StorageKey) {
+    const legacyV1Value = await AsyncStorage.getItem(identity.legacyV1StorageKey);
+    if (legacyV1Value) {
+      const hydratedV1 = await hydrateFromValue(
+        legacyV1Value,
+        identity.legacyV1StorageKey,
+        false,
+        false
+      );
+      if (hydratedV1) {
+        await syncWizardDraftToStorage();
+        await AsyncStorage.removeItem(identity.legacyV1StorageKey);
+      }
+      return;
+    }
   }
 
   const legacyValue = await AsyncStorage.getItem(LEGACY_WIZARD_STORAGE_KEY);

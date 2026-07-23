@@ -47,6 +47,8 @@ const step = (
   category: 'setup',
   isVisible: true,
   isActionable,
+  evidenceAvailability: 'UNAVAILABLE',
+  authoritativeEvidence: null,
 });
 
 const onboardingStatus = (overrides: Partial<OnboardingStatus> = {}): OnboardingStatus => ({

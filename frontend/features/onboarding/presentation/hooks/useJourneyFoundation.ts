@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   useClearJourneyVisibilityCache,
+  useClearOnboardingStatusCache,
   useJourneyVisibilityQuery,
   useOnboardingStatusQuery,
   useOrganizationContextQuery,
@@ -35,6 +36,7 @@ export const useJourneyFoundation = (
   const refetchVisibility = visibilityQuery.refetch;
   const refetchOrganizationContext = organizationContext.refetch;
   const clearVisibilityCache = useClearJourneyVisibilityCache();
+  const clearStatusCache = useClearOnboardingStatusCache();
   const previousScope = useRef<{ organizationId: string; tenantId: string } | null>(null);
   const hasMatchingTenant = statusQuery.data?.tenant_id === tenantId;
   const hasMatchingProjection = visibilityQuery.data?.identity.tenantId === tenantId;
@@ -46,16 +48,20 @@ export const useJourneyFoundation = (
       (previous.organizationId !== organizationId || previous.tenantId !== tenantId)
     ) {
       void clearVisibilityCache(previous.organizationId, previous.tenantId);
+      void clearStatusCache(previous.organizationId, previous.tenantId);
     }
     previousScope.current = organizationId && tenantId ? { organizationId, tenantId } : null;
-  }, [clearVisibilityCache, organizationId, tenantId]);
+  }, [clearStatusCache, clearVisibilityCache, organizationId, tenantId]);
 
   useEffect(
     () => () => {
       const current = previousScope.current;
-      if (current) void clearVisibilityCache(current.organizationId, current.tenantId);
+      if (current) {
+        void clearVisibilityCache(current.organizationId, current.tenantId);
+        void clearStatusCache(current.organizationId, current.tenantId);
+      }
     },
-    [clearVisibilityCache]
+    [clearStatusCache, clearVisibilityCache]
   );
 
   const journey = useMemo(() => {

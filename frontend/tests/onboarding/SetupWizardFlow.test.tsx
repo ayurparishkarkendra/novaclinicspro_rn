@@ -186,6 +186,7 @@ const mockMutateAsync = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
 const mockUseDemoStatusQuery = jest.fn();
 const mockClearJourneyVisibilityCache = jest.fn();
+const mockClearOnboardingStatusCache = jest.fn();
 const mockProjectionCache = new WeakMap<object, object>();
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: any[]) => mockUseOnboardingStatusQuery(...args),
@@ -239,6 +240,7 @@ jest.mock('../../features/onboarding/data/repositories/onboarding.repository.imp
     refetch: mockOrganizationRefetch,
   }),
   useClearJourneyVisibilityCache: () => mockClearJourneyVisibilityCache,
+  useClearOnboardingStatusCache: () => mockClearOnboardingStatusCache,
   useDemoStatusQuery: (...args: any[]) => mockUseDemoStatusQuery(...args),
   useSubmitStepMutation: () => ({
     mutateAsync: (...args: any[]) => mockMutateAsync(...args),

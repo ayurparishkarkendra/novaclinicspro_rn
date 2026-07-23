@@ -57,6 +57,7 @@ import {
   ReadinessProviderDTO,
   ReadyToStartDatasourceError,
   ReadyToStartResponseDTO,
+  StepSubmissionDatasourceError,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -92,6 +93,12 @@ import {
   ReadyToStart,
   ReadyToStartError,
 } from '../../domain/entities/ready-to-start.entity';
+import {
+  StepConflictError,
+  createAuthoritativeStepRevision,
+  createStepProjectionIdentity,
+  createStaleRevisionConflict,
+} from '../../domain/entities/step-revision.entity';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -110,7 +117,10 @@ export const onboardingKeys = {
   demo: (id: string) => [...onboardingKeys.demos(), id] as const,
   setupWizard: (id: string) => [...onboardingKeys.all, 'setup-wizard', id] as const,
   setupProgress: (id: string) => [...onboardingKeys.setupWizard(id), 'progress'] as const,
-  status: (tenantId: string) => [...onboardingKeys.all, 'status', tenantId] as const,
+  statuses: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'status', organizationId, tenantId] as const,
+  status: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.statuses(organizationId, tenantId), 'v1'] as const,
   organizationContext: () => [...onboardingKeys.all, 'organization-context'] as const,
   workspacePreparations: (organizationId: string, tenantId: string) =>
     [...onboardingKeys.all, 'workspace-preparation', organizationId, tenantId] as const,
@@ -962,13 +972,112 @@ export const useOnboardingStatusQuery = (
   tenantId: string,
   options?: Omit<UseQueryOptions<OnboardingStatusResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
+  const organizationContext = useOrganizationContextQuery();
+  const organizationId = organizationContext.data?.effectiveOrganizationId ?? '';
+  const scopeMatches =
+    organizationContext.data?.effectiveTenantId === tenantId &&
+    !organizationContext.data?.sessionRefreshRequired;
   return useQuery<OnboardingStatusResponse, Error>({
-    queryKey: onboardingKeys.status(tenantId),
-    queryFn: () => getOnboardingStatusApi(tenantId),
-    enabled: !!tenantId,
+    queryKey: onboardingKeys.status(organizationId, tenantId),
+    queryFn: ({ signal }) => getOnboardingStatusApi(tenantId, signal),
     staleTime: 30000, // 30 seconds
     ...options,
+    enabled:
+      Boolean(organizationId && tenantId && scopeMatches) &&
+      (options?.enabled ?? true),
   });
+};
+
+export const useClearOnboardingStatusCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.statuses(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+export const mapStepSubmissionError = (error: unknown, stepCode: string): never => {
+  if (error instanceof StepConflictError) throw error;
+  if (error instanceof StepSubmissionDatasourceError) {
+    if (error.kind === 'STALE_REVISION' && error.conflict) {
+      const conflict = createStaleRevisionConflict({
+        classification: error.conflict.classification,
+        stepCode: error.conflict.step_code,
+        currentRevision: error.conflict.current_revision,
+        templateVersion: error.conflict.template_version,
+        capabilityRevision: error.conflict.capability_revision,
+        messageToken: error.messageToken,
+      });
+      if (conflict.stepCode !== stepCode) {
+        throw new StepConflictError(
+          'MALFORMED_CONFLICT',
+          'onboarding.step_conflict_scope_mismatch',
+          'errors.onboarding.stepConflictScopeMismatch',
+          false
+        );
+      }
+      throw new StepConflictError(
+        'STALE_REVISION',
+        error.errorCode,
+        error.messageToken,
+        false,
+        conflict
+      );
+    }
+    throw new StepConflictError(
+      error.kind,
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new StepConflictError(
+    'BACKEND_FAILURE',
+    'onboarding.step_submission_failed',
+    'errors.onboarding.stepSubmissionFailed',
+    true
+  );
+};
+
+export const validateStepSubmissionResponse = (
+  response: StepSubmitResponse,
+  stepCode: string,
+  revisionAware: boolean
+): StepSubmitResponse => {
+  if (response.step_code && response.step_code !== stepCode) {
+    throw new StepConflictError(
+      'UNSUPPORTED_CONTRACT',
+      'onboarding.step_submission_scope_mismatch',
+      'errors.onboarding.stepSubmissionScopeMismatch',
+      false
+    );
+  }
+  const fields = [
+    response.revision,
+    response.template_version,
+    response.capability_revision,
+  ];
+  const complete = fields.every((field) => field !== null && field !== undefined);
+  if (revisionAware && !complete) {
+    throw new StepConflictError(
+      'UNSUPPORTED_CONTRACT',
+      'onboarding.step_submission_evidence_missing',
+      'errors.onboarding.stepSubmissionEvidenceMissing',
+      false
+    );
+  }
+  if (complete) {
+    createAuthoritativeStepRevision(response.revision);
+    createStepProjectionIdentity(
+      response.template_version,
+      response.capability_revision
+    );
+  }
+  return response;
 };
 
 /**
@@ -976,15 +1085,36 @@ export const useOnboardingStatusQuery = (
  */
 export const useSubmitStepMutation = (tenantId: string, stepCode: string) => {
   const queryClient = useQueryClient();
+  const organizationContext = useOrganizationContextQuery();
+  const organizationId = organizationContext.data?.effectiveOrganizationId ?? '';
 
-  return useMutation<StepSubmitResponse, Error, StepSubmitVariables>({
-    mutationFn: ({ idempotencyKey, ...data }) => submitStepDataApi(tenantId, stepCode, data, idempotencyKey),
+  return useMutation<StepSubmitResponse, StepConflictError, StepSubmitVariables>({
+    mutationFn: async ({ idempotencyKey, ...data }) => {
+      try {
+        const response = await submitStepDataApi(
+          tenantId,
+          stepCode,
+          data,
+          idempotencyKey
+        );
+        return validateStepSubmissionResponse(
+          response,
+          stepCode,
+          Boolean(data.expected_revision)
+        );
+      } catch (error) {
+        return mapStepSubmissionError(error, stepCode);
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: onboardingKeys.status(tenantId) });
+      queryClient.invalidateQueries({
+        queryKey: onboardingKeys.status(organizationId, tenantId),
+      });
     },
     onError: (error) => {
       console.error('[useSubmitStepMutation] Error:', error);
     },
+    retry: false,
   });
 };
 

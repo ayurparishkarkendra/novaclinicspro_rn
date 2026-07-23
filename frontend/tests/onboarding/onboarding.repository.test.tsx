@@ -14,8 +14,10 @@ import {
 } from '../../features/onboarding/data/repositories/onboarding.repository.impl';
 import {
   createInitialOrganizationApi,
+  getOrganizationContextApi,
   submitStepDataApi,
 } from '../../features/onboarding/data/datasources/onboarding.api';
+import { StepSubmissionDatasourceError } from '../../features/onboarding/data/models/onboarding.dtos';
 
 jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   getApplicationDetailApi: jest.fn(),
@@ -32,22 +34,44 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   submitStepDataApi: jest.fn(),
   completeSetupApi: jest.fn(),
   createInitialOrganizationApi: jest.fn(),
+  getOrganizationContextApi: jest.fn(),
 }));
 
 const mockSubmitStepDataApi = submitStepDataApi as jest.Mock;
 const mockCreateInitialOrganizationApi = createInitialOrganizationApi as jest.Mock;
+const mockGetOrganizationContextApi = getOrganizationContextApi as jest.Mock;
 
 describe('useSubmitStepMutation', () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSubmitStepDataApi.mockResolvedValue({ success: true });
+    mockSubmitStepDataApi.mockResolvedValue({
+      step_code: 'services',
+      status: 'completed',
+      created_entities: [],
+      validation_errors: [],
+      next_step: null,
+      message: 'completed',
+      revision: `step-rev-v1:${'b'.repeat(64)}`,
+      template_version: 'template-v1',
+      capability_revision: `cap-v1:${'c'.repeat(64)}`,
+    });
+    mockGetOrganizationContextApi.mockResolvedValue({
+      effectiveOrganizationId: 'org-1',
+      effectiveTenantId: 'tenant-123',
+      sessionRefreshRequired: false,
+    });
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
+    });
+    queryClient.setQueryData(onboardingKeys.organizationContext(), {
+      effectiveOrganizationId: 'org-1',
+      effectiveTenantId: 'tenant-123',
+      sessionRefreshRequired: false,
     });
   });
 
@@ -71,20 +95,67 @@ describe('useSubmitStepMutation', () => {
         idempotencyKey: 'submission-123',
         data: {},
         mark_complete: true,
+        expected_revision: `step-rev-v1:${'a'.repeat(64)}`,
       });
     });
 
     await waitFor(() => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: onboardingKeys.status('tenant-123'),
+        queryKey: onboardingKeys.status('org-1', 'tenant-123'),
       });
     });
     expect(mockSubmitStepDataApi).toHaveBeenCalledWith(
       'tenant-123',
       'services',
-      { data: {}, mark_complete: true },
+      {
+        data: {},
+        mark_complete: true,
+        expected_revision: `step-rev-v1:${'a'.repeat(64)}`,
+      },
       'submission-123'
     );
+  });
+
+  it('does not retry or replace authoritative cache data after a stale conflict', async () => {
+    const authoritative = { tenant_id: 'tenant-123', revision: 'server' };
+    queryClient.setQueryData(
+      onboardingKeys.status('org-1', 'tenant-123'),
+      authoritative
+    );
+    mockSubmitStepDataApi.mockRejectedValueOnce(
+      new StepSubmissionDatasourceError(
+        'STALE_REVISION',
+        'onboarding.step_revision_conflict',
+        'errors.onboarding.stepRevisionConflict',
+        false,
+        {
+          classification: 'STALE_REVISION',
+          step_code: 'services',
+          current_revision: `step-rev-v1:${'b'.repeat(64)}`,
+          template_version: 'template-v1',
+          capability_revision: `cap-v1:${'c'.repeat(64)}`,
+        }
+      )
+    );
+    const { result } = renderHook(
+      () => useSubmitStepMutation('tenant-123', 'services'),
+      { wrapper }
+    );
+
+    await expect(
+      result.current.mutateAsync({
+        idempotencyKey: 'same-key',
+        data: { local: true },
+        expected_revision: `step-rev-v1:${'a'.repeat(64)}`,
+      })
+    ).rejects.toEqual(expect.objectContaining({ kind: 'STALE_REVISION' }));
+
+    expect(mockSubmitStepDataApi).toHaveBeenCalledTimes(1);
+    expect(
+      queryClient.getQueryData(
+        onboardingKeys.status('org-1', 'tenant-123')
+      )
+    ).toBe(authoritative);
   });
 });
 
