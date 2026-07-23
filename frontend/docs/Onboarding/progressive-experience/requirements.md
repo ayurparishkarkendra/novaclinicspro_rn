@@ -673,6 +673,88 @@ All UI work must use `useClinicTheme()` exclusively — zero hardcoded colours, 
 
 ---
 
+## E6 Constitutional Product Contract — Draft Conflict and Multi-Clinic Recovery
+
+This contract governs Requirements 9, 11, 16, 17, and 29–32. Where the earlier
+timestamp-only comparison wording in Requirements 16 and 29 conflicts with this
+contract, this contract is the approved successor. It changes no implementation
+status.
+
+### Authority and invariants
+
+1. The backend SHALL be the sole authority for accepted onboarding step state,
+   completion, current Journey Visibility identity, and the concurrency revision
+   of each visible step. A local draft is non-authoritative user input until an
+   authorized backend mutation accepts it.
+2. Each visible step SHALL have a backend-issued, non-null, opaque revision and
+   a non-null UTC `updated_at`. The revision is the concurrency authority;
+   `updated_at` is user-facing freshness evidence and SHALL NOT be the sole
+   overwrite guard. Both SHALL change atomically with an authoritative step
+   state/content change. The client SHALL never synthesize either value.
+3. A step without a persisted progress row, including `not_started`, SHALL still
+   receive a backend-authoritative revision and timestamp tied to the current
+   projection. The backend owns how that identity is maintained or derived.
+4. Accepted mutations capable of replacing step state SHALL be validated against
+   the current backend revision. A stale, missing, unknown, or cross-scope
+   revision SHALL fail closed without changing authoritative state.
+5. Drafts SHALL be scoped to the authenticated user, organization, effective
+   tenant, Journey Visibility identity, and stable step code. A draft SHALL
+   never be read, displayed, compared, or submitted in another scope.
+
+### Conflict and recovery lifecycle
+
+1. A conflict exists only when a valid local draft was based on an older backend
+   revision and the current backend step is still eligible for editing. A local
+   timestamp alone SHALL NOT establish that the draft is safe to overwrite.
+2. Completed, retired, hidden, or no-longer-applicable server steps SHALL win
+   without an overwrite choice. Their stale local drafts SHALL be removed from
+   active use and SHALL NOT restore or submit.
+3. For an editable conflicting step, the user SHALL receive two explicit,
+   localized, accessible choices:
+   - **Use Latest** discards the local draft for that scope and displays the
+     current server state.
+   - **Keep Local** preserves the draft for continued editing but does not write
+     it to the server. Any later submission SHALL revalidate against the latest
+     server revision and may surface another conflict.
+4. Missing, invalid, unsupported, or unavailable revision evidence SHALL preserve
+   the local draft, prevent submission, and present a safe retryable recovery
+   state. It SHALL NOT silently choose either version.
+5. Conflict detection, user choice, revalidation, successful resolution, and
+   failed recovery SHALL be auditable without storing draft contents or other
+   sensitive values in analytics/audit metadata.
+
+### Multi-device and multi-clinic behavior
+
+1. Devices do not synchronize local drafts with one another. They converge only
+   through fresh backend-authoritative state and revision evidence.
+2. A successful step mutation SHALL atomically update its authoritative state,
+   completion, revision, and timestamp before the response is visible to any
+   device. Other devices SHALL treat the next fresh response as authoritative.
+3. Effective-tenant switching and logout SHALL cancel or invalidate outgoing
+   onboarding reads, unload in-memory drafts, complete the approved outgoing
+   draft cleanup, and only then load the new scope. Stale responses from the
+   outgoing scope SHALL be rejected.
+4. Recovery SHALL remain specialty-agnostic and compatible with multiple clinics
+   per organization. Organization membership never grants permission to read a
+   different clinic's local or server onboarding state without effective-tenant
+   authorization.
+
+### Responsibilities and prohibitions
+
+- The backend owns authoritative revisions/timestamps, atomic state transitions,
+  stale-write rejection, tenant authorization, and safe typed failures.
+- The frontend owns local draft persistence, scope binding, conflict and recovery
+  presentation, user choice, refresh/revalidation requests, and outgoing-scope
+  cleanup. It does not decide authoritative freshness.
+- The authenticated user owns only the explicit choice for an editable conflict;
+  the user cannot override completed, retired, hidden, unauthorized, or
+  cross-tenant server state.
+- Silent last-write-wins, client clock authority, timestamp-string comparison,
+  frontend-generated revisions, cross-tenant caches, automatic stale-draft
+  submission, raw server errors, and draft-content telemetry are forbidden.
+
+---
+
 ### Requirement 33: Capability-Driven Journey Visibility (E4/TG21)
 
 **User Story:** As a person preparing a clinic workspace, I want the Review &

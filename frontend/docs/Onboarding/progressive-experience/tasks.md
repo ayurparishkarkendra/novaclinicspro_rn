@@ -1528,9 +1528,9 @@ current status are governed by `requirements-traceability-matrix.md`.
 | TG21 | Req 33; shares regression ownership for Req 1–4, 15, 23–25 | Backend-authoritative capability/template projection, source authority, query/transport, frontend data/domain integration, and Journey presentation consumption. | Backend projection/query/transport suites and TG18/onboarding regressions; frontend datasource/repository/domain/presentation, JourneySurface, and SetupWizardFlow verification; fail-closed revision/tenant behavior verified. | **COMPLETE / ACCEPTED**. Req 33, the E4 design contract, and TG21 final verification and acceptance. Req 33 is complete. |
 | TG22 | Req 34; contributes to Req 13, 15, 17, 23–28, 32 | Provider-owned readiness aggregation over TG21 setup and TG20 workspace evidence, read transport/authorization, frontend data/domain integration, checklist explanation, and bounded next actions. | Backend readiness/TG21/onboarding regressions (100 tests); frontend onboarding verification (33 suites / 235 tests) including isolated TG22 (5 suites / 45 tests); Ruff, compileall, ESLint, scoped TypeScript, localization, accessibility, and Alembic head `20260721_030000` verified. | **COMPLETE / ACCEPTED**. Req 34, the E5 design contract, and TG22.3 final acceptance. Req 34 is complete; commercial activation remains outside TG22. |
 
-No ledger entry authorizes a later Task Group. TG23 remains documentation-
-incomplete until E6 resolves the Req 29 per-step revision/timestamp authority
-and freezes the conflict/multi-device lifecycle and implementation boundary.
+No ledger entry authorizes a later Task Group. E6 is constitutionally complete,
+but TG23 remains unauthorized until a separate source-reuse/readiness review
+freezes its implementation boundary and this ledger records an approved task.
 
 ### Standard Task Group Documentation Lifecycle v1.0
 
@@ -1577,6 +1577,29 @@ Mandatory maintenance rules:
 This ledger must not restate product rules or architecture. It records the
 objective, authorized boundary, execution, verification, acceptance decision,
 and stopping point for each Task Group.
+
+### E6 Constitutional Requirements and Design — COMPLETE (2026-07-23)
+
+- **Objective:** Freeze product and architectural ownership for draft conflict,
+  backend step revision/timestamp authority, multi-device convergence,
+  effective-tenant isolation, and safe recovery.
+- **Requirements:** Requirements 9, 11, 16, 17, and 29–32 now reference the E6
+  constitutional contract. Existing implementation statuses are unchanged.
+- **Design:** Backend authoritative state/revision, frontend local-draft and
+  recovery presentation, persistence separation, request-driven convergence,
+  tenant switching, audit safety, accessibility/localization, and acceptance
+  boundaries are approved.
+- **Verification:** Canonical documents and current source ownership were
+  inspected. Current backend progress persistence owns `updated_at`, the status
+  projection does not yet expose per-step revision/timestamp evidence, and the
+  frontend draft owns device-local `lastSavedAt`; no implementation claim is
+  made.
+- **Status:** **CONSTITUTIONALLY COMPLETE / IMPLEMENTATION NOT AUTHORIZED**.
+  The next permissible activity is a separate source-reuse and implementation-
+  readiness review. No TG23 task or implementation checkpoint is created here.
+- **Acceptance reference:** E6 constitutional product contract in
+  `requirements.md`, E6 constitutional design contract in `design.md`, and the
+  affected E6 rows/readiness decision in the RTM.
 
 ## Notes
 

@@ -470,6 +470,84 @@ authorized by this constitutional contract.
 
 ---
 
+### E6 Draft Conflict and Multi-Clinic Recovery Constitutional Contract
+
+#### Domain ownership
+
+The E6 domain distinguishes two truths: backend-authoritative step state and a
+device-local, non-authoritative draft. Conflict is a guarded recovery condition,
+not a merge algorithm. Its identity is scoped by authenticated user,
+organization, effective tenant, Journey Visibility identity, and stable step
+code. The backend-issued opaque step revision is the concurrency authority;
+`updated_at` is UTC freshness evidence for explanation and audit.
+
+The conceptual lifecycle is: current state and local draft are loaded in the
+same validated scope; divergence is either absent, ineligible for choice, a
+recoverable editable conflict, or unavailable evidence; an explicit choice is
+made when allowed; the scope is revalidated; then recovery resolves or remains
+safely blocked. No lifecycle state authorizes a stale write.
+
+#### Backend ownership
+
+The backend owns the current per-step revision and timestamp, atomic association
+of revision with step state/completion and Journey Visibility identity,
+authorization, stale-write rejection, and typed recovery failures. Every visible
+step, including `not_started`, must carry authoritative evidence. The existing
+onboarding progress persistence remains the authoritative state owner; E6 must
+not introduce a second writer or let a transport/router decide conflict policy.
+
+The backend validates the effective organization/tenant and current revision at
+the mutation boundary. Unknown versions, missing evidence, projection mismatch,
+and stale or cross-scope revisions fail closed without partial state mutation.
+
+#### Frontend ownership
+
+The existing Wizard Draft boundary owns local draft data and local save time.
+The onboarding repository/query boundary owns fresh server evidence. A
+presentation hook may orchestrate the two, but presentation components must not
+fetch directly, invent revisions, infer tenant authority, or contain conflict
+business rules.
+
+The frontend owns accessible/localized conflict and unavailable-recovery
+presentation, explicit Use Latest/Keep Local intent, refresh and submission
+revalidation, completed/retired/hidden draft cleanup, stale-response rejection,
+and cleanup during effective-tenant switch/logout. Keep Local preserves editing
+only; it is not permission to overwrite.
+
+#### Persistence and synchronization ownership
+
+Backend persistence owns authoritative per-step state, opaque revision, and UTC
+timestamp. Frontend persistence owns only user/organization/effective-tenant/
+projection/step-scoped local drafts and their device-local timestamps. Neither
+store may copy responsibility from the other, and audit records contain safe
+identifiers/outcomes only, never draft content.
+
+E6 is request-driven. Devices converge by reading and conditionally mutating the
+backend authority; they do not synchronize local drafts peer-to-peer and E6 does
+not establish a general synchronization platform. On tenant switch, outgoing
+queries and in-flight responses are invalidated before the new scope loads.
+
+#### User-visible recovery contract
+
+Editable divergence presents Use Latest and Keep Local with complete
+consequences. Ineligible server states remove the stale draft from active use.
+Unavailable or invalid authority preserves the draft, disables submission, and
+offers safe refresh/retry. The dialog owns initial focus, focus containment and
+return, screen-reader role/labels, disabled/loading semantics, minimum touch
+targets, font scaling, and English/Hindi parity through existing Theme,
+localization, and accessibility systems.
+
+#### Acceptance boundary
+
+Constitutional acceptance requires source-backed proof for atomic revision/state
+changes, stale-write rejection, missing/unknown evidence, Use Latest, Keep Local
+plus revalidation, completed/retired/hidden cleanup, two-device propagation,
+effective-tenant switching, organization/tenant isolation, stale-response
+rejection, safe audit/error behavior, localization, accessibility, and rollback.
+Implementation remains unauthorized until a separately approved task boundary
+identifies files, migration/API impact if any, checkpoints, tests, rollback, and
+stop conditions.
+
 ### Progressive Experience Epic Design Coverage Index
 
 This index reconciles design ownership without duplicating or redesigning the
@@ -482,7 +560,7 @@ accepted contracts. A roadmap entry is not implementation design by itself.
 | E3 Workspace Preparation | `frontend/docs/TG20/design.md`, `domain-model.md`, `operational-contracts.md`, `final-authorization-contracts.md`, and `acceptance.md` | Accepted and implemented by TG20. |
 | E4 Capability Visibility | Req 33 and the E4 constitutional contract in this document | Accepted and implemented by TG21. |
 | E5 Ready-to-Start Experience | Req 34 and the E5 constitutional contract in this document | Accepted and implemented by TG22. |
-| E6 Conflict and Multi-Clinic Recovery | Existing Req 9, 11, 16, 17, and 29–32 design fragments plus the roadmap | Incomplete. Req 29 revision/timestamp authority and the conflict lifecycle require an accepted constitutional design before TG23. |
+| E6 Conflict and Multi-Clinic Recovery | E6 constitutional product contract in `requirements.md` and the E6 constitutional design contract above | Constitutionally complete. Implementation remains unauthorized pending a separately approved task boundary and implementation-readiness review. |
 | E7 Offline Mutation Recovery | Deferred data model, error flow, and Req 8/12/20/22–24/26/28/30/32 material in this document | Incomplete. Queue operations, persistence security, retry/dead-letter ownership, and replay contract remain unresolved. |
 | E8 Commercial Trial | Historical Req 13 intent, Req 18, and roadmap E8 | Incomplete. The former direct Demo/Live mutation is superseded; trial lifecycle and commercial authority require an accepted design. |
 | E9 Subscription Conversion and Payment Recovery | Req 12, 18–20, 23–28, 30, 32 and roadmap E9 | Incomplete. Payment ownership, verification, recovery, and security contracts are not accepted. |
