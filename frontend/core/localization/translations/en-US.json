@@ -810,6 +810,27 @@
         "message": "Changes are saved locally. Connect to the internet to submit this step.",
         "submitDisabled": "Connect to the internet to submit this step"
       },
+      "mutationRecovery": {
+        "title": "Setup changes need attention",
+        "pendingCount": "{{count}} saved changes are waiting",
+        "states": {
+          "PENDING": "A saved change will be retried when Nova confirms a safe connection.",
+          "REPLAYING": "Nova is safely retrying your saved change.",
+          "CONFLICT_BLOCKED": "Newer clinic setup progress is available. Review this step before continuing.",
+          "MANUAL_ACTION_REQUIRED": "Nova could not retry this change automatically. Review the available actions.",
+          "EXPIRED": "This saved change expired without being submitted. Review the step before continuing.",
+          "RECOVERY_REQUIRED": "Saved recovery data could not be validated and was not submitted."
+        },
+        "actions": {
+          "retry": "Try again",
+          "edit": "Review step",
+          "discard": "Discard saved change"
+        },
+        "discard": {
+          "title": "Discard saved change?",
+          "message": "This removes the saved recovery intent. It does not undo any change already accepted by Nova."
+        }
+      },
       "flow": {
         "saveProgressError": "Failed to save preparation progress. Please try again.",
         "refreshProgressError": "Failed to refresh preparation progress. Please try again.",

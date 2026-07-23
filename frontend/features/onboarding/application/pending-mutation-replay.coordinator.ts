@@ -19,6 +19,11 @@ import {
   type PendingMutationLoadResult,
 } from '../data/persistence/pending-mutation.storage';
 import { usePendingMutationsStore } from '../presentation/stores/pending-mutations.store';
+import {
+  noOpPendingMutationTelemetry,
+  type PendingMutationTelemetry,
+  type PendingMutationTelemetryEventName,
+} from './pending-mutation.telemetry';
 
 export type ReplayTrigger =
   | 'RESTART'
@@ -58,6 +63,7 @@ export interface PendingMutationReplayPorts {
     delayMs: number
   ) => ReturnType<typeof setTimeout>;
   readonly cancelScheduled?: (handle: ReturnType<typeof setTimeout>) => void;
+  readonly telemetry?: PendingMutationTelemetry;
 }
 
 export interface EnqueuePendingMutationInput {
@@ -139,11 +145,13 @@ export class PendingMutationReplayCoordinator {
   private generation = 0;
   private activeClaim: ActiveClaim | null = null;
   private scheduled: ReturnType<typeof setTimeout> | null = null;
+  private readonly telemetry: PendingMutationTelemetry;
 
   constructor(private readonly ports: PendingMutationReplayPorts) {
     this.now = ports.now ?? Date.now;
     this.schedule = ports.schedule ?? setTimeout;
     this.cancelScheduled = ports.cancelScheduled ?? clearTimeout;
+    this.telemetry = ports.telemetry ?? noOpPendingMutationTelemetry;
   }
 
   setConnectivity(online: boolean): void {
@@ -167,6 +175,7 @@ export class PendingMutationReplayCoordinator {
     }
     if (loaded.status === 'RECOVERY_REQUIRED') {
       usePendingMutationsStore.getState().replaceScope(scope, []);
+      usePendingMutationsStore.getState().setRecoveryRequired(true);
       return loaded;
     }
 
@@ -254,6 +263,7 @@ export class PendingMutationReplayCoordinator {
 
     const next = [...records, candidate].sort(fifo);
     await this.commit(next);
+    this.emit('ENQUEUED', candidate);
     this.scheduleNext(next);
     return { status: 'ENQUEUED', record: candidate };
   }
@@ -304,6 +314,42 @@ export class PendingMutationReplayCoordinator {
     await clearPendingMutationsForScope(scope);
   }
 
+  async retry(mutationId: string): Promise<void> {
+    const record = this.findRecord(mutationId);
+    if (record.state !== 'MANUAL_ACTION_REQUIRED') {
+      throw new PendingMutationReplayError('RECOVERY_REQUIRED');
+    }
+    const pending = transitionPendingMutation(record, {
+      state: 'PENDING',
+      now: this.now(),
+      attemptCount: 1,
+      nextAttemptAt: this.now(),
+      failureCategory: null,
+    });
+    await this.replace(record, pending);
+    this.emit('MANUAL_RECOVERY', pending);
+    await this.requestReplay('MANUAL');
+  }
+
+  async discard(mutationId: string): Promise<void> {
+    const record = this.findRecord(mutationId);
+    if (
+      record.state === 'REPLAYING' ||
+      record.state === 'SUCCEEDED' ||
+      record.state === 'DISCARDED'
+    ) {
+      throw new PendingMutationReplayError('RECOVERY_REQUIRED');
+    }
+    const discarded = transitionPendingMutation(record, {
+      state: 'DISCARDED',
+      now: this.now(),
+      attemptCount: record.attemptCount,
+      failureCategory: record.failureCategory,
+    });
+    await this.replace(record, discarded);
+    this.emit('DISCARDED', discarded);
+  }
+
   private async flush(
     generation: number,
     _trigger: ReplayTrigger
@@ -312,9 +358,19 @@ export class PendingMutationReplayCoordinator {
     while (this.online && generation === this.generation) {
       const scope = this.requireScope();
       const now = this.now();
-      const records = usePendingMutationsStore.getState().records
+      const currentRecords = usePendingMutationsStore.getState().records;
+      const previousById = new Map(
+        currentRecords.map((record) => [record.mutationId, record])
+      );
+      const records = currentRecords
         .map((record) => expirePendingMutation(record, now))
         .sort(fifo);
+      records.forEach((record) => {
+        const previous = previousById.get(record.mutationId);
+        if (record.state === 'EXPIRED' && previous?.state !== 'EXPIRED') {
+          this.emit('EXPIRED', record);
+        }
+      });
       const candidate = records.find(
         (record) =>
           record.state === 'PENDING' &&
@@ -342,6 +398,7 @@ export class PendingMutationReplayCoordinator {
         await this.transition(candidate, 'MANUAL_ACTION_REQUIRED', {
           category: 'AUTHORIZATION',
         });
+        this.emit('TERMINAL_OUTCOME', candidate, 'AUTHORIZATION');
         continue;
       }
       if (
@@ -353,12 +410,14 @@ export class PendingMutationReplayCoordinator {
         await this.transition(candidate, 'CONFLICT_BLOCKED', {
           category: 'E6_REVISION_CONFLICT',
         });
+        this.emit('CONFLICT_BLOCKED', candidate, 'E6_REVISION_CONFLICT');
         continue;
       }
       if (authority.status === 'STEP_UNAVAILABLE') {
         await this.transition(candidate, 'MANUAL_ACTION_REQUIRED', {
           category: 'UNSUPPORTED',
         });
+        this.emit('TERMINAL_OUTCOME', candidate, 'UNSUPPORTED');
         continue;
       }
 
@@ -369,6 +428,7 @@ export class PendingMutationReplayCoordinator {
         attemptCount: candidate.attemptCount + 1,
       });
       await this.replace(candidate, claimed);
+      this.emit('REPLAY_STARTED', claimed);
       const controller = new AbortController();
       this.activeClaim = { scope, beforeClaim, controller };
       const result = await this.ports.execute(claimed, controller.signal);
@@ -388,6 +448,7 @@ export class PendingMutationReplayCoordinator {
         .getState()
         .records.filter((record) => record.mutationId !== claimed.mutationId);
       await this.commit(records);
+      this.emit('REPLAY_SUCCEEDED', claimed);
       return;
     }
     if (result.status === 'CANCELLED') {
@@ -398,18 +459,21 @@ export class PendingMutationReplayCoordinator {
       await this.transition(claimed, 'CONFLICT_BLOCKED', {
         category: 'E6_REVISION_CONFLICT',
       });
+      this.emit('CONFLICT_BLOCKED', claimed, 'E6_REVISION_CONFLICT');
       return;
     }
     if (result.status === 'TERMINAL_FAILURE') {
       await this.transition(claimed, 'MANUAL_ACTION_REQUIRED', {
         category: result.category,
       });
+      this.emit('TERMINAL_OUTCOME', claimed, result.category);
       return;
     }
     if (claimed.attemptCount >= MAX_MUTATION_EXECUTIONS) {
       await this.transition(claimed, 'MANUAL_ACTION_REQUIRED', {
         category: 'RETRY_EXHAUSTED',
       });
+      this.emit('TERMINAL_OUTCOME', claimed, 'RETRY_EXHAUSTED');
       return;
     }
     const delay = REPLAY_BACKOFF_MS[claimed.attemptCount - 1];
@@ -417,6 +481,7 @@ export class PendingMutationReplayCoordinator {
       category: result.category,
       nextAttemptAt: this.now() + delay,
     });
+    this.emit('REPLAY_FAILED', claimed, result.category);
   }
 
   private async transition(
@@ -486,5 +551,39 @@ export class PendingMutationReplayCoordinator {
   private requireScope(): PendingMutationScope {
     if (!this.scope) throw new PendingMutationReplayError('SCOPE_NOT_LOADED');
     return this.scope;
+  }
+
+  private findRecord(mutationId: string): PendingMutationRecord {
+    this.requireScope();
+    const record = usePendingMutationsStore
+      .getState()
+      .records.find((item) => item.mutationId === mutationId);
+    if (!record) throw new PendingMutationReplayError('RECOVERY_REQUIRED');
+    return record;
+  }
+
+  private emit(
+    name: PendingMutationTelemetryEventName,
+    record: PendingMutationRecord,
+    category: PendingMutationFailureCategory | null =
+      record.failureCategory
+  ): void {
+    try {
+      void Promise.resolve(
+        this.telemetry.emit({
+          name,
+          mutationId: record.mutationId,
+          operationId: record.operationId,
+          userId: record.userId,
+          organizationId: record.organizationId,
+          tenantId: record.tenantId,
+          attemptCount: record.attemptCount,
+          category,
+          connectivity: this.online ? 'ONLINE' : 'OFFLINE',
+        })
+      ).catch(() => undefined);
+    } catch {
+      // Telemetry is fire-and-forget and must never block recovery.
+    }
   }
 }

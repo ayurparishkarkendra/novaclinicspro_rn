@@ -461,7 +461,7 @@ const ALLOWED_TRANSITIONS: Readonly<
   ]),
   SUCCEEDED: Object.freeze<PendingMutationState[]>([]),
   DISCARDED: Object.freeze<PendingMutationState[]>([]),
-  EXPIRED: Object.freeze<PendingMutationState[]>([]),
+  EXPIRED: Object.freeze<PendingMutationState[]>(['DISCARDED']),
 });
 
 export const transitionPendingMutation = (

@@ -11,6 +11,7 @@ import {
 interface PendingMutationStoreState {
   readonly scope: PendingMutationScope | null;
   readonly records: readonly PendingMutationRecord[];
+  readonly recoveryRequired: boolean;
   replaceScope(
     scope: PendingMutationScope,
     records: readonly PendingMutationRecord[]
@@ -28,18 +29,24 @@ interface PendingMutationStoreState {
   ): void;
   remove(mutationId: string): void;
   evict(): void;
+  setRecoveryRequired(required: boolean): void;
 }
 
 export const usePendingMutationsStore = create<PendingMutationStoreState>(
   (set, get) => ({
     scope: null,
     records: [],
+    recoveryRequired: false,
 
     replaceScope: (scope, records) => {
       const validated = records.map((record) =>
         parsePendingMutationRecord(record, scope)
       );
-      set({ scope: Object.freeze({ ...scope }), records: Object.freeze(validated) });
+      set({
+        scope: Object.freeze({ ...scope }),
+        records: Object.freeze(validated),
+        recoveryRequired: false,
+      });
     },
 
     upsert: (record) => {
@@ -96,7 +103,8 @@ export const usePendingMutationsStore = create<PendingMutationStoreState>(
       });
     },
 
-    evict: () => set({ scope: null, records: [] }),
+    evict: () => set({ scope: null, records: [], recoveryRequired: false }),
+    setRecoveryRequired: (recoveryRequired) => set({ recoveryRequired }),
   })
 );
 

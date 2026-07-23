@@ -11,10 +11,15 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useDemoStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import {
+  executePendingMutation,
+  useDemoStatusQuery,
+  useSubmitStepMutation,
+} from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { PendingMutationRecoveryBanner } from '../components/PendingMutationRecoveryBanner';
 import { DemoStatusBanner } from '../components/DemoStatusBanner';
 import { JourneySurface } from '../components/JourneySurface';
 import { DraftConflictModal } from '../components/DraftConflictModal';
@@ -39,6 +44,13 @@ import {
   RevisionAwareSaveHandler,
   useDraftConflictRecovery,
 } from '../hooks/useDraftConflictRecovery';
+import {
+  PendingMutationReplayCoordinator,
+  type ReplayAuthorityResult,
+} from '../../application/pending-mutation-replay.coordinator';
+import { usePendingMutationReplayLifecycle } from '../hooks/usePendingMutationReplayLifecycle';
+import { usePendingMutationsStore } from '../stores/pending-mutations.store';
+import type { PendingMutationRecord } from '../../domain/entities/pending-mutation.entity';
 
 interface Step {
   code: string;
@@ -98,6 +110,8 @@ export function SetupWizardFlow() {
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState('BASIC');
   const [showProgressUpdatedNotice, setShowProgressUpdatedNotice] = useState(false);
   const [recoveryVersion, setRecoveryVersion] = useState(0);
+  const [busyRecoveryMutationId, setBusyRecoveryMutationId] =
+    useState<string | null>(null);
   const currentStepSaveHandlerRef = useRef<RevisionAwareSaveHandler | null>(null);
   const submissionIdRef = useRef<string | null>(null);
   const isSubmittingRef = useRef(false);
@@ -127,6 +141,77 @@ export function SetupWizardFlow() {
   } = useJourneyFoundation(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
+  const refreshReplayAuthority = useCallback(
+    async (
+      record: PendingMutationRecord,
+      signal: AbortSignal
+    ): Promise<ReplayAuthorityResult> => {
+      if (!isAuthenticated) return { status: 'AUTHORIZATION_LOST' };
+      if (signal.aborted) return { status: 'SCOPE_CHANGED' };
+      if (!(await revalidateTenant())) return { status: 'SCOPE_CHANGED' };
+      const latest = await refetch();
+      if (signal.aborted) return { status: 'SCOPE_CHANGED' };
+      if (
+        latest.data?.tenant_id !== record.tenantId ||
+        latest.projection?.identity.tenantId !== record.tenantId
+      ) {
+        return { status: 'SCOPE_CHANGED' };
+      }
+      const visible = latest.projection.visibleSteps.some(
+        (step) => step.stepId === record.stepCode
+      );
+      const step = latest.statusDomain?.steps.get(record.stepCode);
+      if (!visible || !step || step.isComplete) {
+        return { status: 'STEP_UNAVAILABLE' };
+      }
+      const evidence = step.authoritativeEvidence;
+      if (!evidence) return { status: 'E6_CONFLICT' };
+      return {
+        status: 'READY',
+        scope: {
+          userId: record.userId,
+          organizationId: record.organizationId,
+          tenantId: record.tenantId,
+        },
+        stepCode: record.stepCode,
+        expectedRevision: evidence.revision.value,
+        templateVersion: evidence.projectionIdentity.templateVersion,
+        capabilityRevision:
+          evidence.projectionIdentity.capabilityRevision,
+      };
+    },
+    [isAuthenticated, refetch, revalidateTenant]
+  );
+  const replayCoordinator = useMemo(
+    () =>
+      new PendingMutationReplayCoordinator({
+        refreshAuthority: refreshReplayAuthority,
+        execute: executePendingMutation,
+      }),
+    [refreshReplayAuthority]
+  );
+  const pendingMutationScope = useMemo(
+    () =>
+      currentUser?.userId && organizationId && tenantId && scopeMatches
+        ? {
+          userId: currentUser.userId,
+          organizationId,
+          tenantId,
+        }
+        : null,
+    [currentUser?.userId, organizationId, scopeMatches, tenantId]
+  );
+  usePendingMutationReplayLifecycle({
+    coordinator: replayCoordinator,
+    scope: pendingMutationScope,
+    isAuthenticated,
+  });
+  const pendingMutationRecords = usePendingMutationsStore(
+    (state) => state.records
+  );
+  const pendingMutationRecoveryRequired = usePendingMutationsStore(
+    (state) => state.recoveryRequired
+  );
   const refreshConflictStatus = useCallback(async () => {
     const result = await refetch();
     return result.statusDomain;
@@ -550,6 +635,57 @@ export function SetupWizardFlow() {
     return true;
   }, [journey?.identity.tenantId, scopeMatches, steps, tenantId]);
 
+  const retryPendingMutation = useCallback(
+    async (record: PendingMutationRecord) => {
+      setBusyRecoveryMutationId(record.mutationId);
+      try {
+        await replayCoordinator.retry(record.mutationId);
+      } catch {
+        usePendingMutationsStore.getState().setRecoveryRequired(true);
+      } finally {
+        setBusyRecoveryMutationId(null);
+      }
+    },
+    [replayCoordinator]
+  );
+
+  const confirmDiscardPendingMutation = useCallback(
+    (record: PendingMutationRecord, editAfterDiscard = false) => {
+      Alert.alert(
+        t(
+          'onboarding.progressiveExperience.mutationRecovery.discard.title'
+        ),
+        t(
+          'onboarding.progressiveExperience.mutationRecovery.discard.message'
+        ),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t(
+              'onboarding.progressiveExperience.mutationRecovery.actions.discard'
+            ),
+            style: 'destructive',
+            onPress: () => {
+              setBusyRecoveryMutationId(record.mutationId);
+              void replayCoordinator
+                .discard(record.mutationId)
+                .then(() => {
+                  if (editAfterDiscard) navigateToStep(record.stepCode);
+                })
+                .catch(() => {
+                  usePendingMutationsStore
+                    .getState()
+                    .setRecoveryRequired(true);
+                })
+                .finally(() => setBusyRecoveryMutationId(null));
+            },
+          },
+        ]
+      );
+    },
+    [navigateToStep, replayCoordinator, t]
+  );
+
   const journeyNavigationInFlight = useRef(false);
   const navigateToProjectedStep = useCallback(async (stepCode: string) => {
     if (journeyNavigationInFlight.current || !journey?.cards.some(card => card.stepCode === stepCode)) {
@@ -884,6 +1020,14 @@ export function SetupWizardFlow() {
       {steps.length > 0 && <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />}
 
       <OfflineBanner isOffline={isOffline} />
+      <PendingMutationRecoveryBanner
+        records={pendingMutationRecords}
+        recoveryRequired={pendingMutationRecoveryRequired}
+        busyMutationId={busyRecoveryMutationId}
+        onRetry={(record) => void retryPendingMutation(record)}
+        onEdit={(record) => confirmDiscardPendingMutation(record, true)}
+        onDiscard={(record) => confirmDiscardPendingMutation(record)}
+      />
 
       {demoStatusData && (
         <View style={{ marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md }}>

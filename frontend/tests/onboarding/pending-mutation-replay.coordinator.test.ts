@@ -364,4 +364,73 @@ describe('TG24.2 pending mutation replay coordinator', () => {
       '@novaclinics/tenant-2/user_user-2/organization_org-2/pending_mutations_v1',
     ]);
   });
+
+  it('supports explicit manual retry with the original mutation and idempotency identity', async () => {
+    const executedKeys: string[] = [];
+    let terminal = true;
+    const replay = new PendingMutationReplayCoordinator({
+      refreshAuthority: async () => readyAuthority(),
+      execute: async (record) => {
+        executedKeys.push(record.idempotencyKey);
+        return terminal
+          ? { status: 'TERMINAL_FAILURE', category: 'VALIDATION' }
+          : { status: 'SUCCEEDED' };
+      },
+      now: () => now,
+      schedule: (callback, delay) => {
+        scheduled.push({ callback, delay });
+        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+    await replay.initialize(scope);
+    await replay.enqueue(enqueueInput('mutation-1'));
+    now = 3_000;
+    replay.setConnectivity(true);
+    await replay.requestReplay('BACKOFF');
+    terminal = false;
+
+    await replay.retry('mutation-1');
+
+    expect(executedKeys).toEqual(['key-mutation-1', 'key-mutation-1']);
+    expect(usePendingMutationsStore.getState().records).toEqual([]);
+  });
+
+  it('persists explicit discard and emits only safe lifecycle metadata', async () => {
+    const emit = jest.fn();
+    const replay = new PendingMutationReplayCoordinator({
+      refreshAuthority: async () => readyAuthority(),
+      execute: async () => ({ status: 'E6_CONFLICT' }),
+      telemetry: { emit },
+      now: () => now,
+      schedule: (callback, delay) => {
+        scheduled.push({ callback, delay });
+        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+    await replay.initialize(scope);
+    await replay.enqueue(enqueueInput('mutation-1'));
+    now = 3_000;
+    replay.setConnectivity(true);
+    await replay.requestReplay('BACKOFF');
+
+    await replay.discard('mutation-1');
+
+    expect(usePendingMutationsStore.getState().records[0]).toEqual(
+      expect.objectContaining({
+        state: 'DISCARDED',
+        idempotencyKey: 'key-mutation-1',
+      })
+    );
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'DISCARDED',
+        mutationId: 'mutation-1',
+        operationId: 'onboarding.step.submit.v1',
+        userId: 'user-1',
+        organizationId: 'organization-1',
+        tenantId: 'tenant-1',
+      })
+    );
+    expect(JSON.stringify(emit.mock.calls)).not.toContain('operating_hours');
+  });
 });
