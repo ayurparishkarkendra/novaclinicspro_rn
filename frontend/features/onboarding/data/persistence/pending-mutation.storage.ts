@@ -187,3 +187,27 @@ export const clearPendingMutationsForScope = async (
 ): Promise<void> => {
   await AsyncStorage.removeItem(getPendingMutationStorageKey(scope));
 };
+
+export const clearPendingMutationsForUser = async (
+  userId: string
+): Promise<void> => {
+  if (!required(userId)) {
+    throw new PendingMutationContractError(
+      'MALFORMED_RECORD',
+      'pending_mutation.scope_required'
+    );
+  }
+  const keys = await AsyncStorage.getAllKeys();
+  const userSegment = `/user_${userId}/`;
+  const matchingKeys = keys.filter(
+    (key) =>
+      key.startsWith('@novaclinics/') &&
+      key.includes(userSegment) &&
+      key.endsWith(
+        `/${STORAGE_FAMILY}_v${PENDING_MUTATION_SCHEMA_VERSION}`
+      )
+  );
+  if (matchingKeys.length > 0) {
+    await AsyncStorage.multiRemove(matchingKeys);
+  }
+};

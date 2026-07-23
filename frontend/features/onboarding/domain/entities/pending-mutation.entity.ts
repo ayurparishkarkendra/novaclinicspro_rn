@@ -379,6 +379,9 @@ export const createPendingMutationRecord = (input: {
   templateVersion: unknown;
   capabilityRevision: unknown;
   idempotencyKey: unknown;
+  initialAttemptCount?: 0 | 1;
+  nextAttemptAt?: number | null;
+  failureCategory?: PendingMutationFailureCategory | null;
   now?: number;
 }): PendingMutationRecord => {
   const now = input.now ?? Date.now();
@@ -403,9 +406,9 @@ export const createPendingMutationRecord = (input: {
     enqueuedAt: now,
     updatedAt: now,
     expiresAt: now + PENDING_MUTATION_EXPIRY_MS,
-    attemptCount: 0,
-    nextAttemptAt: null,
-    failureCategory: null,
+    attemptCount: input.initialAttemptCount ?? 0,
+    nextAttemptAt: input.nextAttemptAt ?? null,
+    failureCategory: input.failureCategory ?? null,
   });
 };
 
