@@ -77,7 +77,7 @@ const mockNetInfoState = {
 
 jest.mock('@react-native-community/netinfo', () => ({
   useNetInfo: () => mockNetInfoState,
-}), { virtual: true });
+}));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
