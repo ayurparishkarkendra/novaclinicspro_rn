@@ -24,6 +24,53 @@ Reconciled inventory after TG18–TG22: **11 COMPLETE, 19 PARTIALLY COMPLETE,
 3 NOT STARTED, and 1 SUPERSEDED (34 total).** References such as “AC1–AC4” are
 the acceptance-criteria numbers in `requirements.md`.
 
+### Ownership and responsibilities
+
+Product Architecture owns this RTM. Task Group owners supply source-backed
+implementation and verification evidence; Product Architecture approves status
+changes. The permanent authority chain is:
+
+```text
+requirements.md              product intent and acceptance criteria
+↓
+design.md                    implementation design and architecture
+↓
+requirements-traceability-matrix.md
+                             implementation fulfillment and evidence
+↓
+tasks.md                     execution and acceptance history
+```
+
+None of these documents may duplicate or silently override another's
+responsibility. The roadmap owns Epic destination and ordering above this
+chain; it does not authorize implementation.
+
+### Update policy and lifecycle
+
+- **Constitutional approval:** update requirements, design, RTM ownership and
+  planned status, and the task authorization record in the same checkpoint.
+- **Implementation completion:** update RTM fulfillment, commit, and automated
+  evidence plus the task execution record. Do not change requirements or design
+  unless product or architecture was separately approved to change.
+- **Acceptance completion:** update RTM acceptance/manual evidence and final
+  status plus the task acceptance record.
+- **Evidence rule:** record only accepted reports, repository commits, executed
+  tests, and observed manual verification. Use `Not identified` or `Not run`
+  when evidence is absent; never infer it.
+- **Status rule:** a status change must cite the acceptance criteria affected
+  and the evidence supporting the change. Supersession requires an accepted
+  successor requirement/design owner.
+
+Every TG23–TG31 lifecycle is mandatory and ordered:
+
+```text
+Roadmap → Requirements → Design → RTM → Tasks → Implementation
+→ Verification → Acceptance → RTM update → Tasks update
+```
+
+No Task Group may skip, reverse, or collapse these authorities. The RTM must be
+reviewed at every constitutional, implementation, and acceptance checkpoint.
+
 ## Requirement → Epic → Task Group
 
 | Requirement | Title | Epic | TG(s) | Design section | Backend owner | Frontend owner | Verification | Status | Remaining work |
@@ -63,6 +110,60 @@ the acceptance-criteria numbers in `requirements.md`.
 | Req 33 | Capability-driven journey visibility | E4 | TG21 | E4 Constitutional Contract | Capability/template projection, query and transport | Journey datasource/repository/domain/presentation | Backend projection/query/transport and frontend data/domain/presentation acceptance; AC1–AC13 evidenced | COMPLETE | None |
 | Req 34 | Ready-to-Start checklist and explanation | E5 | TG22 | E5 Constitutional Contract | Readiness domain/providers/application/transport | Readiness data/domain/query/presentation | Backend readiness/TG21/onboarding regressions and frontend TG22/onboarding acceptance; AC1–AC29 evidenced | COMPLETE | None; trial/subscription/payment activation is explicitly outside Req 34. |
 
+## Verification Evidence Register
+
+The following accepted implementation bundles provide compact, immutable commit
+references. They do not imply that every shared cross-cutting requirement is
+complete.
+
+| Bundle | Backend commit(s) | Frontend commit(s) | Accepted verification/acceptance owner |
+|---|---|---|---|
+| E18 | N/A | `6cb53e0c`, `b431e8ef`, `fb4a57ef`, `66ea5428` | TG18 completion record in `tasks.md` and E1 constitutional documents |
+| E19 | `45c4a42`, `4cd4bc0`, `7783442`, `5eda9f1`, `aaf46ff`, `5ae3a9c` | `0bd53a6d`, `af2aea09`, `8529845e` | `TG19-FINAL-ACCEPTANCE.md` |
+| E20 | `c079245`, `7e5f536`, `22dfa45`, `b9d90cf`, `1fef01c`, `4a5df2b`, `51ac3f6` | `c51e4ad1`, `4bb60f28`, `f49b1ec1`, `5bc9912e`, `1e8f9451` | `frontend/docs/TG20/acceptance.md` and TG20.7 execution record |
+| E21 | `8b291b5`, `aa4892a`, `60f3014` | `89e9f5dd`, `2b6edf01`, `00c361aa` | TG21 final verification and acceptance record |
+| E22 | `4cefb8a`, `200473f`, `6c93029`, `1fa8b82`, `9e6158d` | `2c2a5c92`, `85453585` | TG22.3 final verification and acceptance record |
+
+“Not identified” means the reconciled canonical record does not name a commit;
+it is not evidence of absence. “Not run” is an explicit open manual gate.
+
+| Requirement | Roadmap Epic | Task Group | Design Section | Backend Commit(s) | Frontend Commit(s) | Automated Tests | Acceptance Report | Manual Verification |
+|---|---|---|---|---|---|---|---|---|
+| Req 1 | E4 | TG17; TG21 regression | Design 1.1; E4 invariants | E21 regression bundle | Original commit not identified; E21 regression bundle | Alias-routing and TG21 onboarding regression suites | TG17 completion evidence; TG21 acceptance | N/A |
+| Req 2 | E4 | TG17; TG21 regression | Design 1.2; E4 frontend boundary | E21 regression bundle | Original commit not identified; E21 regression bundle | Wizard alias-routing and TG21 presentation regressions | TG17 completion evidence; TG21 acceptance | N/A |
+| Req 3 | E4 | TG17 | Design 1.3 | N/A | Commit not identified | File-absence/build regressions | TG17 completion evidence | N/A |
+| Req 4 | E4 | TG17; TG21 | Design 1.1–1.2; E4 ownership | E21 bundle | E21 bundle | Template/projection and alias regression tests | TG21 acceptance; requirement remains partial | Active-template release audit remains open |
+| Req 5 | E1 | TG13–TG15; TG18 follow-up | Data Models; E1 contracts | N/A | Original commits not identified; E18 regression bundle | Draft schema, storage, migration, expiry and integration suites | TG13–TG15 completion records; TG18 regression evidence | N/A |
+| Req 6 | E1 | TG14 | Layer Map; E1 reuse | N/A | Commit not identified | Step integration, debounce, restore, hydration and clear suites | TG14 completion record | N/A |
+| Req 7 | E7 | TG16 | Components; Theme | N/A | Commit not identified | OfflineBanner connectivity, Theme and accessibility suites | TG16 completion record | N/A |
+| Req 8 | E7 | TG16; TG24–TG25 future | Deferred offline designs | Future | TG16 commit not identified | Offline visibility/gating tests only | TG16 partial completion record | Queue/reconnect acceptance not run |
+| Req 9 | E6 | TG15 | Lifecycle data flow | Status owner commit not identified | Commit not identified | AppState persist/rehydrate/refetch/update-notice suites | TG15 completion record | N/A |
+| Req 10 | E6 | TG14 | Correctness Property 4 | N/A | Commit not identified | BackHandler/draft/first-step suites | TG14 completion record | N/A |
+| Req 11 | E2, E3, E6 | TG19; TG20; TG23 future | Backend Dependencies; E2/TG20 contracts | E19 and E20 bundles | E19 and E20 bundles | Effective-tenant, organization, session and isolation tests | TG19 and TG20 acceptance; requirement remains partial | Provisional/live staging contract not run |
+| Req 12 | E7, E9 | TG19 foundation; TG24–TG27 future | Idempotency contracts | E19 bundle | Related original commit not identified | TG19 idempotency replay/conflict suites | TG19 acceptance; requirement remains partial | Required staging idempotency check not run |
+| Req 13 | E5 successor; E8 | TG22 successor; TG26 future | E5 bounded actions; future E8 | E22 bundle for successor only | E22 bundle for successor only | TG22 readiness/action tests | TG22 acceptance; supersession recorded in requirements/RTM | Commercial transition not authorized |
+| Req 14 | E1–E12 | TG13–TG22; TG31 | Theme Compliance | N/A | E18–E22 bundles for touched surfaces | Touched-surface Theme/static suites | TG18–TG22 acceptance records; partial | Phase-wide audit not run |
+| Req 15 | E1–E12 | TG13–TG22; TG31 | Testing Strategy | E19–E22 bundles | E18–E22 bundles | Required baseline and accepted focused/regression suites | TG18–TG22 acceptance records | Historical ACs complete; future TG gates remain separate |
+| Req 16 | E6 | TG23 future | Deferred conflict design | Future | Future | None | None | Not run |
+| Req 17 | E5, E6 | TG21–TG23 | E4 lifecycle; E5 identity; E6 gap | E21–E22 bundles | E21–E22 bundles | Stale rejection, server authority and tenant isolation tests | TG21/TG22 acceptance; partial | Device A/B conflict run not run |
+| Req 18 | E8, E9 | TG26–TG27 future | Deferred payment design | Future | Future | None | None | Not run |
+| Req 19 | E2, E9, E12 | TG19; TG27/TG31 future | E2 security; deferred audit | E19 bundle | E19 bundle | Secret-leakage and verified-contact security tests | TG19 acceptance; partial | Phase-wide security review not run |
+| Req 20 | E7, E9, E10 | TG19/TG22; TG24/TG27/TG28 | Error Handling; E2/E5 errors | E19 and E22 bundles | E19 and E22 bundles | Typed-error/raw-leakage tests | TG19/TG22 acceptance; partial | Module-wide mapper audit not run |
+| Req 21 | E1, E11, E12 | TG13–TG22; TG29–TG31 | Theme Compliance | N/A | E18–E22 bundles | Touched-file lint/Theme tests | TG18–TG22 acceptance; partial | Repository-wide Theme audit not run |
+| Req 22 | E7, E12 | TG13–TG22; TG24/TG25/TG31 | Dependency Rules | N/A | Relevant commits not individually identified | Store/architecture suites for touched work | Existing TG acceptance records; partial | Full Zustand architecture audit not run |
+| Req 23 | E1–E12 | TG18–TG31 | Layer Map; Epic reuse boundaries | E19–E22 bundles | E18–E22 bundles | Boundary and focused architecture tests | TG18–TG22 acceptance; partial | Full module architecture review not run |
+| Req 24 | E1–E12 | TG13–TG31 | E4/E5 localization; i18n design | Safe-token commits in E21–E22 | E18–E22 bundles | English/Hindi key and placeholder parity tests | TG18–TG22 acceptance; partial | Hindi-literate review not recorded |
+| Req 25 | E1–E12 | TG13–TG31 | E4/E5 accessibility | N/A | E18–E22 bundles | Journey, Clinic Entry, Workspace and Readiness accessibility suites | TG18–TG22 acceptance; partial | Phase-wide assistive-technology run not recorded |
+| Req 26 | E5, E7–E9 | TG17/TG22; TG24–TG27 | Correctness Properties 1–3; E5 | E22 action bundle | Original commit not identified; E22 bundle | Submission lock/order and duplicate-navigation tests | TG17/TG22 evidence; partial | Slow-network and future commercial mutation runs not run |
+| Req 27 | E3, E5, E8–E9 | TG17/TG20/TG22; TG26/TG27 | Submit/refetch; TG20/E5 cache | E20 and E22 bundles | E20 and E22 bundles | Invalidation, refresh and stale-response suites | TG20/TG22 acceptance; partial | Future trial/payment/session-refresh verification not run |
+| Req 28 | E1–E12 | TG19–TG31 | Platform audit; Epic evidence designs | E19–E22 bundles | Relevant commits not individually identified | Platform/organization audit and safe-evidence tests | TG19–TG22 acceptance; partial | Full analytics event/provider verification not run |
+| Req 29 | E6 | TG23 future | Design 1.4 placeholder; E6 gap | Future | Future | None | None | Not run |
+| Req 30 | E2, E6, E7, E9, E12 | TG13–TG19; TG23/TG25/TG27/TG31 | Data Models; E2 isolation; E6/E7 gaps | E19 bundle | E19 bundle plus earlier commits not identified | Draft scoping, logout, tenant-switch and isolation tests | TG19 acceptance; partial | Draft+mutation full account-switch matrix not run |
+| Req 31 | E6, E12 | TG13–TG15; TG23/TG31 | Deferred draft-expiry design | N/A | Commit not identified | Per-step expiry/retention/reset suites | Earlier task evidence; partial | Remote-config/analytics acceptance not run |
+| Req 32 | E5–E9, E12 | TG22; TG23–TG31 | E2E and Release Checklist | E22 bundle | E22 bundle | TG22 automated acceptance/regressions | TG22 acceptance; release requirement remains partial | Android Runs A–D and staging sign-off not run |
+| Req 33 | E4 | TG21 | E4 Constitutional Contract | E21 bundle | E21 bundle | Projection/query/transport and data/domain/presentation suites | TG21 final acceptance | N/A |
+| Req 34 | E5 | TG22 | E5 Constitutional Contract | E22 bundle | E22 bundle | Readiness domain/application/transport and frontend suites | TG22.3 final acceptance | N/A |
+
 ## Task Group → Requirements
 
 | Task Group | Requirement ownership | Shared or remaining acceptance criteria |
@@ -91,6 +192,21 @@ ownership but are not all implementation-ready:
 - E11 lacks dashboard/first-action and growth/branding authority;
 - E12 retains Hindi review, analytics/security completion, staging/device
   access, and the release matrix.
+
+### Minimum documentation prerequisites for future Epics
+
+These are prerequisites, not completed constitutional work or Task Group
+authorization.
+
+| Epic | Minimum documentation prerequisite before implementation |
+|---|---|
+| E6 / TG23 | Approve Req 29 timestamp/revision authority; conflict and multi-device lifecycle; cleanup, tenant-isolation, frontend/backend boundary, rollback, tests, and acceptance contract. |
+| E7 / TG24–TG25 | Approve central error/retry taxonomy, supported queue operations, tenant-scoped persistence/security, idempotent FIFO replay, retry/dead-letter/manual recovery, ownership, tests, rollback, and acceptance. |
+| E8 / TG26 | Approve trial authority, start eligibility, duration/extension/expiry states, readiness handoff, idempotency, audit, failure/recovery, UI ownership, tests, rollback, and acceptance. |
+| E9 / TG27 | Approve subscription/payment authority, provider boundary, verification and pending-payment states, security/idempotency, recovery, tenant isolation, tests, rollback, and acceptance. |
+| E10 / TG28 | Approve dunning triggers, timing, severity, channels, non-destructive consequences, owned actions, localization/accessibility, audit, tests, rollback, and acceptance. |
+| E11 / TG29–TG30 | Approve dashboard ownership and first-action source, capability/eligibility rules, growth lifecycle, branding/design-system criteria, analytics, tests, rollback, and acceptance. |
+| E12 / TG31 | Freeze the phase-wide security, architecture, analytics, localization/Hindi review, accessibility, Theme, multi-clinic, staging/device, regression, release, rollback, and sign-off matrix. |
 
 The roadmap's “open decisions” register is therefore historical in part: its
 E1–E5 items are resolved by the accepted documents named above, while its

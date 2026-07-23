@@ -496,6 +496,24 @@ visibility or readiness locally. Likewise, the historical Demo/Live transition
 design must not be used to bypass Req 34 or the future E8 commercial contract.
 No other design section is declared obsolete by this reconciliation.
 
+### Documentation Design Governance v1.0
+
+This document owns implementation design only. It consumes approved intent from
+`requirements.md` and must not redefine product scope, implementation status,
+or execution history. The RTM links each requirement to the accepted design
+section; `tasks.md` records what was executed.
+
+Before a future Task Group receives constitutional approval, its design must
+freeze the relevant ownership, lifecycle, boundaries, dependencies, failure
+behavior, security and tenant isolation, localization, accessibility, testing,
+rollback, and stop conditions. Missing design remains an explicit prerequisite
+in the RTM and must not be filled by implementation-time invention.
+
+An implementation or acceptance checkpoint updates this document only when
+verified evidence proves the accepted architecture inaccurate or an approved
+architecture change is made. Status, commits, tests, and acceptance results
+belong in the RTM and task ledger, not in design prose.
+
 ## Error Handling
 
 ### Tier 1 Error Handling

@@ -950,3 +950,28 @@ implementation ownership is mapped explicitly in the RTM. E6–E12 remain owned
 by their existing numbered requirements and roadmap destinations; no future
 Task Group may treat roadmap prose alone as sufficient implementation
 authorization.
+
+### Documentation Governance Model v1.0
+
+The mandatory, non-duplicating authority chain is:
+
+```text
+requirements.md
+↓
+design.md
+↓
+requirements-traceability-matrix.md
+↓
+tasks.md
+```
+
+- `requirements.md` records approved product intent and acceptance criteria.
+- `design.md` records approved implementation design and architecture.
+- `requirements-traceability-matrix.md` records implementation fulfillment,
+  ownership, status, and evidence.
+- `tasks.md` records execution and acceptance history.
+
+Product intent may be changed only here through approval. A Task Group must not
+use the RTM, design, or execution ledger to create or redefine a requirement.
+Every future constitutional approval for TG23–TG31 must update all four
+authorities consistently before implementation is authorized.

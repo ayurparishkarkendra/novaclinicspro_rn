@@ -1532,6 +1532,52 @@ No ledger entry authorizes a later Task Group. TG23 remains documentation-
 incomplete until E6 resolves the Req 29 per-step revision/timestamp authority
 and freezes the conflict/multi-device lifecycle and implementation boundary.
 
+### Standard Task Group Documentation Lifecycle v1.0
+
+Every future Progressive Experience Task Group (TG23–TG31) must follow this
+exact lifecycle without omission or reversal:
+
+```text
+Roadmap
+↓
+Requirements
+↓
+Design
+↓
+RTM
+↓
+Tasks
+↓
+Implementation
+↓
+Verification
+↓
+Acceptance
+↓
+RTM update
+↓
+Tasks update
+```
+
+Mandatory maintenance rules:
+
+1. At constitutional approval, update `requirements.md`, `design.md`,
+   `requirements-traceability-matrix.md`, and `tasks.md` together.
+2. At implementation completion, update only the RTM fulfillment/evidence and
+   this execution ledger unless approved product intent or architecture changed.
+3. At acceptance completion, update the RTM verification fields and add the
+   acceptance record here. Manual evidence must be identified explicitly; an
+   absent manual run must never be inferred from automated tests.
+4. No Task Group may begin implementation with missing roadmap, requirements,
+   design, RTM, task boundary, or acceptance ownership.
+5. Commits, tests, and acceptance results must be recorded from repository or
+   accepted-report evidence. Unknown evidence is recorded as not identified,
+   never guessed.
+
+This ledger must not restate product rules or architecture. It records the
+objective, authorized boundary, execution, verification, acceptance decision,
+and stopping point for each Task Group.
+
 ## Notes
 
 ### TG21 E4 Constitutional Contract — APPROVED (2026-07-22)
