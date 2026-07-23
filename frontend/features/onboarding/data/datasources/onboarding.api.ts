@@ -617,6 +617,34 @@ const throwStepSubmissionError = (error: any): never => {
       ? body.detail.error
       : body.detail
     : {};
+  const errorCode =
+    typeof detail.error_code === 'string' ? detail.error_code : '';
+  const detailText =
+    typeof body?.detail === 'string' ? body.detail.toLowerCase() : '';
+  if (error?.code === 'ERR_CANCELED') {
+    throw new StepSubmissionDatasourceError(
+      'CANCELLED',
+      'onboarding.step_submission_cancelled',
+      'errors.onboarding.stepSubmissionCancelled',
+      false
+    );
+  }
+  if (error?.code === 'ECONNABORTED') {
+    throw new StepSubmissionDatasourceError(
+      'TIMEOUT',
+      'onboarding.step_submission_timeout',
+      'errors.onboarding.stepSubmissionTimeout',
+      true
+    );
+  }
+  if (!status) {
+    throw new StepSubmissionDatasourceError(
+      'NETWORK',
+      'onboarding.step_submission_network_failure',
+      'errors.onboarding.stepSubmissionNetworkFailure',
+      true
+    );
+  }
   if (status === 409) {
     const conflict = parseStepConflict(body);
     if (conflict) {
@@ -628,10 +656,40 @@ const throwStepSubmissionError = (error: any): never => {
         conflict.conflict
       );
     }
+    if (
+      errorCode.includes('idempotency') ||
+      detailText.includes('idempotent') ||
+      detailText.includes('idempotency')
+    ) {
+      throw new StepSubmissionDatasourceError(
+        'IDEMPOTENCY_CONFLICT',
+        errorCode || 'onboarding.step_submission_idempotency_conflict',
+        typeof detail.message_token === 'string'
+          ? detail.message_token
+          : 'errors.onboarding.stepSubmissionIdempotencyConflict',
+        false
+      );
+    }
     throw new StepSubmissionDatasourceError(
       'MALFORMED_CONFLICT',
       'onboarding.step_revision_conflict_malformed',
       'errors.onboarding.stepRevisionConflictMalformed',
+      false
+    );
+  }
+  if (status === 400 || status === 422) {
+    const unsupported = errorCode.includes('unsupported');
+    throw new StepSubmissionDatasourceError(
+      unsupported ? 'UNSUPPORTED' : 'VALIDATION',
+      errorCode ||
+        (unsupported
+          ? 'onboarding.step_submission_unsupported'
+          : 'onboarding.step_submission_validation_failed'),
+      typeof detail.message_token === 'string'
+        ? detail.message_token
+        : unsupported
+          ? 'errors.onboarding.stepSubmissionUnsupported'
+          : 'errors.onboarding.stepSubmissionValidationFailed',
       false
     );
   }
@@ -644,8 +702,6 @@ const throwStepSubmissionError = (error: any): never => {
     );
   }
   if (status === 403) {
-    const errorCode =
-      typeof detail.error_code === 'string' ? detail.error_code : '';
     const kind = errorCode.includes('organization')
       ? 'ORGANIZATION_MISMATCH'
       : errorCode.includes('tenant') || errorCode.includes('scope')
@@ -675,7 +731,11 @@ export const submitStepDataApi = async (
   tenantId: string,
   stepCode: string,
   data: StepSubmitRequest,
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  options?: {
+    readonly signal?: AbortSignal;
+    readonly skipAuthRefreshRetry?: boolean;
+  }
 ): Promise<StepSubmitResponse> => {
   try {
     const url = `/api/v1/onboarding/${tenantId}/steps/${stepCode}`;
@@ -693,7 +753,13 @@ export const submitStepDataApi = async (
     const response = await axiosClient.post<StepSubmitResponse>(
       url,
       data,
-      { headers }
+      {
+        headers,
+        ...(options?.signal ? { signal: options.signal } : {}),
+        ...(options?.skipAuthRefreshRetry
+          ? { skipAuthRefreshRetry: true }
+          : {}),
+      }
     );
     
     console.log('[submitStepDataApi] Response:', JSON.stringify(response.data, null, 2));

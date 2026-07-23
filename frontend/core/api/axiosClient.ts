@@ -12,6 +12,12 @@ import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } fro
 import { supabase } from './supabaseClient';
 import { isLoggingOut } from './authGuard';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    skipAuthRefreshRetry?: boolean;
+  }
+}
+
 const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 if (!baseURL) {
@@ -220,7 +226,12 @@ axiosClient.interceptors.response.use(
     // actually sent with a JWT. A 401 without Authorization means there is no
     // Supabase session to refresh yet, so refreshSession() would throw
     // AuthSessionMissingError and create a noisy retry loop during bootstrap.
-    if (error.response?.status === 401 && !originalRequest._retry && hasAuthorizationHeader(originalRequest)) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.skipAuthRefreshRetry &&
+      hasAuthorizationHeader(originalRequest)
+    ) {
       originalRequest._retry = true;
       console.log('🔄 Attempting token refresh...');
 

@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
+import { queryClient as sharedQueryClient } from '../../../../core/api/queryClient';
 import {
   getApplicationDetailApi,
   getValidationReportApi,
@@ -93,6 +94,12 @@ import {
   ReadyToStart,
   ReadyToStartError,
 } from '../../domain/entities/ready-to-start.entity';
+import {
+  PendingMutationContractError,
+  parsePendingMutationRecord,
+  type PendingMutationExecutionResult,
+  type PendingMutationRecord,
+} from '../../domain/entities/pending-mutation.entity';
 import {
   StepConflictError,
   createAuthoritativeStepRevision,
@@ -1028,8 +1035,20 @@ export const mapStepSubmissionError = (error: unknown, stepCode: string): never 
         conflict
       );
     }
+    const conflictKind: StepConflictError['kind'] = (
+      [
+        'MALFORMED_CONFLICT',
+        'UNAUTHORIZED',
+        'FORBIDDEN',
+        'TENANT_MISMATCH',
+        'ORGANIZATION_MISMATCH',
+        'BACKEND_FAILURE',
+      ] as const
+    ).includes(error.kind as never)
+      ? error.kind as StepConflictError['kind']
+      : 'BACKEND_FAILURE';
     throw new StepConflictError(
-      error.kind,
+      conflictKind,
       error.errorCode,
       error.messageToken,
       error.retryable
@@ -1079,6 +1098,134 @@ export const validateStepSubmissionResponse = (
   }
   return response;
 };
+
+type PendingMutationSubmit = typeof submitStepDataApi;
+
+export interface PendingMutationExecutionDependencies {
+  readonly submitStep: PendingMutationSubmit;
+  readonly invalidateCurrentStatus: (
+    organizationId: string,
+    tenantId: string
+  ) => Promise<unknown>;
+}
+
+const defaultPendingMutationExecutionDependencies:
+  PendingMutationExecutionDependencies = {
+  submitStep: submitStepDataApi,
+  invalidateCurrentStatus: (organizationId, tenantId) =>
+    sharedQueryClient.invalidateQueries({
+      queryKey: onboardingKeys.status(organizationId, tenantId),
+    }),
+};
+
+const terminal = (
+  category: Extract<
+    PendingMutationExecutionResult,
+    { status: 'TERMINAL_FAILURE' }
+  >['category']
+): PendingMutationExecutionResult => ({ status: 'TERMINAL_FAILURE', category });
+
+const mapPendingMutationExecutionError = (
+  error: unknown
+): PendingMutationExecutionResult => {
+  if (error instanceof PendingMutationContractError) {
+    return terminal(
+      error.kind === 'SCOPE_MISMATCH' ? 'SCOPE_MISMATCH' : 'UNSUPPORTED'
+    );
+  }
+  if (error instanceof StepConflictError) {
+    if (error.kind === 'STALE_REVISION') return { status: 'E6_CONFLICT' };
+    if (error.kind === 'UNAUTHORIZED') return terminal('AUTHENTICATION');
+    if (error.kind === 'FORBIDDEN') return terminal('AUTHORIZATION');
+    if (
+      error.kind === 'TENANT_MISMATCH' ||
+      error.kind === 'ORGANIZATION_MISMATCH'
+    ) return terminal('SCOPE_MISMATCH');
+    if (
+      error.kind === 'MALFORMED_CONFLICT' ||
+      error.kind === 'UNSUPPORTED_CONTRACT'
+    ) return terminal('MALFORMED_RESPONSE');
+    return error.retryable
+      ? { status: 'RETRYABLE_FAILURE', category: 'RETRYABLE_SERVER' }
+      : terminal('MALFORMED_RESPONSE');
+  }
+  if (error instanceof StepSubmissionDatasourceError) {
+    switch (error.kind) {
+      case 'STALE_REVISION':
+        return { status: 'E6_CONFLICT' };
+      case 'UNAUTHORIZED':
+        return terminal('AUTHENTICATION');
+      case 'FORBIDDEN':
+        return terminal('AUTHORIZATION');
+      case 'TENANT_MISMATCH':
+      case 'ORGANIZATION_MISMATCH':
+        return terminal('SCOPE_MISMATCH');
+      case 'VALIDATION':
+        return terminal('VALIDATION');
+      case 'UNSUPPORTED':
+        return terminal('UNSUPPORTED');
+      case 'IDEMPOTENCY_CONFLICT':
+        return terminal('IDEMPOTENCY_CONFLICT');
+      case 'MALFORMED_CONFLICT':
+        return terminal('MALFORMED_RESPONSE');
+      case 'NETWORK':
+        return { status: 'RETRYABLE_FAILURE', category: 'NETWORK' };
+      case 'TIMEOUT':
+        return { status: 'RETRYABLE_FAILURE', category: 'TIMEOUT' };
+      case 'CANCELLED':
+        return { status: 'CANCELLED' };
+      case 'BACKEND_FAILURE':
+        return error.retryable
+          ? { status: 'RETRYABLE_FAILURE', category: 'RETRYABLE_SERVER' }
+          : terminal('MALFORMED_RESPONSE');
+    }
+  }
+  return terminal('MALFORMED_RESPONSE');
+};
+
+export const createPendingMutationExecutor = (
+  dependencies: PendingMutationExecutionDependencies =
+  defaultPendingMutationExecutionDependencies
+) => async (
+  queuedRecord: PendingMutationRecord,
+  signal: AbortSignal
+): Promise<PendingMutationExecutionResult> => {
+  try {
+    const record = parsePendingMutationRecord(queuedRecord);
+    const response = await dependencies.submitStep(
+      record.tenantId,
+      record.stepCode,
+      {
+        data: record.body,
+        mark_complete: true,
+        expected_revision: record.revisionEvidence.revision.value,
+      },
+      record.idempotencyKey,
+      { signal, skipAuthRefreshRetry: true }
+    );
+    validateStepSubmissionResponse(response, record.stepCode, true);
+    await dependencies.invalidateCurrentStatus(
+      record.organizationId,
+      record.tenantId
+    );
+    return { status: 'SUCCEEDED' };
+  } catch (error) {
+    if (
+      error instanceof StepSubmissionDatasourceError &&
+      error.kind === 'STALE_REVISION'
+    ) {
+      try {
+        mapStepSubmissionError(error, queuedRecord.stepCode);
+      } catch (mappedError) {
+        return mapPendingMutationExecutionError(mappedError);
+      }
+    }
+    return mapPendingMutationExecutionError(error);
+  }
+};
+
+export const executePendingMutation =
+  createPendingMutationExecutor();
 
 /**
  * Hook to submit step data

@@ -7,6 +7,7 @@ import {
   parsePendingMutationRecord,
   transitionPendingMutation,
   type PendingMutationFailureCategory,
+  type PendingMutationExecutionResult,
   type PendingMutationRecord,
   type PendingMutationScope,
 } from '../domain/entities/pending-mutation.entity';
@@ -40,25 +41,7 @@ export type ReplayAuthorityResult =
   | { readonly status: 'STEP_UNAVAILABLE' }
   | { readonly status: 'E6_CONFLICT' };
 
-export type ReplayExecutionResult =
-  | { readonly status: 'SUCCEEDED' }
-  | {
-    readonly status: 'RETRYABLE_FAILURE';
-    readonly category: 'NETWORK' | 'TIMEOUT' | 'RETRYABLE_SERVER';
-  }
-  | {
-    readonly status: 'TERMINAL_FAILURE';
-    readonly category:
-      | 'VALIDATION'
-      | 'AUTHENTICATION'
-      | 'AUTHORIZATION'
-      | 'SCOPE_MISMATCH'
-      | 'UNSUPPORTED'
-      | 'MALFORMED_RESPONSE'
-      | 'IDEMPOTENCY_CONFLICT';
-  }
-  | { readonly status: 'E6_CONFLICT' }
-  | { readonly status: 'CANCELLED' };
+export type ReplayExecutionResult = PendingMutationExecutionResult;
 
 export interface PendingMutationReplayPorts {
   readonly refreshAuthority: (

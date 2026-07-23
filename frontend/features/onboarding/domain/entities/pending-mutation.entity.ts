@@ -42,6 +42,26 @@ export const PENDING_MUTATION_FAILURE_CATEGORIES = Object.freeze([
 export type PendingMutationFailureCategory =
   (typeof PENDING_MUTATION_FAILURE_CATEGORIES)[number];
 
+export type PendingMutationExecutionResult =
+  | { readonly status: 'SUCCEEDED' }
+  | {
+    readonly status: 'RETRYABLE_FAILURE';
+    readonly category: 'NETWORK' | 'TIMEOUT' | 'RETRYABLE_SERVER';
+  }
+  | {
+    readonly status: 'TERMINAL_FAILURE';
+    readonly category:
+      | 'VALIDATION'
+      | 'AUTHENTICATION'
+      | 'AUTHORIZATION'
+      | 'SCOPE_MISMATCH'
+      | 'UNSUPPORTED'
+      | 'MALFORMED_RESPONSE'
+      | 'IDEMPOTENCY_CONFLICT';
+  }
+  | { readonly status: 'E6_CONFLICT' }
+  | { readonly status: 'CANCELLED' };
+
 export interface PendingMutationScope {
   readonly userId: string;
   readonly organizationId: string;

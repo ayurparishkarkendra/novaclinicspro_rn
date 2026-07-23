@@ -213,6 +213,12 @@ export type StepSubmissionDatasourceFailureKind =
   | 'FORBIDDEN'
   | 'TENANT_MISMATCH'
   | 'ORGANIZATION_MISMATCH'
+  | 'VALIDATION'
+  | 'UNSUPPORTED'
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'NETWORK'
+  | 'TIMEOUT'
+  | 'CANCELLED'
   | 'BACKEND_FAILURE';
 
 export class StepSubmissionDatasourceError extends Error {

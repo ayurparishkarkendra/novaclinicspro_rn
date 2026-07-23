@@ -71,6 +71,38 @@ describe('submitStepDataApi', () => {
     );
   });
 
+  it('passes cancellation and disables transport-owned auth replay for durable execution', async () => {
+    const controller = new AbortController();
+
+    await submitStepDataApi(
+      'tenant-123',
+      'operating_hours',
+      {
+        data: { operating_hours: [] },
+        mark_complete: true,
+        expected_revision: `step-rev-v1:${'a'.repeat(64)}`,
+      },
+      'original-idempotency-key',
+      {
+        signal: controller.signal,
+        skipAuthRefreshRetry: true,
+      }
+    );
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/api/v1/onboarding/tenant-123/steps/operating_hours',
+      expect.any(Object),
+      {
+        headers: {
+          'X-Tenant-ID': 'tenant-123',
+          'Idempotency-Key': 'original-idempotency-key',
+        },
+        signal: controller.signal,
+        skipAuthRefreshRetry: true,
+      }
+    );
+  });
+
   it('maps only the approved stale-revision 409 and ignores internal fields', async () => {
     mockPost.mockRejectedValueOnce({
       response: {
@@ -115,7 +147,7 @@ describe('submitStepDataApi', () => {
 
   it('does not misclassify an unrelated or malformed 409', async () => {
     mockPost.mockRejectedValueOnce({
-      response: { status: 409, data: { detail: 'idempotency conflict' } },
+      response: { status: 409, data: { detail: 'unrecognized conflict' } },
     });
 
     await expect(
@@ -126,6 +158,33 @@ describe('submitStepDataApi', () => {
         conflict: null,
       })
     );
+  });
+
+  it.each([
+    [
+      'validation',
+      { response: { status: 422, data: { detail: {} } } },
+      'VALIDATION',
+    ],
+    [
+      'idempotency',
+      {
+        response: {
+          status: 409,
+          data: { detail: 'Idempotent request is already in progress' },
+        },
+      },
+      'IDEMPOTENCY_CONFLICT',
+    ],
+    ['timeout', { code: 'ECONNABORTED' }, 'TIMEOUT'],
+    ['network', { code: 'ERR_NETWORK' }, 'NETWORK'],
+    ['cancellation', { code: 'ERR_CANCELED' }, 'CANCELLED'],
+  ])('normalizes the approved %s failure', async (_label, failure, kind) => {
+    mockPost.mockRejectedValueOnce(failure);
+
+    await expect(
+      submitStepDataApi('tenant-123', 'operating_hours', { data: {} })
+    ).rejects.toEqual(expect.objectContaining({ kind }));
   });
 });
 
