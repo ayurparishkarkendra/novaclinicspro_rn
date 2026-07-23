@@ -1528,9 +1528,10 @@ current status are governed by `requirements-traceability-matrix.md`.
 | TG21 | Req 33; shares regression ownership for Req 1–4, 15, 23–25 | Backend-authoritative capability/template projection, source authority, query/transport, frontend data/domain integration, and Journey presentation consumption. | Backend projection/query/transport suites and TG18/onboarding regressions; frontend datasource/repository/domain/presentation, JourneySurface, and SetupWizardFlow verification; fail-closed revision/tenant behavior verified. | **COMPLETE / ACCEPTED**. Req 33, the E4 design contract, and TG21 final verification and acceptance. Req 33 is complete. |
 | TG22 | Req 34; contributes to Req 13, 15, 17, 23–28, 32 | Provider-owned readiness aggregation over TG21 setup and TG20 workspace evidence, read transport/authorization, frontend data/domain integration, checklist explanation, and bounded next actions. | Backend readiness/TG21/onboarding regressions (100 tests); frontend onboarding verification (33 suites / 235 tests) including isolated TG22 (5 suites / 45 tests); Ruff, compileall, ESLint, scoped TypeScript, localization, accessibility, and Alembic head `20260721_030000` verified. | **COMPLETE / ACCEPTED**. Req 34, the E5 design contract, and TG22.3 final acceptance. Req 34 is complete; commercial activation remains outside TG22. |
 
-No prior ledger entry authorized a later Task Group. E6 is constitutionally
-complete and the source-backed readiness record below now authorizes only TG23,
-beginning with TG23.1. TG24 and later groups remain unauthorized.
+No prior ledger entry authorized a later Task Group. E6 is complete and
+accepted. The approved E7 constitutional requirements/design and the E7
+authorization record below now authorize TG24. TG25 remains reserved for final
+E7 acceptance and does not authorize implementation detail beyond that gate.
 
 ### Standard Task Group Documentation Lifecycle v1.0
 
@@ -1945,6 +1946,99 @@ billing implementation, or architecture rewrites.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).
 - The `submissionId` guard (task 6.2) and the `Idempotency-Key` (task 11.2) are complementary layers: `submissionId` prevents frontend double-dispatch; `Idempotency-Key` prevents backend duplicate records if a network retry reaches the server.
 - WizardDraftStore was excluded from the earlier production-hardening checkpoint. It is now complete through Task Groups 13-15. OfflineBanner visibility/gating is complete through Task Group 16. Other deferred items remain out of scope until a later canonical task group authorizes them: PendingMutationStore, Axios retry interceptor, conflict resolution modal, analytics beyond the approved draft-storage event path, i18n additions beyond user-visible strings introduced by an authorized task, accessibility enhancements beyond touched controls, and payment recovery.
+
+## E7 Constitutional Completion and TG24 Authorization (2026-07-23)
+
+E7 — Offline Mutation Recovery is constitutionally complete. Requirements 8,
+12, 20, 22–24, 26, 28, 30, and 32 remain implementation-partial, but their E7
+scope, ownership, invariants, prohibitions, retry/persistence/replay lifecycle,
+security, telemetry, experience, compatibility, rollback, and acceptance
+contracts are approved in `requirements.md` and `design.md`.
+
+TG24 is authorized to implement only the Version 1
+`onboarding.step.submit.v1` durable recovery contract. TG24 must reuse Effective
+Tenant, E6 revision authority, Platform Idempotency, the existing onboarding
+datasource/repository/query family, Wizard Draft scope conventions, central
+Theme/localization/accessibility systems, and the approved application
+telemetry boundary. It must not implement any prohibited operation family or
+create a generic request queue, new backend API, migration, idempotency service,
+tenant authority, repository family, or second replay engine.
+
+### TG24.1 — E7 Domain and Safe Record Contract
+
+- **Objective:** Implement immutable Version 1 operation, lifecycle, retry
+  taxonomy, safe durable-record validation, payload allowlist, schema
+  migration/corruption, expiry, and scope rules.
+- **Ownership:** Frontend E7 domain plus the existing tenant/user-scoped local
+  persistence boundary. Backend is reference-only.
+- **Acceptance boundary:** Closed operation/field allowlists, prohibited-data
+  rejection, lifecycle invariants, schema/legacy/corruption handling, expiry,
+  user/organization/tenant isolation, and no source outside E7-owned frontend
+  domain/persistence boundaries.
+
+### TG24.2 — E7 Application Replay Coordination
+
+- **Objective:** Implement the single replay authority for enqueue, claim,
+  deterministic tenant FIFO, duplicate collapse, backoff, restart/reconnect/
+  foreground triggers, cancellation, success removal, and terminal transition.
+- **Ownership:** Frontend E7 application/presentation-hook orchestration using
+  existing auth, Effective Tenant, connectivity, Journey Visibility, E6
+  evidence, and query owners.
+- **Acceptance boundary:** One active claim per tenant, original plus three
+  bounded replays, fresh authority before execution, no competing transport
+  retry, deterministic concurrent triggers, and safe tenant-switch/logout/
+  authorization-loss behavior.
+
+### TG24.3 — Existing Datasource and Repository Integration
+
+- **Objective:** Execute only approved queued step submissions through the
+  existing onboarding datasource/repository/query boundary with original
+  idempotency identity and normalized typed outcomes.
+- **Ownership:** Existing frontend onboarding datasource/repository and query
+  keys; existing backend step mutation, authorization, transaction,
+  idempotency, audit, and E6 conflict owners remain unchanged.
+- **Acceptance boundary:** No new API or repository family; operation registry
+  cannot build arbitrary requests; successful replay invalidates current
+  queries; E6 conflict blocks and delegates without replacing revision;
+  authorization, validation, malformed, unsupported, and idempotency outcomes
+  follow the approved taxonomy.
+
+### TG24.4 — Recovery Presentation, Telemetry, and Lifecycle Integration
+
+- **Objective:** Integrate pending/replaying/conflict/manual/expired recovery
+  states, bounded user actions, safe lifecycle telemetry, and existing
+  wizard/connectivity behavior.
+- **Ownership:** E7 presentation components/hooks, existing E6 recovery owner,
+  onboarding telemetry port/provider or safe no-op adapter, both locale
+  catalogs, and central Theme/accessibility primitives.
+- **Acceptance boundary:** Refresh/edit/retry/discard/support actions appear
+  only when owned; no silent deletion or infinite retry; English/Hindi parity,
+  focus/live/busy/disabled/touch/font/back semantics, Theme-only presentation,
+  and zero payload/raw-error telemetry leakage.
+
+### TG24.5 — TG24 Verification and Implementation Completion
+
+- **Objective:** Verify the complete implemented E7 contract and correct only
+  TG24-owned defects before handing the frozen implementation to TG25.
+- **Ownership:** Frontend E7 unit/integration/device verification plus read-only
+  backend contract/regression verification.
+- **Acceptance boundary:** Operation and data deny lists; persistence,
+  migration, corruption, expiry; FIFO/locking/concurrency; retry/exhaustion;
+  restart/reconnect/foreground; E6 conflict; idempotency; tenant/organization/
+  user isolation; logout/switch; telemetry; localization/accessibility/Theme;
+  rollback; and TG18–TG23 regressions pass with clean synchronized worktrees.
+
+### TG25 — E7 Final Acceptance
+
+TG25 is authorized solely as the final verification and acceptance gate after
+TG24.5 completes. It may validate Requirement 32 staging/device evidence,
+rollback, regressions, and the frozen TG24 implementation and may correct only
+verified E7 defects under explicit execution authorization. It must not add E7
+functionality, redefine contracts, or begin E8.
+
+**TG24 IMPLEMENTATION AUTHORIZED**
+
+**TG25 FINAL ACCEPTANCE AUTHORIZED AFTER TG24.5**
 
 ## Git Delivery Strategy
 

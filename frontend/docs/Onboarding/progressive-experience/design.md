@@ -548,6 +548,128 @@ Implementation remains unauthorized until a separately approved task boundary
 identifies files, migration/API impact if any, checkpoints, tests, rollback, and
 stop conditions.
 
+### E7 Offline Mutation Recovery Constitutional Design
+
+#### Domain and lifecycle ownership
+
+E7 owns a non-authoritative, tenant-scoped intent lifecycle for the single
+Version 1 operation `onboarding.step.submit.v1`. The frontend E7 application
+coordinator is the only durable retry authority. The backend onboarding
+mutation owner remains authoritative for whether an execution is accepted.
+
+```text
+eligible user attempt
+  → PENDING
+  → REPLAYING
+  → SUCCEEDED (remove)
+  | CONFLICT_BLOCKED (delegate to E6)
+  | MANUAL_ACTION_REQUIRED
+  | EXPIRED
+  → DISCARDED (explicit confirmation)
+```
+
+Known-offline UI remains gated. Enqueue occurs only when an attempt started
+online or with indeterminate connectivity and subsequently failed transiently.
+One effective tenant executes FIFO with one active claim. Restart, reconnect,
+and foreground are competing triggers for the same coordinator and lock, not
+separate replay engines.
+
+#### Operation registry and payload boundary
+
+The E7 domain owns a closed Version 1 operation registry. Its sole descriptor
+binds stable operation ID, step code, safe per-step payload validator, existing
+datasource/repository execution owner, E6 evidence requirements, and result/
+error mapper. Unknown operations, URLs, methods, headers, steps, or fields fail
+closed.
+
+Only allowlisted onboarding-configuration JSON may be persisted. Credentials,
+tokens, contact values, verification evidence, payment/banking values,
+clinical/patient data, files, raw errors, and unrestricted payloads are rejected
+before storage. Excluded operation families cannot opt into E7 by configuration;
+they require a later constitutional revision.
+
+#### Frontend ownership
+
+The existing onboarding presentation hook initiates user intent. An E7
+application coordinator owns eligibility, enqueue, claim, fresh-context
+validation, replay, lifecycle transitions, query invalidation, and safe
+telemetry. A synchronous Zustand store owns only lifecycle state mutations;
+standalone persistence functions own serialization, schema migration, storage,
+and corruption handling. React Query continues to own server cache.
+
+The existing onboarding datasource and repository execute the approved request.
+The queue does not call Axios from presentation, store React Query hooks, build
+URLs, or create another query-key family. Axios performs no independent retry
+for a persisted attempt.
+
+Tenant switch cancels execution and removes outgoing memory/cache before the new
+scope loads; durable records remain inaccessible under their original composite
+scope. Logout/account removal deletes the authenticated user's queue.
+Authorization loss blocks replay and surfaces manual recovery.
+
+#### Backend ownership
+
+The existing onboarding step endpoint/service owns fresh Effective Tenant,
+organization membership, permission, current Journey-visible step, E6 revision,
+idempotency, transaction, audit, typed failure, and accepted result. Replay uses
+the existing endpoint and the original idempotency key; no new endpoint,
+background replay worker, transaction owner, idempotency service, or alternate
+tenant authority is authorized.
+
+The backend never trusts queue state, attempt count, payload eligibility,
+frontend authorization, or captured revision as current. E6 stale/missing/
+projection conflict remains a typed blocked result with no partial mutation.
+
+#### Persistence, retry, and dead-letter ownership
+
+The Version 1 record is exactly the field set approved in the E7 requirements.
+It is schema-versioned, scoped by user/organization/effective tenant, expires
+after seven days, and retains acknowledged terminal evidence for no more than
+30 days. Pure additive migrations are required for recognized schemas; unknown,
+corrupt, cross-scope, or prohibited records never replay.
+
+Retry classification occurs once in the E7 application coordinator after the
+existing repository normalizes the typed transport result. The original attempt
+plus three replays use 2/4/8-second confirmed-online backoff. Offline waiting and
+local cancellation do not consume attempts. Retryable transport/5xx outcomes
+remain pending; validation, authorization, unsupported/malformed,
+idempotency-conflict, and other terminal outcomes require manual action.
+
+`CONFLICT_BLOCKED` delegates to the existing E6 refresh/Use Latest/Keep Local
+owner. Manual recovery may refresh, edit through the owning step, retry after
+fresh validation, discard with confirmation, or use an existing support route.
+There is no infinite retry, silent deletion, field merge, or cross-tenant
+transfer.
+
+#### Telemetry and presentation ownership
+
+An onboarding application telemetry port emits the approved safe lifecycle
+events without blocking mutation flow; an existing provider may implement it
+and a safe no-op adapter is valid when none is configured. Payloads, evidence,
+secrets, contact/clinical/payment data, and raw exceptions never enter events.
+
+Presentation consumes domain state and owns only localized explanation and
+bounded user intent. It uses `en-US`/`hi-IN` parity, central Theme, existing
+loading/error primitives, live regions, focus management, disabled/busy state,
+non-color meaning, touch targets, font scaling, and guarded hardware-back
+behavior.
+
+#### Compatibility, rollback, and acceptance
+
+Rollout first verifies existing backend typed failures and idempotency, then
+enables the additive frontend schema and operation registry. Feature disablement
+stops enqueue/replay but does not execute or transfer retained intents.
+Rollback returns to existing offline gating; a later compatible version may
+resume only records it validates. Unknown/legacy records fail closed.
+
+Acceptance must prove the complete lifecycle, operation and payload deny lists,
+single retry ownership, deterministic FIFO/locking, concurrent triggers,
+restart/reconnect/foreground, expiry/corruption/migration, idempotency, E6
+conflict delegation, tenant/organization/user isolation, authorization loss,
+manual recovery, telemetry leakage safety, localization/accessibility/Theme,
+rollback, and TG18–TG23 regressions. Requirement 32 staging/device evidence is a
+release gate.
+
 ### Progressive Experience Epic Design Coverage Index
 
 This index reconciles design ownership without duplicating or redesigning the
@@ -561,7 +683,7 @@ accepted contracts. A roadmap entry is not implementation design by itself.
 | E4 Capability Visibility | Req 33 and the E4 constitutional contract in this document | Accepted and implemented by TG21. |
 | E5 Ready-to-Start Experience | Req 34 and the E5 constitutional contract in this document | Accepted and implemented by TG22. |
 | E6 Conflict and Multi-Clinic Recovery | E6 constitutional product contract in `requirements.md` and the E6 constitutional design contract above | Constitutionally complete. Implementation remains unauthorized pending a separately approved task boundary and implementation-readiness review. |
-| E7 Offline Mutation Recovery | Deferred data model, error flow, and Req 8/12/20/22–24/26/28/30/32 material in this document | Incomplete. Queue operations, persistence security, retry/dead-letter ownership, and replay contract remain unresolved. |
+| E7 Offline Mutation Recovery | E7 constitutional requirements and the E7 constitutional design in this document | Constitutionally complete; TG24 implementation authorized, with TG25 reserved for final acceptance. |
 | E8 Commercial Trial | Historical Req 13 intent, Req 18, and roadmap E8 | Incomplete. The former direct Demo/Live mutation is superseded; trial lifecycle and commercial authority require an accepted design. |
 | E9 Subscription Conversion and Payment Recovery | Req 12, 18–20, 23–28, 30, 32 and roadmap E9 | Incomplete. Payment ownership, verification, recovery, and security contracts are not accepted. |
 | E10 Informational Dunning | Req 20, 24, 25, 28 and roadmap E10 | Incomplete. Trigger, timing, channel, severity, and owned-action design is absent. |
