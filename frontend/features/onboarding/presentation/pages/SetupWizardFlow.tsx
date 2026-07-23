@@ -48,6 +48,7 @@ import {
   PendingMutationReplayCoordinator,
   type ReplayAuthorityResult,
 } from '../../application/pending-mutation-replay.coordinator';
+import { executeRecoverableStepSubmission } from '../../application/recoverable-step-submission';
 import { usePendingMutationReplayLifecycle } from '../hooks/usePendingMutationReplayLifecycle';
 import { usePendingMutationsStore } from '../stores/pending-mutations.store';
 import type { PendingMutationRecord } from '../../domain/entities/pending-mutation.entity';
@@ -88,6 +89,11 @@ const createSubmissionId = () => {
     return value.toString(16);
   });
 };
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
@@ -406,44 +412,88 @@ export function SetupWizardFlow() {
       const stepAtSubmission = currentStep;
       if (!stepAtSubmission) return;
       const saveHandler = currentStepSaveHandlerRef.current;
+      const evidence =
+        statusDomain?.steps.get(stepAtSubmission.code)?.authoritativeEvidence;
+      const draftData = asRecord(
+        useWizardStore.getState().stepDrafts[stepAtSubmission.code]?.data
+      );
+      const recoveryBody =
+        stepAtSubmission.code === 'operating_hours' &&
+        Array.isArray(draftData?.schedule)
+          ? { operating_hours: draftData.schedule }
+          : stepAtSubmission.code === 'rooms_and_therapy_beds' &&
+              Array.isArray(draftData?.rooms)
+            ? { rooms: draftData.rooms }
+            : null;
       await conflictRecovery.executeSubmission({
         stepCode: stepAtSubmission.code,
         idempotencyKey: submissionId,
         submit: async ({ expectedRevision, idempotencyKey }) => {
-          if (saveHandler) {
-            await saveHandler({ expectedRevision, idempotencyKey });
+          const runOriginalSubmission = async () => {
+            if (saveHandler) {
+              await saveHandler({ expectedRevision, idempotencyKey });
+              return;
+            }
+
+            await submitMutation.mutateAsync(
+              {
+                idempotencyKey,
+                data: recoveryBody ?? {},
+                mark_complete: true,
+                expected_revision: expectedRevision,
+              },
+              {
+                onSuccess: () => {
+                  if (submissionIdRef.current !== submissionId) return;
+                },
+                onError: () => {
+                  if (submissionIdRef.current !== submissionId) return;
+                },
+              }
+            );
+            if (submissionIdRef.current !== submissionId) return;
+
+            await refetch();
+            if (submissionIdRef.current !== submissionId) return;
+            if (currentStepIndex < steps.length - 1) {
+              setCurrentStepIndex(currentStepIndex + 1);
+            } else {
+              router.replace(`/clinic-admin?tenantId=${tenantId}`);
+            }
+          };
+
+          if (
+            !recoveryBody ||
+            !evidence ||
+            !currentUser?.userId ||
+            !organizationId
+          ) {
+            await runOriginalSubmission();
             return;
           }
 
-          await submitMutation.mutateAsync(
-            {
-              idempotencyKey,
-              data: {}, // Empty data for external steps
-              mark_complete: true,
-              expected_revision: expectedRevision,
+          await executeRecoverableStepSubmission({
+            coordinator: replayCoordinator,
+            mutationId: submissionId,
+            idempotencyKey,
+            scope: {
+              userId: currentUser.userId,
+              organizationId,
+              tenantId,
             },
-            {
-              onSuccess: () => {
-                if (submissionIdRef.current !== submissionId) {
-                  return;
-                }
-              },
-              onError: () => {
-                if (submissionIdRef.current !== submissionId) {
-                  return;
-                }
-              },
-            }
-          );
-          if (submissionIdRef.current !== submissionId) return;
-
-          await refetch();
-          if (submissionIdRef.current !== submissionId) return;
-          if (currentStepIndex < steps.length - 1) {
-            setCurrentStepIndex(currentStepIndex + 1);
-          } else {
-            router.replace(`/clinic-admin?tenantId=${tenantId}`);
-          }
+            stepCode: stepAtSubmission.code,
+            body: recoveryBody,
+            expectedRevision,
+            templateVersion: evidence.projectionIdentity.templateVersion,
+            capabilityRevision:
+              evidence.projectionIdentity.capabilityRevision,
+            connectivityAtAttempt:
+              netInfo.isConnected === true &&
+              netInfo.isInternetReachable !== false
+                ? 'ONLINE'
+                : 'INDETERMINATE',
+            submit: runOriginalSubmission,
+          });
         },
       });
     } catch (error) {

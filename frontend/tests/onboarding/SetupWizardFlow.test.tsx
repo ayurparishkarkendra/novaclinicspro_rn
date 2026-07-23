@@ -19,6 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppState, BackHandler } from 'react-native';
 import { SetupWizardFlow } from '../../features/onboarding/presentation/pages/SetupWizardFlow';
 import * as wizardStore from '../../features/onboarding/presentation/stores/wizard.store';
+import { createDraftRevisionEvidence } from '../../features/onboarding/domain/entities/step-revision.entity';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -118,7 +119,10 @@ jest.mock('../../core/localization/useTranslation', () => ({
 }));
 
 const mockAuthState = {
-  currentUser: { tenantId: 'test-tenant-456', applicationStatus: 'onboarding' },
+  currentUser: {
+    tenantId: 'test-tenant-456',
+    applicationStatus: 'onboarding',
+  } as any,
   isAuthenticated: false,
 };
 
@@ -183,6 +187,7 @@ const mockOrganizationRefetch = jest.fn().mockResolvedValue({
   },
 });
 const mockMutateAsync = jest.fn();
+const mockExecuteRecoverableStepSubmission = jest.fn();
 const mockUseOnboardingStatusQuery = jest.fn();
 const mockUseDemoStatusQuery = jest.fn();
 const mockClearJourneyVisibilityCache = jest.fn();
@@ -246,6 +251,10 @@ jest.mock('../../features/onboarding/data/repositories/onboarding.repository.imp
     mutateAsync: (...args: any[]) => mockMutateAsync(...args),
     isPending: false,
   }),
+}));
+jest.mock('../../features/onboarding/application/recoverable-step-submission', () => ({
+  executeRecoverableStepSubmission: (...args: any[]) =>
+    mockExecuteRecoverableStepSubmission(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -376,6 +385,12 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
     mockRefetch.mockResolvedValue({});
     mockVisibilityRefetch.mockResolvedValue({ data: undefined });
     mockMutateAsync.mockResolvedValue({});
+    mockExecuteRecoverableStepSubmission.mockImplementation(
+      async ({ submit }: { submit: () => Promise<unknown> }) => ({
+        status: 'SUBMITTED',
+        response: await submit(),
+      })
+    );
     mockUseDemoStatusQuery.mockReturnValue({
       data: null,
       isLoading: false,
@@ -638,6 +653,59 @@ describe('SetupWizardFlow — authoritative journey presentation', () => {
     fireEvent.press(getByLabelText('Connect to the internet to submit this step'));
 
     expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes an approved transient-capable production submission through the single E7 enqueue owner', async () => {
+    const status = buildStatusWithSteps(['operating_hours']);
+    mockUseOnboardingStatusQuery.mockReturnValue({
+      data: status,
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    mockAuthState.currentUser = {
+      tenantId: 'test-tenant-456',
+      applicationStatus: 'onboarding',
+      userId: 'user-1',
+    };
+    mockAuthState.isAuthenticated = true;
+
+    const screen = renderFlow();
+    await waitFor(() => expect(screen.getByText('Operating Hours')).toBeTruthy());
+    wizardStore.useWizardStore.getState().setOperatingHours(
+      {
+        schedule: [{ day: 'Monday', is_open: true }],
+      },
+      createDraftRevisionEvidence({
+        organizationId: 'org-1',
+        tenantId: 'test-tenant-456',
+        stepCode: 'operating_hours',
+        revision: `step-rev-v1:${'a'.repeat(64)}`,
+        templateVersion: 'template-v1',
+        capabilityRevision: `cap-v1:${'a'.repeat(64)}`,
+      })
+    );
+    fireEvent.press(screen.getByLabelText('Ready to Start'));
+
+    await waitFor(() =>
+      expect(mockExecuteRecoverableStepSubmission).toHaveBeenCalledTimes(1)
+    );
+    expect(mockExecuteRecoverableStepSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: {
+          userId: 'user-1',
+          organizationId: 'org-1',
+          tenantId: 'test-tenant-456',
+        },
+        stepCode: 'operating_hours',
+        body: {
+          operating_hours: [{ day: 'Monday', is_open: true }],
+        },
+        expectedRevision: `step-rev-v1:${'a'.repeat(64)}`,
+        templateVersion: 'template-v1',
+        capabilityRevision: `cap-v1:${'a'.repeat(64)}`,
+      })
+    );
   });
 
   it('routes the banner continue setup action to the backend recommended step', async () => {
