@@ -1528,9 +1528,9 @@ current status are governed by `requirements-traceability-matrix.md`.
 | TG21 | Req 33; shares regression ownership for Req 1–4, 15, 23–25 | Backend-authoritative capability/template projection, source authority, query/transport, frontend data/domain integration, and Journey presentation consumption. | Backend projection/query/transport suites and TG18/onboarding regressions; frontend datasource/repository/domain/presentation, JourneySurface, and SetupWizardFlow verification; fail-closed revision/tenant behavior verified. | **COMPLETE / ACCEPTED**. Req 33, the E4 design contract, and TG21 final verification and acceptance. Req 33 is complete. |
 | TG22 | Req 34; contributes to Req 13, 15, 17, 23–28, 32 | Provider-owned readiness aggregation over TG21 setup and TG20 workspace evidence, read transport/authorization, frontend data/domain integration, checklist explanation, and bounded next actions. | Backend readiness/TG21/onboarding regressions (100 tests); frontend onboarding verification (33 suites / 235 tests) including isolated TG22 (5 suites / 45 tests); Ruff, compileall, ESLint, scoped TypeScript, localization, accessibility, and Alembic head `20260721_030000` verified. | **COMPLETE / ACCEPTED**. Req 34, the E5 design contract, and TG22.3 final acceptance. Req 34 is complete; commercial activation remains outside TG22. |
 
-No ledger entry authorizes a later Task Group. E6 is constitutionally complete,
-but TG23 remains unauthorized until a separate source-reuse/readiness review
-freezes its implementation boundary and this ledger records an approved task.
+No prior ledger entry authorized a later Task Group. E6 is constitutionally
+complete and the source-backed readiness record below now authorizes only TG23,
+beginning with TG23.1. TG24 and later groups remain unauthorized.
 
 ### Standard Task Group Documentation Lifecycle v1.0
 
@@ -1594,12 +1594,94 @@ and stopping point for each Task Group.
   projection does not yet expose per-step revision/timestamp evidence, and the
   frontend draft owns device-local `lastSavedAt`; no implementation claim is
   made.
-- **Status:** **CONSTITUTIONALLY COMPLETE / IMPLEMENTATION NOT AUTHORIZED**.
-  The next permissible activity is a separate source-reuse and implementation-
-  readiness review. No TG23 task or implementation checkpoint is created here.
+- **Status at this checkpoint:** **CONSTITUTIONALLY COMPLETE / IMPLEMENTATION
+  NOT YET AUTHORIZED**. The later readiness record and TG23 ledger below now
+  supply that authorization; this historical checkpoint created no source task.
 - **Acceptance reference:** E6 constitutional product contract in
   `requirements.md`, E6 constitutional design contract in `design.md`, and the
   affected E6 rows/readiness decision in the RTM.
+
+## TG23 — Draft Conflict and Multi-Clinic Recovery (AUTHORIZED)
+
+Status: **IMPLEMENTATION AUTHORIZED; CHECKPOINTS NOT STARTED** (2026-07-23)
+
+- **Objective:** Prevent stale device-local drafts from overwriting newer server
+  state or crossing organization/effective-tenant boundaries, with deterministic
+  accessible recovery and auditable outcomes.
+- **Requirements:** Req 9, 11, 16, 17, and 29–32. Implementation fulfillment
+  status remains unchanged until checkpoint and acceptance evidence exists.
+- **Design:** E6 constitutional product contract in `requirements.md`; E6
+  constitutional design contract in `design.md`; TG18 journey identity, TG19
+  Effective Tenant/isolation, TG21 projection identity, and TG22 tenant/readiness
+  boundaries remain authoritative.
+- **Readiness:** `E6-IMPLEMENTATION-READINESS.md` — **COMPLETE / IMPLEMENTATION
+  AUTHORIZED**.
+- **Reuse:** Existing `org_setup_progress`, setup-progress repository, onboarding
+  status/service/routes, active SQLAlchemy UoW, Effective Tenant/organization
+  context, authorization, organization audit, Platform Idempotency, Wizard Draft
+  store, onboarding datasource/repository/query keys, `useJourneyFoundation`,
+  SetupWizardFlow, tenant cleanup, Theme, localization, and accessibility systems.
+- **Out of scope:** E7 offline queue/replay, arbitrary or field-level merge,
+  peer-to-peer draft sync, cross-tenant transfer, frontend-generated authority,
+  duplicate stores/repositories/API clients, commercial lifecycle, Doctor Module,
+  Clinical Workspace, scheduling, inventory, billing, and payment implementation.
+
+### TG23.1 — Backend Per-Step Revision Foundation (NOT STARTED)
+
+- Add the authorized additive progress-revision migration, model/port/adapter
+  support, concurrency-safe revision primitives, active-UoW registration, and
+  per-step status evidence including baseline visible steps.
+- Verify migration compatibility, historical/new/absent rows, atomic revision+
+  timestamp behavior, concurrent comparison, response compatibility, and tenant
+  isolation with focused PostgreSQL tests, Ruff, compileall, and Alembic checks.
+- Stop if the migration graph is not single-head/current or authoritative evidence
+  cannot be produced atomically for every visible step.
+
+### TG23.2 — Backend Conflict-Aware Submission and Transport (NOT STARTED)
+
+- Compose expected revision, Effective Tenant/organization/permission checks,
+  existing mutation, idempotency, safe organization audit, typed conflict, and
+  rollback through the active UoW; routers remain rule-free.
+- Verify accepted/stale/missing/cross-scope/concurrent revisions, replay/conflict,
+  authorization, safe errors, audit, rollback, and TG19/TG21/TG22 regressions.
+- Stop if a second mutation path or non-atomic commit boundary is required.
+
+### TG23.3 — Frontend Revision and Conflict Data/Domain (NOT STARTED)
+
+- Extend DTO/domain/datasource/repository owners, Wizard Draft schema v2,
+  server-base/projection binding, typed errors, scoped cleanup, and pure recovery
+  rules without adding another store/query/API client.
+- Verify mapping, legacy draft migration, missing evidence, conflict eligibility,
+  stale responses, expiry, isolation, and TG13–TG22 regressions.
+- Stop if frontend must generate or reinterpret authoritative revision.
+
+### TG23.4 — Frontend Conflict and Recovery Presentation (NOT STARTED)
+
+- Add the domain-specific accessible DraftConflictModal and orchestration for Use
+  Latest, Keep Local, unavailable refresh, completed/retired/hidden cleanup,
+  duplicate-action protection, and tenant switching using central Theme and both
+  locale catalogs.
+- Verify no-conflict/conflict/repeat-conflict, Device A/B, tenant switch,
+  logout/login, no leakage, focus/screen-reader/touch/font semantics, Hindi parity,
+  Theme compliance, and presentation regressions.
+- Stop before deleting a draft without a confirmed safe outcome or rendering any
+  cross-scope state.
+
+### TG23.5 — Final E6 Verification and Acceptance (NOT STARTED)
+
+- Run the complete backend/frontend, PostgreSQL migration/concurrency, static,
+  isolation, rollback, and Req 32 manual/staging E6 matrix.
+- Fix only verified E6 defects; then update RTM implementation/verification evidence
+  and this ledger acceptance record.
+- E6 remains unaccepted while any stale-write, missing-evidence, multi-device,
+  tenant-switch, accessibility/localization, audit, rollback, or migration gate is
+  unverified.
+
+Rollback order is frontend/E6-enforcement disable first, then backend compatibility
+revert, then additive revision-column downgrade. No rollback may silently submit,
+overwrite, or delete an unresolved editable draft. TG23.1 is the only authorized
+source activity after this checkpoint; each later checkpoint requires a separate
+execution prompt and must stop after its own evidence/commit/push.
 
 ## Notes
 
