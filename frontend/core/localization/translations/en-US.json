@@ -397,6 +397,26 @@
       "patientConcern": "Patient concern",
       "notRecorded": "Not recorded",
       "unavailable": "Currently unavailable"
+    },
+    "whatChanged": {
+      "title": "What changed",
+      "previousVisitDate": "Previous visit date",
+      "previousVisitSummary": "Previous visit summary",
+      "activeSessions": "Active sessions",
+      "completedSessions": "Completed sessions",
+      "pendingReview": "Pending review",
+      "pendingReviewYes": "Pending",
+      "pendingReviewNo": "None pending",
+      "prescription": "Prescription",
+      "episode": "Episode",
+      "episodeActive": "Active",
+      "episodeClosed": "Closed",
+      "billing": "Billing",
+      "absent": "None recorded",
+      "notRecorded": "Not recorded",
+      "notApplicable": "Not applicable",
+      "unresolved": "Unresolved",
+      "unavailable": "Currently unavailable"
     }
   },
   "episodeWorkspace": {

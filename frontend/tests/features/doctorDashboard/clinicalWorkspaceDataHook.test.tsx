@@ -94,6 +94,11 @@ const snapshot: WorkspaceFactsResponse = {
     recording_state: 'recorded',
   },
   permission: { granted_codes: ['casesheet.update'], recording_state: 'recorded' },
+  what_changed: {
+    previous_visit: { exists: false, visit_id: null, visit_date: null, outcome_notes: null, recording_state: 'absent' },
+    sessions: { active_session_count: null, completed_session_count: null, recording_state: 'absent' },
+    pending_review: { pending: null, recording_state: 'absent' },
+  },
 };
 
 describe('clinicalWorkspaceKeys (canonical query key)', () => {

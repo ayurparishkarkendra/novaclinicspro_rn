@@ -6,10 +6,12 @@
  * workspace.tsx`) when `cos_v1` is on — no new route (FR-COS-1 AC1). This
  * shell is structural scaffolding: a header/container, a loading state,
  * and an explicit invalid-context state (wireframe W30), now joined by
- * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`).
+ * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`)
+ * and the "What changed" region (T-FE-C.2, FR-VCC-3 — see
+ * `WhatChangedSection.tsx`).
  * It still does not assemble workflow stages, derive a next action, or
- * render any other clinical region (What changed / Before you act /
- * workflow pills / billing) — those remain later FE-B/C tasks' own scope.
+ * render any other clinical region (Before you act / workflow pills) —
+ * those remain later FE-B/C tasks' own scope.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -35,6 +37,7 @@ import {
   useVisitContext,
 } from '../context/ClinicalWorkspaceContext';
 import { WhyTodaySection } from '../components/WhyTodaySection';
+import { WhatChangedSection } from '../components/WhatChangedSection';
 
 export interface VisitCommandCenterProps {
   episodeId: string;
@@ -113,6 +116,12 @@ const VisitCommandCenterShell: React.FC = () => {
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl }}>
         <WhyTodaySection
+          tenantId={episode.tenantId}
+          clientId={patient.clientId}
+          episodeId={episode.episodeId}
+          appointmentId={visit.appointmentId}
+        />
+        <WhatChangedSection
           tenantId={episode.tenantId}
           clientId={patient.clientId}
           episodeId={episode.episodeId}

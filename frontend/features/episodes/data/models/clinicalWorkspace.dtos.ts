@@ -113,6 +113,44 @@ export interface PermissionFacts {
   recording_state: string;
 }
 
+/**
+ * T-BE-A.6 (FR-VCC-3 signals 1+2: "last Visit date", "latest Visit
+ * summary"). `outcome_notes` is the verified stored-narrative field the
+ * backend reuses as the previous Visit's own summary — not a
+ * frontend-invented field, and never renamed to imply generation.
+ */
+export interface PreviousVisitFacts {
+  exists: boolean;
+  visit_id: string | null;
+  visit_date: string | null;
+  outcome_notes: string | null;
+  recording_state: string;
+}
+
+/** T-BE-A.6 (FR-VCC-3 signals 3+4: "active treatment sessions", "completed session count"). */
+export interface SessionActivityFacts {
+  active_session_count: number | null;
+  completed_session_count: number | null;
+  recording_state: string;
+}
+
+/** T-BE-A.6 (FR-VCC-3 signal 5: "pending clinical review") — the one backend-owned fact; never a raw lifecycle string. */
+export interface PendingReviewFacts {
+  pending: boolean | null;
+  recording_state: string;
+}
+
+/**
+ * T-BE-A.6 (FR-VCC-3). Signals 6/7/8 (Prescription/Episode/billing) are
+ * NOT duplicated here — see `prescription`/`episode`/`billing` on
+ * `WorkspaceFactsResponse` directly.
+ */
+export interface WhatChangedFacts {
+  previous_visit: PreviousVisitFacts;
+  sessions: SessionActivityFacts;
+  pending_review: PendingReviewFacts;
+}
+
 export interface WorkspaceFactsResponse {
   identity: WorkspaceIdentity;
   purpose: AppointmentPurposeFacts;
@@ -125,4 +163,5 @@ export interface WorkspaceFactsResponse {
   billing: BillingFacts;
   capability: CapabilityFacts;
   permission: PermissionFacts;
+  what_changed: WhatChangedFacts;
 }

@@ -136,6 +136,11 @@ const notRecordedSnapshot: WorkspaceFactsResponse = {
   },
   capability: { states: {}, recording_state: 'recorded' },
   permission: { granted_codes: [], recording_state: 'recorded' },
+  what_changed: {
+    previous_visit: { exists: false, visit_id: null, visit_date: null, outcome_notes: null, recording_state: 'absent' },
+    sessions: { active_session_count: null, completed_session_count: null, recording_state: 'absent' },
+    pending_review: { pending: null, recording_state: 'absent' },
+  },
 };
 
 const renderWithProviders = (ui: React.ReactElement) => {
@@ -205,11 +210,12 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it('renders the Why Today region and a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
+  it('renders the Why Today and What Changed regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
     const { queryByText, getByText, findByText } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
     await findByText('Why today');
+    await findByText('What changed');
     expect(getByText('Coming Soon')).toBeTruthy();
     expect(queryByText(/recommend/i)).toBeNull();
     expect(queryByText(/warning/i)).toBeNull();
