@@ -117,8 +117,11 @@ app/domain/repositories/i_treatment_plan_repository.py         ← NEW (interfac
 app/infrastructure/repositories/sqlalchemy_treatment_plan_repository.py ← NEW
 app/application/services/treatment_plan_service.py             ← NEW
 app/infrastructure/db/migrations/versions/<rev>_r7_treatment_plan.py ← NEW (additive)
+app/infrastructure/db/migrations/versions/<rev>_r7_recommendation_source_identity.py ← NEW (additive, T-BE-D.3a)
 ```
 Registered on the UoW alongside existing repos (convention ✅). `tenant_` prefix — the plan is tenant-owned (verified convention: `org_` = platform, `tenant_` = tenant).
+
+**Recommendation source identity (Decision 11, T-BE-D.3a — prerequisite, blocks T-BE-D.4).** `originating_recommendation_id` references a `TenantTreatmentSheet.id` explicitly marked `creation_source = RECOMMENDATION` (see §2.8) — never inferred from lifecycle state. Enforced at the database level: a tenant-scoped partial unique index on `(tenant_id, originating_recommendation_id) WHERE originating_recommendation_id IS NOT NULL` guarantees at most one Plan per Recommendation (FR-TR-1 AC1).
 
 **Shape (design intent; exact DDL is an implementation task):** identity · tenant · patient · episode · originating recommendation · authoring clinician · therapies · approximate/authorized session count · frequency · **scheduling intent** · preferred interval · sequencing pattern · review milestones · completion criteria · course precautions · therapist requirements · **status** · **document version** · **superseded-by** · provenance timestamps. **No date columns for committed sessions** — FR-TP-1 AC: the Plan contains no schedule.
 
@@ -167,11 +170,13 @@ Version/supersession representation **[VP]** — deliberately not fixed here; it
 **[R8] integration point only.** Dispensing fulfilment (`NOT_STARTED → PARTIALLY_DISPENSED → DISPENSED`) is a **separate domain object with its own lifecycle** — never merged into the document lifecycle. Copy-forward (FR-RX-2) is **not built in R7**; its reconciliation gate cannot check anything until R8 models allergies/medications (F-2).
 
 ### 2.8 Treatment Recommendation
-**Implements:** FR-TR-1 · **Decision:** D8 · **Principle:** P8
+**Implements:** FR-TR-1 · **Decision:** D8, "R7 Treatment Recommendation source identity" (Decision 11) · **Principle:** P8
 
-**Reuse.** Existing recommendation routers/services ✅ and `TreatmentRecommendationModule` ✅ (post-remediation). No new entity.
+**Reuse.** Existing recommendation routers/services ✅ (`POST /clinic/{tenant_id}/treatment-recommendations`) and `TreatmentRecommendationModule` ✅ (post-remediation). No new entity.
 
-**Design boundary.** The Recommendation answers *"should this patient receive a course?"* and **does not own the course design** — that is the Plan (§2.3). It carries no committed dates. The Recommendation → Plan edge is **one-directional**: a Recommendation may lead to **one** approved Plan (FR-TR-1 AC 1); the Plan records its originating Recommendation (§2.3 shape).
+**Storage representation (Decision 11, T-BE-D.3a — corrects an earlier assumption in this section).** Recommendation has no independent backend entity or ID space of its own — `tenant_treatment_proposals` was removed pre-R7. The Recommendation-creation endpoint's own `TenantTreatmentSheet`/Treatment Order row **is** the storage representation; its `id` is the Recommendation's provenance identity. This row is explicitly discriminated from an ordinary directly-created sheet by `creation_source = RECOMMENDATION` (T-BE-D.3a) — `is_order`/`state` alone are NOT sufficient discriminators, since a second, independent live endpoint (`send-to-scheduling`) reaches the identical `is_order=True`/`state=ORDERED` state on ordinary sheets. This is a legacy-source representation for R7 MVP, not a claim that Recommendation and Plan are one entity.
+
+**Design boundary.** The Recommendation answers *"should this patient receive a course?"* and **does not own the course design** — that is the Plan (§2.3). It carries no committed dates. The Recommendation → Plan edge is **one-directional**: a Recommendation may lead to **one** approved Plan (FR-TR-1 AC 1, enforced by T-BE-D.3a's partial unique index on `tenant_treatment_plans (tenant_id, originating_recommendation_id)`); the Plan records its originating Recommendation (§2.3 shape).
 
 **Handoff.** The doctor→admin handoff is not new mechanism: it is the existing lifecycle status ✅ surfaced as `waiting_role` by §2.1 (FR-WFA-2), so the originating role can see the ball is in another court.
 

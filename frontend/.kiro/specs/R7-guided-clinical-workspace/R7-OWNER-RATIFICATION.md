@@ -229,6 +229,20 @@ It must **never** return button colours, icons, layout, or UI labels. **Backend 
 
 ---
 
+## Decision 11 — R7 Treatment Recommendation Source Identity · **RATIFIED** *(v1.2 amendment, 2026-07-24)*
+
+**Decision.** No separate Treatment Recommendation entity is introduced in R7. The existing `TenantTreatmentSheet`/Treatment Order created through the verified `POST /clinic/{tenant_id}/treatment-recommendations` workflow is the storage representation of a Recommendation; its `id` is source provenance, persisted on `TreatmentPlan.originating_recommendation_id`. Treatment Plan remains a separate, independently persisted and versioned entity (Decision "Treatment Plan — RESOLVED"); scheduling, rescheduling, and execution never mutate the Plan or the source's provenance. This is a **legacy-source representation for R7 MVP**, not a claim that Recommendation and Plan are the same entity, and may be revisited after MVP — it is not itself an R7 requirement to change.
+
+**Verified problem this decision closes (engineering-truth, T-BE-D.4 pre-implementation investigation).** `design.md` §2.8 and `requirements.md` FR-TR-1 both assumed an existing, independently identifiable Recommendation backend entity to "reuse." Verified reality: `tenant_treatment_proposals` (the only entity that ever matched that description) was deliberately dropped, along with its `treatment_proposal.*` permissions, by migration `20260228_130000_remove_treatment_proposals.py` — predating this R7 spec. The actual live Recommendation-creation endpoint (`treatment_orders_router.py`, permission `treatment_sheet.order`) creates a `TenantTreatmentSheet` and transitions it to `state=ORDERED`/`is_order=True` via `send_to_scheduling`. Further verified: that exact transition is **also** reachable through a second, independent live endpoint (`POST /treatment-sheets/{sheet_id}/send-to-scheduling`) on an ordinary sheet never created as a Recommendation — `is_order`/`state` alone cannot distinguish the two. **T-BE-D.3a** therefore adds an explicit, persisted `creation_source` discriminator (`RECOMMENDATION` | `DIRECT` | `NULL` for legacy-unknown rows, never backfilled/inferred) to `tenant_treatment_sheets`, plus a tenant-scoped partial-unique-index enforcement of "one Recommendation → at most one Treatment Plan" (FR-TR-1 AC1) on `tenant_treatment_plans (tenant_id, originating_recommendation_id) WHERE originating_recommendation_id IS NOT NULL`.
+
+**Alternatives rejected.** *Recreate a dedicated Treatment Recommendation/Proposal entity* — rejected: reintroduces a subsystem the codebase's own history deliberately removed ("replaced by direct treatment sheet creation"), a real scope increase not required to satisfy FR-TR-1 as written. *Infer provenance from lifecycle state (`is_order`/`state`) alone* — rejected: verified two independent live code paths converge on the identical state, making inference unreliable and unsafe for a one-Plan-per-Recommendation guarantee. *Backfill legacy rows' `creation_source` from `is_order`/state/row-count/timestamps* — rejected: none of those signals reliably reconstructs true provenance; legacy rows remain explicitly unknown (`NULL`) and are never treated as eligible Recommendation sources.
+
+**Does not change FR-TR-1's frozen outcome** ("a recommendation may lead to one approved Treatment Plan") — clarifies how that outcome is realized against verified current storage, nothing more.
+
+**Product impact.** None — clinician-facing behaviour is unchanged; this is a storage-provenance clarification. **Architecture impact.** Low-medium — one additive column + CHECK constraint + partial unique index, no new entity, no router/DTO/workflow/scheduling changes. **Code/schema change:** yes — one additive, reversible migration (`T-BE-D.3a`), backend-only. **Documents affected:** this document, `design.md` §2.3/§2.8, `tasks.md` (new prerequisite task `T-BE-D.3a`, inserted before `T-BE-D.4`).
+
+---
+
 ## Patient-Safety Reality Check — **F-2, BLOCKING, owner response required**
 
 The owner scoped into R7 core: *"At minimum surface existing verified data for: allergies · active medicines · known contraindication warnings · pending clinical reviews · renal-risk indicators where existing data already supports them"* — with the instruction **"Do not invent unsupported clinical rules."** Verified against code:
@@ -269,6 +283,7 @@ The owner scoped into R7 core: *"At minimum surface existing verified data for: 
 | 8 | R7/R8 split | Ratified | R7 still Large after narrowing |
 | 9 | **Backend owns workflow intelligence** | Ratified | recommendation moves D-FE→D-BE; **3 frontend violations found** (ED-ARCH-004/006) |
 | 10 | **Clinical history hierarchy** *(v1.1)* | Ratified — **in R7, not R8** | sequenced after Treatment Plan (`T-BE-D.4`/`T-BE-E.1`); **1 new frontend violation found** (ED-ARCH-007); +7 tasks, +2 requirements |
+| 11 | **R7 Treatment Recommendation source identity** *(v1.2)* | Ratified | no new entity; `creation_source` discriminator + one-Plan-per-Recommendation constraint (`T-BE-D.3a`, blocks `T-BE-D.4`); legacy rows stay unknown, never backfilled |
 
 **Open decisions the owner must still make:** (i) F-1 disposition of `appointment_id` + nullability migration timing; (ii) **F-2 patient-safety option (a)/(b)/(c)**; (iii) whether Treatment Plan is a new persisted entity or an additive projection; (iv) whether session `Missed` is a status or a cancellation reason; (v) `PrescriptionStatus` deletion vs dispensing model.
 
