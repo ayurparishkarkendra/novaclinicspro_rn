@@ -208,6 +208,14 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** unit — regression test proving the corrected formula disagrees with the old (scheduled-based) one on a mixed fixture. **Rollback:** *Behavior*.
 **Reqs:** FR-HIST-2 AC3 · **Design:** §2.1a · **Debt:** ED-ARCH-007 (frontend session-count derivation this replaces — see ED-DEP-7)
 
+### T-BE-A.6 · FR-VCC-3 "What changed" facts (backend-owned) *[amendment, v1.1, 2026-07-24 — FR-VCC-3]*
+**Repo:** BE · **Layer:** Application · **Objective:** extend `WorkspaceFactsSnapshot`/`ClinicalWorkspaceService` so all eight FR-VCC-3 signals are explicit, backend-owned facts (last Visit date · latest Visit summary · active treatment sessions · completed session count · pending clinical review · current Prescription existence/status ✅ reused · active Episode ✅ reused · billing state ✅ reused) — closing the gap T-FE-C.2 found (only 3 of 8 had a verified field on the T-BE-A.1 snapshot). **New authority added:** `WhatChangedFacts` (previous-Visit + session-activity + pending-review), nested on the SAME `WorkspaceFactsSnapshot`/`WorkspaceFactsResponse`/`GET /clinic/{tenant_id}/clinical-workspace` — no second aggregate, no competing service.
+**Files:** `app/domain/models/clinical_workspace_facts.py` (extend), `app/application/services/clinical_workspace_service.py` (extend), `app/api/v1/schemas/clinical_workspace.py` (extend), `app/domain/repositories/i_visit_repository.py` (+1 method), `app/infrastructure/repositories/sqlalchemy_repositories.py` (visit repo section, +1 method), focused tests.
+**Blocked by:** T-BE-A.1 · **Unblocks:** T-FE-C.2 · **Size:** M
+**AC:** (1) previous-Visit selection is deterministic (most recent by `visit_date`, tie-broken by `created_at`, for the same tenant+client+Episode, excluding the current Visit — no date-proximity/client-wide/frontend-sort shortcut). (2) Visit summary sourced from verified stored narrative only (`outcome_notes` — the same field already exposed for the current Visit's own outcome) — no generation, no diagnosis inference, no cross-record combination. (3) active/completed session counts come from `treatment_sheet_row.status` only (`IN_PROGRESS`/`COMPLETED`) — never `day_number`, scheduling, row existence, or document status — the same authority T-BE-A.5 independently designates for the history-hierarchy consumer; a later reconciliation should share one computation, not duplicate it. (4) pending-review is one explicit backend-owned mapping of `TreatmentLifecycleStatus.NEEDS_CLINICAL_REVIEW`/`UNDER_CLINICAL_REVIEW` — the frontend never reads the raw lifecycle string for this purpose. (5) additive/backward-compatible — every existing `WorkspaceFactsSnapshot(...)` construction (T-BE-A.1's own test fixtures) remains valid unchanged. (6) tenant/patient/Episode isolation and current-Visit exclusion proven by tests. (7) no schema migration, no new endpoint, no application-service SQLAlchemy query added.
+**Tests:** unit (`AsyncMock(spec=...)` ✅, same convention as T-BE-A.1) · isolation (tenant/client/Episode scoping + current-Visit exclusion) · serialization (semantic states survive `WorkspaceFactsResponse`). **Rollback:** *Behavior* — additive, unreferenced until T-FE-C.2 consumes it.
+**Reqs:** FR-VCC-3 · **Design:** §2.1, §4 · **Debt:** coordination note for T-BE-A.5 — both independently designate `treatment_sheet_row.status`/`completed_at` as the completed-session authority; a future pass should extract one shared computation rather than maintain two.
+
 ## BE Group B — Clinical Workflow Resolver & Service
 
 ### T-BE-B.1 · `clinical_workflow_resolver` — **pure domain**
@@ -415,7 +423,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **AC:** purpose+concern rendered when present; absent → **"not recorded"**; **never inferred** ([ETX-3]). **Tests:** unit · empty-state. **Rollback:** *Behavior*. **Reqs:** FR-VCC-2
 
 ### T-FE-C.2 · "What changed" (R7 scope) ∥
-**Repo:** FE · **Blocked by:** T-FE-A.2, T-BE-A.1 · **Size:** M
+**Repo:** FE · **Blocked by:** T-FE-A.2, T-BE-A.1, **T-BE-A.6** · **Size:** M
 **AC:** **only** the 8 R7 signals; **no measurement deltas** ([R8]); deltas computed backend-side. **Tests:** unit · integration. **Rollback:** *Behavior*. **Reqs:** FR-VCC-3
 
 ### T-FE-C.3 · "Before you act" (R7 scope) ∥
