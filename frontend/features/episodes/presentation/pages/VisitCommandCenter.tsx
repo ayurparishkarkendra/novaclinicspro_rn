@@ -6,12 +6,13 @@
  * workspace.tsx`) when `cos_v1` is on — no new route (FR-COS-1 AC1). This
  * shell is structural scaffolding: a header/container, a loading state,
  * and an explicit invalid-context state (wireframe W30), now joined by
- * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`)
- * and the "What changed" region (T-FE-C.2, FR-VCC-3 — see
- * `WhatChangedSection.tsx`).
+ * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`),
+ * the "What changed" region (T-FE-C.2, FR-VCC-3 — see
+ * `WhatChangedSection.tsx`), and the "Before you act" region (T-FE-C.3,
+ * FR-VCC-4/FR-PS-1 — see `BeforeYouActSection.tsx`).
  * It still does not assemble workflow stages, derive a next action, or
- * render any other clinical region (Before you act / workflow pills) —
- * those remain later FE-B/C tasks' own scope.
+ * render any other clinical region (workflow pills / history) — those
+ * remain later FE-B/C tasks' own scope.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -38,6 +39,7 @@ import {
 } from '../context/ClinicalWorkspaceContext';
 import { WhyTodaySection } from '../components/WhyTodaySection';
 import { WhatChangedSection } from '../components/WhatChangedSection';
+import { BeforeYouActSection } from '../components/BeforeYouActSection';
 
 export interface VisitCommandCenterProps {
   episodeId: string;
@@ -122,6 +124,12 @@ const VisitCommandCenterShell: React.FC = () => {
           appointmentId={visit.appointmentId}
         />
         <WhatChangedSection
+          tenantId={episode.tenantId}
+          clientId={patient.clientId}
+          episodeId={episode.episodeId}
+          appointmentId={visit.appointmentId}
+        />
+        <BeforeYouActSection
           tenantId={episode.tenantId}
           clientId={patient.clientId}
           episodeId={episode.episodeId}

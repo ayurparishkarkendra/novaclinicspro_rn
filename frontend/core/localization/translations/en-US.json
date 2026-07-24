@@ -417,6 +417,23 @@
       "notApplicable": "Not applicable",
       "unresolved": "Unresolved",
       "unavailable": "Currently unavailable"
+    },
+    "beforeYouAct": {
+      "title": "Before you act",
+      "pendingReview": "Pending review",
+      "pendingReviewYes": "Pending",
+      "pendingReviewNo": "None pending",
+      "prescription": "Prescription",
+      "episode": "Episode",
+      "episodeActive": "Active",
+      "episodeClosed": "Closed",
+      "sessionProgress": "Session progress",
+      "sessionProgressValue": "{{active}} active · {{completed}} completed",
+      "absent": "None recorded",
+      "notRecorded": "Not recorded",
+      "notApplicable": "Not applicable",
+      "unresolved": "Unresolved",
+      "unavailable": "Currently unavailable"
     }
   },
   "episodeWorkspace": {

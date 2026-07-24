@@ -210,12 +210,13 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it('renders the Why Today and What Changed regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
+  it('renders the Why Today, What Changed, and Before You Act regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
     const { queryByText, getByText, findByText } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
     await findByText('Why today');
     await findByText('What changed');
+    await findByText('Before you act');
     expect(getByText('Coming Soon')).toBeTruthy();
     expect(queryByText(/recommend/i)).toBeNull();
     expect(queryByText(/warning/i)).toBeNull();
