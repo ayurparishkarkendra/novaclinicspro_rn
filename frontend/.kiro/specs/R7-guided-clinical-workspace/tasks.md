@@ -235,9 +235,17 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** unit (mocked) · contract · integration. **Rollback:** *Behavior* — additive endpoint.
 **Reqs:** FR-WFA-1/2, FR-REC-1 · **Design:** §2.1, §4 · **ETX:** ETX-4 resolved
 
+### T-BE-B.2a · Expose Clinical Workflow semantic contract *[amendment, v1.1, 2026-07-24 — sequencing]*
+**Repo:** BE · **Layer:** Router / API contract · **Objective:** expose the existing `ClinicalWorkflowResolution` (T-BE-B.1/T-BE-B.2) through one thin, tenant-scoped read endpoint — closing the gap T-BE-B.3 found: its own guard target ("the API contract") does not yet exist, because T-BE-B.2 deliberately stopped at the service layer (its own architecture tests assert zero router/schema files for `clinical_workflow`, by design, not oversight). Reuses `create_clinical_workflow_service`/`IClinicalWorkflowService`/`ClinicalWorkflowService`/`resolve_clinical_workflow` unchanged — no second resolver, service, or facts assembler.
+**Files:** `app/api/v1/schemas/clinical_workflow.py`, `app/api/v1/dependencies/services/clinical_workflow_dependencies.py`, `app/api/v1/routers/clinical_workflow_router.py`, `app/main.py` (registration only), focused tests.
+**Blocked by:** T-BE-B.2 · **Unblocks:** T-BE-B.3, T-FE-B.1, T-FE-D.1 · **Size:** S
+**AC:** (1) router parses/authorizes/calls `IClinicalWorkflowService`/translates response — nothing else; never calls `resolve_clinical_workflow` or a repository directly. (2) **one** aggregate endpoint only — no per-field endpoint for stages/recommendation/alternatives/blockers/capability-loss/handoff. (3) response maps `ClinicalWorkflowResolution` without reinterpretation — only its existing fields, no invented ones. (4) no presentation field (colour/icon/layout/route/component/button styling/translated label), no `confidence`, no diagnosis/treatment-selection logic. (5) tenant/context isolation matches the existing `clinical_workspace_router.py` convention — `WorkspaceContextError` maps consistently, cross-tenant/cross-patient rejected, no alternative Visit/Appointment inferred. (6) T-BE-B.2's existing "no router/schema" architecture-test assertions are updated only to the extent necessary to stop asserting an absence this task now separately, explicitly authorizes — their historical intent (T-BE-B.2 itself added no router) is preserved, not weakened.
+**Tests:** unit/contract (router) · serialization · tenant/context isolation · architecture (no repository/resolver-direct/SQLAlchemy access in router). **Rollback:** *Behavior* — additive endpoint, unreferenced until a frontend task consumes it.
+**Reqs:** FR-WFA-1/2, FR-REC-1 · **Design:** §2.1, §4 · **Debt:** none — closes the T-BE-B.3 sequencing gap this amendment's own investigation found.
+
 ### T-BE-B.3 · **Semantics-only contract guard**
 **Repo:** BE · **Layer:** Contract test · **Files:** `tests/test_r7_workflow_contract_semantics_only.py`
-**Blocked by:** T-BE-B.2 · **Unblocks:** T-FE-B.1 · **Size:** S
+**Blocked by:** T-BE-B.2, **T-BE-B.2a** · **Unblocks:** T-FE-B.1 · **Size:** S
 **AC:** fails if any colour/icon/layout/UI-label field appears; state codes carry **localization keys** ✅.
 **Tests:** contract. **Rollback:** *Behavior* — test-only. **Reqs:** FR-REC-1 · **Design:** §4 · **Principles:** AC-4
 
