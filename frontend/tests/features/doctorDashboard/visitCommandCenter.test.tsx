@@ -235,7 +235,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it('renders the Why Today, What Changed, Before You Act, and Workflow regions (in that order) plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
+  it('renders the Why Today, What Changed, Before You Act, Workflow, and Next Action regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated warning/completion content beyond the governed backend recommendation', async () => {
     const { queryByText, getByText, findByText } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
@@ -243,21 +243,29 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     await findByText('What changed');
     await findByText('Before you act');
     await findByText('Workflow');
+    await findByText('Next action');
     expect(getByText('Coming Soon')).toBeTruthy();
-    expect(queryByText(/recommend/i)).toBeNull();
+    // The empty workflow resolution mock (no recommended_action, no
+    // waiting_role, no blocking_factors, no unresolved_facts) renders
+    // NextActionBar's own "no recommendation" state — legitimate,
+    // backend-driven text, not fabrication. What must still never appear
+    // is a warning or completion-readiness claim the frontend invented.
+    expect(getByText('No recommendation right now')).toBeTruthy();
     expect(queryByText(/warning/i)).toBeNull();
     expect(queryByText(/ready to complete/i)).toBeNull();
   });
 
-  it('places WorkflowPills immediately after the briefing regions, per design.md §3 region order', async () => {
+  it('places WorkflowPills and NextActionBar immediately after the briefing regions, per design.md §3 region order', async () => {
     const { findByText, toJSON } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
-    await findByText('Workflow');
+    await findByText('Next action');
     const serialized = JSON.stringify(toJSON());
-    // BriefingRegions -> WorkflowPills -> NextActionBar (not yet built) —
-    // verified via serialized render-tree text order, not just presence.
+    // BriefingRegions -> WorkflowPills -> NextActionBar -> active-stage
+    // body (not yet inlined) — verified via serialized render-tree text
+    // order, not just presence.
     expect(serialized.indexOf('"Before you act"')).toBeLessThan(serialized.indexOf('"Workflow"'));
-    expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+    expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Next action"'));
+    expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
   });
 });

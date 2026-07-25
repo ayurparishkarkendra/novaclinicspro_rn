@@ -526,6 +526,49 @@
       "unavailable": "वर्कफ़्लो फ़िलहाल अनुपलब्ध है",
       "empty": "इस विज़िट के लिए कोई वर्कफ़्लो चरण नहीं",
       "optional": "वैकल्पिक"
+    },
+    "nextActionBar": {
+      "title": "अगला कदम",
+      "doThis": "यह करें",
+      "somethingElse": "कुछ और",
+      "action": {
+        "recordAssessment": "मूल्यांकन दर्ज करें",
+        "recordPrescription": "प्रिस्क्रिप्शन दर्ज करें",
+        "recordTreatmentRecommendation": "उपचार सिफ़ारिश दर्ज करें",
+        "resolveBlocker": "अवरोध हल करें",
+        "completeVisit": "विज़िट पूर्ण करें",
+        "reviewEpisodeDisposition": "एपिसोड निपटान की समीक्षा करें"
+      },
+      "reason": {
+        "waitingOnOtherRole": "प्रतीक्षारत: {{permission}}",
+        "unresolvedFacts": "कुछ तथ्य हल नहीं हो सके",
+        "nextMandatoryStep": "यह अगला आवश्यक चरण है",
+        "awaitingEncounterProgress": "एनकाउंटर की प्रगति की प्रतीक्षा",
+        "visitComplete": "सभी आवश्यक चरण पूर्ण हैं",
+        "episodeClosed": "यह एपिसोड बंद है",
+        "unresolvedMandatoryFacts": "आवश्यक तथ्य हल नहीं हो सके",
+        "mandatoryStagesIncomplete": "आवश्यक चरण अभी पूर्ण नहीं हैं",
+        "blocked": "यह चरण अवरुद्ध है",
+        "visitNotStarted": "विज़िट अभी शुरू नहीं हुई है",
+        "unrecognisedDocumentStatus": "दस्तावेज़ स्थिति पहचानी नहीं गई",
+        "treatmentLifecycleUnresolved": "उपचार स्थिति हल नहीं हो सकी",
+        "treatmentExecutionFactsUnavailable": "उपचार निष्पादन तथ्य अनुपलब्ध",
+        "unrecognisedLifecycleStatus": "उपचार स्थिति पहचानी नहीं गई",
+        "schedulingDenied": "फ़िलहाल शेड्यूलिंग की अनुमति नहीं है",
+        "capabilityFactsUnavailable": "क्षमता तथ्य अनुपलब्ध",
+        "capabilityUnavailableForNewWork": "यह क्षमता नए कार्य के लिए अनुपलब्ध है",
+        "treatmentPlanEntityNotYetImplemented": "उपचार योजना अभी उपलब्ध नहीं है",
+        "billingFactsUnavailable": "बिलिंग तथ्य अनुपलब्ध",
+        "unknown": "कारण अनुपलब्ध"
+      },
+      "waitingOn": "प्रतीक्षारत: {{permission}}",
+      "blockedTitle": "अवरुद्ध",
+      "unresolvedTitle": "फ़िलहाल अनुपलब्ध",
+      "noRecommendation": "अभी कोई सिफ़ारिश नहीं",
+      "notApplicable": "लागू नहीं",
+      "unavailable": "अगला कदम फ़िलहाल अनुपलब्ध है",
+      "noRouteYet": "यह ऐप में अभी उपलब्ध नहीं है",
+      "alternativesTitle": "आप इसके बजाय ये भी कर सकते हैं"
     }
   }
 }

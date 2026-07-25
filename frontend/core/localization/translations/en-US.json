@@ -460,6 +460,49 @@
       "unavailable": "Workflow currently unavailable",
       "empty": "No workflow stages for this visit",
       "optional": "Optional"
+    },
+    "nextActionBar": {
+      "title": "Next action",
+      "doThis": "Do this",
+      "somethingElse": "Something else",
+      "action": {
+        "recordAssessment": "Record assessment",
+        "recordPrescription": "Record prescription",
+        "recordTreatmentRecommendation": "Record treatment recommendation",
+        "resolveBlocker": "Resolve blocker",
+        "completeVisit": "Complete visit",
+        "reviewEpisodeDisposition": "Review episode disposition"
+      },
+      "reason": {
+        "waitingOnOtherRole": "Waiting on: {{permission}}",
+        "unresolvedFacts": "Some facts could not be resolved",
+        "nextMandatoryStep": "This is the next required step",
+        "awaitingEncounterProgress": "Waiting for the encounter to progress",
+        "visitComplete": "All required steps are complete",
+        "episodeClosed": "This episode is closed",
+        "unresolvedMandatoryFacts": "Required facts could not be resolved",
+        "mandatoryStagesIncomplete": "Required steps are not yet complete",
+        "blocked": "This step is blocked",
+        "visitNotStarted": "The visit has not started yet",
+        "unrecognisedDocumentStatus": "Document status not recognised",
+        "treatmentLifecycleUnresolved": "Treatment status could not be resolved",
+        "treatmentExecutionFactsUnavailable": "Treatment execution facts unavailable",
+        "unrecognisedLifecycleStatus": "Treatment status not recognised",
+        "schedulingDenied": "Scheduling is not currently permitted",
+        "capabilityFactsUnavailable": "Capability facts unavailable",
+        "capabilityUnavailableForNewWork": "This capability is unavailable for new work",
+        "treatmentPlanEntityNotYetImplemented": "Treatment plan is not yet available",
+        "billingFactsUnavailable": "Billing facts unavailable",
+        "unknown": "Reason unavailable"
+      },
+      "waitingOn": "Waiting on: {{permission}}",
+      "blockedTitle": "Blocked",
+      "unresolvedTitle": "Currently unavailable",
+      "noRecommendation": "No recommendation right now",
+      "notApplicable": "Not applicable",
+      "unavailable": "Next action currently unavailable",
+      "noRouteYet": "Not yet available in this app",
+      "alternativesTitle": "Other things you could do instead"
     }
   },
   "episodeWorkspace": {
