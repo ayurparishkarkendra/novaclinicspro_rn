@@ -346,7 +346,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** contract/unit for the new endpoint · regression (existing 48 service-level tests unaffected).
 **Rollback:** *Behavior* — additive endpoint only.
 **Reqs:** FR-SCH-1 · **Design:** §2.4
-**Not yet implemented.** This is a controlled task amendment recording the gap and its disposition; no code was written for it in this audit.
+**Status [Updated 2026-07-25, T-BE-E.2a closure]: COMPLETE.** `GET /treatment-sheets/plans/{plan_id}/scheduling-proposal` on `treatment_orders_router.py`, gated by `treatment_order.schedule`. Pure passthrough of `SessionDateProposal` (no recomputation, no new scheduling authority) — verified: router does not import `parse_scheduling_intent`/`resolve_session_dates`. The DI factory (`get_treatment_plan_service`) did not exist before this task; added, reusing `create_treatment_plan_service`/`SchedulingCapabilityGateAdapter` verbatim. 12 new tests, all passing. Commit `882dfa6`. Unblocks `T-FE-E.2`.
 
 ### T-BE-E.3 · Doctor clinical content bound to session identity
 **Repo:** BE · **Layer:** Application · **Blocked by:** T-BE-E.2 · **Unblocks:** T-BE-E.4, T-FE-E.2 · **Size:** M
@@ -366,7 +366,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** contract/unit for the new endpoint · regression (existing 44 service-level tests unaffected).
 **Rollback:** *Behavior* — additive endpoint only.
 **Reqs:** FR-TS-4, FR-TS-5 · **Design:** §2.4
-**Not yet implemented.** This is a controlled task amendment recording the gap and its disposition; no code was written for it in this audit.
+**Status [Updated 2026-07-25, T-BE-E.4a closure]: COMPLETE.** `POST /treatment-sheets/rows/{row_id}/non-execution` on `treatment_sheets_router.py`, gated by `treatment_sheet.complete` (reused, not invented). `recorded_by_staff_id` derived from JWT, matching the `completed_by_staff_id` convention. Two prerequisite gaps discovered and closed: (1) `record_session_non_execution` was missing from `ITreatmentSheetsService` entirely — added, since the router can only depend on the interface; (2) `SQLAlchemyTreatmentSheetRowRepository._to_dict` never exposed the two T-BE-E.4 migration columns — the response would have always read back `None` even after a successful write; fixed the same way the identical `appointment_id` gap (T-BE-A.3) was fixed. One exact-set guard test updated deliberately (widened, not weakened) for the new keys. 17 new tests, all passing. Commit `a0aa4c3`. Unblocks `T-FE-E.3`.
 
 ### T-BE-E.5 · Session concurrency (OCC) ∥ with T-BE-E.4
 **Repo:** BE · **Layer:** Application · **Blocked by:** T-BE-E.3 · **Size:** S

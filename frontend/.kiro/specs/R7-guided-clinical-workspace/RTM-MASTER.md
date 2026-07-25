@@ -365,37 +365,37 @@
 **Business Objective:** Actuals stay attached to the executed session; append-only/audit-controlled; reschedule never overwrites.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** [VP] adverse-events marker · **Owner Ratification:** —
-**Backend:** Tasks: T-BE-E.4 · Status: **Application-complete / transport-exposure-pending** (`record_session_non_execution` implemented in `TreatmentSheetsService`, verified on shared dev; no router calls it — see `T-BE-E.4a`)
-**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (genuinely blocked on `T-BE-E.4a`, not just unscheduled — see MVP-BLOCKERS.md)
-**Implementation Evidence:** commits `9497f13`, `ccf56d8`, `1529b47`; DB result doc `DB-T-BE-E4-MIGRATION-UPGRADE-RESULT.md`
-**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_doctor_content_bound_to_session.py`
-**Traceability:** FR-TS-4 → design.md §2.4 → T-BE-E.4/T-FE-E.3 → — → — → Application-complete, transport-exposure-pending
+**Backend:** Tasks: T-BE-E.4, T-BE-E.4a · Status: **Complete, exposed** (`record_session_non_execution` implemented in `TreatmentSheetsService`; `POST /treatment-sheets/rows/{row_id}/non-execution` exposes it — commit `a0aa4c3`)
+**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (unblocked as of `T-BE-E.4a`)
+**Implementation Evidence:** commits `9497f13`, `ccf56d8`, `1529b47`, `a0aa4c3`; DB result doc `DB-T-BE-E4-MIGRATION-UPGRADE-RESULT.md`
+**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_doctor_content_bound_to_session.py`, `tests/test_r7_session_non_execution_api.py` (17)
+**Traceability:** FR-TS-4 → design.md §2.4 → T-BE-E.4/T-BE-E.4a/T-FE-E.3 → — → — → Backend complete and exposed
 **Release Classification:** BLOCKING MVP
-**Remarks:** Backend-closure audit (2026-07-25) found the capability is service-only: no router, no OpenAPI operation, no caller. `T-FE-E.3`'s own AC requires composing the `Missed` label from the three backend facts, which is unreachable without transport. See `T-BE-E.4a` (new task).
+**Remarks:** [2026-07-25] `T-BE-E.4a` closed the transport gap the prior audit found. Two prerequisite gaps discovered and fixed while exposing it: the interface method was missing entirely, and the row `_to_dict` projection never exposed the two migrated columns (response would have always read `None`). See `T-BE-E.4a`'s task card for full detail.
 
 ### FR-TS-5 — "Missed" is decomposed, not a single state
 **Business Objective:** Backend semantics distinguish what was scheduled / whether execution occurred / why not; UI composes the label from three facts, never a single ambiguous state.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** [VP] exact state names deferred to implementation, after Engineering Truth · **Owner Ratification:** "Session 'Missed' — RESOLVED at architecture level" (the three-part shape is ratified; spelling is not)
-**Backend:** Tasks: T-BE-E.4 · Status: **Application-complete / transport-exposure-pending** (state-name spelling decided: `PATIENT_NO_SHOW`/`PATIENT_CANCELLED`/`CLINIC_CANCELLED`/`CLINICAL_HOLD`/`OTHER`, migration `20260726_000001` on shared dev; not reachable via API — see `T-BE-E.4a`)
-**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (genuinely blocked on `T-BE-E.4a`)
-**Implementation Evidence:** commits `ccf56d8`, `1529b47`; migration `20260726_000001_r7_session_non_execution_reason.py`
-**Tests:** `tests/test_r7_session_non_execution.py` (44)
-**Traceability:** FR-TS-5 → design.md §2.4 → T-BE-E.4/T-FE-E.3 → — → — → Application-complete, transport-exposure-pending
+**Backend:** Tasks: T-BE-E.4, T-BE-E.4a · Status: **Complete, exposed** (state-name spelling decided: `PATIENT_NO_SHOW`/`PATIENT_CANCELLED`/`CLINIC_CANCELLED`/`CLINICAL_HOLD`/`OTHER`, migration `20260726_000001` on shared dev; reachable via `POST /treatment-sheets/rows/{row_id}/non-execution` — commit `a0aa4c3`)
+**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (unblocked as of `T-BE-E.4a`)
+**Implementation Evidence:** commits `ccf56d8`, `1529b47`, `a0aa4c3`; migration `20260726_000001_r7_session_non_execution_reason.py`
+**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_session_non_execution_api.py` (17)
+**Traceability:** FR-TS-5 → design.md §2.4 → T-BE-E.4/T-BE-E.4a/T-FE-E.3 → — → — → Backend complete and exposed
 **Release Classification:** BLOCKING MVP
-**Remarks:** The open spelling question is resolved (see Backend row). The remaining gap is exposure, not design: see `T-BE-E.4a`.
+**Remarks:** [2026-07-25] Both the spelling question and the exposure gap are now resolved.
 
 ### FR-SCH-1 — Scheduling intents
 **Business Objective:** Consecutive · alternate-day · specific weekdays · weekly · multiple/week · non-sequential · PRN · review-dependent continuation, capability-gated never specialty-gated.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** none · **Owner Ratification:** —
-**Backend:** Tasks: T-BE-E.2 · Status: **Application-complete / transport-exposure-pending** (`resolve_scheduling_proposal` implemented in `TreatmentPlanService`, all 9 intents; no router, no internal caller — see `T-BE-E.2a`)
-**Frontend:** Tasks: T-FE-E.2 · Status: **Not Started** (partially blocked: `schedule_treatment_row`/`bulk_schedule_treatment_rows` on `treatment_orders_router` ARE exposed for persisting an already-decided date, but nothing exposes intent → proposed-dates resolution — see `T-BE-E.2a`)
-**Implementation Evidence:** commit `c496c86`
-**Tests:** `tests/test_r7_scheduling_intents.py` (48)
-**Traceability:** FR-SCH-1 → design.md §2.4 → T-BE-E.2/T-FE-E.2 → — → — → Application-complete, transport-exposure-pending
+**Backend:** Tasks: T-BE-E.2, T-BE-E.2a · Status: **Complete, exposed** (`resolve_scheduling_proposal` implemented in `TreatmentPlanService`, all 9 intents; `GET /treatment-sheets/plans/{plan_id}/scheduling-proposal` exposes it — commit `882dfa6`)
+**Frontend:** Tasks: T-FE-E.2 · Status: **Not Started** (unblocked as of `T-BE-E.2a`; `schedule_treatment_row`/`bulk_schedule_treatment_rows` on `treatment_orders_router` remain the write path for persisting a chosen date)
+**Implementation Evidence:** commits `c496c86`, `882dfa6`
+**Tests:** `tests/test_r7_scheduling_intents.py` (48), `tests/test_r7_scheduling_proposal_api.py` (12)
+**Traceability:** FR-SCH-1 → design.md §2.4 → T-BE-E.2/T-BE-E.2a/T-FE-E.2 → — → — → Backend complete and exposed
 **Release Classification:** BLOCKING MVP
-**Remarks:** Backend-closure audit (2026-07-25) found the same class of gap as `T-BE-E.4`/FR-TS-4/5: `resolve_scheduling_proposal` is service-only. A client wanting proposed dates for a scheduling intent has no endpoint to call without either reimplementing intent-resolution logic client-side (a layer-integrity risk) or this gap being closed. See `T-BE-E.2a` (new task).
+**Remarks:** [2026-07-25] `T-BE-E.2a` closed the transport gap the prior audit found; also added the DI factory for `TreatmentPlanService`, which had never been wired into the FastAPI graph at all before this task.
 
 ### FR-SCH-2 — Synchronization semantics
 **Business Objective:** Reschedule/therapist-change/room-change/cancellation/missed/additional-session/reduced-course all preserve doctor content and execution history; OCC prevents silent clobber.
