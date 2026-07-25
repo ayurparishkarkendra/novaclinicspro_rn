@@ -502,10 +502,31 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 ## FE Group E — Module composition
 *(each blocked by its module's Group-0 remediation)*
 
-### T-FE-E.1 · Compose Case Sheet + append-only visit notes
+### T-FE-E.1 · Compose Case Sheet + append-only visit notes · **[UMBRELLA — split 2026-07-25]**
 **Repo:** FE · **Blocked by:** **T-0.3**, T-BE-C.4 · **Size:** M
 **AC:** opens the **Episode's** sheet (never a second); prior visits' notes **visibly retained** with author+timestamp, never overwritten; supplies the explicit current-visit context (T-BE-C.2 transport).
 **Tests:** unit · integration (multi-visit) · regression. **Rollback:** *Behavior*. **Reqs:** FR-CS-1, FR-CS-5
+**Status: PARTIAL / IN PROGRESS.** Backend-closure-style audit found this AC's "prior visits' notes visibly retained with author+timestamp" clause (FR-CS-5 AC2) has **no backend contract to consume** — `ICasesheetContributionRepository` has only `create`/`create_idempotent`/`get_by_id` (verified: no list method), and `casesheets_router.py` has no contribution-listing endpoint. The other two AC clauses ("opens the Episode's sheet, never a second" and "supplies the explicit current-visit context") are achievable now. Split into three controlled units below **without renumbering this task**; this card now serves as the umbrella and is not renamed or removed. **Complete only when `T-FE-E.1a`, `T-BE-E.1a`, and `T-FE-E.1b` are all complete.**
+
+### T-FE-E.1a · Compose Episode Case Sheet + supply current-Visit attribution **[NEW, split from T-FE-E.1, 2026-07-25]**
+**Repo:** FE · **Layer:** Presentation · **Blocked by:** **T-0.3**, T-BE-C.4 · **Unblocks:** (none — parallel with `T-BE-E.1a`) · **Size:** S
+**Scope:** Compose the existing `CaseSheetModule` inside `VisitCommandCenter`, using the Episode-scoped Case Sheet already present in `WorkspaceProvider`. Send the current `appointment_id` on Case Sheet updates so the backend resolves and records the actual current Visit contribution (the transport already exists — `CaseSheetUpdateRequest.appointment_id`, T-BE-C.2 — the frontend update DTO/call simply never populated it).
+**AC:** (1) opens the Episode's existing Case Sheet. (2) never creates a second Case Sheet for the same Episode. (3) update payload includes the explicit current `appointment_id`. (4) uses existing hooks, DTOs, routes and module — no duplicate form/datasource/query/repository/route. (5) backend remains untouched.
+**Tests:** unit (composition, Episode ownership, current-Visit transport) · architecture (no datasource/axios import, no duplicate query key) · regression (existing `CaseSheetModule` tests, VCC region order, WorkflowPills/NextActionBar unchanged).
+**Rollback:** *Behavior*. **Reqs:** FR-CS-1, part of FR-CS-2's frontend half · **Design:** §3 (region order)
+
+### T-BE-E.1a · Expose Episode Case Sheet contribution history **[NEW, split from T-FE-E.1, 2026-07-25]**
+**Repo:** BE · **Layer:** Application/API · **Blocked by:** T-BE-C.4 (complete, commit `e7715d4`) · **Unblocks:** `T-FE-E.1b` · **Size:** S
+**AC:** (1) tenant-, patient-, Episode-, and Case-Sheet-scoped read. (2) returns append-only contribution entries in deterministic chronological order. (3) each entry includes only backend-owned facts required by the frozen frontend AC: contribution ID, Visit ID, author/staff identity or safe display facts already governed by existing conventions, created timestamp, and the contribution content required for display. (4) no history reconstruction from current Case Sheet contents. (5) no overwriting or collapsing of contributions. (6) no date/name/proximity inference. (7) no new aggregate if the existing Case Sheet service/router is the natural authority. (8) no migration unless Engineering Truth proves an existing persisted field is missing.
+**Tests:** unit · contract · integration (multi-visit chronological order). **Rollback:** *Behavior* — additive read endpoint only.
+**Reqs:** FR-CS-5, FR-CS-6 · **Design:** §2.2
+
+### T-FE-E.1b · Render prior Visit Case Sheet contributions **[NEW, split from T-FE-E.1, 2026-07-25]**
+**Repo:** FE · **Layer:** Presentation · **Blocked by:** `T-FE-E.1a`, `T-BE-E.1a` · **Size:** S
+**Scope:** Render prior Visit Case Sheet contributions inside the composed Case Sheet experience (T-FE-E.1a).
+**AC:** (1) prior Visit notes remain visibly retained. (2) each contribution shows author and timestamp. (3) current and prior contributions are visually distinguishable. (4) contributions are never edited, replaced, or collapsed into the current draft. (5) uses the backend contribution-history contract only (`T-BE-E.1a`). (6) no frontend history reconstruction or inference.
+**Tests:** unit · integration (multi-visit) · regression. **Rollback:** *Behavior*.
+**Reqs:** FR-CS-5 · **Design:** §2.2
 
 ### T-FE-E.2 · Compose Prescription · Recommendation · Plan · Scheduling
 **Repo:** FE · **Blocked by:** **T-0.2/T-0.4/T-0.7**, T-BE-D.4, T-BE-E.2, T-BE-E.3 · **Size:** M
