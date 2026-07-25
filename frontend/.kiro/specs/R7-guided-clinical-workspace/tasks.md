@@ -339,6 +339,15 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **AC:** (8) consecutive **and** non-sequential. (9) review-dependent supported. **PRN pre-creates no dates.** review-dependent schedules only to the milestone. **Capability-gated, never specialty-gated** (AC-7).
 **Tests:** unit (each intent) · integration. **Rollback:** *Behavior*. **Reqs:** FR-SCH-1 · **Design:** §2.4 · **Principles:** P8
 
+### T-BE-E.2a · Expose scheduling-intent proposal contract **[NEW — backend-closure audit, 2026-07-25]**
+**Repo:** BE · **Layer:** Router · **Blocked by:** T-BE-E.2 (complete) · **Unblocks:** T-FE-E.2 · **Size:** S
+**Objective:** `TreatmentPlanService.resolve_scheduling_proposal` (T-BE-E.2, commit `c496c86`, 9 intents, 48 tests) is Application-layer only — no router, no OpenAPI operation, no internal caller. `T-FE-E.2`'s AC requires composing Scheduling, which needs proposed dates for an intent before `schedule_treatment_row`/`bulk_schedule_treatment_rows` (already exposed on `treatment_orders_router`) can persist them. Without this task, `T-FE-E.2` cannot obtain a proposal without either an endpoint or reimplementing intent-resolution logic client-side (a layer-integrity risk this project's CLAUDE.md forbids).
+**AC:** a thin router endpoint (natural home: `treatment_orders_router.py`, alongside `schedule_treatment_row`) exposes `resolve_scheduling_proposal` read-only — no new business logic, no new persistence. Capability-gated identically to the existing scheduling endpoints.
+**Tests:** contract/unit for the new endpoint · regression (existing 48 service-level tests unaffected).
+**Rollback:** *Behavior* — additive endpoint only.
+**Reqs:** FR-SCH-1 · **Design:** §2.4
+**Not yet implemented.** This is a controlled task amendment recording the gap and its disposition; no code was written for it in this audit.
+
 ### T-BE-E.3 · Doctor clinical content bound to session identity
 **Repo:** BE · **Layer:** Application · **Blocked by:** T-BE-E.2 · **Unblocks:** T-BE-E.4, T-FE-E.2 · **Size:** M
 **AC:** (6) **doctor instructions survive rescheduling** — by construction. reschedule/cancel/miss/add never delete, regenerate, detach or silently remap content. content attaches to identity, not date.
@@ -350,10 +359,20 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **ET:** verify existing session/actuals surface (structural to date). **Tests:** unit · integration (reschedule after execution) · regression. **Rollback:** *Behavior*; **Data:** ⚠ execution history never destroyed.
 **Reqs:** FR-TS-4, FR-TS-5 · **Design:** §2.4 · **Principles:** P6
 
+### T-BE-E.4a · Expose Session non-execution outcome contract **[NEW — backend-closure audit, 2026-07-25]**
+**Repo:** BE · **Layer:** Router · **Blocked by:** T-BE-E.4 (application-complete, commits `ccf56d8`/`1529b47`) · **Unblocks:** T-FE-E.3 · **Size:** S
+**Objective:** `TreatmentSheetsService.record_session_non_execution` is implemented, migrated to shared dev (`20260726_000001`), and tested (44 tests), but has zero transport exposure — no router, no OpenAPI operation. `T-FE-E.3`'s own AC requires composing the `Missed` label "from the **three** backend facts, never a single ambiguous state" — the third fact (the structured reason) is unreachable without this task.
+**AC:** a router endpoint (natural home: `treatment_sheets_router.py`, alongside the existing `complete_treatment_sheet_row`/`get_therapist_assigned_row` row-level therapist endpoints) accepts `reason_code` (closed vocabulary: `PATIENT_NO_SHOW`/`PATIENT_CANCELLED`/`CLINIC_CANCELLED`/`CLINICAL_HOLD`/`OTHER`) and optional `reason_text`, calling the existing service method unmodified. No new business logic.
+**Tests:** contract/unit for the new endpoint · regression (existing 44 service-level tests unaffected).
+**Rollback:** *Behavior* — additive endpoint only.
+**Reqs:** FR-TS-4, FR-TS-5 · **Design:** §2.4
+**Not yet implemented.** This is a controlled task amendment recording the gap and its disposition; no code was written for it in this audit.
+
 ### T-BE-E.5 · Session concurrency (OCC) ∥ with T-BE-E.4
 **Repo:** BE · **Layer:** Application · **Blocked by:** T-BE-E.3 · **Size:** S
 **AC:** doctor-authoring vs admin-rescheduling → conflict surfaces reload/keep; **never silent clobber.** reuses verified `version`/If-Match (R5 ✅)/`document_version` ✅.
 **Tests:** unit · integration (concurrent write). **Rollback:** *Behavior*. **Reqs:** FR-SCH-2 · **Design:** §2.4
+**Status [Updated 2026-07-25, backend-closure audit]:** **Accepted, with a documented compatibility amendment** (commits `f9614d7`, `93e9b8d`). OCC is fully implemented and enforced whenever `If-Match` is supplied. The header was made unconditionally mandatory on first landing without a router-change stop, an audit gap this closure task caught; corrected to staged-optional (Decision B) after verifying the mobile client sends no `If-Match` and `T-FE-E.5` has not started. A follow-up task must make the header mandatory once `T-FE-E.5` ships.
 
 ## BE Group F — Billing · Completion Readiness · Recommendation
 
