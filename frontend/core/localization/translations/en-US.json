@@ -434,6 +434,32 @@
       "notApplicable": "Not applicable",
       "unresolved": "Unresolved",
       "unavailable": "Currently unavailable"
+    },
+    "workflowPills": {
+      "title": "Workflow",
+      "stage": {
+        "consultation": "Consultation",
+        "assessment": "Assessment",
+        "prescription": "Prescription",
+        "treatment_recommendation": "Treatment Recommendation",
+        "treatment_plan": "Treatment Plan",
+        "billing": "Billing",
+        "visit_completion": "Visit Completion"
+      },
+      "state": {
+        "completed": "Completed",
+        "current": "In progress",
+        "pending": "Pending",
+        "waiting": "Waiting",
+        "blocked": "Blocked",
+        "readOnly": "Read only",
+        "historicalOnly": "Historical",
+        "notApplicable": "Not applicable"
+      },
+      "waitingOn": "Waiting on: {{permission}}",
+      "unavailable": "Workflow currently unavailable",
+      "empty": "No workflow stages for this visit",
+      "optional": "Optional"
     }
   },
   "episodeWorkspace": {

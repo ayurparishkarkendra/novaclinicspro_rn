@@ -8,11 +8,15 @@
  * and an explicit invalid-context state (wireframe W30), now joined by
  * the "Why today" region (T-FE-C.1, FR-VCC-2 — see `WhyTodaySection.tsx`),
  * the "What changed" region (T-FE-C.2, FR-VCC-3 — see
- * `WhatChangedSection.tsx`), and the "Before you act" region (T-FE-C.3,
- * FR-VCC-4/FR-PS-1 — see `BeforeYouActSection.tsx`).
- * It still does not assemble workflow stages, derive a next action, or
- * render any other clinical region (workflow pills / history) — those
- * remain later FE-B/C tasks' own scope.
+ * `WhatChangedSection.tsx`), the "Before you act" region (T-FE-C.3,
+ * FR-VCC-4/FR-PS-1 — see `BeforeYouActSection.tsx`), and the workflow
+ * pill rail (T-FE-B.1, FR-MOB-2/FR-WFA-2 — see `WorkflowPills.tsx`),
+ * placed immediately after the briefing regions per design.md §3's own
+ * region order (`BriefingRegions → WorkflowPills → NextActionBar →
+ * active-stage body`).
+ * It still does not derive a next action or render any other clinical
+ * region (next-action bar / history) — those remain later FE-B/C tasks'
+ * own scope.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -40,6 +44,7 @@ import {
 import { WhyTodaySection } from '../components/WhyTodaySection';
 import { WhatChangedSection } from '../components/WhatChangedSection';
 import { BeforeYouActSection } from '../components/BeforeYouActSection';
+import { WorkflowPills } from '../components/WorkflowPills';
 
 export interface VisitCommandCenterProps {
   episodeId: string;
@@ -130,6 +135,12 @@ const VisitCommandCenterShell: React.FC = () => {
           appointmentId={visit.appointmentId}
         />
         <BeforeYouActSection
+          tenantId={episode.tenantId}
+          clientId={patient.clientId}
+          episodeId={episode.episodeId}
+          appointmentId={visit.appointmentId}
+        />
+        <WorkflowPills
           tenantId={episode.tenantId}
           clientId={patient.clientId}
           episodeId={episode.episodeId}

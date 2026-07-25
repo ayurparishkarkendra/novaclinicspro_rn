@@ -499,5 +499,33 @@
         "goToDashboard": "Go to Dashboard"
       }
     }
+  },
+  "visitCommandCenter": {
+    "workflowPills": {
+      "title": "वर्कफ़्लो",
+      "stage": {
+        "consultation": "परामर्श",
+        "assessment": "मूल्यांकन",
+        "prescription": "प्रिस्क्रिप्शन",
+        "treatment_recommendation": "उपचार सिफ़ारिश",
+        "treatment_plan": "उपचार योजना",
+        "billing": "बिलिंग",
+        "visit_completion": "विज़िट पूर्णता"
+      },
+      "state": {
+        "completed": "पूर्ण",
+        "current": "प्रगति में",
+        "pending": "लंबित",
+        "waiting": "प्रतीक्षारत",
+        "blocked": "अवरुद्ध",
+        "readOnly": "केवल पढ़ने योग्य",
+        "historicalOnly": "ऐतिहासिक",
+        "notApplicable": "लागू नहीं"
+      },
+      "waitingOn": "प्रतीक्षारत: {{permission}}",
+      "unavailable": "वर्कफ़्लो फ़िलहाल अनुपलब्ध है",
+      "empty": "इस विज़िट के लिए कोई वर्कफ़्लो चरण नहीं",
+      "optional": "वैकल्पिक"
+    }
   }
 }

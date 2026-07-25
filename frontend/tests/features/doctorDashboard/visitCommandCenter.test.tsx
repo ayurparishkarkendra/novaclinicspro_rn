@@ -7,6 +7,10 @@
  * error / recorded / not_recorded / unavailable / inference rejection)
  * is NOT re-tested here — that is `whyTodaySection.test.tsx`'s own
  * scope; this file only proves the shell still composes correctly.
+ * T-FE-B.1 — further extended with a mocked `clinicalWorkflow` datasource
+ * since the shell now also mounts `WorkflowPills`. WorkflowPills' own
+ * behaviour (state mapping, empty/loading/error, a11y) is NOT re-tested
+ * here — that is `workflowPills.test.tsx`'s own scope.
  *
  * Mirrors the established conventions: `workspaceProvider.test.tsx`'s
  * `useEpisodeWorkspaceData` mock (WorkspaceProvider itself is already
@@ -20,7 +24,9 @@ import { useRouter } from 'expo-router';
 import { VisitCommandCenter } from '../../../features/episodes/presentation/pages/VisitCommandCenter';
 import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData';
 import { getClinicalWorkspaceApi } from '../../../features/episodes/data/datasources/clinicalWorkspace.api';
+import { getClinicalWorkflowApi } from '../../../features/episodes/data/datasources/clinicalWorkflow.api';
 import { WorkspaceFactsResponse } from '../../../features/episodes/data/models/clinicalWorkspace.dtos';
+import { ClinicalWorkflowResolutionResponse } from '../../../features/episodes/data/models/clinicalWorkflow.dtos';
 
 const router = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 
@@ -34,8 +40,26 @@ jest.mock('../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData
 jest.mock('../../../features/episodes/data/datasources/clinicalWorkspace.api', () => ({
   getClinicalWorkspaceApi: jest.fn(),
 }));
+jest.mock('../../../features/episodes/data/datasources/clinicalWorkflow.api', () => ({
+  getClinicalWorkflowApi: jest.fn(),
+}));
 
 const mockGetClinicalWorkspaceApi = getClinicalWorkspaceApi as jest.Mock;
+const mockGetClinicalWorkflowApi = getClinicalWorkflowApi as jest.Mock;
+
+const emptyWorkflowResolution: ClinicalWorkflowResolutionResponse = {
+  stages: [],
+  recommended_action: null,
+  recommendation_reason: null,
+  blocking_factors: [],
+  waiting_role: null,
+  alternatives: [],
+  completion_readiness: { ready: false, unresolved_stage_codes: [], reason_code: null },
+  outstanding_work: [],
+  optional_work: [],
+  unresolved_facts: [],
+  capability_loss: [],
+};
 
 const episodeDetails = {
   episode: {
@@ -154,6 +178,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     (useRouter as jest.Mock).mockReturnValue(router);
     (useEpisodeWorkspaceData as jest.Mock).mockReturnValue(workspaceData);
     mockGetClinicalWorkspaceApi.mockResolvedValue(notRecordedSnapshot);
+    mockGetClinicalWorkflowApi.mockResolvedValue(emptyWorkflowResolution);
   });
 
   it('renders the shell header with the resolved patient name once context resolves', async () => {
@@ -210,16 +235,29 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it('renders the Why Today, What Changed, and Before You Act regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
+  it('renders the Why Today, What Changed, Before You Act, and Workflow regions (in that order) plus a neutral placeholder for the remaining not-yet-built regions — no fabricated recommendation/warning/completion content', async () => {
     const { queryByText, getByText, findByText } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
     await findByText('Why today');
     await findByText('What changed');
     await findByText('Before you act');
+    await findByText('Workflow');
     expect(getByText('Coming Soon')).toBeTruthy();
     expect(queryByText(/recommend/i)).toBeNull();
     expect(queryByText(/warning/i)).toBeNull();
     expect(queryByText(/ready to complete/i)).toBeNull();
+  });
+
+  it('places WorkflowPills immediately after the briefing regions, per design.md §3 region order', async () => {
+    const { findByText, toJSON } = renderWithProviders(
+      <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+    );
+    await findByText('Workflow');
+    const serialized = JSON.stringify(toJSON());
+    // BriefingRegions -> WorkflowPills -> NextActionBar (not yet built) —
+    // verified via serialized render-tree text order, not just presence.
+    expect(serialized.indexOf('"Before you act"')).toBeLessThan(serialized.indexOf('"Workflow"'));
+    expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
   });
 });
