@@ -571,5 +571,35 @@
       "noRouteYet": "यह ऐप में अभी उपलब्ध नहीं है",
       "alternativesTitle": "आप इसके बजाय ये भी कर सकते हैं"
     }
+  },
+  "episodeWorkspace": {
+    "casesheet": {
+      "history": {
+        "sectionTitle": "विज़िट इतिहास",
+        "visitLabel": "विज़िट",
+        "authorLabel": "दर्ज करने वाला",
+        "timestampLabel": "दर्ज किया गया",
+        "readOnlyLabel": "केवल पढ़ने योग्य — इस विज़िट के दौरान दर्ज किया गया",
+        "contentUnavailable": "ऐतिहासिक सामग्री उपलब्ध नहीं है",
+        "missingAuthor": "पूर्व या अनुपलब्ध स्टाफ सदस्य",
+        "empty": "अभी तक कोई पूर्व विज़िट योगदान नहीं है।",
+        "loading": "विज़िट इतिहास लोड हो रहा है…",
+        "error": "विज़िट इतिहास लोड नहीं हो सका।",
+        "retry": "पुनः प्रयास करें",
+        "showContent": "दर्ज सामग्री देखें",
+        "hideContent": "दर्ज सामग्री छिपाएं",
+        "noContentRecorded": "इस विज़िट के दौरान कोई विवरण दर्ज नहीं किया गया।",
+        "extensionFallback": "एक्सटेंशन {{number}}",
+        "fields": {
+          "chiefComplaint": "मुख्य शिकायत",
+          "provisionalDiagnosis": "अस्थायी निदान",
+          "finalDiagnosis": "अंतिम निदान",
+          "subjective": "व्यक्तिपरक",
+          "objective": "वस्तुनिष्ठ",
+          "assessment": "मूल्यांकन",
+          "plan": "योजना"
+        }
+      }
+    }
   }
 }

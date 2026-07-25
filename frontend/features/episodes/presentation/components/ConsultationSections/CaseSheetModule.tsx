@@ -68,6 +68,7 @@ import { ChiefComplaintSection } from '../../../../casesheets/presentation/compo
 import { ClinicalNotesSection } from '../../../../casesheets/presentation/components/ClinicalNotesSection';
 import { CaseSheetExtensionsSection } from '../../../../casesheets/presentation/components/CaseSheetExtensionsSection';
 import { renderSection } from './sectionRenderer';
+import { CaseSheetContributionHistory } from './CaseSheetContributionHistory';
 
 // R3B (T-B.1, ADR-R3B-05): fixed set, no add/remove — reproduces
 // AyurvedicAssessmentSection's own pre-T-B.1 behavior bit-for-bit (T-0.2
@@ -464,6 +465,11 @@ export const CaseSheetModule = forwardRef<CaseSheetModuleHandle, CaseSheetModule
               saveStatus={sectionProgress.ayurvedicAssessment?.saveStatus ?? 'idle'}
             />,
           )}
+        {/* T-FE-E.1b: read-only, append-only history of prior Visit
+            contributions -- never a SectionKey (no save/progress
+            semantics), never editable, never merged into the draft
+            above. */}
+        <CaseSheetContributionHistory />
       </>
     );
   },

@@ -549,6 +549,32 @@
         "draft": "Draft",
         "final": "Final",
         "signed": "Signed"
+      },
+      "history": {
+        "sectionTitle": "Visit History",
+        "visitLabel": "Visit",
+        "authorLabel": "Recorded by",
+        "timestampLabel": "Recorded on",
+        "readOnlyLabel": "Read-only — recorded during this Visit",
+        "contentUnavailable": "Historical content unavailable",
+        "missingAuthor": "Former or unavailable staff member",
+        "empty": "No prior Visit contributions yet.",
+        "loading": "Loading Visit history…",
+        "error": "Could not load Visit history.",
+        "retry": "Retry",
+        "showContent": "View recorded content",
+        "hideContent": "Hide recorded content",
+        "noContentRecorded": "No details recorded during this Visit.",
+        "extensionFallback": "Extension {{number}}",
+        "fields": {
+          "chiefComplaint": "Chief Complaint",
+          "provisionalDiagnosis": "Provisional Diagnosis",
+          "finalDiagnosis": "Final Diagnosis",
+          "subjective": "Subjective",
+          "objective": "Objective",
+          "assessment": "Assessment",
+          "plan": "Plan"
+        }
       }
     },
     "treatmentPlans": {

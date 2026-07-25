@@ -173,3 +173,44 @@ export const formatDateTime = (dateStr: string | null): string => {
     return dateStr;
   }
 };
+
+// ============================================
+// CONTRIBUTION HISTORY (T-FE-E.1b, T-BE-E.1a, Decision 12, FR-CS-5/6)
+// ============================================
+
+/**
+ * Safe staff-display facts for a contribution's author. `full_name` is
+ * honestly nullable (staff never assigned, or later deleted) — mirrors
+ * the backend's `CaseSheetContributionAuthor` (no email/phone/auth id).
+ */
+export interface CasesheetContributionAuthor {
+  staff_id: string | null;
+  full_name: string | null;
+}
+
+/**
+ * One append-only, immutable Case Sheet contribution. `content_snapshot`
+ * is the exact `data_json` recorded at that Visit, never a generated
+ * summary; `content_available=false` (with `content_snapshot=null`)
+ * distinguishes a legacy contribution from a genuinely empty one — never
+ * backfilled or reconstructed on the frontend.
+ */
+export interface CasesheetContributionItem {
+  id: string;
+  visit_id: string;
+  author: CasesheetContributionAuthor;
+  contributed_at: string;
+  content_snapshot: Record<string, any> | null;
+  content_available: boolean;
+}
+
+/**
+ * Deterministic, append-only contribution history for one Episode Case
+ * Sheet. `contributions` is returned exactly as the backend orders it
+ * (`contributed_at` ASC, `id` ASC) — never reordered on the frontend.
+ */
+export interface CasesheetContributionHistoryResponse {
+  casesheet_id: string;
+  episode_id: string;
+  contributions: CasesheetContributionItem[];
+}

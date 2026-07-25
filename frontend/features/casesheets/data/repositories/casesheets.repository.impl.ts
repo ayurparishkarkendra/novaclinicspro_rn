@@ -11,6 +11,7 @@ import {
   updateCasesheetApi,
   transitionCasesheetStatusApi,
   printCasesheetApi,
+  getCasesheetContributionsApi,
   archiveCasesheetApi,
 } from '../datasources/casesheets.api';
 import {
@@ -20,6 +21,7 @@ import {
   CasesheetResponse,
   CasesheetListResponse,
   CasesheetPrintResponse,
+  CasesheetContributionHistoryResponse,
   ListCasesheetsParams,
 } from '../models/casesheets.dtos';
 
@@ -35,6 +37,14 @@ export const casesheetsKeys = {
   details: () => [...casesheetsKeys.all, 'detail'] as const,
   detail: (tenantId: string, casesheetId: string) =>
     [...casesheetsKeys.details(), tenantId, casesheetId] as const,
+  contributions: () => [...casesheetsKeys.all, 'contributions'] as const,
+  /**
+   * T-FE-E.1b: every context dimension the backend endpoint actually
+   * requires (tenant/casesheet/client/Episode) is part of the key —
+   * avoids cache leakage across Case Sheets/Episodes/clients.
+   */
+  contributionHistory: (tenantId: string, casesheetId: string, clientId: string, episodeId: string) =>
+    [...casesheetsKeys.contributions(), tenantId, casesheetId, clientId, episodeId] as const,
 };
 
 // ============================================
@@ -71,6 +81,29 @@ export const useCasesheetDetailQuery = (
     queryKey: casesheetsKeys.detail(tenantId, casesheetId),
     queryFn: () => getCasesheetApi(tenantId, casesheetId),
     enabled: !!tenantId && !!casesheetId,
+    staleTime: 30 * 1000,
+    ...options,
+  });
+};
+
+/**
+ * T-FE-E.1b (T-BE-E.1a, Decision 12, FR-CS-5/6). Hook to fetch the
+ * append-only contribution history for a Case Sheet. Disabled unless
+ * every required context dimension is present -- never infers a
+ * casesheet/client/Episode. Mirrors the backend response 1:1: no
+ * frontend sorting, no author join, no reconstruction.
+ */
+export const useCasesheetContributionHistoryQuery = (
+  tenantId: string,
+  casesheetId: string,
+  clientId: string,
+  episodeId: string,
+  options?: Omit<UseQueryOptions<CasesheetContributionHistoryResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<CasesheetContributionHistoryResponse, Error>({
+    queryKey: casesheetsKeys.contributionHistory(tenantId, casesheetId, clientId, episodeId),
+    queryFn: () => getCasesheetContributionsApi(tenantId, casesheetId, clientId, episodeId),
+    enabled: !!tenantId && !!casesheetId && !!clientId && !!episodeId,
     staleTime: 30 * 1000,
     ...options,
   });
