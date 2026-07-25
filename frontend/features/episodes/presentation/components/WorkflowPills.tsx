@@ -35,14 +35,31 @@
  * component instead renders the raw permission code the backend sent,
  * through a template string — showing WHO is waited on using the
  * backend's own identifier, never a guessed role label.
+ *
+ * T-FE-D.1 (FR-WFA-1/2, W18): a blocked stage now also surfaces its own
+ * blocking_reason_code/detail_reason_code (localized, reusing the exact
+ * same reason vocabulary NextActionBar already translates -- these are
+ * the same backend-owned codes, not a parallel dictionary) plus, where
+ * the backend's own _STAGE_ACTION map (mirrored codes-only as
+ * STAGE_TO_ACTION in nextActionRegistry.ts) names a fixing action, a
+ * "fix this" affordance reusing NEXT_ACTION_REGISTRY's EXISTING route
+ * builder -- never a new route, per W18's own "never a dead end"
+ * requirement. "stages come only from the backend" and "GP shows no
+ * therapy stages because the capability is absent, not clinic name"
+ * (both frozen AC) require no new code here: this component has never
+ * read a clinic-type/specialty field (verified -- WorkflowPillsProps
+ * carries only tenant/client/episode/appointment identity), so absence
+ * is already, structurally, backend-driven.
  */
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useClinicalWorkflowQuery } from '../../data/repositories/clinicalWorkflow.repository.impl';
 import { WorkflowStage } from '../../data/models/clinicalWorkflow.dtos';
+import { NEXT_ACTION_REGISTRY, NextActionContext, STAGE_TO_ACTION } from '../config/nextActionRegistry';
 
 export interface WorkflowPillsProps {
   tenantId: string;
@@ -144,6 +161,11 @@ export const WorkflowPills: React.FC<WorkflowPillsProps> = ({
   // a status — never rendered as a patient-facing badge. See header
   // docstring. Every other stage renders exactly as returned, same order.
   const renderableStages = data.stages.filter((stage) => stage.state !== 'unresolved');
+  // T-FE-D.1 (W18): blocked stages get their own reason + fix-affordance
+  // line below the pill rail, in the same order the backend returned
+  // them — never reordered, never limited to only the top recommendation.
+  const blockedStages = renderableStages.filter((stage) => stage.state === 'blocked');
+  const context: NextActionContext = { episodeId, appointmentId, clientId };
 
   return (
     <View style={cardStyle} testID="workflow-pills-section">
@@ -155,16 +177,89 @@ export const WorkflowPills: React.FC<WorkflowPillsProps> = ({
           {t('visitCommandCenter.workflowPills.empty')}
         </Text>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: spacing.sm }}
-          accessibilityRole="tablist"
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: spacing.sm }}
+            accessibilityRole="tablist"
+          >
+            {renderableStages.map((stage) => (
+              <WorkflowPill key={stage.code} stage={stage} />
+            ))}
+          </ScrollView>
+          {blockedStages.length > 0 && (
+            <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+              {blockedStages.map((stage) => (
+                <BlockedStageDetail key={stage.code} stage={stage} context={context} />
+              ))}
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
+
+/**
+ * T-FE-D.1 (W18): "▨ Treatment recommendation — blocked / 'reason' [Go to
+ * case sheet] (never a dead end)". Reuses the exact same reason
+ * vocabulary NextActionBar already translates for blocking_factors — the
+ * codes are the same backend-owned vocabulary, not a parallel one.
+ */
+const BlockedStageDetail: React.FC<{ stage: WorkflowStage; context: NextActionContext }> = ({
+  stage,
+  context,
+}) => {
+  const { colors, spacing, typography, radii, borderWidths } = useClinicTheme();
+  const { t } = useTranslation();
+  const router = useRouter();
+
+  const reasonCode = stage.blocking_reason_code || stage.detail_reason_code;
+  const reasonKey = reasonCode
+    ? `visitCommandCenter.nextActionBar.reason.${reasonCode.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())}`
+    : null;
+  const reasonLabel = reasonKey
+    ? (() => {
+        const translated = t(reasonKey);
+        return translated === reasonKey ? t('visitCommandCenter.nextActionBar.reason.unknown') : translated;
+      })()
+    : null;
+
+  const actionCode = STAGE_TO_ACTION[stage.code];
+  const entry = actionCode ? NEXT_ACTION_REGISTRY[actionCode] : undefined;
+  const fixLabel = entry ? t(`visitCommandCenter.nextActionBar.action.${entry.translationKey}`) : null;
+
+  return (
+    <View
+      testID={`blocked-stage-detail-${stage.code}`}
+      style={[
+        styles.blockedDetail,
+        {
+          borderColor: colors.feedback.error,
+          borderWidth: borderWidths.hairline,
+          borderRadius: radii.small,
+          padding: spacing.sm,
+          backgroundColor: colors.feedback.errorLight,
+        },
+      ]}
+    >
+      <Text style={[typography.caption, { color: colors.feedback.error, flexShrink: 1 }]}>
+        {t(`visitCommandCenter.workflowPills.stage.${stage.code}`)} — {t('visitCommandCenter.workflowPills.state.blocked')}
+        {reasonLabel ? `: ${reasonLabel}` : ''}
+      </Text>
+      {entry?.buildRoute && (
+        <TouchableOpacity
+          testID={`blocked-stage-fix-${stage.code}`}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('visitCommandCenter.workflowPills.fixAffordance')}: ${fixLabel}`}
+          onPress={() => router.push(entry.buildRoute!(context) as never)}
+          style={{ marginTop: spacing.xs }}
         >
-          {renderableStages.map((stage) => (
-            <WorkflowPill key={stage.code} stage={stage} />
-          ))}
-        </ScrollView>
+          <Text style={[typography.button, { color: colors.primary.default }]}>
+            {t('visitCommandCenter.workflowPills.fixAffordance')}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -266,5 +361,8 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  blockedDetail: {
+    width: '100%',
   },
 });

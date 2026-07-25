@@ -525,7 +525,8 @@
       "waitingOn": "प्रतीक्षारत: {{permission}}",
       "unavailable": "वर्कफ़्लो फ़िलहाल अनुपलब्ध है",
       "empty": "इस विज़िट के लिए कोई वर्कफ़्लो चरण नहीं",
-      "optional": "वैकल्पिक"
+      "optional": "वैकल्पिक",
+      "fixAffordance": "इसे ठीक करें"
     },
     "nextActionBar": {
       "title": "अगला कदम",

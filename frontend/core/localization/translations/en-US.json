@@ -459,7 +459,8 @@
       "waitingOn": "Waiting on: {{permission}}",
       "unavailable": "Workflow currently unavailable",
       "empty": "No workflow stages for this visit",
-      "optional": "Optional"
+      "optional": "Optional",
+      "fixAffordance": "Fix this"
     },
     "nextActionBar": {
       "title": "Next action",

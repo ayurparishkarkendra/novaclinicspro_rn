@@ -91,3 +91,21 @@ export const NEXT_ACTION_REGISTRY: Record<string, NextActionRegistryEntry> = {
     buildRoute: null,
   },
 };
+
+/**
+ * T-FE-D.1 (W18 — "blocked stage shows reason + fix affordance", never a
+ * dead end). A codes-only mirror of the backend's own `_STAGE_ACTION`
+ * dict (`clinical_workflow_resolver.py`, verified: exactly these 4
+ * entries) so `WorkflowPills` can look up "which existing action fixes
+ * this blocked stage" and reuse `NEXT_ACTION_REGISTRY`'s route builder
+ * above -- no new route, no new registry, no business logic. Stages with
+ * no entry here (`consultation`, `treatment_plan`, `billing`) have no
+ * discrete fix action in the backend either -- verified, not a
+ * frontend omission.
+ */
+export const STAGE_TO_ACTION: Record<string, string> = {
+  assessment: 'record_assessment',
+  prescription: 'record_prescription',
+  treatment_recommendation: 'record_treatment_recommendation',
+  visit_completion: 'complete_visit',
+};

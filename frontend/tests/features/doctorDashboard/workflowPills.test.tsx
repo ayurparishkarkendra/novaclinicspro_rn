@@ -15,15 +15,18 @@
  */
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { useRouter } from 'expo-router';
 import { WorkflowPills } from '../../../features/episodes/presentation/components/WorkflowPills';
 import { useClinicalWorkflowQuery } from '../../../features/episodes/data/repositories/clinicalWorkflow.repository.impl';
 import { WorkflowStage, ClinicalWorkflowResolutionResponse } from '../../../features/episodes/data/models/clinicalWorkflow.dtos';
 
+jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 jest.mock('../../../features/episodes/data/repositories/clinicalWorkflow.repository.impl', () => ({
   useClinicalWorkflowQuery: jest.fn(),
 }));
 
 const mockUseClinicalWorkflowQuery = useClinicalWorkflowQuery as jest.Mock;
+const router = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 
 const stage = (overrides: Partial<WorkflowStage> = {}): WorkflowStage => ({
   code: 'consultation',
@@ -65,6 +68,7 @@ const queryResult = (overrides: Partial<{
 describe('WorkflowPills (T-FE-B.1, FR-MOB-2, FR-WFA-2)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue(router);
   });
 
   it('calls the governed hook with the exact context identifiers', () => {
@@ -202,6 +206,150 @@ describe('WorkflowPills (T-FE-B.1, FR-MOB-2, FR-WFA-2)', () => {
     const { getByLabelText } = render(<WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />);
     expect(getByLabelText(/Billing, Waiting, Waiting on: billing\.create/)).toBeTruthy();
   });
+
+  describe('blocked stage reason + fix affordance (T-FE-D.1, W18 — never a dead end)', () => {
+    it('renders the localized blocking reason for a blocked stage', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'treatment_recommendation', state: 'blocked', blocking_reason_code: 'scheduling_denied' }),
+          ]),
+        }),
+      );
+      const { getByTestId, getByText } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(getByTestId('blocked-stage-detail-treatment_recommendation')).toBeTruthy();
+      expect(getByText(/Scheduling is not currently permitted/)).toBeTruthy();
+    });
+
+    it('never shows a raw blocking_reason_code, falls back to detail_reason_code, then to a safe generic fallback', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'billing', state: 'blocked', detail_reason_code: 'billing_facts_unavailable' }),
+          ]),
+        }),
+      );
+      const { getByText, queryByText } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(getByText(/Billing facts unavailable/)).toBeTruthy();
+      expect(queryByText(/billing_facts_unavailable/)).toBeNull();
+    });
+
+    it('falls back to a safe generic reason for an unrecognised code, never inventing clinical meaning', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'assessment', state: 'blocked', blocking_reason_code: 'a_future_backend_reason' }),
+          ]),
+        }),
+      );
+      const { getByText, queryByText } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(getByText(/Reason unavailable/)).toBeTruthy();
+      expect(queryByText(/a_future_backend_reason/)).toBeNull();
+    });
+
+    it('renders a "fix this" affordance reusing the EXISTING route for a stage with a mapped action, never a dead end', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'prescription', state: 'blocked', blocking_reason_code: 'blocked' }),
+          ]),
+        }),
+      );
+      const { getByTestId } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      fireEvent.press(getByTestId('blocked-stage-fix-prescription'));
+      expect(router.push).toHaveBeenCalledWith({
+        pathname: '/clinic-admin/episodes/[episodeId]/consultation',
+        params: { episodeId: 'e1', appointmentId: 'a1', clientId: 'c1' },
+      });
+    });
+
+    it('shows no fix affordance for a blocked stage with no mapped action (e.g. consultation) — never fabricates a route', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([stage({ code: 'consultation', state: 'blocked', blocking_reason_code: 'blocked' })]),
+        }),
+      );
+      const { queryByTestId } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(queryByTestId('blocked-stage-fix-consultation')).toBeNull();
+    });
+
+    it('renders every blocked stage, in backend order, never only the top recommendation', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'prescription', state: 'blocked', blocking_reason_code: 'blocked' }),
+            stage({ code: 'billing', state: 'blocked', blocking_reason_code: 'blocked' }),
+          ]),
+        }),
+      );
+      const { getByTestId, toJSON } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(getByTestId('blocked-stage-detail-prescription')).toBeTruthy();
+      expect(getByTestId('blocked-stage-detail-billing')).toBeTruthy();
+      const serialized = JSON.stringify(toJSON());
+      expect(serialized.indexOf('"blocked-stage-detail-prescription"')).toBeLessThan(
+        serialized.indexOf('"blocked-stage-detail-billing"'),
+      );
+    });
+
+    it('renders no blocked-stage details when there are no blocked stages', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({ data: resolution([stage({ code: 'consultation', state: 'completed' })]) }),
+      );
+      const { queryByTestId } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(queryByTestId(/^blocked-stage-detail-/)).toBeNull();
+    });
+  });
+
+  describe('capability-driven stage absence, never clinic-type/name (frozen AC)', () => {
+    it('WorkflowPillsProps carries no clinic-type/specialty field — absence is structurally backend-only', () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const path = require('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/components/WorkflowPills.tsx'),
+        'utf8',
+      );
+      const propsBlock = source.slice(
+        source.indexOf('export interface WorkflowPillsProps'),
+        source.indexOf('}', source.indexOf('export interface WorkflowPillsProps')),
+      );
+      expect(propsBlock).not.toMatch(/clinicType|specialty|clinicName/i);
+    });
+
+    it('a GP tenant (no therapy stages in the backend response) renders exactly the stages the backend sent — no local filtering by clinic type', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution([
+            stage({ code: 'consultation', state: 'completed' }),
+            stage({ code: 'prescription', state: 'current' }),
+            stage({ code: 'billing', state: 'pending' }),
+            stage({ code: 'visit_completion', state: 'pending' }),
+          ]),
+        }),
+      );
+      const { getByTestId, queryByTestId } = render(
+        <WorkflowPills tenantId="t1" clientId="c1" episodeId="e1" appointmentId="a1" />,
+      );
+      expect(getByTestId('workflow-pill-consultation')).toBeTruthy();
+      expect(queryByTestId('workflow-pill-treatment_recommendation')).toBeNull();
+      expect(queryByTestId('workflow-pill-treatment_plan')).toBeNull();
+    });
+  });
 });
 
 describe('architecture — no frontend workflow assembly', () => {
@@ -219,5 +367,13 @@ describe('architecture — no frontend workflow assembly', () => {
     expect(source).not.toMatch(/resolve_clinical_workflow/);
     // Presentation must not compute readiness/blockers itself.
     expect(source).not.toMatch(/completion_readiness\s*=\s*{/);
+    // T-FE-D.1 (frozen AC): capability-driven absence, never clinic-name.
+    // (Scoped separately, props-only, in the "capability-driven stage
+    // absence" describe block below -- this file's own docstrings
+    // legitimately discuss "never clinic-type/specialty", which a
+    // whole-file scan would false-positive on.)
+    // T-FE-D.1 (W18): reuses the existing registry, never a second one.
+    expect(source).toMatch(/NEXT_ACTION_REGISTRY/);
+    expect(source).not.toMatch(/const\s+NEXT_ACTION_REGISTRY\s*=/);
   });
 });

@@ -375,4 +375,64 @@ describe('NextActionBar (T-FE-B.2, FR-REC-2, FR-COS-2, Decision 7)', () => {
       await waitFor(() => expect(getByLabelText('Something else')).toBeTruthy());
     });
   });
+
+  describe('read-only role sees content, actions hidden (T-FE-D.1, W19/W26)', () => {
+    /**
+     * Engineering Truth (verified in clinical_workflow_resolver.py's
+     * `_actionable_state(write_permission, permission)`, called from
+     * every document-lifecycle stage builder): actionability for the
+     * REQUESTING user is already resolved server-side, per request —
+     * a user lacking a stage's write permission gets that stage back as
+     * `waiting` (never `current`), with `waiting_permission` set. So a
+     * read-only role's own missing permission and "someone else must act"
+     * render through the exact same, already-correct waiting branch —
+     * no new frontend permission check is introduced or required here.
+     */
+    it('a stage the requesting user cannot act on arrives as "waiting" and renders with content visible, no CTA', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution({
+            recommended_action: null,
+            waiting_role: 'prescriptions.write',
+            recommendation_reason: 'waiting_on_other_role',
+          }),
+        }),
+      );
+      const { getByTestId, getByText, queryByText } = render(<NextActionBar {...ctxProps} />);
+      expect(getByTestId('next-action-waiting')).toBeTruthy();
+      // Content (the reason/context) stays visible even though no
+      // action is available — never an empty region.
+      expect(getByText('Waiting on: prescriptions.write')).toBeTruthy();
+      expect(queryByText('Do this')).toBeNull();
+    });
+
+    it('the deviation menu ("[Something else]") remains available even when the primary action is hidden for permission reasons', () => {
+      mockUseClinicalWorkflowQuery.mockReturnValue(
+        queryResult({
+          data: resolution({ recommended_action: null, waiting_role: 'prescriptions.write' }),
+        }),
+      );
+      const { getByText } = render(<NextActionBar {...ctxProps} />);
+      expect(getByText(/Something else/)).toBeTruthy();
+    });
+
+    it('never renders an enabled [Do this] button when recommended_action is null, regardless of reason', () => {
+      const reasons = ['waiting_on_other_role', 'episode_closed', 'unresolved_facts'];
+      reasons.forEach((recommendation_reason) => {
+        mockUseClinicalWorkflowQuery.mockReturnValue(
+          queryResult({
+            data: resolution({
+              recommended_action: null,
+              recommendation_reason,
+              waiting_role: recommendation_reason === 'waiting_on_other_role' ? 'x' : null,
+              unresolved_facts: recommendation_reason === 'unresolved_facts' ? ['x'] : [],
+            }),
+          }),
+        );
+        const { queryByText, unmount } = render(<NextActionBar {...ctxProps} />);
+        expect(queryByText('Do this')).toBeNull();
+        unmount();
+      });
+    });
+  });
 });
