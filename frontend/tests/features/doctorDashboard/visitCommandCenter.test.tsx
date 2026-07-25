@@ -43,6 +43,21 @@ jest.mock('../../../features/episodes/data/datasources/clinicalWorkspace.api', (
 jest.mock('../../../features/episodes/data/datasources/clinicalWorkflow.api', () => ({
   getClinicalWorkflowApi: jest.fn(),
 }));
+// T-FE-E.1a: the shell now composes CaseSheetModule, which pulls in
+// useFeatures() (-> real supabaseClient without a mock) and the
+// casesheets datasource -- mocked here exactly as caseSheetModule.test.tsx
+// (the module's own test) already does, so CaseSheetModule's own
+// behavior is not re-tested here, only that it renders once as part of
+// the shell.
+jest.mock('../../../core/hooks/useFeatures', () => ({
+  useFeatures: () => ({ clinic_type: 'general', freshness_v1_enabled: false }),
+  isAyurvedaClinic: (value: any) => value?.clinic_type === 'ayurveda',
+  isFreshnessV1Enabled: (value: any) => !!value?.freshness_v1_enabled,
+}));
+jest.mock('../../../features/casesheets/data/datasources/casesheets.api', () => ({
+  createCasesheetApi: jest.fn(),
+  updateCasesheetApi: jest.fn(),
+}));
 
 const mockGetClinicalWorkspaceApi = getClinicalWorkspaceApi as jest.Mock;
 const mockGetClinicalWorkflowApi = getClinicalWorkflowApi as jest.Mock;
@@ -267,5 +282,70 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(serialized.indexOf('"Before you act"')).toBeLessThan(serialized.indexOf('"Workflow"'));
     expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Next action"'));
     expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+  });
+
+  describe('CaseSheetModule composition (T-FE-E.1a, FR-CS-1)', () => {
+    it('renders CaseSheetModule exactly once, receiving Episode/Visit context through the existing WorkspaceProvider (no props threaded)', async () => {
+      const { findByText, getAllByText } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      // Exactly one Case Sheet form mounted -- never a duplicate.
+      expect(getAllByText('Chief Complaint')).toHaveLength(1);
+    });
+
+    it('places CaseSheetModule in the active-stage body, after NextActionBar and before the remaining placeholder — per design.md §3 region order', async () => {
+      const { findByText, toJSON } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      const serialized = JSON.stringify(toJSON());
+      expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Chief Complaint"'));
+      expect(serialized.indexOf('"Chief Complaint"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+    });
+
+    it('does not reorder the existing Why Today / What Changed / Before You Act / Workflow / Next Action regions', async () => {
+      const { findByText, toJSON } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      const serialized = JSON.stringify(toJSON());
+      expect(serialized.indexOf('"Why today"')).toBeLessThan(serialized.indexOf('"What changed"'));
+      expect(serialized.indexOf('"What changed"')).toBeLessThan(serialized.indexOf('"Before you act"'));
+      expect(serialized.indexOf('"Before you act"')).toBeLessThan(serialized.indexOf('"Workflow"'));
+      expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Next action"'));
+    });
+
+    it('WorkflowPills and NextActionBar still render unchanged alongside the newly composed CaseSheetModule', async () => {
+      const { findByText, getByText, getByTestId } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      expect(getByTestId('workflow-pills-section')).toBeTruthy();
+      expect(getByTestId('next-action-bar')).toBeTruthy();
+      expect(getByText('Workflow')).toBeTruthy();
+      expect(getByText('Next action')).toBeTruthy();
+    });
+
+    it('makes no prior-contribution-history claim yet — that remains T-FE-E.1b, blocked on T-BE-E.1a', async () => {
+      const { findByText, queryByText } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      expect(queryByText(/prior visit/i)).toBeNull();
+      expect(queryByText(/contribution history/i)).toBeNull();
+    });
+
+    it('does not fall back to the patient\'s latest Episode/Case Sheet — uses only the context this shell already resolved', () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const path = require('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/pages/VisitCommandCenter.tsx'),
+        'utf8',
+      );
+      expect(source).not.toMatch(/latestEpisode|latest_episode|mostRecentEpisode/i);
+    });
   });
 });

@@ -272,6 +272,18 @@ export const CaseSheetModule = forwardRef<CaseSheetModuleHandle, CaseSheetModule
     });
 
     const performAutosave = useCallback(async (): Promise<void> => {
+      // T-FE-E.1a (T-BE-C.2, FR-CS-2): never send an unattributed write.
+      // Missing appointmentId means the current-Visit context this write
+      // would be attributed to cannot be established — preserve the
+      // draft locally, surface the module's own existing error
+      // convention, and do not create a second Case Sheet by falling
+      // through to the create branch below.
+      if (!appointmentId) {
+        setCasesheetSaveError('Missing current appointment context');
+        activeSections.forEach((k) => setSectionSaveStatus(k, 'error'));
+        return;
+      }
+
       const draft = casesheetDataRef.current;
       activeSections.forEach((k) => setSectionSaveStatus(k, 'saving'));
       setIsCasesheetSaving(true);
@@ -287,7 +299,12 @@ export const CaseSheetModule = forwardRef<CaseSheetModuleHandle, CaseSheetModule
           casesheetIdRef.current = response.id;
           setCasesheetId(response.id);
         } else {
-          await updateMutation.mutateAsync({ data_json: draft });
+          // T-FE-E.1a (T-BE-C.2, FR-CS-2): supply the explicit current-
+          // Visit context on every update, not just create -- the
+          // backend already accepts and requires this to attribute the
+          // contribution to the Visit the write actually happened
+          // during, not the Case Sheet's original creation Visit.
+          await updateMutation.mutateAsync({ data_json: draft, appointment_id: appointmentId });
         }
 
         setCasesheetSaveError(null);

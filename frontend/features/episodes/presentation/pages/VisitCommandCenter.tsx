@@ -14,11 +14,25 @@
  * backend-recommended next action + deviation menu (T-FE-B.2, FR-REC-2/
  * FR-COS-2, Decision 7 — see `NextActionBar.tsx`), in design.md §3's own
  * region order (`BriefingRegions → WorkflowPills → NextActionBar →
- * active-stage body`).
- * It still does not render the active-stage module content inline
- * (Case Sheet / Prescription / Treatment Recommendation) — that
- * remains FE Group E's own scope (module composition); the placeholder
- * below still represents that later, not-yet-built work.
+ * active-stage body`), and, in the active-stage body, the existing
+ * `CaseSheetModule` (T-FE-E.1a, FR-CS-1).
+ *
+ * T-FE-E.1a composes `CaseSheetModule` UNCHANGED -- same component R3A ·
+ * T-B.1 already built and `ConsultationWorkspaceScreen.tsx` already
+ * hosts, reading tenant/episode/patient/visit identity from the SAME
+ * `WorkspaceProvider` this shell already wraps everything in (verified:
+ * `CaseSheetModule` takes only `{ expandedSections, onToggleSection }` as
+ * props -- no identity threading needed). Also wraps in
+ * `WorkspaceSaveStatusProvider` -- `CaseSheetModule` calls
+ * `useReportSaveStatus()` unconditionally and throws without an
+ * ancestor provider (verified in `WorkspaceSaveStatusContext.tsx`); this
+ * mirrors exactly what `ClinicalWorkspace.tsx` already does for the same
+ * module, not a new pattern.
+ *
+ * Case Sheet is the only active-stage module composed here --
+ * Prescription/Treatment Recommendation/etc. remain FE Group E's own
+ * later scope; the placeholder below still represents that remaining,
+ * not-yet-built work.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -29,7 +43,7 @@
  * unresolvable `appointmentId` as invalid context (W30: "No active
  * appointment for this episode"), never a guessed Visit.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,11 +57,14 @@ import {
   usePatientContext,
   useVisitContext,
 } from '../context/ClinicalWorkspaceContext';
+import { WorkspaceSaveStatusProvider } from '../context/WorkspaceSaveStatusContext';
 import { WhyTodaySection } from '../components/WhyTodaySection';
 import { WhatChangedSection } from '../components/WhatChangedSection';
 import { BeforeYouActSection } from '../components/BeforeYouActSection';
 import { WorkflowPills } from '../components/WorkflowPills';
 import { NextActionBar } from '../components/NextActionBar';
+import { CaseSheetModule } from '../components/ConsultationSections/CaseSheetModule';
+import { SectionKey } from '../hooks/useConsultationWorkspace';
 
 export interface VisitCommandCenterProps {
   episodeId: string;
@@ -72,7 +89,9 @@ export const VisitCommandCenter: React.FC<VisitCommandCenterProps> = ({
 
   return (
     <WorkspaceProvider tenantId={tenantId} episodeId={episodeId} appointmentId={appointmentId} clientId={clientId}>
-      <VisitCommandCenterShell />
+      <WorkspaceSaveStatusProvider>
+        <VisitCommandCenterShell />
+      </WorkspaceSaveStatusProvider>
     </WorkspaceProvider>
   );
 };
@@ -84,6 +103,22 @@ const VisitCommandCenterShell: React.FC = () => {
   const patient = usePatientContext();
   const episode = useEpisodeContext();
   const visit = useVisitContext();
+
+  // T-FE-E.1a: CaseSheetModule's own local expand/collapse state,
+  // mirroring ConsultationWorkspaceScreen.tsx's identical toggleSection
+  // pattern exactly -- CaseSheetModule itself owns all Case Sheet data/
+  // save state; this shell owns only which sections are expanded.
+  const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(
+    new Set(['chiefComplaint']),
+  );
+  const toggleSection = (key: SectionKey) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   if (episode.isEpisodeLoading) {
     return (
@@ -155,6 +190,7 @@ const VisitCommandCenterShell: React.FC = () => {
           episodeId={episode.episodeId}
           appointmentId={visit.appointmentId}
         />
+        <CaseSheetModule expandedSections={expandedSections} onToggleSection={toggleSection} />
         <View
           style={[
             styles.placeholder,

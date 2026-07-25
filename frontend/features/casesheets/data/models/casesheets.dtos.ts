@@ -30,6 +30,16 @@ export interface CasesheetCreateRequest {
 /** Update casesheet request */
 export interface CasesheetUpdateRequest {
   data_json: Record<string, any>;
+  /**
+   * T-FE-E.1a (T-BE-C.2, FR-CS-2). The Appointment this write is authored
+   * during, right now -- the backend resolves and validates the current
+   * Visit from it server-side (never a client-supplied visit_id). This
+   * field already exists on the backend's CaseSheetUpdateRequest schema;
+   * it was simply never sent from the frontend update path before this
+   * task, which is exactly the verified defect FR-CS-2 names (every
+   * contribution after the first attributed to the creating visit).
+   */
+  appointment_id?: string;
 }
 
 /** Transition casesheet status request */
