@@ -243,6 +243,25 @@ It must **never** return button colours, icons, layout, or UI labels. **Backend 
 
 ---
 
+## Decision 12 — Case Sheet Contribution Snapshots (DO-2 amendment) · **RATIFIED** *(v1.3 amendment, 2026-07-25)*
+
+**Decision.** DO-2's core invariant is retained unchanged: **there is exactly one current, editable Case Sheet per Episode** (`TenantCasesheet.data_json` remains the sole canonical, mutable document — never superseded, never forked). DO-2's *narrower* restriction — that a Case Sheet Contribution "holds NO clinical content" — is amended: `TenantCasesheetContribution` gains one additive, nullable `content_snapshot` JSONB column, populated with the exact validated `data_json` being committed at the moment a contribution is recorded.
+
+**Amended DO-2 interpretation, stated precisely:**
+> The Episode Case Sheet remains the sole current editable clinical document. A Case Sheet Contribution may retain an immutable content snapshot solely for Visit attribution, historical visibility, auditability, and continuity. The snapshot is not an independently editable Case Sheet and is not a second source of current truth.
+
+A contribution snapshot is: append-only, immutable after insert, Visit-attributed (`visit_id`, unchanged), author-attributed (`staff_id`, unchanged), timestamped (`contributed_at`, unchanged), never independently edited, never treated as a second Case Sheet, and never used as the current write model. No JSON-patch or semantic-diff representation is introduced for MVP — the snapshot is the full `data_json` at that moment, stored and returned unreinterpreted.
+
+**Verified problem this decision closes (engineering-truth, T-BE-E.1a pre-implementation investigation).** FR-CS-5 ("prior visits' notes visibly retained with author+timestamp, never overwritten") and its own frontend consumer, `T-FE-E.1b`, both require rendering historical contribution *content*. Verified reality: `TenantCasesheetContribution`'s own docstring states explicitly *"Holds NO clinical content — the Case Sheet's own content stays Episode-owned (DO-2)"* (Phase 2 · T-B.2, ADR-P2-03); its persisted columns are `id, tenant_id, casesheet_id, visit_id, staff_id, contributed_at, correlation_id, payload_hash` — no content field exists anywhere, and `payload_hash` is a one-way SHA-256 digest, cryptographically irreversible. `TenantCasesheet.data_json` is a single mutable document, overwritten in place on every update (verified in `casesheets_service.py`'s `update_casesheet` and in the frontend's own `CaseSheetModule.tsx` update call, which sends a full replacement, not a delta). Without amendment, FR-CS-5's AC is structurally unsatisfiable — not a missing endpoint, but a missing persisted fact.
+
+**Alternatives rejected.** *Attribution-only history (author/timestamp, no content)* — rejected: does not satisfy FR-CS-5's own wording ("notes visibly retained"), and a timeline of "who touched this, with nothing to show for it" does not serve the clinical continuity purpose FR-CS-5 exists for. *JSON-patch/diff-based history* — rejected for MVP as unnecessary complexity; a full snapshot is simpler, correct, and sufficient, and the requirement never asked for a diff view. *A second, independently versioned Case Sheet entity* — rejected: would violate DO-2's core invariant (one current, editable document per Episode) and is explicitly out of this decision's scope; nothing here creates a versioning workflow.
+
+**Legacy rows.** Existing contribution rows keep `content_snapshot = NULL` — never backfilled, never reconstructed from the current `data_json`, never inferred. The history API returns them with an explicit `content_available = false` state, never silently substituting current content for historical content.
+
+**Product impact.** Enables FR-CS-5's own frontend surface (`T-FE-E.1b`) to render real historical content, not just attribution metadata. **Architecture impact.** Low — one additive, nullable, reversible column on an existing table; no new entity, no new write path beyond extending the existing atomic contribution-recording transaction (`T-BE-C.2`/`T-BE-C.3`/`T-BE-C.4`, unchanged in structure). **Code/schema change:** yes — one additive, reversible migration (`T-BE-E.1a`), backend-only, applied first to disposable local PostgreSQL only; the shared development database is not upgraded by this decision. **Documents affected:** this document, `design.md` §2.2, `tasks.md` (`T-BE-E.1a`'s own card), `RTM-MASTER.md` (FR-CS-5/FR-CS-6 entries only).
+
+---
+
 ## Patient-Safety Reality Check — **F-2, BLOCKING, owner response required**
 
 The owner scoped into R7 core: *"At minimum surface existing verified data for: allergies · active medicines · known contraindication warnings · pending clinical reviews · renal-risk indicators where existing data already supports them"* — with the instruction **"Do not invent unsupported clinical rules."** Verified against code:

@@ -180,14 +180,14 @@
 ### FR-CS-5 — Append-only visit notes surface
 **Business Objective:** Prior visits' notes visibly retained with author + timestamp; a visit appends, never overwrites.
 **Priority:** MVP Mandatory
-**Design:** — (cited via GAP-MATRIX only) · **Decision:** D1 · **ET refs:** none · **Owner Ratification:** —
-**Backend:** Tasks: none (data model already supports this via `TenantCasesheetContribution`) · Status: **Complete** (underlying mechanism)
-**Frontend:** Tasks: T-FE-E.1 · Status: **Not Started**
-**Implementation Evidence:** none on the frontend
-**Tests:** none
-**Traceability:** FR-CS-5 → GAP-MATRIX → T-FE-E.1 → — → — → Not Started
+**Design:** §2.2(g) · **Decision:** D1, **Decision 12** (DO-2 amendment, v1.3) · **ET refs:** T-BE-E.1a pre-implementation investigation · **Owner Ratification:** Decision 12
+**Backend:** Tasks: `T-BE-E.1a` (in progress — snapshot migration/write/read contract) · Status: **In progress**. **[Corrected 2026-07-25]** The prior "Complete (underlying mechanism)" claim on this row was wrong — Engineering Truth proved `TenantCasesheetContribution` was attribution-only (no content field existed anywhere), so the "underlying mechanism" did not actually support this requirement's own AC. Decision 12 ratifies the narrow fix (additive `content_snapshot` column).
+**Frontend:** Tasks: `T-FE-E.1a` (composition — complete, commit `0ed23f7`), `T-FE-E.1b` (render history — blocked on `T-BE-E.1a`) · Status: **Partially Complete**
+**Implementation Evidence:** `T-FE-E.1a` commit `0ed23f7`; `T-BE-E.1a` in progress
+**Tests:** `T-FE-E.1a`'s 14 tests (composition only, no history claim yet)
+**Traceability:** FR-CS-5 → design.md §2.2(g) → T-BE-E.1a/T-FE-E.1a/T-FE-E.1b → — → — → Partially Complete
 **Release Classification:** BLOCKING MVP
-**Remarks:** The contribution model has existed since Phase 2 and is exercised by FR-CS-2's tests, but there is genuinely no UI surface rendering it yet — "the contribution model exists but has no UI," per the requirement's own rationale text.
+**Remarks:** The original requirement rationale ("the contribution model exists but has no UI") undersold the actual gap — the model didn't persist content at all, only attribution. Decision 12 closes that gap without reopening DO-2's core invariant (one current, editable Case Sheet per Episode).
 
 ### FR-CS-6 — Audit
 **Business Objective:** Every contribution records actor, time, visit; amendments additionally record reason.

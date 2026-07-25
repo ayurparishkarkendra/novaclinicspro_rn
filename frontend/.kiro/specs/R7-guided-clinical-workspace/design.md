@@ -104,6 +104,15 @@ No colours/icons/layout/UI labels — same semantics-only discipline as §2.1's 
 
 **(f) `appointment_id` (FR-CS-2 AC 12).** Retained; meaning documented as **creation provenance only**; never read for current-visit attribution. Nullability untouched; `episode_id` non-null migration deferred behind a data audit (**ETX-2**).
 
+**(g) Contribution content snapshots (FR-CS-5, FR-CS-6) — Decision 12 amendment (T-BE-E.1a, v1.3, 2026-07-25).**
+> **Verified gap this closes.** `TenantCasesheetContribution` was attribution-only (`id, tenant_id, casesheet_id, visit_id, staff_id, contributed_at, correlation_id, payload_hash`) — no content field existed anywhere, by the original Decision "holds NO clinical content" (Phase 2 · T-B.2, ADR-P2-03). `TenantCasesheet.data_json` is a single mutable document, overwritten in place on every update. Without amendment, FR-CS-5 ("prior visits' notes visibly retained... never overwritten") has no persisted fact to render.
+
+**Amendment.** `TenantCasesheetContribution` gains one additive, nullable `content_snapshot` JSONB column — the exact validated `data_json` at the moment of that contribution, stored inside the SAME atomic transaction (d) already performs (no new transactional machinery). DO-2's core invariant is unchanged: `TenantCasesheet.data_json` remains the sole current, editable document; the snapshot is never independently editable and is never treated as a second Case Sheet. See Decision 12 (`R7-OWNER-RATIFICATION.md`) for the full ratified interpretation.
+
+**Read path.** One additive read method (`list_by_casesheet`, already existed at the repository layer) exposed through the existing Case Sheet router/service — no new aggregate, no Clinical Workspace history endpoint. Legacy rows keep `content_snapshot = NULL`, returned with an explicit `content_available = false`, never backfilled or reconstructed from current `data_json`.
+
+**Idempotency (e) interaction.** `payload_hash` is computed from the same `data_json` that becomes `content_snapshot` — consistency between the two is automatic, not a separately maintained invariant. A retry with a mismatched hash is rejected exactly as (e) already specifies; no second idempotency mechanism is introduced.
+
 ### 2.3 Treatment Plan — first-class persisted, versioned entity
 **Implements:** FR-TP-1, FR-TP-2, FR-TP-3 · **Decision:** Treatment Plan resolution · **Principles:** P1, P3, P6
 
