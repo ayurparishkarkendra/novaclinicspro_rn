@@ -65,6 +65,19 @@
  * here. `legacy_treatment_sessions` rows get an explicit
  * "Plan association unavailable" subtitle (AC-6) -- literal text, not an
  * inferred one, since that is exactly what this encounter type means.
+ *
+ * T-FE-C.7 (FR-MOB-1, FR-HIST-1 AC17): mobile hierarchy behaviour.
+ * Engineering Truth found only one genuine gap among the 3 frozen AC
+ * items -- the collapse/expand touch target (the Plan row's own
+ * `TouchableOpacity`) had no explicit minimum size, sized only by
+ * content. Now given `minHeight: sizes.touchTarget` (the same governed
+ * 44pt token used throughout this codebase). The other two AC items were
+ * already true by construction and needed proof, not code: (2) no
+ * viewport-conditional rendering exists anywhere in this file, so Plan
+ * grouping can never be flattened on a smaller screen -- there is no
+ * "mobile mode" to degrade into a flat list. (3) every status-bearing
+ * element (session counts, item type) already renders icon+text, never a
+ * bare colour-only dot.
  */
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -122,7 +135,7 @@ const SessionCountsBreakdown: React.FC<{ counts: ClinicalTimelineSessionCounts }
 
 export const ClinicalTimeline: React.FC = () => {
   const router = useRouter();
-  const { colors, spacing, typography } = useClinicTheme();
+  const { colors, spacing, typography, sizes } = useClinicTheme();
   const { t } = useTranslation();
   const { items, isLoading, isError, refetch } = useClinicalTimelineData();
   // T-FE-C.6 (AC-3): presentation-only expand/collapse state -- which
@@ -156,7 +169,17 @@ export const ClinicalTimeline: React.FC = () => {
           accessibilityLabel={`${item.title}${subtitle ? `, ${subtitle}` : ''}, ${formatDate(item.date)}`}
           style={[
             styles.item,
-            { borderColor: colors.border.subtle, borderRadius: spacing.sm, padding: spacing.sm, gap: spacing.sm },
+            {
+              borderColor: colors.border.subtle,
+              borderRadius: spacing.sm,
+              padding: spacing.sm,
+              gap: spacing.sm,
+              // T-FE-C.7 (FR-MOB-1 AC1 pattern): the collapse/expand
+              // control (and every other row's own press target) meets
+              // the governed minimum touch target, not just whatever
+              // content happens to render.
+              minHeight: sizes.touchTarget,
+            },
           ]}
         >
           <View style={[styles.itemRow, { gap: spacing.sm }]}>
@@ -179,7 +202,7 @@ export const ClinicalTimeline: React.FC = () => {
         </TouchableOpacity>
       );
     },
-    [router, colors, spacing, typography, t, expandedIds, toggleExpanded],
+    [router, colors, spacing, typography, sizes, t, expandedIds, toggleExpanded],
   );
   const keyExtractor = useCallback((item: ClinicalTimelineItem) => item.id, []);
 

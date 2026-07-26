@@ -34,6 +34,7 @@ jest.mock('../../../core/theme/useClinicTheme', () => ({
     },
     spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
     typography: { h6: {}, subtitle2: {}, body2: {}, caption: {}, button: {} },
+    sizes: { touchTarget: 44, iconSmall: 16, iconMedium: 24, iconLarge: 32 },
   }),
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
@@ -299,6 +300,76 @@ describe('ClinicalTimeline (T-FE-C.5, T-BE-A.3/A.3a)', () => {
 
       it('never renders a per-session row -- no sessions[] array is read from the backend item', () => {
         expect(source).not.toMatch(/item\.sessions\b|\.sessions\[/);
+      });
+    });
+  });
+
+  describe('T-FE-C.7 — mobile hierarchy behaviour', () => {
+    const planItem = {
+      id: 'p1',
+      type: 'treatment_plan',
+      date: '2026-05-15',
+      title: 'Treatment Plan',
+      appointmentIds: ['a2', 'a3'],
+      planId: 'p1',
+      sessionCounts: { completed: 2, scheduled: 1, not_completed: 3, cancelled: 0 },
+      route: undefined,
+    };
+
+    it('AC1: the collapse/expand row renders without error once given an explicit touch-target minHeight (structural proof is the source-level check below)', () => {
+      mockHook({ items: [planItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      expect(getByText('Treatment Plan')).toBeTruthy();
+    });
+
+    it('AC2: Plan grouping is never flattened -- a Treatment Plan item always renders as one grouped row, not one row per appointmentId', () => {
+      mockHook({ items: [planItem] });
+      const { getAllByText } = render(<ClinicalTimeline />);
+      // planItem groups 2 appointmentIds (a2, a3) -- exactly one row must
+      // render for the Plan, never two (one per appointment).
+      expect(getAllByText('Treatment Plan')).toHaveLength(1);
+    });
+
+    it('AC2: multiple Treatment Plan groups remain visually distinct rows, never merged into a flat undifferentiated list', () => {
+      const plan2 = { ...planItem, id: 'p2', planId: 'p2' };
+      mockHook({ items: [planItem, plan2] });
+      const { getAllByText } = render(<ClinicalTimeline />);
+      expect(getAllByText('Treatment Plan')).toHaveLength(2);
+    });
+
+    it('AC3: session counts render icon + text, never a bare colour-only indicator', () => {
+      mockHook({ items: [planItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      // Every count row has its own text label alongside its icon --
+      // proven by the label text itself being present and queryable.
+      expect(getByText(/Completed: 2/)).toBeTruthy();
+    });
+
+    describe('Source-level checks', () => {
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/components/ClinicalTimeline.tsx'),
+        'utf8',
+      );
+
+      it('the item touchable has an explicit minHeight sourced from the governed sizes.touchTarget token, not a raw number', () => {
+        expect(source).toMatch(/minHeight:\s*sizes\.touchTarget/);
+      });
+
+      it('no raw pixel literal is used as a touch-target minimum (must come from the theme token)', () => {
+        expect(source).not.toMatch(/minHeight:\s*44/);
+      });
+
+      it('no viewport/screen-width conditional exists that could flatten the hierarchy on a smaller screen', () => {
+        expect(source).not.toMatch(/Dimensions\.get|useWindowDimensions|isTablet|isMobile|screenWidth/i);
+      });
+
+      it('no dot-only status indicator -- every status-bearing View/Ionicons pairing is followed by a Text sibling in the same row', () => {
+        // Structural proxy: SESSION_COUNT_ICON values are always rendered
+        // alongside a Text label in SessionCountsBreakdown (verified by
+        // the rendering test above); this guards the source itself never
+        // introduces a bare status View with only a colour and no text.
+        expect(source).not.toMatch(/backgroundColor:\s*colors\.feedback\.\w+\s*}\s*\/>/);
       });
     });
   });
