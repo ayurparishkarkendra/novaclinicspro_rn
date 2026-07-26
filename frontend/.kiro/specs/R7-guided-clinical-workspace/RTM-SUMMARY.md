@@ -14,6 +14,8 @@
 
 **Fifth addendum (2026-07-26, T-FE-C.6 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.6` (collapsible Treatment Plan groups, commit `71e9f44d`) is now complete. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly) — `T-FE-C.7` (mobile hierarchy) is still not started, and Engineering Truth during `T-FE-C.6` found the live Clinical History contract carries no per-session data and no Plan status field, leaving FR-HIST-1's own AC7 (status-distinct Plans)/AC8/AC9 (individual Session detail) unsatisfiable without a further backend amendment — reported on `RTM-MASTER.md`'s FR-HIST-1 row, not fabricated around. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
 
+**Sixth addendum (2026-07-26, T-FE-C.7 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.7` (mobile hierarchy behaviour, commit `3315d08d`) is now complete — all 3 tasks in the `T-FE-C.5`/`C.6`/`C.7` chain are done. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly): the requirement-level AC7/AC8/AC9 backend gap reported under the fifth addendum is unchanged by this closure — `T-FE-C.7`'s own 3-item AC needed no new backend field and was satisfied without touching that gap. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+
 ---
 
 ## Requirement-level statistics (44 total)

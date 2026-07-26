@@ -502,6 +502,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **AC:** (1) collapse/expand touch target ≥44pt (FR-MOB-1 AC1 pattern). (2) hierarchy is **not flattened** on mobile — Plan grouping preserved, not degraded to a flat list for space. (3) no dot-only status representation (FR-MOB-1 AC2).
 **Tests:** unit · responsive. **Rollback:** *Behavior*.
 **Reqs:** FR-HIST-1 AC17 · **Design:** §3 · **Decisions:** D10
+**Status [Updated 2026-07-26]: COMPLETE.** Commit `3315d08d` (`novaclinicspro_rn`). Engineering Truth found only one genuine gap among the 3 frozen AC items: (1) the collapse/expand touch target had no explicit minimum, sized only by content — fixed with `minHeight: sizes.touchTarget` (the governed 44pt token), no raw literal. (2)/(3) were already true by construction and needed proof, not code: no viewport-conditional rendering exists anywhere in `ClinicalTimeline.tsx` (so Plan grouping can never be flattened on a smaller screen), and every status-bearing element already renders icon+text, never a bare colour-only dot. No new backend field was required for this task's own AC — the still-open `sessions[]`/Plan-`status` gap reported under `T-FE-C.6` remains a separate, unresolved requirement-level blocker for FR-HIST-1's AC7/AC8/AC9, not this task's own scope.
 
 ## FE Group D — Dynamic workflow rendering
 
