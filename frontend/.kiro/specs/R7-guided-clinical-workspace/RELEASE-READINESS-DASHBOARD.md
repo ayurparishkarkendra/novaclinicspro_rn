@@ -1,38 +1,30 @@
 # RELEASE-READINESS-DASHBOARD — NovaClinics Clinical Operating System
 
-**As of:** 2026-07-25 · Backend `c16cbf008f51cb248698057bc9acd68a4cf568bf` · Frontend `57902bccdc9665a570a7768b6b61603ce3f0970f`
+**As of:** 2026-07-27 (full reconciliation pass) · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`
 **Legend:** ✅ Complete · 🟠 Implemented, Not Exposed (service-only — no router/caller reaches it) · 🟡 Partial · 🔴 Not Started · N/A Not Applicable to this capability
 
-**Backend-closure audit addendum (2026-07-25, backend HEAD `a0aa4c3`) — narrow, targeted only:** only the **Session Scheduling** and **Therapist Execution** rows are corrected below. `T-BE-E.2a` and `T-BE-E.4a` (the transport-exposure tasks the prior audit pass flagged) are now complete and pushed — both rows move from 🟠 to ✅ on the Backend column. The other rows are unchanged from the prior passes and are known to be stale in places (e.g. Clinical History's T-BE-A.3–A.5 chain has since completed) — a full dashboard recount is a separate, larger reconciliation not performed here, consistent with the standing instruction against unscoped RTM/dashboard reconciliation.
-
-**Addendum (2026-07-26, `T-BE-E.1a`/`T-FE-E.1a`/`T-FE-E.1b` closure) — narrow, targeted only:** only the **Case Sheet Continuity** row is corrected below. The Case Sheet content snapshot (backend, `T-BE-E.1a`, commit `00682b6`, shared-dev DB upgraded `8e43b15`) and its frontend composition + read-only history rendering (`T-FE-E.1a`/`T-FE-E.1b`, commits `0ed23f7`/`c93fddf`) are now both complete — this row moves from 🔴 to ✅ on the Frontend and Release columns. Other rows are unchanged and not recomputed in this pass.
+**Reconciliation note.** This dashboard is fully rewritten this pass, not addended. **Workflow Engine** and **Recommendation Engine** move from 🔴/🔴 to ✅/✅ on Frontend/Release — `T-FE-B.1`, `T-FE-B.2`, `T-FE-D.1` had shipped (commits `6e667d15`, `acfa730a`, `426967bb`) without this dashboard being updated, the same staleness `RTM-MASTER.md`'s reconciliation found in five requirement cards. Every other row was independently re-verified via `git log` and source inspection this pass; see `RTM-MASTER.md`'s Reconciliation Evidence section for method.
 
 | Capability | BE | FE | Tests | Release | MVP Scope |
 |---|---|---|---|---|---|
 | Clinical Workspace Shell & Briefing | ✅ | ✅ | ✅ | ✅ | Included |
 | Patient Safety Surface | ✅ | ✅ | ✅ | ✅ | Included |
-| Workflow Engine | ✅ | 🔴 | ✅ | 🔴 | Included |
-| Recommendation Engine | ✅ | 🔴 | ✅ | 🔴 | Included |
+| Workflow Engine | ✅ | ✅ **[Corrected — was stale 🔴]** (`T-FE-D.1`, commit `426967bb`) | ✅ | ✅ | Included |
+| Recommendation Engine | ✅ | ✅ **[Corrected — was stale 🔴]** (`T-FE-B.1`/`T-FE-B.2`, commits `6e667d15`/`acfa730a`) | ✅ | ✅ | Included |
 | Case Sheet Continuity | ✅ | ✅ (`T-FE-E.1a`+`T-FE-E.1b`, commits `0ed23f7`/`c93fddf`) | ✅ | ✅ | Included |
-| Prescription Management | ✅ | 🔴 | ✅ | 🔴 | Included |
-| Treatment Recommendation & Plan (creation) | ✅ | 🔴 | ✅ | 🔴 | Included |
-| Session Scheduling | ✅ (intents resolved and exposed — `T-BE-E.2a`, commit `882dfa6`) | 🔴 | ✅ (48+12) | 🔴 | Included |
-| Therapist Execution | ✅ (non-execution recording done and exposed — `T-BE-E.4a`, commit `a0aa4c3`) | 🔴 | ✅ (44+17) | 🔴 | Included |
-| Billing Visibility | ✅ | 🔴 | ✅ | 🔴 | Included |
-| Clinical History | ✅ (`T-BE-A.3/A.4/A.5/A.3a/A.3b`, commits `4472060`/`2147ada`/`6cac1e6`/`8326f33`/`186f11f`) | ✅ (`T-FE-C.5`+`T-FE-C.6`+`T-FE-C.7`+`T-FE-C.6a` all done, commits `cedee6cc`/`71e9f44d`/`3315d08d`/`3a4afd71` — consumption + collapsible Plan groups + mobile hierarchy behaviour + enriched Plan-status/Session rendering) | ✅ | ✅ | Included |
-| Role-Based Workflow | N/A | 🔴 | 🔴 | 🔴 | Included |
-| Legacy Navigation | N/A | 🔴 | 🔴 | 🔴 | Included |
-| Living Documents (incl. Plan versioning) | 🔴 | 🔴 | 🔴 | 🔴 | **Deferred** |
-| Mobile-First Presentation (full polish) | N/A | 🟡 | ✅ | 🟡 | **Deferred** |
+| Prescription Management | ✅ | 🔴 (`T-FE-E.2` not started) | ✅ | 🔴 | Included |
+| Treatment Recommendation & Plan (creation) | ✅ | 🔴 (`T-FE-E.2` not started) | ✅ | 🔴 | Included |
+| Session Scheduling | ✅ (intents resolved and exposed — `T-BE-E.2a`, commit `882dfa6`) | 🔴 (`T-FE-E.2` not started) | ✅ (48+12) | 🔴 | Included |
+| Doctor Session Instructions | ✅ (`T-BE-E.3`, commit `9497f13`) | 🔴 (`T-FE-E.2` not started) | ✅ (58) | 🔴 | Included |
+| Therapist Execution | ✅ (non-execution recording done and exposed — `T-BE-E.4a`, commit `a0aa4c3`) | 🔴 (`T-FE-E.3` not started) | ✅ (44+17) | 🔴 | Included |
+| Billing Visibility | ✅ | 🔴 (`T-FE-E.4` not started) | ✅ | 🔴 | Included |
+| Clinical History | ✅ (`T-BE-A.3/A.4/A.5/A.3a/A.3b`, commits `4472060`/`2147ada`/`6cac1e6`/`8326f33`/`186f11f`) | ✅ (`T-FE-C.5`+`T-FE-C.6`+`T-FE-C.7`+`T-FE-C.6a` all done, commits `cedee6cc`/`71e9f44d`/`3315d08d`/`3a4afd71`) | ✅ | ✅ | Included |
+| Role-Based Workflow | N/A | 🔴 (`T-FE-E.6` not started) | 🔴 | 🔴 | Included |
+| Legacy Navigation | N/A | 🔴 (`T-FE-F.1/F.2/F.3` not started) | 🔴 | 🔴 | Included |
+| Living Documents (incl. Plan versioning) | 🔴 (`T-BE-G.1/G.2/G.3`, `T-BE-D.5` not started) | 🔴 (`T-FE-E.5` not started) | 🔴 | 🔴 | Included |
+| Release Validation | N/A | N/A | 🔴 | 🔴 | Included — never yet run (Group Z, 0/9) |
+| Mobile-First Presentation (full polish) | N/A | 🟡 | ✅ | 🟡 | **Deferred** (`T-FE-G.1` judged optional at task level) |
 
-**Overall Release column [Updated 2026-07-26, T-FE-C.5 closure]: 3 ✅ (Clinical Workspace, Patient Safety, Case Sheet Continuity) · 2 🟡 (Mobile, deferred anyway; Clinical History — backend + frontend consumption done, hierarchy rendering `T-FE-C.6`/`C.7` still ahead) · 10 🔴.** Of the 13 in-scope-for-MVP capabilities, 3 are release-ready today.
+**Overall Release column [Updated 2026-07-27, full reconciliation]: 6 ✅ (Clinical Workspace Shell, Patient Safety, Workflow Engine, Recommendation Engine, Case Sheet Continuity, Clinical History) · 1 🟡 (Mobile, deferred anyway) · 8 🔴 (Prescription, Treatment Recommendation & Plan, Session Scheduling, Doctor Session Instructions, Therapist Execution, Billing, Role-Based Workflow, Legacy Navigation) · 1 🔴 not-applicable-to-BE/FE-split (Living Documents, both sides 🔴) · 1 🔴 (Release Validation, never run).** Of the 16 in-scope-for-MVP capabilities (excluding the 1 deferred), **6 are release-ready today** — up from 3 in the prior (stale) pass, purely from correcting the Workflow/Recommendation Engine staleness, not from new work.
 
-**Addendum (2026-07-26, `T-FE-C.5` closure) — narrow, targeted only:** only the **Clinical History** row is corrected below. Its backend chain (`T-BE-A.3/A.4/A.5/A.3a`) and the frontend's own history-consumption task (`T-FE-C.5`) are both complete — the row moves from 🔴/🔴/🔴/🔴 to ✅/🟡/✅/🟡. Full hierarchy rendering (`T-FE-C.6`/`C.7`) remains, so Frontend/Release stay 🟡, not ✅. Other rows unchanged and not recomputed in this pass. **Doctor Session content (FR-TS-3, FR-SCH-2)** is not its own dashboard row but is tracked in `RTM-MASTER.md`: backend accepted with a documented staged-rollout compatibility amendment (`93e9b8d`); FE not started.
-
-**Second addendum (2026-07-26, `T-FE-C.6` closure) — narrow, targeted only:** only the **Clinical History** row is updated again below. `T-FE-C.6` (collapsible Treatment Plan groups, commit `71e9f44d`) is complete — Frontend/Release stay 🟡, not ✅, since `T-FE-C.7` (mobile) remains and Engineering Truth found the live contract carries no per-session data or Plan status field, so the requirement's own AC7-9 clauses remain unsatisfiable without a further backend amendment (reported on `RTM-MASTER.md`'s FR-HIST-1 row).
-
-**Third addendum (2026-07-26, `T-FE-C.7` closure) — narrow, targeted only:** only the **Clinical History** row is updated again below. `T-FE-C.7` (mobile hierarchy behaviour, commit `3315d08d`) is complete — all three of `T-FE-C.5`/`C.6`/`C.7` are now done. Frontend/Release stay 🟡, not ✅: the per-session/Plan-status backend gap reported under the second addendum is unaffected by this closure and remains the sole open item for FR-HIST-1's own AC.
-
-**Fourth addendum (2026-07-27, `T-BE-A.3b`/`T-FE-C.6a` closure — Clinical History complete) — narrow, targeted only:** only the **Clinical History** row is updated again below. `T-BE-A.3b` (backend Plan-status/Session enrichment, commit `186f11f`) and `T-FE-C.6a` (frontend rendering, commit `3a4afd71`) are both complete — the per-session/Plan-status backend gap reported under the second/third addenda is now closed. Row moves from ✅/🟡/✅/🟡 to ✅/✅/✅/✅. `FR-HIST-1` and `FR-HIST-2` are both READY FOR MVP on `RTM-MASTER.md`. The **Overall Release column** summary line above is not recomputed in this narrow pass — it still reads its pre-closure count; treat Clinical History as ✅, not 🟡, when reading it until the next full recount.
-
-**Reading this dashboard correctly [Updated 2026-07-25]:** every remaining 🔴 in the Release column is now driven by a ✅ (or, for the two stale rows, presumed-complete) Backend column paired with a 🔴 Frontend column — meaning **100% of the remaining engineering risk for Session Scheduling and Therapist Execution is now frontend composition**, not backend design, implementation, or exposure risk. Both capabilities' backend halves are complete, tested, and reachable over HTTP as of commits `882dfa6`/`a0aa4c3`.
+**Reading this dashboard correctly:** every remaining 🔴 in the Release column except Living Documents and Role-Based Workflow is now driven by a ✅ Backend column paired with a 🔴 Frontend column — meaning most of the remaining engineering risk for Prescription/Treatment Recommendation/Plan/Scheduling/Doctor Session Instructions/Therapist Execution/Billing is frontend composition (`T-FE-E.2`, `T-FE-E.3`, `T-FE-E.4`), not backend design, implementation, or exposure risk. Living Documents is the one capability with zero implementation on either side. Release Validation (Group Z) has not run once — no dashboard row above should be read as "release-ready" in the sense of having passed an end-to-end gate, only as "its own task-level AC is met."

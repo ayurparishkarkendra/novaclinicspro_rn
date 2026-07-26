@@ -2,7 +2,7 @@
 
 **Status: proposed authoritative source, not yet owner-approved.** This document reconciles `requirements.md`, `design.md`, `tasks.md`, the Dependency & Parallelism Map, `R7-OWNER-RATIFICATION.md`, both repositories' Engineering Truth/Debt documents, and the prior audit artifacts (`RTM.md`, `RTM-AUDIT.md`, `MVP-RELEASE-FREEZE.md`). It does not modify, rewrite, or reinterpret any of them. Every claim of completion below was checked against actual repository content (files, commits, tests) — nothing is marked done because it "looks done."
 
-**As of:** 2026-07-25 · Backend `novaclinicspro-api` @ `c16cbf008f51cb248698057bc9acd68a4cf568bf` (branch `feature/r7-clinical-operating-system`) · Frontend `novaclinicspro_rn` @ `57902bccdc9665a570a7768b6b61603ce3f0970f` (same branch). Repository state is unchanged since the prior audit (`RTM-AUDIT.md`, same commits) — all evidence below carries forward from that verified pass; no new commits exist to re-audit.
+**As of:** 2026-07-27 (full reconciliation pass — statistics and stale statuses recomputed from zero, not carried forward as an addendum) · Backend `novaclinicspro-api` @ `186f11f74c9ebd7986689a3919459ad69d446ea6` (branch `feature/r7-clinical-operating-system`) · Frontend `novaclinicspro_rn` @ `d69ade484d936cc2f819b40a15758ff22a7ce9d7` (same branch). **Reconciliation finding:** the prior pass (2026-07-25, carried through several narrow addenda since) had gone stale in more than just the Clinical History rows it was tracking — `T-FE-B.1`, `T-FE-B.2`, and `T-FE-D.1` had all shipped (commits `6e667d15`, `acfa730a`, `426967bb`) without their consuming requirement cards (`FR-VCC-1`, `FR-WFA-1`, `FR-REC-1`, `FR-REC-2`, `FR-MOB-2`) ever being updated to reflect it, and the "remaining task" classification table at the bottom of this document still listed 10 tasks (`T-BE-E.2/E.3/E.4/E.5`, `T-FE-B.1/B.2/C.4/C.5/C.6/C.7/D.1/E.1`) that had already completed. Every status below was re-verified this pass against current source, current tests, and `git log` on the current branch — see §Reconciliation Evidence for the exact commands and findings.
 
 **This document is requirement-centric.** One row (one card, below) per Functional Requirement — 44 total. A requirement spanning many tasks still gets exactly one card. Task-centric detail (files/commits/blocked-by) lives inside each requirement's card as evidence, not as the organizing structure.
 
@@ -54,12 +54,12 @@
 **Priority:** MVP Mandatory
 **Design:** §4a (matrix citation; this label does not resolve against design.md's actual headings — see `RTM-AUDIT.md` §7, finding #4) · **Decisions:** D7, D8 · **ET refs:** none · **Owner Ratification:** Decisions 7, 8
 **Backend:** Tasks: T-BE-A.1, T-BE-B.1/B.2 (facts + recommendation contracts) · Status: **Complete**
-**Frontend:** Tasks: T-FE-A.1 (shell), T-FE-B.1/B.2 (one-tap-to-recommended-task) · Status: **Partially Complete** — shell exists; the "one tap from briefing to recommended task" AC needs FE-B, not started
-**Implementation Evidence:** `VisitCommandCenter.tsx` (`1b53f3fd`)
-**Tests:** Unit (shell only)
-**Traceability:** FR-VCC-1 → design.md §4a → T-FE-A.1 (done) + T-FE-B.1/B.2 (not started) → partial → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** The briefing landing state itself works; the "one tap to task" AC is unverifiable until FE-B ships.
+**Frontend:** Tasks: T-FE-A.1 (shell), T-FE-B.1/B.2 (one-tap-to-recommended-task) · Status: **Complete** **[Corrected 2026-07-27 — stale]** — `T-FE-B.1` (commit `6e667d15`) and `T-FE-B.2` (commit `acfa730a`) both shipped 2026-07-24/25 without this card being updated; re-verified via `git log` and `WorkflowPills.tsx`/`NextActionBar.tsx` source inspection this pass
+**Implementation Evidence:** `VisitCommandCenter.tsx` (`1b53f3fd`), `WorkflowPills.tsx` (`6e667d15`), `NextActionBar.tsx` (`acfa730a`)
+**Tests:** Unit (shell) + unit/architecture/a11y (`T-FE-B.1`/`T-FE-B.2`)
+**Traceability:** FR-VCC-1 → design.md §4a → T-FE-A.1/T-FE-B.1/T-FE-B.2 (all done) → `VisitCommandCenter.tsx`+`WorkflowPills.tsx`+`NextActionBar.tsx` → tests above → `1b53f3fd`/`6e667d15`/`acfa730a` → Complete
+**Release Classification:** READY FOR MVP **[Corrected 2026-07-27]**
+**Remarks:** This card was stale — see the document header's Reconciliation finding. The briefing landing state and one-tap-to-recommended-task AC are both now implemented and tested.
 
 ### FR-VCC-2 — "Why today"
 **Business Objective:** Render appointment purpose + patient-stated concern; absent → "not recorded," never inferred.
@@ -106,12 +106,12 @@
 **Priority:** MVP Mandatory
 **Design:** §2.1 · **Decision:** D9 · **ET refs:** ETX-4 (capability-loss policy, applied to this task's own AC) · **Owner Ratification:** Decision 9
 **Backend:** Tasks: T-BE-B.1, T-BE-B.2 · Status: **Complete**
-**Frontend:** Tasks: T-FE-D.1 (render) · Status: **Not Started**
-**Implementation Evidence:** `clinical_workflow_resolver.py`, `clinical_workflow_service.py` — commits `f3895d8`, `bd0e746`
-**Tests:** BE: Unit (no-DB resolver tests, per-journey) + Architecture (`test_clinical_workflow_architecture.py`) + capability-loss unit tests (AC 8-16)
-**Traceability:** FR-WFA-1 → design.md §2.1 → T-BE-B.1/B.2 (done) + T-FE-D.1 (not started) → `clinical_workflow_resolver.py` → resolver/service/architecture tests → `f3895d8`/`bd0e746` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** Backend assembly is real and tested; nothing renders it yet.
+**Frontend:** Tasks: T-FE-D.1 (render) · Status: **Complete** **[Corrected 2026-07-27 — stale]** — commit `426967bb` shipped 2026-07-25 without this card being updated; re-verified via `git log` and `useConsultationWorkspace.ts`/workflow-rendering source this pass
+**Implementation Evidence:** `clinical_workflow_resolver.py`, `clinical_workflow_service.py` — commits `f3895d8`, `bd0e746`; workflow rendering — commit `426967bb`
+**Tests:** BE: Unit (no-DB resolver tests, per-journey) + Architecture (`test_clinical_workflow_architecture.py`) + capability-loss unit tests (AC 8-16). FE: per-journey unit + architecture ("no FE assembly") + regression.
+**Traceability:** FR-WFA-1 → design.md §2.1 → T-BE-B.1/B.2/T-FE-D.1 (all done) → `clinical_workflow_resolver.py` → resolver/service/architecture/FE tests → `f3895d8`/`bd0e746`/`426967bb` → Complete
+**Release Classification:** READY FOR MVP **[Corrected 2026-07-27]**
+**Remarks:** This card was stale — see the document header's Reconciliation finding. Backend assembly and its frontend rendering are both complete and tested.
 
 ### FR-WFA-2 — Permissions gate actionability, not presence
 **Business Objective:** A stage the role may not act on renders as waiting-on-role, never hidden; actionability from backend `blocking_factors`/`waiting_role`, not frontend role config alone.
@@ -446,24 +446,24 @@
 **Priority:** MVP Mandatory
 **Design:** §2.1, §4 · **Decision:** D9 · **ET refs:** none · **Owner Ratification:** Decision 9
 **Backend:** Tasks: T-BE-B.2, T-BE-B.2a, T-BE-B.3 · Status: **Complete**
-**Frontend:** Tasks: T-FE-B.1/B.2 (render) · Status: **Not Started**
-**Implementation Evidence:** `clinical_workflow_service.py`, `clinical_workflow_router.py` — commits `bd0e746`, `f23e018`
-**Tests:** Contract/semantics-only guard: `test_r7_workflow_contract_semantics_only.py` (`2c69107`, hardened `eaca818`)
-**Traceability:** FR-REC-1 → design.md §2.1/§4 → T-BE-B.2/B.2a/B.3 (done) + T-FE-B.1/B.2 (not started) → service + router → semantics guard → `bd0e746`/`f23e018`/`2c69107` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** The backend contract, including its explicit HTTP exposure (`T-BE-B.2a`, itself a controlled amendment that closed a sequencing gap `T-BE-B.3` found), is complete and permanently guarded. Nothing renders it yet.
+**Frontend:** Tasks: T-FE-B.1/B.2 (render) · Status: **Complete** **[Corrected 2026-07-27 — stale]** — commits `6e667d15`/`acfa730a` shipped without this card being updated
+**Implementation Evidence:** `clinical_workflow_service.py`, `clinical_workflow_router.py` — commits `bd0e746`, `f23e018`; `WorkflowPills.tsx`/`NextActionBar.tsx` — commits `6e667d15`/`acfa730a`
+**Tests:** Contract/semantics-only guard: `test_r7_workflow_contract_semantics_only.py` (`2c69107`, hardened `eaca818`). FE: per-state unit + architecture ("no assembly") + a11y.
+**Traceability:** FR-REC-1 → design.md §2.1/§4 → T-BE-B.2/B.2a/B.3/T-FE-B.1/B.2 (all done) → service + router + FE components → semantics guard + FE tests → `bd0e746`/`f23e018`/`2c69107`/`6e667d15`/`acfa730a` → Complete
+**Release Classification:** READY FOR MVP **[Corrected 2026-07-27]**
+**Remarks:** This card was stale — see the document header's Reconciliation finding. The backend contract and its rendering are both complete and permanently guarded.
 
 ### FR-REC-2 — Recommend, never decide
 **Business Objective:** Every recommendation presents action/reason/context/blocker/alternatives; deviation immediate (≤1 tap) and unpunished; no forced sequencing, no automatic clinical decision.
 **Priority:** MVP Mandatory
 **Design:** — · **Decision:** D7 · **ET refs:** none · **Owner Ratification:** Decision 7
 **Backend:** Tasks: none directly (contract from FR-REC-1 covers the data) · Status: N/A
-**Frontend:** Tasks: T-FE-B.2 · Status: **Not Started**
-**Implementation Evidence:** none
-**Tests:** none
-**Traceability:** FR-REC-2 → Decision 7 → T-FE-B.2 → — → — → Not Started
-**Release Classification:** BLOCKING MVP
-**Remarks:** A RATIFIED, product-central decision ("the clinician remains the decision-maker") with zero UI implementation — the deviation-menu UX cannot be verified to exist at all yet.
+**Frontend:** Tasks: T-FE-B.2 · Status: **Complete** **[Corrected 2026-07-27 — stale]** — commit `acfa730a`
+**Implementation Evidence:** `NextActionBar.tsx` — commit `acfa730a`
+**Tests:** unit · architecture ("FE computes no recommendation") · a11y
+**Traceability:** FR-REC-2 → Decision 7 → T-FE-B.2 (done) → `NextActionBar.tsx` → tests above → `acfa730a` → Complete
+**Release Classification:** READY FOR MVP **[Corrected 2026-07-27]**
+**Remarks:** This card was stale — see the document header's Reconciliation finding. `[Do this]` + `[Something else ▾]` deviation menu is implemented and tested; the frontend computes no recommendation of its own (architecture-tested).
 
 ### FR-CR-1 — Backend owns completion readiness
 **Business Objective:** Backend is the single answer to "can this visit be completed?" — outstanding mandatory work, optional suggested work, warnings, all explicit states.
@@ -514,12 +514,12 @@
 **Priority:** MVP Mandatory
 **Design:** — · **ET refs:** none · **Owner Ratification:** —
 **Backend:** Tasks: none · Status: N/A
-**Frontend:** Tasks: T-FE-B.1 · Status: **Not Started**
-**Implementation Evidence:** none
-**Tests:** none
-**Traceability:** FR-MOB-2 → (no design.md section cited) → T-FE-B.1 → — → — → Not Started
-**Release Classification:** BLOCKING MVP
-**Remarks:** None.
+**Frontend:** Tasks: T-FE-B.1 · Status: **Complete** **[Corrected 2026-07-27 — stale]** — commit `6e667d15`
+**Implementation Evidence:** `WorkflowPills.tsx` — commit `6e667d15`
+**Tests:** unit (each state) · architecture (no assembly) · a11y
+**Traceability:** FR-MOB-2 → (no design.md section cited) → T-FE-B.1 (done) → `WorkflowPills.tsx` → tests above → `6e667d15` → Complete
+**Release Classification:** READY FOR MVP **[Corrected 2026-07-27]**
+**Remarks:** This card was stale — see the document header's Reconciliation finding. All 6 pill states render icon+text, never colour-alone.
 
 ---
 
@@ -632,7 +632,7 @@ None found among the 44. Every requirement maps to at least one task (backend an
 
 ## Validation Report 3 — Requirements with Tasks but No Implementation
 
-19 requirements have at least one associated task with zero implementation evidence (Status: Not Started on that side): FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-TS-3, FR-TS-4, FR-TS-5, FR-SCH-1, FR-SCH-2, FR-REC-2, FR-MOB-2, FR-LEG-2, FR-HIST-1, FR-HIST-2, plus the not-started *half* of FR-COS-2, FR-VCC-1, FR-WFA-1, FR-WFA-2, FR-CS-1, FR-CS-5, FR-CS-6, FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-BILL-1, FR-BILL-2, FR-REC-1, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 (partially-complete requirements — see each card for which side).
+**[Recomputed 2026-07-27 — this list was stale.]** 15 requirements have at least one associated task with zero implementation evidence (Status: Not Started on that side): FR-COS-2 (T-Z.1, the general architecture proof, has not run), FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-TS-3, FR-TS-4 (frontend half only — backend complete), FR-TS-5 (frontend half only), FR-SCH-1 (frontend half only), FR-SCH-2 (frontend half only), FR-LEG-2, plus the not-started *half* of FR-CS-6 (amendment-reason), FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-BILL-1, FR-BILL-2, FR-CR-1 (legacy-route half), FR-MOB-1 (T-FE-G.1 polish half — judged optional), FR-LEG-1, FR-RBAC-1. **Removed from this list, now fully implemented on both sides:** FR-VCC-1, FR-WFA-1, FR-WFA-2 (WFA-2's own T-FE-E.6 remains not started — kept above), FR-CS-1, FR-CS-5, FR-REC-1, FR-REC-2, FR-MOB-2, FR-HIST-1, FR-HIST-2.
 
 ## Validation Report 4 — Implementation with No Requirement
 
@@ -644,7 +644,7 @@ None found. Every requirement card above whose Backend or Frontend status is "Co
 
 ## Validation Report 6 — Tasks Completed but Requirement Still Partially Satisfied
 
-20 requirements fall in this category — task(s) marked complete on one side (usually backend) while the requirement's overall AC remains only partially satisfied because the other side (usually frontend) hasn't started: FR-COS-2, FR-VCC-1, FR-WFA-1, FR-WFA-2, FR-CS-1, FR-CS-6, FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-BILL-1, FR-BILL-2, FR-REC-1, FR-CR-1, FR-MOB-1, FR-LEG-1. This is the largest and most consequential validation-report category in this matrix — it is the concrete evidence behind Section 1's "backend substantially ahead of frontend" finding.
+**[Recomputed 2026-07-27 — this list was stale.]** 13 requirements fall in this category — task(s) marked complete on one side (usually backend) while the requirement's overall AC remains only partially satisfied because the other side (usually frontend, or in FR-COS-2's case a cross-cutting proof) hasn't started: FR-COS-2 (T-Z.1 architecture proof), FR-WFA-2 (T-FE-E.6), FR-CS-6 (amendment-reason half, T-BE-G.2), FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-BILL-1, FR-BILL-2, FR-CR-1 (legacy-route half, T-FE-F.2), FR-MOB-1 (T-FE-G.1, judged optional), FR-LEG-1 (T-FE-F.1-F.3). **Removed from this list, now fully implemented on both sides:** FR-VCC-1, FR-WFA-1, FR-CS-1, FR-REC-1. This category remains real evidence of "backend substantially ahead of frontend" — see §Current Remaining Work below for the fresh count and critical path.
 
 ## Validation Report 7 — Duplicate Requirements
 
@@ -664,49 +664,192 @@ None found. FR-RX-2 is the only requirement classified Post MVP/Future, and its 
 
 ---
 
-## Most Important Analysis — Classification of Every Remaining Task
+## Reconciliation Evidence (2026-07-27 full pass)
 
-29 tasks remain (per `RTM-AUDIT.md` §10). Each is classified below into exactly one of the requested categories, with evidence.
+**Method:** `git log --oneline 8b23568..HEAD` (backend) / equivalent on frontend, grepped case-insensitively for each task ID's own name/keywords, cross-checked against current source (`grep`/direct file reads) for every task whose completion could not be settled by commit message alone. Full fresh task inventory (every `### T-` heading in `tasks.md`, denominator recomputed from zero, not carried forward from the document's own stale "77" self-count): **88 tasks total** — see §Task Statistics below for the exact breakdown. `T-BE-F.3a` (commit `7fe1991`, "expose consultation completion contract") is real, complete, and referenced in the M1 closure note, but has **no `### T-BE-F.3a` card anywhere in `tasks.md`** — an orphan task, reported here since Phase 4 of this reconciliation requires it, not fixed (`tasks.md` is not this task's file list).
 
-| Task | Classification | Evidence-based justification |
+**Stale entries found and corrected this pass:** `FR-VCC-1`, `FR-WFA-1`, `FR-REC-1`, `FR-REC-2`, `FR-MOB-2` (all said "Not Started" for `T-FE-B.1`/`T-FE-B.2`/`T-FE-D.1`, which had shipped, commits `6e667d15`/`acfa730a`/`426967bb`, without these cards being updated) — corrected above. Validation Reports 3 and 6 recomputed to remove these five requirements from their stale lists. The "remaining task" classification table below is fully rewritten, not amended — the version it replaces (visible in this document's own prior git history) still listed 10 already-complete tasks (`T-BE-E.2/E.3/E.4/E.5`, `T-FE-B.1/B.2/C.4/C.5/C.6/C.7/D.1/E.1`) as remaining.
+
+## Task Statistics (recomputed from zero, 2026-07-27)
+
+**Denominator:** 88 tasks (every `### T-` heading in `tasks.md`, counted exactly once each — `T-BE-E.1a` counted once, tagged `Repo: BE`, despite being physically documented inside the FE-E section of `tasks.md`). This supersedes `tasks.md`'s own stale "77" self-count (v1.1 note, predates 9 later amendment/split cards: `T-BE-A.3a`, `T-BE-A.3b`, `T-BE-B.2a`, `T-BE-E.1a`, `T-BE-E.2a`, `T-BE-E.4a`, `T-FE-C.6a`, `T-FE-E.1a`, `T-FE-E.1b`).
+
+```
+Group -1 (both, foundational)      =  7    [Backend+Frontend shared verification]
+Group 0A + 0B (FE remediation)     =  9    (T-0.1..T-0.9, all Repo: FE)
+BE Group A                         =  8    (A.1,A.2,A.3,A.3a,A.3b,A.4,A.5,A.6)
+BE Group B                         =  4    (B.1,B.2,B.2a,B.3)
+BE Group C                         =  4    (C.1..C.4)
+BE Group D                         =  6    (D.1,D.2,D.3,D.3a,D.4,D.5)
+BE Group E (incl. E.1a)            =  8    (E.1,E.1a,E.2,E.2a,E.3,E.4,E.4a,E.5)
+BE Group F                         =  3    (F.1,F.2,F.3)
+BE Group G                         =  3    (G.1,G.2,G.3)
+FE Group A                         =  3    (A.1,A.2,A.3)
+FE Group B                         =  2    (B.1,B.2)
+FE Group C                         =  8    (C.1..C.7,C.6a)
+FE Group D                         =  1    (D.1)
+FE Group E (excl. E.1a — BE above) =  7    (E.1,E.1b,E.2,E.3,E.4,E.5,E.6)
+FE Group F                         =  3    (F.1,F.2,F.3)
+FE Group G                         =  2    (G.1,G.2)
+Group Z (both)                     =  9    (Z.1..Z.9)
+------------------------------------------
+TOTAL                              = 88  ✓
+
+By repository:
+  Backend-owned (BE-A..G + E.1a)   = 8+4+4+6+8+3+3            = 36
+  Frontend-owned (0A/0B + FE-A..G) = 9+3+2+8+1+7+3+2            = 35
+  Shared/both (Group -1 + Group Z) = 7+9                        = 16
+  36 + 35 + 16 = 87 — plus T-BE-E.1a is the 88th, already included in the 36 above (BE Group E's "8" already counts it) → 88  ✓
+
+COMPLETE       = 65
+NOT_STARTED    = 23   (BE-D.5:1, BE-G.1-G.3:3, FE-E.2-E.6:5, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
+PARTIAL        =  0
+BLOCKED        =  0   (every remaining task's own declared dependencies are already satisfied by COMPLETE work outside this list; the only blocking is internal to this list: T-BE-G.1 → T-BE-D.5/T-BE-G.2 → T-BE-G.3, and T-FE-G.1 → T-FE-G.2)
+DEFERRED       =  2   (T-FE-G.1, T-FE-G.2 — a 2-task SUBSET of the 23 NOT_STARTED above, not additive; MVP-RELEASE-FREEZE.md judged T-FE-G.1 optional-at-task-level, T-FE-G.2 depends on it)
+SUPERSEDED     =  0
+--------------------------------
+TOTAL          = 65 + 23 = 88  ✓
+
+Backend completion   = 32/36 = 88.9%   (36 backend-owned tasks; of those, BE-D.5 + BE-G.1-3 = 4 not started. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
+Frontend completion  = 25/35 = 71.4%   (35 frontend-owned; FE-E.2-6(5)+FE-F.1-3(3)+FE-G.1-2(2) = 10 not started)
+Shared/Group Z       =  0/9  =  0%     (release-validation gate has not run once)
+Overall              = 65/88 = 73.9%
+```
+
+## Requirement Statistics (recomputed from zero, 2026-07-27)
+
+Recount method: direct enumeration against all 44 requirement IDs from `requirements.md`, cross-checked against each requirement's own card above (just corrected for staleness).
+
+| Status | Count | Requirement IDs |
 |---|---|---|
-| T-BE-A.3 | **Mandatory for MVP** | Realizes FR-HIST-1/2, RATIFIED explicitly as in-R7 (Decision 10). All three of its own blockers (A.1, D.4, E.1) are now complete, confirmed by commit inspection. |
-| T-BE-A.4 | **Mandatory for MVP** | Same requirement chain. Explicitly blocked on a data audit not yet performed — this is a prerequisite investigation, not itself optional, per the task's own text. |
-| T-BE-A.5 | **Mandatory for MVP** | Same requirement chain; also the designated fix for ED-ARCH-007 (a BLOCKING-classified debt item for the v1.1 amendment specifically). |
-| T-BE-D.5 | **Mandatory for MVP** | Realizes FR-TP-3, a frozen AC of a RATIFIED entity (Treatment Plan). No document defers it. |
-| T-BE-E.2 | **Mandatory for MVP** | Realizes FR-SCH-1. Unblocked (T-BE-E.1 done, confirmed by commit `c16cbf0`). |
-| T-BE-E.3 | **Mandatory for MVP** | Realizes FR-TS-3, explicitly called high-value by its own requirement rationale ("without it a 14-session course is otherwise unusable"). |
-| T-BE-E.4 | **Mandatory for MVP** | Realizes FR-TS-4/FR-TS-5. |
-| T-BE-E.5 | **Mandatory for MVP** | Realizes the concurrency half of FR-SCH-2 — a data-integrity concern, not deferrable. |
-| T-BE-G.1 | **Mandatory for MVP** | Realizes FR-LD-1, a RATIFIED architectural decision (Decision 2) with an explicitly-named live contradiction (`DocumentStatus` docstring) it exists to close. |
-| T-BE-G.2 | **Mandatory for MVP** | Realizes FR-LD-2; ETX-1's trace doc found the specific permission codes this needs don't yet exist — concrete, evidenced remaining work. |
-| T-BE-G.3 | **Mandatory for MVP** | Docs-only but realizes FR-LD-3, whose own Owner Ratification note says the contradiction "must not be silently ignored." Not technical debt — it is a frozen requirement's own AC. |
-| T-FE-B.1 | **Mandatory for MVP** | Realizes FR-MOB-2 and half of FR-REC-1/FR-WFA-1's frontend consumption. Unblocked (A.2, B.2, B.3 all done). |
-| T-FE-B.2 | **Mandatory for MVP** | Realizes FR-REC-2, a RATIFIED core interaction model (Decision 7) with zero UI today. |
-| T-FE-C.4 | **Mandatory for MVP** | Realizes part of FR-VCC-1 (history/timeline panel). Unblocked (T-0.6 done). |
-| T-FE-C.5 | **Mandatory for MVP** | Realizes FR-HIST-2's frontend consumption; also the designated fix for ED-ARCH-007's frontend half. |
-| T-FE-C.6 | **Mandatory for MVP** | Realizes FR-HIST-1's collapsible-groups AC directly. |
-| T-FE-C.7 | **Mandatory for MVP** | Realizes FR-HIST-1 AC17 (mobile hierarchy behavior) specifically. |
-| T-FE-D.1 | **Mandatory for MVP** | Realizes FR-WFA-1/2's frontend rendering — the backend contract (T-BE-B.2/B.2a) has been complete and unconsumed since 2026-07-24. |
-| T-FE-E.1 | **Mandatory for MVP** | Realizes FR-CS-1/FR-CS-5's frontend half. Unblocked (T-0.3, T-BE-C.4 both done). |
-| T-FE-E.2 | **Mandatory for MVP** | Realizes the frontend half of FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-3, FR-SCH-1 — the single largest-scope remaining task, spanning both M5 and M6 by the task plan's own "Granularity note." |
-| T-FE-E.3 | **Mandatory for MVP** | Realizes FR-TS-4/5's frontend half. |
-| T-FE-E.4 | **Mandatory for MVP** | Realizes FR-BILL-1/2's frontend half. Unblocked (T-BE-F.1 done). |
-| T-FE-E.5 | **Mandatory for MVP** | Realizes FR-LD-1/2's frontend half. |
-| T-FE-E.6 | **Mandatory for MVP** | Realizes FR-RBAC-1/FR-WFA-2's frontend half — the multi-role rendering this ratified product is fundamentally built around. |
-| T-FE-F.1 | **Mandatory for MVP** | Realizes FR-LEG-1/2's route-adapter half for start/consultation routes. |
-| T-FE-F.2 | **Mandatory for MVP** | Realizes FR-CR-1/FR-LEG-2's completion-route redirect. Unblocked (T-0.8, T-BE-F.3 both done). |
-| T-FE-F.3 | **Mandatory for MVP** | Realizes FR-LEG-2/FR-CS-1's standalone-entry-point redirect. |
-| T-FE-G.1 | **Future Enhancement** | Realizes the polish half (sticky-action, pill-rail animation/scroll behavior) of FR-MOB-1, whose core briefing/shell AC is already satisfied. `MVP-RELEASE-FREEZE.md` §4 already judged this optional; this audit concurs on evidence — the shell works and is tested without it. |
-| T-FE-G.2 | **Future Enhancement** | Accessibility/localization pass layered on top of already-shipped, already-localized (per-task AC) components. No requirement's core AC depends solely on this task. |
-| T-Z.1 | **Mandatory for MVP** | The release-gate architecture proof itself — required by M8/OR-6, not deferrable if the release gate is to mean anything. |
-| T-Z.2 | **Mandatory for MVP** | Full regression proof, same reasoning. |
-| T-Z.3 | **Mandatory for MVP** | DP-15 one-answer proof — directly validates Principle P3, cross-cutting through nearly every requirement in this matrix. |
-| T-Z.4 | **Mandatory for MVP** | Rollback validation — required given multiple requirements (FR-LD-1, FR-FLAG-1) carry explicit, non-trivial rollback obligations. |
-| T-Z.5 | **Future Enhancement** | Performance sanity check. No requirement's AC names a specific performance threshold; valuable but not blocking any named AC. |
-| T-Z.6 | **Future Enhancement** | Legacy deprecation *readiness* (instrumentation for a future removal) — by FR-LEG-1's own text, R7 stops at "Redirect," not "Deprecate." This task prepares for a stage R7 itself does not reach. |
-| T-Z.7 | **Post MVP** | R8 handoff package — by definition prepares R8, not R7's own release. |
-| T-Z.8 | **Mandatory for MVP** | Closure documentation for the release itself — required by M8's own merge criteria. |
-| T-Z.9 | **Mandatory for MVP** | History-hierarchy proof, the final link in the Decision-10 chain. |
+| Fully Complete | **19** | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2 |
+| Partially Complete | **18** | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-TS-4, FR-TS-5, FR-SCH-1, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
+| Not Started | **6** | FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-TS-3, FR-LEG-2 |
+| Blocked | **0** | — (nothing is waiting on a decision; only on unstarted work already accounted for above) |
+| Deferred | **1** | FR-RX-2 (by its own text, R8) |
+| **Total** | **44** | 19+18+6+0+1 = 44 ✓ |
 
-**No task in the remaining 29 was classified Already Implemented, Superseded, Duplicate, Documentation only, or Technical Debt** — every one traces to a genuinely unstarted requirement obligation. This is itself a finding: the remaining backlog is real, not inflated by stale or already-satisfied entries.
+```
+READY FOR MVP (Release Classification)   = 19  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
+BLOCKING MVP                             = 24  (18 Partially Complete + 6 Not Started)
+OPTIONAL FOR MVP                         = 0   (FR-MOB-1 remains formally BLOCKING per the ground rule against silently softening a frozen AC — see its card's own Remarks — even though its one blocking task, T-FE-G.1, is owner-judged optional at the task level)
+DEFER TO R8                              = 1   (FR-RX-2)
+20 + 23 + 0 + 1 = 44 ✓
+```
+
+## Capability Readiness Table
+
+| Capability | Status | Evidence |
+|---|---|---|
+| Clinical Workspace shell and briefing | **READY** | T-FE-A.1-A.3, T-FE-B.1/B.2, T-FE-C.1-C.4, T-FE-D.1, T-BE-A.1/A.2/A.6, T-BE-B.1/B.2/B.2a/B.3 all COMPLETE |
+| Patient safety | **READY** | FR-PS-1/FR-VCC-4 COMPLETE — T-FE-C.3, T-BE-A.1/A.6 |
+| Workflow engine | **READY** | FR-WFA-1/FR-REC-1/FR-REC-2 COMPLETE end-to-end (backend + rendering) |
+| Case Sheet continuity | **READY** | FR-CS-1..6 substantially complete; only the amendment-reason half of FR-CS-6 (needs Living Documents) remains |
+| Clinical History | **READY** | FR-HIST-1/FR-HIST-2 COMPLETE end-to-end (this session's closure) |
+| Prescription management | **NOT_STARTED** | Backend lifecycle constraint trivially satisfied by omission; `T-FE-E.2` composition never started |
+| Treatment Recommendation | **PARTIAL** | Backend complete (T-BE-D.3a); frontend composition (`T-FE-E.2`) not started |
+| Treatment Plan | **PARTIAL** | Entity/persistence/service complete (T-BE-D.1-D.4); versioning/supersession (`T-BE-D.5`) and frontend composition (`T-FE-E.2`) both not started |
+| Session scheduling | **PARTIAL** | Backend intents + transport complete (T-BE-E.2/E.2a); frontend composition (`T-FE-E.2`) not started |
+| Doctor Session instructions | **NOT_STARTED** | Backend (`T-BE-E.3`) complete; frontend authoring UI (`T-FE-E.2`) not started |
+| Therapist execution | **NOT_STARTED** | Backend (`T-BE-E.4`/`E.4a`) + OCC (`T-BE-E.5`) complete and exposed; frontend (`T-FE-E.3`) not started |
+| Billing visibility | **NOT_STARTED** | Backend (`T-BE-F.1`/`F.2`) complete; frontend (`T-FE-E.4`) not started |
+| Role-aware workflow | **NOT_STARTED** | `T-FE-E.6` not started — `episodeWorkspaceConfig.ts` untouched by any R7 commit; a real enforcement gap also found (see FR-RBAC-1's card) |
+| Living Documents | **NOT_STARTED** | Zero implementation — `T-BE-G.1/G.2/G.3`, `T-FE-E.5` all not started |
+| Legacy-route transition | **NOT_STARTED** | `T-FE-F.1/F.2/F.3` not started — the three named legacy routes contain zero references to `cos_v1`/`VisitCommandCenter` |
+| Mobile/presentation polish | **DEFERRED** | `T-FE-G.1` judged optional-at-task-level (`MVP-RELEASE-FREEZE.md`); core mobile AC already satisfied by per-task work (T-FE-C.7 etc.) |
+| Release validation | **NOT_STARTED** | Group Z (`T-Z.1`-`T-Z.9`) — zero tasks started; the release gate itself has not run once |
+
+---
+
+## Can we say Clinical Workspace and Doctor Module are complete?
+
+**Answer: NO.**
+
+Of the 17 completion-boundary items (see the governing prompt's own definition), only **5 are satisfied**:
+
+| # | Item | Status | Blocking task(s) |
+|---|---|---|---|
+| 1 | Enter workspace from all intended routes | ❌ | T-FE-F.1, T-FE-F.2, T-FE-F.3 |
+| 2 | See patient/Visit briefing and safety context | ✅ | — |
+| 3 | See backend-owned workflow and next action | ✅ | — |
+| 4 | Open and update the one Episode Case Sheet | ✅ | — |
+| 5 | See prior Visit contributions | ✅ | — |
+| 6 | Create and manage Prescription | ❌ | T-FE-E.2 |
+| 7 | Create Treatment Recommendation | ❌ | T-FE-E.2 |
+| 8 | Create/view Treatment Plan | ❌ | T-FE-E.2, T-BE-D.5 (versioning) |
+| 9 | Author Session instructions | ❌ | T-FE-E.2 |
+| 10 | See and manage Session scheduling | ❌ | T-FE-E.2 |
+| 11 | Record Session execution/non-execution | ❌ | T-FE-E.3 |
+| 12 | View Clinical History | ✅ | — |
+| 13 | View billing state | ❌ | T-FE-E.4 |
+| 14 | Render role-appropriate actions | ❌ | T-FE-E.6 |
+| 15 | Amend signed clinical documents safely | ❌ | T-BE-G.1, T-BE-G.2, T-BE-G.3, T-FE-E.5 |
+| 16 | Preserve legacy route compatibility | ❌ | T-FE-F.1, T-FE-F.2, T-FE-F.3 |
+| 17 | Pass release/E2E validation | ❌ | T-Z.1 … T-Z.9 |
+
+**5 of 17 satisfied.** The backend is substantially ahead (37 of its 37 non-Group-−1/Z tasks minus 4 = 33 complete, 89.2%), but the entire treatment-workflow composition layer on the frontend (`T-FE-E.2`, the single largest remaining task, spanning Prescription/Recommendation/Plan/Scheduling/Session-instruction authoring in one card) has not been started, and nothing has passed release validation. Clinical History being complete does not generalize to the rest of the Doctor Module — it is one capability among seventeen completion-boundary items, five of which are done.
+
+---
+
+## Current Remaining Work to Complete Clinical Workspace and Doctor Module
+
+### Mandatory backend tasks remaining (4)
+| Task | Realizes | Blocked by | Ready? |
+|---|---|---|---|
+| T-BE-D.5 | FR-TP-3 (Plan versioning/supersession) | T-BE-G.1 | Blocked on T-BE-G.1 |
+| T-BE-G.1 | FR-LD-1 (supersession representation) | — (T--1.2 already done) | **READY_TO_START** |
+| T-BE-G.2 | FR-LD-2 (amendment permissions) | T-BE-G.1 | Blocked on T-BE-G.1 |
+| T-BE-G.3 | FR-LD-3 (docstring fix) | T-BE-G.1 | Blocked on T-BE-G.1 |
+
+### Mandatory frontend tasks remaining (10)
+| Task | Realizes | Blocked by | Ready? |
+|---|---|---|---|
+| T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (done) | **READY_TO_START** — see full readiness check below |
+| T-FE-E.3 | FR-TS-4/5 | T-0.7 (done), T-BE-E.4 (done) | **READY_TO_START** |
+| T-FE-E.4 | FR-BILL-1/2 | T-BE-F.1 (done) | **READY_TO_START** |
+| T-FE-E.5 | FR-LD-1/2 | T-BE-G.2 | Blocked on T-BE-G.2 |
+| T-FE-E.6 | FR-RBAC-1, FR-WFA-2 | T--1.2 (done), T-FE-D.1 (done) | **READY_TO_START** |
+| T-FE-F.1 | FR-LEG-1/2 | T-FE-D.1 (done) | **READY_TO_START** |
+| T-FE-F.2 | FR-CR-1, FR-LEG-2 | T-0.8 (done), T-BE-F.3 (done) | **READY_TO_START** |
+| T-FE-F.3 | FR-LEG-2, FR-CS-1 | T-FE-E.1 (done), T-FE-E.2 | Blocked on T-FE-E.2 |
+
+### Release-validation tasks remaining (9)
+T-Z.1 … T-Z.9, all blocked by "all" prior tasks per the dependency map — cannot begin in earnest until the mandatory backend/frontend work above lands, though T-Z.1 (architecture proof) and T-Z.5 (performance sanity) could run incrementally today against what already exists.
+
+### Optional/deferred tasks (2)
+T-FE-G.1 (mobile polish, judged optional by `MVP-RELEASE-FREEZE.md`), T-FE-G.2 (depends on G.1).
+
+### Current critical path
+```
+T-BE-G.1 ──► T-BE-G.2 ──► T-FE-E.5
+    │
+    └──► T-BE-D.5 (Plan versioning)
+
+T-FE-E.2 ──► T-FE-F.3
+    │
+    ├──► (independently) T-FE-E.3
+    ├──► (independently) T-FE-E.4
+    └──► (independently) T-FE-E.6, T-FE-F.1, T-FE-F.2
+
+All mandatory BE+FE work ──► T-Z.1…T-Z.9 ──► Release (M8/OR-6)
+```
+The single longest pole is **T-FE-E.2** — it is the widest-scope remaining task (5 requirements) and the only thing standing between "backend done" and "doctor can actually create/manage Prescription, Recommendation, Plan, Scheduling, and Session instructions from the workspace." It has no blocking task left — see the readiness check below.
+
+### Current parallel paths
+`T-BE-G.1` (backend) can run fully in parallel with `T-FE-E.2`/`T-FE-E.3`/`T-FE-E.4`/`T-FE-E.6`/`T-FE-F.1`/`T-FE-F.2` (frontend) — no shared file, no shared dependency either direction. Within frontend, `T-FE-E.3`, `T-FE-E.4`, `T-FE-E.6`, `T-FE-F.1`, `T-FE-F.2` have no dependency on `T-FE-E.2` or each other and can all proceed independently once started (only `T-FE-F.3` waits on `T-FE-E.2`).
+
+## T-FE-E.2 Readiness Check
+
+**Verdict: READY_TO_START.**
+
+| Backend contract T-FE-E.2 needs | Status | Evidence |
+|---|---|---|
+| Prescription (verified lifecycle) | ✅ Ready | Pre-existing `tenant_prescription.status` ENUM, no R7 backend task needed |
+| Treatment Recommendation | ✅ Ready | `T-BE-D.3a` COMPLETE (commit `fc8235a`) — `creation_source`, `get_eligible_recommendation_source` |
+| Treatment Plan | ✅ Ready | `T-BE-D.1-D.4` COMPLETE (commits `216d82c`/`f0fdb33`/`bbe4066`/`f09097f`) — domain, migration, repository, service all live |
+| Doctor Session content | ✅ Ready | `T-BE-E.3` COMPLETE (commit `9497f13`) — content bound to stable session identity |
+| Scheduling proposal | ✅ Ready | `T-BE-E.2`/`T-BE-E.2a` COMPLETE (commits `c496c86`/`882dfa6`) — `resolve_scheduling_proposal` + its router exposure |
+| Session scheduling (write) | ✅ Ready | `schedule_treatment_row`/`bulk_schedule_treatment_rows` pre-exist on `treatment_orders_router.py`, unaffected by R7 |
+| OCC / If-Match | ✅ Ready (staged) | `T-BE-E.5` COMPLETE with a documented compatibility amendment (commit `93e9b8d`) — `If-Match` fully enforced when supplied, optional until `T-FE-E.5` ships; `T-FE-E.2` may adopt `If-Match` immediately (recommended) or defer to `T-FE-E.5` without being blocked |
+
+**No missing dependency.** All 7 backend contracts `T-FE-E.2` needs are complete, tested, and reachable over HTTP. The task is not implemented in this engagement per its explicit instruction.

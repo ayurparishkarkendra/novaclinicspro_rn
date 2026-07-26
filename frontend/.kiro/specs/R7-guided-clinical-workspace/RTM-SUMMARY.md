@@ -1,22 +1,8 @@
 # RTM-SUMMARY — R7 Clinical Operating System
 
-**Derived from:** `RTM-MASTER.md` (this audit pass). **As of:** 2026-07-25 · Backend `c16cbf008f51cb248698057bc9acd68a4cf568bf` · Frontend `57902bccdc9665a570a7768b6b61603ce3f0970f`.
+**Derived from:** `RTM-MASTER.md` (full reconciliation pass). **As of:** 2026-07-27 · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`.
 
-**Addendum (2026-07-25, backend-closure audit, backend HEAD `93e9b8d`) — narrow, targeted only:** the statistics below are NOT recomputed in this pass — that is a full RTM reconciliation and is explicitly out of this narrow audit's scope. Two corrections to bear in mind when reading them: (1) `T-BE-E.1` through `T-BE-E.5` are now all complete (this table predates that work); (2) two of those — `T-BE-E.2` (FR-SCH-1) and `T-BE-E.4` (FR-TS-4/5) — are **application-complete but not transport-exposed**; counting them as simply "done" overstates release-readiness. See `RTM-MASTER.md`'s FR-SCH-1/FR-SCH-2/FR-TS-4/FR-TS-5 cards and `MVP-BLOCKERS.md` for the current, evidenced disposition. A full recount is recommended before the next RTM-AUDIT pass, not performed here.
-
-**Second addendum (2026-07-25, T-BE-E.2a/T-BE-E.4a closure, backend HEAD `a0aa4c3`) — narrow, targeted only:** correction (2) above is now resolved. `T-BE-E.2a` and `T-BE-E.4a` closed both transport-exposure gaps (commits `882dfa6`, `a0aa4c3`) — `resolve_scheduling_proposal` and `record_session_non_execution` are now reachable over HTTP, tested (29 new tests), and documented in OpenAPI. Backend for FR-SCH-1, FR-TS-4, and FR-TS-5 is complete and exposed; the remaining gap for all three is frontend composition only (`T-FE-E.2`, `T-FE-E.3`). Still not recomputed here: the 80-task/44-requirement statistics table below.
-
-**Self-correction, stated plainly per this exercise's own ground rules ("never assume, never infer... everything must be backed by evidence"):** the prior audit (`RTM-AUDIT.md` §1, previous session) stated "51 tasks complete, 29 not started." Recomputing task-by-task from the same underlying, independently-verified backend and frontend task lists for this pass yields **42 complete, 38 not started** — a genuine arithmetic error in the prior document, not a change in repository state (no commits landed between the two audits; both HEADs are identical). The number below is the recount, shown with its addition, not the earlier unverified total.
-
-**Third addendum (2026-07-26, T-BE-E.1a/T-FE-E.1a/T-FE-E.1b closure) — narrow, targeted only:** the statistics below are still NOT recomputed in this pass. `T-BE-E.1a` (Case Sheet contribution snapshot, backend commit `00682b6`, shared-dev DB upgrade `8e43b15`), `T-FE-E.1a` (composition, commit `0ed23f7`), and `T-FE-E.1b` (render history, commit `c93fddf`) are now all complete — the `T-FE-E.1` umbrella (tasks.md) is fully closed. `FR-CS-1` and `FR-CS-5` move from Partially Complete to Fully Complete on `RTM-MASTER.md` (both rows updated directly). A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
-
-**Fourth addendum (2026-07-26, T-FE-C.4/T-BE-A.3a/T-FE-C.5 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.4` (Clinical Timeline composed into `VisitCommandCenter`, commit `b9c3afc0`), `T-BE-A.3` through `A.5` and the new `T-BE-A.3a` (Clinical History backend chain, commits `4472060`/`2147ada`/`6cac1e6`/`8326f33`), and `T-FE-C.5` (backend history-hierarchy consumption, commit `cedee6cc`) are all now complete. `FR-HIST-2` moves from Not Started to Fully Complete; `FR-HIST-1` moves from Not Started to Partially Complete (backend + frontend consumption done, collapsible-hierarchy rendering `T-FE-C.6`/`C.7` still ahead) — both rows updated directly on `RTM-MASTER.md`. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
-
-**Fifth addendum (2026-07-26, T-FE-C.6 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.6` (collapsible Treatment Plan groups, commit `71e9f44d`) is now complete. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly) — `T-FE-C.7` (mobile hierarchy) is still not started, and Engineering Truth during `T-FE-C.6` found the live Clinical History contract carries no per-session data and no Plan status field, leaving FR-HIST-1's own AC7 (status-distinct Plans)/AC8/AC9 (individual Session detail) unsatisfiable without a further backend amendment — reported on `RTM-MASTER.md`'s FR-HIST-1 row, not fabricated around. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
-
-**Sixth addendum (2026-07-26, T-FE-C.7 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.7` (mobile hierarchy behaviour, commit `3315d08d`) is now complete — all 3 tasks in the `T-FE-C.5`/`C.6`/`C.7` chain are done. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly): the requirement-level AC7/AC8/AC9 backend gap reported under the fifth addendum is unchanged by this closure — `T-FE-C.7`'s own 3-item AC needed no new backend field and was satisfied without touching that gap. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
-
-**Seventh addendum (2026-07-27, T-BE-A.3b/T-FE-C.6a closure — Clinical History complete) — narrow, targeted only:** still not recomputed here. `T-BE-A.3b` (Plan-status/Session enrichment, backend commit `186f11f`) and `T-FE-C.6a` (enriched rendering, frontend commit `3a4afd71`) are now both complete — these two governance-amendment tasks (added this same session, ahead of `T-Z.9`) closed the AC7/AC8/AC9 gap reported under the fifth/sixth addenda. `FR-HIST-1` moves from Partially Complete to **Fully Complete/READY FOR MVP** on `RTM-MASTER.md` (updated directly) — all 17 of its frozen AC items are now satisfied. `FR-HIST-2` is unaffected (already READY FOR MVP). Clinical History (FR-HIST-1 + FR-HIST-2) is now READY FOR MVP end-to-end. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+**Reconciliation note.** The prior version of this document accumulated seven narrow addenda (2026-07-25 through 2026-07-26) that each explicitly stated its own headline statistics table was NOT recomputed. This pass performs the deferred full recount `RTM-MASTER.md`'s own Reconciliation Evidence section documents. The headline tables below are the fresh, arithmetic-checked numbers — no prior addendum's numbers are carried forward. Historical addenda and their evolution remain available in this file's own git history and in `RTM-AUDIT.md`; they are not repeated here.
 
 ---
 
@@ -24,44 +10,65 @@
 
 | Status | Count | % |
 |---|---|---|
-| Fully Complete | 10 | 22.7% |
+| Fully Complete | 20 | 45.5% |
 | Partially Complete | 17 | 38.6% |
-| Not Started | 16 | 36.4% |
+| Not Started | 6 | 13.6% |
 | Deferred (to R8, by design) | 1 | 2.3% |
 | Superseded | 0 | 0% |
 | **Total** | **44** | **100%** |
 
 | Release Classification | Count | % |
 |---|---|---|
-| READY FOR MVP | 10 | 22.7% |
-| BLOCKING MVP | 33 | 75.0% |
+| READY FOR MVP | 20 | 45.5% |
+| BLOCKING MVP | 23 | 52.3% |
 | OPTIONAL FOR MVP | 0 | 0% |
 | DEFER TO R8 | 1 | 2.3% |
 | SUPERSEDED | 0 | 0% |
 | **Total** | **44** | **100%** |
 
-*(10 "Fully Complete" requirements map exactly to the 10 "READY FOR MVP" requirements; 33 "Partially Complete" + "Not Started" requirements map exactly to the 33 "BLOCKING MVP" requirements; FR-RX-2 is both "Deferred" and "DEFER TO R8" — the two tables agree by construction, shown separately because they answer different questions: completion state vs. release verdict.)*
+*(20 "Fully Complete" requirements map exactly to the 20 "READY FOR MVP" requirements; 23 "Partially Complete" + "Not Started" requirements map exactly to the 23 "BLOCKING MVP" requirements; FR-RX-2 is both "Deferred" and "DEFER TO R8.")*
 
-## Task-level statistics (80 total tasks — see `RTM-AUDIT.md` §6 for why this is 80, not the frozen document's own stated 77)
+## Task-level statistics (88 total tasks — recomputed from zero; see `RTM-MASTER.md` §Task Statistics for the full arithmetic)
 
 | Category | Complete | Total | % |
 |---|---|---|---|
-| Backend (Groups -1, A, B, C, D, E, F, G) | 27 | 38 | 71.1% |
-| — Backend excluding Group -1 (pure implementation groups) | 20 | 31 | 64.5% |
-| Frontend (Groups 0A, 0B, A, B, C, D, E, F, G) | 15 | 33 | 45.5% |
+| Backend-owned (BE Groups A–G, incl. T-BE-E.1a) | 32 | 36 | 88.9% |
+| Frontend-owned (Groups 0A/0B, FE Groups A–G) | 25 | 35 | 71.4% |
 | Shared/Governance (Group -1 + Group Z) | 7 | 16 | 43.8% |
-| **Overall (all 80 tasks)** | **42** | **80** | **52.5%** |
+| **Overall (all 88 tasks)** | **65** | **88** | **73.9%** |
 
 ## Completion percentages
 
-- **Backend completion: 71%** (task-based, including the shared Group -1 gate; 65% excluding it)
-- **Frontend completion: 46%** (task-based; rounds up from 45.5%)
-- **Overall completion: 53%** (task-based; rounds up from 52.5%)
+- **Backend completion: 89%** (32/36 backend-owned tasks; `T-BE-D.5`, `T-BE-G.1/G.2/G.3` remain)
+- **Frontend completion: 71%** (25/35 frontend-owned tasks; `T-FE-E.2..E.6`, `T-FE-F.1..F.3`, `T-FE-G.1/G.2` remain)
+- **Overall completion: 74%** (task-based, all 88 tasks)
 
-**Requirement-based overall completion (an alternative, arguably more product-meaningful measure): 23% fully done, 39% partially done, 36% not started, 2% correctly deferred.** The gap between the 53% task-based figure and the 23% fully-done requirement-based figure is the single most important number in this summary: **most requirements that have "started" have only their backend half done** — the product is not yet 53% usable by a clinician, because very little of what's backend-complete has a frontend surface yet (see `RTM-MASTER.md`, Validation Report 6, 20 requirements in this exact state).
+**Requirement-based overall completion (arguably more product-meaningful): 46% fully done, 39% partially done, 14% not started, 2% correctly deferred.** The gap between the 74% task-based figure and the 46% fully-done requirement-based figure is the important number: **most "Partially Complete" requirements have their backend half done and their frontend half not started** — see `RTM-MASTER.md`'s "Can we say Clinical Workspace and Doctor Module are complete?" section: only 5 of the 17 completion-boundary items are satisfied. Task-count progress does not equal product-usable progress; the single largest remaining piece is `T-FE-E.2` (Prescription/Recommendation/Plan/Scheduling/Session-instruction composition), which alone blocks 5 of the 17 items.
+
+---
+
+## Current remaining work to complete Clinical Workspace and Doctor Module
+
+### Mandatory backend tasks remaining (4)
+`T-BE-G.1` (Living Documents supersession representation — **READY_TO_START**) → `T-BE-G.2` (amendment permissions) + `T-BE-D.5` (Plan versioning/supersession) → `T-BE-G.3` (docstring fix, docs-only).
+
+### Mandatory frontend tasks remaining (6, excluding the 2 deferred G-group tasks)
+`T-FE-E.2` (Prescription/Recommendation/Plan/Scheduling/Session-instruction composition — **READY_TO_START**, see readiness check in `RTM-MASTER.md`) · `T-FE-E.3` (therapist execution — **READY_TO_START**) · `T-FE-E.4` (billing — **READY_TO_START**) · `T-FE-E.5` (amendment surfaces — blocked on `T-BE-G.2`) · `T-FE-E.6` (role composition — **READY_TO_START**) · `T-FE-F.1`/`T-FE-F.2` (legacy redirects — **READY_TO_START**) · `T-FE-F.3` (standalone redirects — blocked on `T-FE-E.2`).
+
+### Release-validation tasks remaining (9)
+`T-Z.1` … `T-Z.9` — all formally blocked by "all" prior tasks per the dependency map; `T-Z.1` (architecture proof) and `T-Z.5` (performance sanity) could run incrementally today against what already exists, but full closure waits on the mandatory work above.
+
+### Optional/deferred tasks (2)
+`T-FE-G.1` (mobile polish, judged optional by `MVP-RELEASE-FREEZE.md`), `T-FE-G.2` (depends on G.1).
+
+### Current critical path
+`T-BE-G.1` → `T-BE-G.2`/`T-BE-D.5` → `T-FE-E.5`. In parallel: `T-FE-E.2` → `T-FE-F.3`. The single longest pole is **`T-FE-E.2`** — the widest-scope remaining task (realizes 5 requirements: FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1), fully unblocked, not yet started.
+
+### Current parallel paths
+`T-BE-G.1` (backend) runs fully in parallel with `T-FE-E.2`/`E.3`/`E.4`/`E.6`/`T-FE-F.1`/`F.2` (frontend) — no shared file or dependency either direction. Within frontend, `T-FE-E.3`, `T-FE-E.4`, `T-FE-E.6`, `T-FE-F.1`, `T-FE-F.2` have no dependency on `T-FE-E.2` or each other.
 
 ---
 
 ## What this means, stated once, plainly
 
-Backend implementation is substantially ahead of frontend implementation (71% vs. 46% task completion). Of the 27 completed backend tasks, 20 landed this multi-session engagement's Treatment Plan/Recommendation/Session-identity chain (Groups D and E.1) plus supporting Workflow/Billing/Case-Sheet contracts (Groups A, B, C, F) — all independently verified against actual files, tests, and commits, not inferred. Of the 15 completed frontend tasks, all are either process/architecture-remediation work (Group 0A/0B, 9 tasks) or the Command Center shell and its first three briefing regions (Groups A, C.1-C.3, 6 tasks) — meaning **no frontend surface yet exists for workflow recommendation, treatment composition, billing, amendments, or clinical history**, even though several of those backend contracts have been sitting complete and unconsumed since 2026-07-17 through 2026-07-24.
+Backend implementation is substantially ahead of frontend implementation (89% vs. 71% task completion), and Clinical History (FR-HIST-1/FR-HIST-2) is now complete end-to-end as of this session's closure. But Clinical History is one capability among seventeen items on the completion boundary the owner actually cares about — "can a doctor run a full episode through this workspace" — and only five of those seventeen are done. The entire treatment-workflow composition surface (Prescription, Recommendation, Plan, Scheduling, Session instructions — `T-FE-E.2`) has zero frontend implementation despite every backend contract it needs having been complete since 2026-07-25, and the release-validation gate (Group Z) has not run once. Living Documents (Group G, both repos) has zero implementation on either side.
