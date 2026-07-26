@@ -103,7 +103,7 @@ describe('useTreatmentSheetRows (R7 · T-0.7 characterization)', () => {
     expect(emptyResult.current.hasBeenSavedOnce).toBe(false);
   });
 
-  it('CHARACTERIZATION: updateSingleRow saves the row via the tenant/row-scoped update call, exits edit mode, and refetches on success', async () => {
+  it('CHARACTERIZATION: updateSingleRow saves the row via the row-scoped update call, exits edit mode, and refetches on success', async () => {
     const treatmentSheet = buildSheet([{ treatment_description: 'Abhyanga' }]);
     const { result } = renderHook(() =>
       useTreatmentSheetRows({ tenantId: 'tenant-1', treatmentSheetId: 'sheet-1', treatmentSheet, refetch }),
@@ -117,11 +117,15 @@ describe('useTreatmentSheetRows (R7 · T-0.7 characterization)', () => {
       await result.current.updateSingleRow(0);
     });
 
-    expect(updateTreatmentSheetRowApi).toHaveBeenCalledWith('tenant-1', 'row-1', {
+    // T-FE-E.2 (FR-TS-3): updateTreatmentSheetRowApi no longer takes
+    // tenantId -- its URL never carried tenant scoping (a genuine
+    // route-mismatch defect this task closed); this hook still doesn't
+    // pass expectedVersion (unchanged caller, third arg stays undefined).
+    expect(updateTreatmentSheetRowApi).toHaveBeenCalledWith('row-1', {
       treatment_description: 'Shirodhara',
       medicines_given: '',
       instructions: '',
-    });
+    }, undefined);
     expect(result.current.rowsData[0].isSaving).toBe(false);
     expect(result.current.rowsData[0].isEditing).toBe(false);
     expect(refetch).toHaveBeenCalledTimes(1);

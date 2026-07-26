@@ -171,6 +171,14 @@ export interface TreatmentOrderResponse {
   lifecycle_status?: TreatmentLifecycleStatus;
   lifecycle_status_label?: string | null;
   lifecycle_status_unresolved?: boolean;
+
+  // T-FE-E.2 (FR-TR-1): the backend's own `TreatmentOrderResponse` schema
+  // (`app/schemas/treatment_orders.py`) already returns these two fields
+  // -- verified this task, the frontend interface was simply never
+  // updated to declare them. Additive only; no existing field changed.
+  /** Structured reason code when `state` is a cancelled/declined outcome. */
+  cancellation_reason_code?: string | null;
+  cancellation_reason_text?: string | null;
 }
 
 // ============================================

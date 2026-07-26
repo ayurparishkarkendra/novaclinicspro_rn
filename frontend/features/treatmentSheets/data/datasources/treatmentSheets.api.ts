@@ -193,17 +193,31 @@ export const updateAllTreatmentSheetRowsApi = async (
 };
 
 /**
- * Update a single treatment sheet row
- * PATCH /api/v1/clinic/{tenant_id}/treatment-sheets/rows/{row_id}
+ * Update a single treatment sheet row's doctor-authored content
+ * PATCH /api/v1/clinic/treatment-sheets/rows/{row_id}
+ *
+ * T-FE-E.2 (FR-TS-3, FR-SCH-2). Route corrected: the backend route
+ * (`app/api/v1/routers/treatment_sheets_router.py::update_treatment_sheet_row`)
+ * carries NO `{tenant_id}` path segment -- tenant scoping comes from the
+ * JWT (`user_context.tenant_id`), not the URL. The prior `${tenantId}`
+ * segment here was a live 404 defect, never exercised by any composed
+ * caller until this task. `expectedVersion`, when supplied, is sent as
+ * `If-Match` -- the backend's own OCC token (the PARENT SHEET's
+ * `version`, staged-optional per `T-BE-E.5`'s compatibility amendment;
+ * never made mandatory here). On a stale token the backend returns 409
+ * with `{error: 'VERSION_CONFLICT', current_version}` in the response
+ * body -- surfaced to the caller unchanged via the rejected promise, no
+ * silent retry.
  */
 export const updateTreatmentSheetRowApi = async (
-  tenantId: string,
   rowId: string,
-  payload: TreatmentSheetRowUpdateRequest
+  payload: TreatmentSheetRowUpdateRequest,
+  expectedVersion?: number
 ): Promise<TreatmentSheetResponse> => {
   const response = await axiosClient.patch(
-    `/api/v1/clinic/${tenantId}/treatment-sheets/rows/${rowId}`,
-    payload
+    `/api/v1/clinic/treatment-sheets/rows/${rowId}`,
+    payload,
+    expectedVersion !== undefined ? { headers: { 'If-Match': String(expectedVersion) } } : undefined
   );
   return response.data;
 };

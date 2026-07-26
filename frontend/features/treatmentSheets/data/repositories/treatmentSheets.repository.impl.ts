@@ -208,14 +208,31 @@ export const useArchiveTreatmentSheetMutation = (
  * refetches the whole sheet itself after a successful save; adding a
  * second, independent cache write here would be a new, unrequested side
  * effect not present before this task.
+ *
+ * T-FE-E.2 (FR-TS-3, FR-SCH-2): `updateTreatmentSheetRowApi` no longer
+ * takes `tenantId` (its URL never carried tenant scoping — see that
+ * function's own docstring for the route-mismatch defect this closes);
+ * `tenantId` stays a parameter here unchanged so the one existing caller
+ * (`useTreatmentSheetRows.ts`) needs no signature change, it is simply no
+ * longer threaded into the datasource call. `expectedVersion` is new and
+ * optional -- an existing caller that omits it gets the exact prior
+ * behavior (no `If-Match` sent).
  */
 export const useUpdateTreatmentSheetRowMutation = (
   tenantId: string,
   treatmentSheetId: string,
-  options?: UseMutationOptions<TreatmentSheetResponse, Error, { rowId: string; payload: TreatmentSheetRowUpdateRequest }>
+  options?: UseMutationOptions<
+    TreatmentSheetResponse,
+    Error,
+    { rowId: string; payload: TreatmentSheetRowUpdateRequest; expectedVersion?: number }
+  >
 ) => {
-  return useMutation<TreatmentSheetResponse, Error, { rowId: string; payload: TreatmentSheetRowUpdateRequest }>({
-    mutationFn: ({ rowId, payload }) => updateTreatmentSheetRowApi(tenantId, rowId, payload),
+  return useMutation<
+    TreatmentSheetResponse,
+    Error,
+    { rowId: string; payload: TreatmentSheetRowUpdateRequest; expectedVersion?: number }
+  >({
+    mutationFn: ({ rowId, payload, expectedVersion }) => updateTreatmentSheetRowApi(rowId, payload, expectedVersion),
     ...options,
   });
 };
