@@ -591,7 +591,7 @@
 **Tests:** none for the hierarchy itself
 **Traceability:** FR-HIST-1 → design.md §2.1a/§3 → T-BE-A.3/T-FE-C.5-7 → — → — → Not Started
 **Release Classification:** BLOCKING MVP
-**Remarks:** A RATIFIED in-R7 decision with its backend prerequisites now fully unblocked (as of this session's `T-BE-E.1` completion) but zero implementation started. This is the single largest coherent unstarted chain in the matrix — 7 tasks (`T-BE-A.3/A.4/A.5`, `T-FE-C.5/C.6/C.7`, `T-Z.9`), all still ahead.
+**Remarks:** A RATIFIED in-R7 decision with its backend prerequisites now fully unblocked (as of this session's `T-BE-E.1` completion) but zero implementation started. This is the single largest coherent unstarted chain in the matrix — 7 tasks (`T-BE-A.3/A.4/A.5`, `T-FE-C.5/C.6/C.7`, `T-Z.9`), all still ahead. **[Note added 2026-07-26, narrow, not a full row recount]:** `T-BE-A.3a` (new, discovered during `T-FE-C.5`'s own Engineering Truth) is COMPLETE — the `HistoryItemResponse` contract now carries an authoritative `occurred_at` per item, closing a genuine backend contract gap `T-FE-C.5` could not otherwise satisfy without fabricating a Treatment Review timestamp. This row's Backend/Frontend Status cells above are not recomputed in this pass — see `RTM-AUDIT.md`/a future full pass for the broader `T-BE-A.3/A.4/A.5` staleness already flagged elsewhere.
 
 ### FR-HIST-2 — Backend-owned hierarchical clinical history contract
 **Business Objective:** The existing Clinical Workspace aggregate exposes an authoritative `history_items[]` projection (consultation/treatment_review/treatment_plan{sessions}/legacy_treatment_sessions); no competing aggregate; frontend performs zero clinical aggregation.
@@ -603,6 +603,7 @@
 **Tests:** none
 **Traceability:** FR-HIST-2 → design.md §2.1a → T-BE-A.3/A.4/A.5 → — → — → Not Started
 **Release Classification:** BLOCKING MVP
+**Remarks [Note added 2026-07-26, narrow]:** `T-BE-A.3a` (new) is COMPLETE, adding the authoritative `occurred_at` timestamp this contract was missing — `T-FE-C.5` is now fully unblocked on the backend side. Row's Backend/Frontend Status cells not otherwise recomputed in this pass.
 **Remarks:** `T-BE-A.4` specifically cannot even start until "the data audit itself (count Treatment Sheets per episode/recommendation across real tenant data)" is performed — this is a genuine prerequisite investigation, not a coding task, and per the task's own text "if unperformed when this task starts, it blocks start, it is not skipped."
 
 ---

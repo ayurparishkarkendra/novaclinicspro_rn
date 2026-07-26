@@ -191,6 +191,15 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** unit (classification, no DB) · duplicate-representation test · contract test (no presentation fields). **Rollback:** *Behavior* — additive, unreferenced until wired.
 **Reqs:** FR-HIST-1, FR-HIST-2 · **Design:** §2.1a · **Decisions:** D10 · **Principles:** P1, P2, P3, AC-1, AC-4, AC-5
 
+### T-BE-A.3a · Add authoritative `occurred_at` to the Clinical History contract **[NEW, discovered during T-FE-C.5, 2026-07-26]**
+**Repo:** BE · **Layer:** Domain (classification, pure) + Application (projection) + API (schema) · **Blocked by:** T-BE-A.3 (complete) · **Unblocks:** T-FE-C.5 · **Size:** S
+**Objective:** `HistoryItemResponse` (`id`, `encounter_type`, `appointment_ids`, `plan_id`, `session_counts`) carried no timestamp — Engineering Truth during `T-FE-C.5`'s own pre-implementation report found this genuinely blocks any honest timeline rendering (Treatment Review items have no `appointment_ids` at all — `TenantTreatmentClinicalReview` carries no appointment/Visit link, verified against its ORM model — so no join-based date derivation is possible for them). Adds `occurred_at: datetime | None`, encounter-type-specific and always backend-resolved: consultation/legacy_treatment_sessions → the appointment's own `appointment_start`; treatment_plan → the Plan's own `created_at` (never a member appointment's date); treatment_review → the latest clinical review's own `created_at` (never fabricated — `None` only when genuinely unresolved).
+**AC:** (1) every history item exposes `occurred_at`. (2) Treatment Review returns its own authoritative timestamp, not null-by-construction. (3) legitimately-unresolved cases return `null`, never a fabricated/guessed value. (4) no second history authority introduced — same `classify_history_items`/`ClinicalWorkspaceService.get_clinical_history`/`clinical_workspace_router.py` endpoint, additive field only. (5) no frontend code touched by this task.
+**Tests:** unit (classifier `occurred_at` propagation per encounter type) · service (source resolution per type, including the ISO-string-to-`datetime` parse for reviews) · contract (semantics-only guard extended, `occurred_at` allow-listed, present on every serialized item).
+**Rollback:** *Behavior* — additive nullable field only; no migration, no existing field removed or renamed.
+**Reqs:** FR-HIST-1, FR-HIST-2 · **Design:** §2.1a (amends the contract this section describes)
+**Status: COMPLETE.** Backend commit `8326f33` (`novaclinicspro-api`, `feature/r7-clinical-operating-system`). `T-FE-C.5` is now fully unblocked — it no longer needs to choose between fabricating a Treatment Review date or touching `T-FE-C.6`'s file.
+
 ### T-BE-A.4 · Legacy treatment-session classification *[amendment, v1.1]*
 **Repo:** BE · **Layer:** Application · **Objective:** classify sessions with unreliable Plan association as `LEGACY_TREATMENT_SESSIONS` (or the smallest equivalent code, per convention) rather than inferring a grouping.
 **Files:** same as T-BE-A.3 (extend)
