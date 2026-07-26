@@ -18,6 +18,7 @@ import {
   SendToSchedulingRequest,
   ScheduleRowRequest,
   BulkScheduleRequest,
+  SchedulingProposalResponse,
 } from '../models/treatmentOrders.dtos';
 
 // ============================================
@@ -314,6 +315,39 @@ export const recordClinicalReviewOutcomeApi = async (
     `/api/v1/treatment-sheets/${sheetId}/clinical-review-outcome`,
     { outcome, notes_json: notesJson },
     { headers: ifMatch(version) }
+  );
+  return response.data;
+};
+
+/**
+ * T-FE-E.2 closure (FR-SCH-1, T-BE-E.2a). Read-only: resolves this
+ * Plan's scheduling intent into proposed session dates -- persisting a
+ * date remains scheduleRowApi/bulkScheduleRowsApi's job.
+ * GET /api/v1/treatment-sheets/plans/{plan_id}/scheduling-proposal
+ */
+export interface SchedulingProposalParams {
+  startDate: string;
+  weekdays?: number[];
+  sessionsPerWeek?: number;
+  explicitDates?: string[];
+  reviewMilestoneAfter?: number;
+}
+
+export const getSchedulingProposalApi = async (
+  planId: string,
+  params: SchedulingProposalParams
+): Promise<SchedulingProposalResponse> => {
+  const response = await axiosClient.get(
+    `/api/v1/treatment-sheets/plans/${planId}/scheduling-proposal`,
+    {
+      params: {
+        start_date: params.startDate,
+        weekdays: params.weekdays,
+        sessions_per_week: params.sessionsPerWeek,
+        explicit_dates: params.explicitDates,
+        review_milestone_after: params.reviewMilestoneAfter,
+      },
+    }
   );
   return response.data;
 };

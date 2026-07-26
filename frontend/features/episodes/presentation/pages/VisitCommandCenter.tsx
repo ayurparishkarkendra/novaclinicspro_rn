@@ -44,22 +44,21 @@
  * now holds a ref to `CaseSheetModule` (previously ref-less) purely to
  * relay that one method, mirroring the exact pattern
  * `ConsultationWorkspaceScreen.tsx` already uses between the same two
- * sibling modules. Also composes two NEW modules built for this task --
- * `SessionInstructionsModule` (doctor content on stable Sessions, OCC
- * adoption) and `SchedulingModule` (current scheduled/unscheduled state +
- * permission-gated schedule writes) -- since no existing frontend module
- * owned either. Treatment Plan composition is explicitly NOT included:
- * Engineering Truth (this task's own pre-implementation report) found
- * `TenantTreatmentPlan` has zero public HTTP contract (service/repository
- * complete, no router) -- the placeholder below renders that gap
- * honestly rather than fabricating a Plan view from Session data
- * (forbidden by this task's own frozen AC, FR-TP-1 AC15). The same gap
- * ALSO blocks the read-only scheduling-proposal sub-capability inside
- * `SchedulingModule`: `resolve_scheduling_proposal` (T-BE-E.2a) requires a
- * `plan_id` path parameter that nothing in the current public contract
- * exposes a way to obtain -- `SchedulingModule` reports this honestly
- * rather than guessing or fabricating a proposal (see that file's own
- * docstring for full detail).
+ * sibling modules. Also composes `SessionInstructionsModule` (doctor
+ * content on stable Sessions, OCC adoption) and `SchedulingModule`
+ * (current scheduled/unscheduled state + permission-gated schedule
+ * writes) -- since no existing frontend module owned either.
+ *
+ * [Closure, T-BE-D.4a] `TreatmentPlanModule` is now composed too --
+ * `T-BE-D.4a` exposed the previously-missing public HTTP contract
+ * (`TenantTreatmentPlan` service/repository were complete but had no
+ * router). The Recommendation-absent/ineligible/eligible-no-Plan/Plan-
+ * exists states live in that module's own file; it never reconstructs
+ * a Plan from Session/schedule data (FR-TP-1 AC15). The same
+ * `T-BE-D.4a` closure also unblocked `SchedulingModule`'s own
+ * scheduling-proposal read (`resolve_scheduling_proposal`, T-BE-E.2a)
+ * by finally giving the frontend a way to obtain a `plan_id` -- see
+ * that file's own docstring.
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -95,6 +94,7 @@ import { PrescriptionModule } from '../components/ConsultationSections/Prescript
 import { TreatmentRecommendationModule } from '../components/ConsultationSections/TreatmentRecommendationModule';
 import { SessionInstructionsModule } from '../components/ConsultationSections/SessionInstructionsModule';
 import { SchedulingModule } from '../components/ConsultationSections/SchedulingModule';
+import { TreatmentPlanModule } from '../components/ConsultationSections/TreatmentPlanModule';
 import { ClinicalTimeline } from '../components/ClinicalTimeline';
 import { SectionKey } from '../hooks/useConsultationWorkspace';
 
@@ -130,7 +130,7 @@ export const VisitCommandCenter: React.FC<VisitCommandCenterProps> = ({
 
 const VisitCommandCenterShell: React.FC = () => {
   const router = useRouter();
-  const { colors, spacing, typography, radii, borderWidths, sizes } = useClinicTheme();
+  const { colors, spacing, typography, borderWidths, sizes } = useClinicTheme();
   const { t } = useTranslation();
   const patient = usePatientContext();
   const episode = useEpisodeContext();
@@ -239,6 +239,7 @@ const VisitCommandCenterShell: React.FC = () => {
           onToggleSection={toggleSection}
           ensureCasesheetExists={ensureCasesheetExists}
         />
+        <TreatmentPlanModule />
         <SessionInstructionsModule />
         <SchedulingModule />
         {/* T-FE-C.4 (FR-VCC-1): reuses ClinicalTimeline unchanged -- no
@@ -248,28 +249,6 @@ const VisitCommandCenterShell: React.FC = () => {
             (no cross-episode leak), same pattern as CaseSheetModule
             (T-FE-E.1a). */}
         <ClinicalTimeline />
-        {/* T-FE-E.2: Treatment Plan composition is explicitly out of
-            scope this task -- Engineering Truth found TenantTreatmentPlan
-            has no public HTTP contract (see VisitCommandCenter's own
-            file header). This renders that gap honestly, never a
-            fabricated Plan view reconstructed from Session/schedule data
-            (forbidden by this task's own frozen AC, FR-TP-1 AC15). */}
-        <View
-          style={[
-            styles.placeholder,
-            {
-              backgroundColor: colors.surface.default,
-              borderColor: colors.border.default,
-              borderWidth: borderWidths.default,
-              borderRadius: radii.medium,
-              padding: spacing.lg,
-            },
-          ]}
-        >
-          <Text style={[typography.body2, { color: colors.text.secondary }]}>
-            {t('visitCommandCenter.treatmentPlanUnavailable')}
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -309,5 +288,4 @@ const styles = StyleSheet.create({
   headerTitles: { flex: 1, alignItems: 'center' },
   iconButton: { alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  placeholder: { alignItems: 'center' },
 });

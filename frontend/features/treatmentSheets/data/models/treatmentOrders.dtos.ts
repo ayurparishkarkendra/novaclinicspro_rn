@@ -394,3 +394,15 @@ export const getScheduledRows = (order: TreatmentOrderResponse): TreatmentRowOrd
   order.rows
     .filter((r) => r.scheduled_date !== null)
     .sort((a, b) => (a.scheduled_date! > b.scheduled_date! ? 1 : -1));
+
+/**
+ * T-FE-E.2 closure (FR-SCH-1) -- field-for-field mirror of the backend's
+ * `SchedulingProposalResponse` (T-BE-E.2a). Read-only passthrough; the
+ * frontend never computes or sorts these dates itself.
+ */
+export interface SchedulingProposalResponse {
+  intent: string | null;
+  dates: string[];
+  reason_code: string;
+  bounded_by_milestone: boolean;
+}

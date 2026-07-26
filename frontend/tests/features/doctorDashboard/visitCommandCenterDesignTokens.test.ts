@@ -44,21 +44,17 @@ describe('VisitCommandCenter.tsx — no raw reusable visual values', () => {
     expect(shellSource).not.toMatch(/borderWidth:\s*\d/);
   });
 
-  it('references borderWidths tokens for every border width', () => {
+  it('references borderWidths.hairline for the header border', () => {
     expect(shellSource).toMatch(/borderBottomWidth:\s*borderWidths\.hairline/);
-    expect(shellSource).toMatch(/borderWidth:\s*borderWidths\.default/);
   });
 
   it('does not use spacing.* as a corner-radius value', () => {
     expect(shellSource).not.toMatch(/borderRadius:\s*spacing\./);
   });
 
-  it('references a radii token for the card corner radius', () => {
-    expect(shellSource).toMatch(/borderRadius:\s*radii\.medium/);
-  });
-
-  it('destructures radii, borderWidths, and sizes from useClinicTheme', () => {
-    expect(shellSource).toMatch(/const\s*\{[^}]*radii[^}]*borderWidths[^}]*sizes[^}]*\}\s*=\s*useClinicTheme\(\)/);
+  it('destructures borderWidths and sizes from useClinicTheme -- no radii token: T-FE-E.2 closure moved the shell\'s only card (the Treatment Plan placeholder) into TreatmentPlanModule, which owns its own radii usage', () => {
+    expect(shellSource).toMatch(/const\s*\{[^}]*borderWidths[^}]*sizes[^}]*\}\s*=\s*useClinicTheme\(\)/);
+    expect(shellSource).not.toMatch(/\bradii\b/);
   });
 });
 

@@ -966,6 +966,48 @@
     "assigned": "Assigned",
     "unassigned": "Unassigned",
     "scheduleActionLabel": "Schedule",
-    "rescheduleActionLabel": "Reschedule"
+    "rescheduleActionLabel": "Reschedule",
+    "reasonCodes": {
+      "resolved": "Resolved",
+      "prn_no_pregenerated_dates": "PRN — sessions are created on demand",
+      "intent_unresolved": "Scheduling intent not recognized",
+      "no_sessions_requested": "No sessions requested",
+      "bounded_by_review_milestone": "Bounded by the next review milestone",
+      "plan_not_found": "Treatment Plan not found",
+      "capability_not_entitled": "Scheduling is not enabled for this clinic",
+      "capability_unavailable": "Could not verify scheduling entitlement"
+    }
+  },
+  "treatmentPlan": {
+    "title": "Treatment Plan",
+    "noRecommendationYet": "Send a Treatment Recommendation before a Treatment Plan can be created.",
+    "recommendationIneligible": "This Recommendation is not yet eligible for a Treatment Plan.",
+    "waitingOnRole": "Treatment Plan approval is managed by another role.",
+    "eligibleNoPlan": "This Recommendation is eligible. Create a Treatment Plan to record the intended course.",
+    "createAction": "Create Treatment Plan",
+    "createFailed": "Could not create the Treatment Plan. Please try again.",
+    "fields": {
+      "therapies": "Therapies",
+      "authorizedSessionCount": "Authorized session count",
+      "frequency": "Frequency",
+      "schedulingIntent": "Scheduling intent",
+      "preferredInterval": "Preferred interval",
+      "sequencingPattern": "Sequencing pattern",
+      "reviewMilestones": "Review milestones",
+      "completionCriteria": "Completion criteria",
+      "coursePrecautions": "Course precautions",
+      "therapistRequirements": "Therapist requirements",
+      "status": "Status"
+    },
+    "statusLabels": {
+      "authoring": "Authoring",
+      "approved_clinical_intent": "Approved clinical intent",
+      "available_for_scheduling": "Available for scheduling",
+      "active_course": "Active course",
+      "under_clinical_review": "Under clinical review",
+      "completed": "Completed",
+      "superseded_amended": "Superseded / amended",
+      "stopped_discontinued": "Stopped / discontinued"
+    }
   }
 }

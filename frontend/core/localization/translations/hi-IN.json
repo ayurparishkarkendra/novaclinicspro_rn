@@ -692,6 +692,48 @@
     "assigned": "नियुक्त",
     "unassigned": "अनियुक्त",
     "scheduleActionLabel": "शेड्यूल करें",
-    "rescheduleActionLabel": "पुनः शेड्यूल करें"
+    "rescheduleActionLabel": "पुनः शेड्यूल करें",
+    "reasonCodes": {
+      "resolved": "सुलझाया गया",
+      "prn_no_pregenerated_dates": "PRN — सत्र मांग पर बनाए जाते हैं",
+      "intent_unresolved": "शेड्यूलिंग इरादा पहचाना नहीं गया",
+      "no_sessions_requested": "कोई सत्र अनुरोधित नहीं",
+      "bounded_by_review_milestone": "अगले समीक्षा माइलस्टोन तक सीमित",
+      "plan_not_found": "उपचार योजना नहीं मिली",
+      "capability_not_entitled": "इस क्लिनिक के लिए शेड्यूलिंग सक्षम नहीं है",
+      "capability_unavailable": "शेड्यूलिंग पात्रता सत्यापित नहीं हो सकी"
+    }
+  },
+  "treatmentPlan": {
+    "title": "उपचार योजना",
+    "noRecommendationYet": "उपचार योजना बनाने से पहले एक उपचार सिफ़ारिश भेजें।",
+    "recommendationIneligible": "यह सिफ़ारिश अभी उपचार योजना के लिए पात्र नहीं है।",
+    "waitingOnRole": "उपचार योजना अनुमोदन किसी अन्य भूमिका द्वारा प्रबंधित किया जाता है।",
+    "eligibleNoPlan": "यह सिफ़ारिश पात्र है। इच्छित कोर्स दर्ज करने के लिए उपचार योजना बनाएं।",
+    "createAction": "उपचार योजना बनाएं",
+    "createFailed": "उपचार योजना नहीं बन सकी। कृपया पुनः प्रयास करें।",
+    "fields": {
+      "therapies": "चिकित्साएं",
+      "authorizedSessionCount": "अधिकृत सत्र संख्या",
+      "frequency": "आवृत्ति",
+      "schedulingIntent": "शेड्यूलिंग इरादा",
+      "preferredInterval": "पसंदीदा अंतराल",
+      "sequencingPattern": "क्रम पैटर्न",
+      "reviewMilestones": "समीक्षा माइलस्टोन",
+      "completionCriteria": "पूर्णता मानदंड",
+      "coursePrecautions": "कोर्स सावधानियां",
+      "therapistRequirements": "थेरेपिस्ट आवश्यकताएं",
+      "status": "स्थिति"
+    },
+    "statusLabels": {
+      "authoring": "लेखन में",
+      "approved_clinical_intent": "स्वीकृत नैदानिक इरादा",
+      "available_for_scheduling": "शेड्यूलिंग हेतु उपलब्ध",
+      "active_course": "सक्रिय कोर्स",
+      "under_clinical_review": "नैदानिक समीक्षा में",
+      "completed": "पूर्ण",
+      "superseded_amended": "प्रतिस्थापित / संशोधित",
+      "stopped_discontinued": "रोका गया / बंद"
+    }
   }
 }

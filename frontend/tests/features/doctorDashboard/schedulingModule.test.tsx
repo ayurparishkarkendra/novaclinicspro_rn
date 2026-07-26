@@ -20,7 +20,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SchedulingModule } from '../../../features/episodes/presentation/components/ConsultationSections/SchedulingModule';
 import { WorkspaceProvider } from '../../../features/episodes/presentation/context/ClinicalWorkspaceContext';
 import { useEpisodeWorkspaceData } from '../../../features/episodes/presentation/hooks/useEpisodeWorkspaceData';
-import { getTreatmentOrderApi } from '../../../features/treatmentSheets/data/datasources/treatmentOrders.api';
+import { getTreatmentOrderApi, getSchedulingProposalApi } from '../../../features/treatmentSheets/data/datasources/treatmentOrders.api';
+import { getTreatmentPlanByRecommendationApi } from '../../../features/treatmentSheets/data/datasources/treatmentPlans.api';
 
 let mockCurrentUser: any = { tenantId: 'tenant-1', permissions: [] };
 
@@ -39,6 +40,12 @@ jest.mock('../../../features/treatmentSheets/data/datasources/treatmentOrders.ap
   getTreatmentOrderApi: jest.fn(),
   scheduleRowApi: jest.fn(),
   bulkScheduleRowsApi: jest.fn(),
+  getSchedulingProposalApi: jest.fn(),
+}));
+jest.mock('../../../features/treatmentSheets/data/datasources/treatmentPlans.api', () => ({
+  getTreatmentPlanByRecommendationApi: jest.fn(),
+  getTreatmentPlanApi: jest.fn(),
+  createTreatmentPlanApi: jest.fn(),
 }));
 // treatmentOrders.repository.impl.ts also imports treatmentSheetsKeys from
 // treatmentSheets.repository.impl.ts (cache-invalidation helper) -- that
@@ -143,6 +150,7 @@ describe('SchedulingModule (T-FE-E.2, FR-SCH-1)', () => {
     mockCurrentUser = { tenantId: 'tenant-1', permissions: [] };
     (useEpisodeWorkspaceData as jest.Mock).mockReturnValue(baseWorkspaceData);
     (getTreatmentOrderApi as jest.Mock).mockResolvedValue(rowOrder);
+    (getTreatmentPlanByRecommendationApi as jest.Mock).mockResolvedValue(null);
   });
 
   it('shows current scheduled/unscheduled state per Session from the order rows', async () => {
@@ -159,9 +167,88 @@ describe('SchedulingModule (T-FE-E.2, FR-SCH-1)', () => {
     expect(queryByText('Day 1')).toBeNull();
   });
 
-  it('reports the scheduling-proposal sub-capability as unavailable rather than fabricating a proposal', async () => {
+  it('reports the scheduling proposal as unavailable when no Treatment Plan exists yet', async () => {
     const { findByText } = renderModule();
     expect(await findByText('Scheduling proposal is unavailable.')).toBeTruthy();
+  });
+
+  describe('scheduling-proposal consumption (T-BE-D.4a closure, FR-SCH-1)', () => {
+    const PLAN_ID = 'plan-1';
+
+    beforeEach(() => {
+      (getTreatmentPlanByRecommendationApi as jest.Mock).mockResolvedValue({
+        id: PLAN_ID, tenant_id: 'tenant-1', client_id: 'client-1', episode_id: 'episode-1',
+        originating_recommendation_id: 'sheet-1', authoring_staff_id: 'staff-1',
+        therapies: ['Abhyanga'], authorized_session_count: 7, frequency: 'daily',
+        scheduling_intent: 'CONSECUTIVE', preferred_interval: null, sequencing_pattern: null,
+        review_milestones: [], completion_criteria: null, course_precautions: null,
+        therapist_requirements: null, status: 'active_course', document_version: 1,
+        superseded_by_plan_id: null, recorded_by_staff_id: 'staff-1', created_at: '2026-07-01T00:00:00Z',
+      });
+    });
+
+    it('offers the start-date input and Load proposal action once a Plan exists', async () => {
+      const { findByText, findByPlaceholderText } = renderModule();
+      await findByText('Proposal start date');
+      await findByPlaceholderText('YYYY-MM-DD');
+      await findByText('Load proposal');
+    });
+
+    it('the proposal query stays disabled until Load proposal is pressed', async () => {
+      const { findByText } = renderModule();
+      await findByText('Load proposal');
+      expect(getSchedulingProposalApi).not.toHaveBeenCalled();
+    });
+
+    it('renders proposed dates exactly as the backend returns them, with the authoritative plan_id', async () => {
+      (getSchedulingProposalApi as jest.Mock).mockResolvedValue({
+        intent: 'CONSECUTIVE', dates: ['2026-08-01', '2026-08-02'], reason_code: 'resolved', bounded_by_milestone: false,
+      });
+      const { findByText, getByText } = renderModule();
+      fireEvent.press(await findByText('Load proposal'));
+      await findByText('2026-08-01');
+      await findByText('2026-08-02');
+      expect(getSchedulingProposalApi).toHaveBeenCalledWith(PLAN_ID, expect.objectContaining({ startDate: expect.any(String) }));
+    });
+
+    it('renders the PRN framing — no pre-created dates — never a fabricated date', async () => {
+      (getSchedulingProposalApi as jest.Mock).mockResolvedValue({
+        intent: 'PRN', dates: [], reason_code: 'prn_no_pregenerated_dates', bounded_by_milestone: false,
+      });
+      const { findByText } = renderModule();
+      fireEvent.press(await findByText('Load proposal'));
+      await findByText('PRN — no pre-created dates');
+      await findByText('PRN — sessions are created on demand');
+    });
+
+    it('renders the review-dependent framing — proposal stops at the milestone', async () => {
+      (getSchedulingProposalApi as jest.Mock).mockResolvedValue({
+        intent: 'REVIEW_DEPENDENT', dates: ['2026-08-01', '2026-08-08'], reason_code: 'resolved', bounded_by_milestone: true,
+      });
+      const { findByText } = renderModule();
+      fireEvent.press(await findByText('Load proposal'));
+      await findByText('Review-dependent — proposal stops at the next review milestone');
+    });
+
+    it('localizes the reason code rather than showing a raw backend code', async () => {
+      (getSchedulingProposalApi as jest.Mock).mockResolvedValue({
+        intent: null, dates: [], reason_code: 'intent_unresolved', bounded_by_milestone: false,
+      });
+      const { findByText } = renderModule();
+      fireEvent.press(await findByText('Load proposal'));
+      await findByText('Scheduling intent not recognized');
+    });
+
+    it('never computes or sorts dates locally — displays exactly the array order the backend returned', async () => {
+      (getSchedulingProposalApi as jest.Mock).mockResolvedValue({
+        intent: 'NON_SEQUENTIAL', dates: ['2026-08-10', '2026-08-01'], reason_code: 'resolved', bounded_by_milestone: false,
+      });
+      const { findByText, toJSON } = renderModule();
+      fireEvent.press(await findByText('Load proposal'));
+      await findByText('2026-08-01');
+      const serialized = JSON.stringify(toJSON());
+      expect(serialized.indexOf('2026-08-10')).toBeLessThan(serialized.indexOf('2026-08-01'));
+    });
   });
 
   describe('permission gating (treatment_order.schedule)', () => {

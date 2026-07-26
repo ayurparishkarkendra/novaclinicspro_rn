@@ -33,9 +33,11 @@ import {
   releaseTreatmentSheetApi,
   addClinicalReviewNoteApi,
   recordClinicalReviewOutcomeApi,
+  getSchedulingProposalApi,
   CreateTreatmentRecommendationRequest,
   ClinicalReviewNoteResponse,
   ClinicalReviewOutcome,
+  SchedulingProposalParams,
 } from '../datasources/treatmentOrders.api';
 import {
   TreatmentOrderResponse,
@@ -45,6 +47,7 @@ import {
   ScheduleRowRequest,
   BulkScheduleRequest,
   VersionConflictError,
+  SchedulingProposalResponse,
 } from '../models/treatmentOrders.dtos';
 import { treatmentSheetsKeys } from './treatmentSheets.repository.impl';
 
@@ -62,6 +65,8 @@ export const treatmentOrderKeys = {
     [...treatmentOrderKeys.worklists(tenantId), params] as const,
   pendingDocumentation: (tenantId: string, staffId: string) =>
     [...treatmentOrderKeys.all, 'pendingDocumentation', tenantId, staffId] as const,
+  schedulingProposal: (planId: string, startDate: string) =>
+    [...treatmentOrderKeys.all, 'schedulingProposal', planId, startDate] as const,
 };
 
 const removeOrderFromCachedWorklists = (
@@ -126,6 +131,24 @@ export const useTreatmentOrderQuery = (
     queryFn: () => getTreatmentOrderApi(sheetId, tenantId),
     enabled: !!sheetId && !!tenantId,
     staleTime: 0,
+    ...options,
+  });
+
+/**
+ * T-FE-E.2 closure (FR-SCH-1). Read-only: resolves a Treatment Plan's
+ * scheduling intent into proposed session dates -- disabled until a
+ * `planId` exists (a Plan must be created first). No local date
+ * computation/sorting; the response is rendered as-is.
+ */
+export const useSchedulingProposalQuery = (
+  planId: string,
+  params: SchedulingProposalParams,
+  options?: Omit<UseQueryOptions<SchedulingProposalResponse, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<SchedulingProposalResponse, Error>({
+    queryKey: treatmentOrderKeys.schedulingProposal(planId, params.startDate),
+    queryFn: () => getSchedulingProposalApi(planId, params),
+    enabled: !!planId && !!params.startDate,
     ...options,
   });
 
