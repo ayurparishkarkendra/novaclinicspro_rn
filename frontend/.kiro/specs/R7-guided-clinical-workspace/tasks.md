@@ -573,13 +573,13 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 (3) **"Author-once-apply-to-many" (FR-TS-3's own AC) not implemented** — `SessionInstructionsModule` edits one Session at a time; no bulk-apply-across-sessions UI exists. `T-BE-E.3` (this task's own blocker) remains Not Started on the backend side, and no equivalent capability was substituted.
 Commits: `4fba2ec4` (route-mismatch fix + OCC plumbing), `80fb96d0` (composition).
 
-### T-BE-D.4a · Expose Treatment Plan read/lookup contract **[PROPOSED, not started — surfaced by T-FE-E.2, 2026-07-26]**
+### T-BE-D.4a · Expose Treatment Plan creation/read contract **[RATIFIED 2026-07-26 — this task's own authorizing prompt — surfaced by T-FE-E.2]**
 **Repo:** BE · **Layer:** Router · **Blocked by:** T-BE-D.4 (complete) · **Unblocks:** the Treatment Plan and scheduling-proposal portions of T-FE-E.2
-**Objective:** `TreatmentPlanService`/`ITreatmentPlanRepository` (T-BE-D.4, commit `f09097f`) are Application-layer only — no router, no schema, no `main.py` registration, confirmed via `find`/`grep` across the backend repository. This blocks two things: (a) any frontend view of Plan clinical fields, and (b) obtaining a `plan_id` at all, which `resolve_scheduling_proposal` (T-BE-E.2a) requires as a path parameter — so the scheduling-proposal endpoint is unreachable from the frontend even though it is itself fully exposed.
-**AC (proposed, not yet ratified):** a thin router exposing at minimum `get_by_id` and a lookup by Episode/originating-Recommendation (reusing `get_by_originating_recommendation_id`, already on the repository interface) — read-only, no new business logic, no new persistence, same capability-gating convention as `treatment_orders_router.py`.
-**Tests:** contract/unit for the new endpoint(s).
-**Rollback:** *Behavior* — additive endpoint only.
-**Reqs:** FR-TP-1, FR-SCH-1 · **Design:** §2.3, §2.4
+**Objective:** `TreatmentPlanService`/`ITreatmentPlanRepository` (T-BE-D.4, commit `f09097f`) are Application-layer only — no router, no schema, no `main.py` registration, confirmed via `find`/`grep` across the backend repository. This blocks three things: (a) creating a Plan from an eligible Recommendation over HTTP at all, (b) any frontend view of Plan clinical fields, and (c) obtaining a `plan_id` at all, which `resolve_scheduling_proposal` (T-BE-E.2a) requires as a path parameter — so the scheduling-proposal endpoint is unreachable from the frontend even though it is itself fully exposed.
+**AC:** a thin router exposing (1) create Plan from an eligible Recommendation (reusing `create_treatment_plan_from_recommendation` verbatim — no eligibility/one-Plan-invariant logic reimplemented in the router), (2) get Plan by id, (3) get Plan by originating Recommendation id (reusing `get_by_originating_recommendation_id`, already on the repository interface) — the operation the frontend needs to determine whether a Plan already exists without reconstructing it from schedule rows. No new business logic, no new persistence, no new uniqueness mechanism, same capability-gating convention as `treatment_orders_router.py`/`treatment_recommendation` routes. `list_by_episode` exposed only if Engineering Truth proves the frontend genuinely needs it beyond (3).
+**Tests:** contract/unit for every new endpoint (creation spoofing/duplicate/ineligible rejection; read tenant/Episode isolation; not-found).
+**Rollback:** *Behavior* — additive endpoints only, no migration.
+**Reqs:** FR-TP-1, FR-TR-1, FR-SCH-1 · **Design:** §2.3, §2.4, §2.8
 
 ### T-FE-E.3 · Compose therapist session execution ∥
 **Repo:** FE · **Blocked by:** **T-0.7**, T-BE-E.4 · **Size:** M
