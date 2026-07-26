@@ -165,3 +165,36 @@ export interface WorkspaceFactsResponse {
   permission: PermissionFacts;
   what_changed: WhatChangedFacts;
 }
+
+/**
+ * T-FE-C.5 (T-BE-A.3/A.3a, FR-HIST-1/2) — one-to-one mirror of the
+ * backend's `HistoryItemResponse`/`ClinicalHistoryResponse`/
+ * `SessionCountsResponse` (`app/api/v1/schemas/clinical_workspace.py`).
+ * Semantics only (AC-5): `id`, `encounter_type`, `appointment_ids`,
+ * `plan_id` are identifiers/state codes, never presentation fields.
+ *
+ * `session_counts` is present for `treatment_plan` items only -- `null`
+ * elsewhere means "not applicable to this encounter type", never "zero
+ * sessions". `occurred_at` (T-BE-A.3a) is the sole authoritative
+ * occurrence timestamp -- `null` only when the backend genuinely could
+ * not resolve one; never fabricated or derived on the frontend.
+ */
+export interface SessionCountsResponse {
+  completed: number;
+  scheduled: number;
+  not_completed: number;
+  cancelled: number;
+}
+
+export interface HistoryItemResponse {
+  id: string;
+  encounter_type: string;
+  appointment_ids: string[];
+  plan_id: string | null;
+  session_counts: SessionCountsResponse | null;
+  occurred_at: string | null;
+}
+
+export interface ClinicalHistoryResponse {
+  items: HistoryItemResponse[];
+}

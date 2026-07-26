@@ -30,26 +30,37 @@
  * same orientation is a known RN anti-pattern). The legacy `flex: 1` host in
  * `ClinicalWorkspace.tsx` is unaffected -- `maxHeight` only caps growth, it
  * doesn't fight a smaller flex-constrained parent.
+ *
+ * T-FE-C.5 (T-BE-A.3/A.3a): the adapter's item shape changed (backend
+ * `encounter_type` taxonomy replaces the old 5 UI-artifact types), so this
+ * file's icon lookup and press handling were updated minimally: (1)
+ * `ITEM_ICON` now keys on the 4 backend encounter types plus a generic
+ * fallback for an unrecognized future value; (2) an item with no `route`
+ * (Treatment Plan/Treatment Review -- no existing detail screen for either
+ * yet) renders non-interactive rather than calling `router.push(undefined)`.
+ * No other rendering behavior changed -- `formatDate(item.date)` already
+ * handled a null date gracefully before this task. A one-state
+ * error/retry surface was added (`isError`/`refetch`, now exposed by the
+ * adapter) since the single Clinical History query can itself fail --
+ * unlike the pre-T-FE-C.5 assembly, there are no "remaining" queries to
+ * fall back to.
  */
 import React, { useCallback } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
+import { useTranslation } from '../../../../core/localization/useTranslation';
 import { formatDate } from '../../../../core/utils/dateTimeUtils';
-import {
-  useClinicalTimelineData,
-  ClinicalTimelineItem,
-  ClinicalTimelineItemType,
-} from '../hooks/useClinicalTimelineData';
+import { useClinicalTimelineData, ClinicalTimelineItem } from '../hooks/useClinicalTimelineData';
 
-const ITEM_ICON: Record<ClinicalTimelineItemType, keyof typeof Ionicons.glyphMap> = {
-  visit: 'calendar-outline',
-  prescription: 'medkit-outline',
-  case_sheet: 'document-text-outline',
-  treatment_recommendation: 'medical-outline',
-  clinical_service: 'pulse-outline',
+const ITEM_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  consultation: 'calendar-outline',
+  treatment_review: 'clipboard-outline',
+  treatment_plan: 'medical-outline',
+  legacy_treatment_sessions: 'pulse-outline',
 };
+const DEFAULT_ITEM_ICON: keyof typeof Ionicons.glyphMap = 'ellipse-outline';
 
 // Bounded height for the panel's own FlatList -- see docstring above.
 const TIMELINE_MAX_HEIGHT = 360;
@@ -57,12 +68,14 @@ const TIMELINE_MAX_HEIGHT = 360;
 export const ClinicalTimeline: React.FC = () => {
   const router = useRouter();
   const { colors, spacing, typography } = useClinicTheme();
-  const { items, isLoading } = useClinicalTimelineData();
+  const { t } = useTranslation();
+  const { items, isLoading, isError, refetch } = useClinicalTimelineData();
 
   const renderItem = useCallback(
     ({ item }: { item: ClinicalTimelineItem }) => (
       <TouchableOpacity
-        onPress={() => router.push(item.route as any)}
+        onPress={item.route ? () => router.push(item.route as any) : undefined}
+        disabled={!item.route}
         accessibilityRole="button"
         accessibilityLabel={`${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}, ${formatDate(item.date)}`}
         style={[
@@ -70,7 +83,7 @@ export const ClinicalTimeline: React.FC = () => {
           { borderColor: colors.border.subtle, borderRadius: spacing.sm, padding: spacing.sm, gap: spacing.sm },
         ]}
       >
-        <Ionicons name={ITEM_ICON[item.type]} size={20} color={colors.primary.default} />
+        <Ionicons name={ITEM_ICON[item.type] ?? DEFAULT_ITEM_ICON} size={20} color={colors.primary.default} />
         <View style={styles.itemText}>
           <Text style={[typography.subtitle2, { color: colors.text.primary }]}>{item.title}</Text>
           {!!item.subtitle && (
@@ -78,7 +91,7 @@ export const ClinicalTimeline: React.FC = () => {
           )}
         </View>
         <Text style={[typography.caption, { color: colors.text.tertiary }]}>{formatDate(item.date)}</Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+        {!!item.route && <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />}
       </TouchableOpacity>
     ),
     [router, colors, spacing, typography],
@@ -98,6 +111,15 @@ export const ClinicalTimeline: React.FC = () => {
       {isLoading ? (
         <View style={[styles.center, { padding: spacing.lg }]}>
           <ActivityIndicator color={colors.primary.default} />
+        </View>
+      ) : isError ? (
+        <View style={[styles.center, { padding: spacing.lg, gap: spacing.sm }]}>
+          <Text style={[typography.body2, { color: colors.feedback.error }]}>
+            {t('clinicalTimeline.error')}
+          </Text>
+          <TouchableOpacity onPress={() => refetch()} accessibilityRole="button">
+            <Text style={[typography.button, { color: colors.primary.default }]}>{t('common.retry')}</Text>
+          </TouchableOpacity>
         </View>
       ) : items.length === 0 ? (
         <Text

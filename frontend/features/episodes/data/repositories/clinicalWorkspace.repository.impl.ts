@@ -9,8 +9,8 @@
  */
 
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
-import { getClinicalWorkspaceApi } from '../datasources/clinicalWorkspace.api';
-import { WorkspaceFactsResponse } from '../models/clinicalWorkspace.dtos';
+import { getClinicalWorkspaceApi, getClinicalWorkspaceHistoryApi } from '../datasources/clinicalWorkspace.api';
+import { WorkspaceFactsResponse, ClinicalHistoryResponse } from '../models/clinicalWorkspace.dtos';
 
 // ============================================
 // QUERY KEYS
@@ -31,6 +31,12 @@ export const clinicalWorkspaceKeys = {
   all: ['clinicalWorkspace'] as const,
   detail: (tenantId: string, clientId: string, episodeId: string, appointmentId: string) =>
     [...clinicalWorkspaceKeys.all, tenantId, clientId, episodeId, appointmentId] as const,
+  /**
+   * T-FE-C.5: the Clinical History projection is Episode-scoped, not
+   * Visit-scoped -- no appointmentId dimension, unlike `detail` above.
+   */
+  history: (tenantId: string, clientId: string, episodeId: string) =>
+    [...clinicalWorkspaceKeys.all, 'history', tenantId, clientId, episodeId] as const,
 };
 
 // ============================================
@@ -55,6 +61,28 @@ export const useClinicalWorkspaceQuery = (
     queryKey: clinicalWorkspaceKeys.detail(tenantId, clientId, episodeId, appointmentId),
     queryFn: () => getClinicalWorkspaceApi(tenantId, clientId, episodeId, appointmentId),
     enabled: !!tenantId && !!clientId && !!episodeId && !!appointmentId,
+    staleTime: 0,
+    ...options,
+  });
+};
+
+/**
+ * T-FE-C.5 (T-BE-A.3/A.3a, FR-HIST-1/2). Hook to fetch the backend-owned
+ * Clinical History projection. Disabled unless every required context
+ * dimension is present -- never infers a patient/Episode. The response
+ * (classification, grouping, session counts, occurrence timestamps) is
+ * returned exactly as the backend computed it; no frontend derivation.
+ */
+export const useClinicalHistoryQuery = (
+  tenantId: string,
+  clientId: string,
+  episodeId: string,
+  options?: Omit<UseQueryOptions<ClinicalHistoryResponse, Error>, 'queryKey' | 'queryFn'>
+) => {
+  return useQuery<ClinicalHistoryResponse, Error>({
+    queryKey: clinicalWorkspaceKeys.history(tenantId, clientId, episodeId),
+    queryFn: () => getClinicalWorkspaceHistoryApi(tenantId, clientId, episodeId),
+    enabled: !!tenantId && !!clientId && !!episodeId,
     staleTime: 0,
     ...options,
   });

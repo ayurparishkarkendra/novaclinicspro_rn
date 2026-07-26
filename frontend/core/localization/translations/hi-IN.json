@@ -601,5 +601,15 @@
         }
       }
     }
+  },
+  "clinicalTimeline": {
+    "types": {
+      "consultation": "परामर्श",
+      "treatment_review": "उपचार समीक्षा",
+      "treatment_plan": "उपचार योजना",
+      "legacy_treatment_sessions": "थेरेपी सत्र"
+    },
+    "unknownType": "क्लिनिकल एनकाउंटर",
+    "error": "क्लिनिकल इतिहास लोड नहीं हो सका।"
   }
 }

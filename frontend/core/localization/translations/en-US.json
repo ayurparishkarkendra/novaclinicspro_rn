@@ -875,5 +875,15 @@
         "goToDashboard": "Go to Dashboard"
       }
     }
+  },
+  "clinicalTimeline": {
+    "types": {
+      "consultation": "Consultation",
+      "treatment_review": "Treatment Review",
+      "treatment_plan": "Treatment Plan",
+      "legacy_treatment_sessions": "Therapy Sessions"
+    },
+    "unknownType": "Clinical Encounter",
+    "error": "Could not load clinical history."
   }
 }
