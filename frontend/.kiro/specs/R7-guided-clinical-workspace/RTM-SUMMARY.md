@@ -16,6 +16,8 @@
 
 **Sixth addendum (2026-07-26, T-FE-C.7 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.7` (mobile hierarchy behaviour, commit `3315d08d`) is now complete — all 3 tasks in the `T-FE-C.5`/`C.6`/`C.7` chain are done. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly): the requirement-level AC7/AC8/AC9 backend gap reported under the fifth addendum is unchanged by this closure — `T-FE-C.7`'s own 3-item AC needed no new backend field and was satisfied without touching that gap. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
 
+**Seventh addendum (2026-07-27, T-BE-A.3b/T-FE-C.6a closure — Clinical History complete) — narrow, targeted only:** still not recomputed here. `T-BE-A.3b` (Plan-status/Session enrichment, backend commit `186f11f`) and `T-FE-C.6a` (enriched rendering, frontend commit `3a4afd71`) are now both complete — these two governance-amendment tasks (added this same session, ahead of `T-Z.9`) closed the AC7/AC8/AC9 gap reported under the fifth/sixth addenda. `FR-HIST-1` moves from Partially Complete to **Fully Complete/READY FOR MVP** on `RTM-MASTER.md` (updated directly) — all 17 of its frozen AC items are now satisfied. `FR-HIST-2` is unaffected (already READY FOR MVP). Clinical History (FR-HIST-1 + FR-HIST-2) is now READY FOR MVP end-to-end. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+
 ---
 
 ## Requirement-level statistics (44 total)
