@@ -584,25 +584,25 @@
 ### FR-HIST-1 — Consultation/therapy history separation
 **Business Objective:** Doctor consultations and Treatment Reviews are top-level clinical encounters; therapy Sessions grouped beneath their authoritative Treatment Plan, collapsible; hierarchy backend-owned, frontend renders only.
 **Priority:** MVP Mandatory (RATIFIED explicitly as in-R7, not R8 — Decision 10)
-**Design:** §2.1a, §3 · **Decision:** D10 · **ET refs:** verified defect — `useClinicalTimelineData` flattened everything into one undifferentiated list, computed completed-count from scheduled (not completed) rows, double-represented therapy appointments (ED-ARCH-007) · **Owner Ratification:** Decision 10 (v1.1 amendment, 2026-07-18)
-**Backend:** Tasks: T-BE-A.3 · Status: **Not Started** (all three of its own blockers — A.1, D.4, E.1 — are now satisfied; genuinely available to start)
-**Frontend:** Tasks: T-FE-C.5, T-FE-C.6, T-FE-C.7 · Status: **Not Started**
-**Implementation Evidence:** none for the hierarchy itself. **Partial, indirect progress**: `T-0.6` removed the specific wrong session-count formula as a side effect (it is now dead code, not deleted, not replaced)
-**Tests:** none for the hierarchy itself
-**Traceability:** FR-HIST-1 → design.md §2.1a/§3 → T-BE-A.3/T-FE-C.5-7 → — → — → Not Started
-**Release Classification:** BLOCKING MVP
-**Remarks:** A RATIFIED in-R7 decision with its backend prerequisites now fully unblocked (as of this session's `T-BE-E.1` completion) but zero implementation started. This is the single largest coherent unstarted chain in the matrix — 7 tasks (`T-BE-A.3/A.4/A.5`, `T-FE-C.5/C.6/C.7`, `T-Z.9`), all still ahead. **[Note added 2026-07-26, narrow, not a full row recount]:** `T-BE-A.3a` (new, discovered during `T-FE-C.5`'s own Engineering Truth) is COMPLETE — the `HistoryItemResponse` contract now carries an authoritative `occurred_at` per item, closing a genuine backend contract gap `T-FE-C.5` could not otherwise satisfy without fabricating a Treatment Review timestamp. This row's Backend/Frontend Status cells above are not recomputed in this pass — see `RTM-AUDIT.md`/a future full pass for the broader `T-BE-A.3/A.4/A.5` staleness already flagged elsewhere.
+**Design:** §2.1a, §3 · **Decision:** D10 · **ET refs:** verified defect — `useClinicalTimelineData` flattened everything into one undifferentiated list, computed completed-count from scheduled (not completed) rows, double-represented therapy appointments (ED-ARCH-007) — all three now closed · **Owner Ratification:** Decision 10 (v1.1 amendment, 2026-07-18)
+**Backend:** Tasks: T-BE-A.3, T-BE-A.4, T-BE-A.5, T-BE-A.3a · Status: **COMPLETE** **[Updated 2026-07-26]** — commits `4472060` (A.3, encounter classification), `2147ada` (A.4, legacy association), `6cac1e6` (A.5, backend-derived session counts), `8326f33` (A.3a, authoritative `occurred_at`)
+**Frontend:** Tasks: T-FE-C.5 (consumption — complete, commit `cedee6cc`), T-FE-C.6 (collapsible hierarchy rendering — **Not Started**), T-FE-C.7 (mobile hierarchy behavior, AC17 — **Not Started**) · Status: **PARTIAL**
+**Implementation Evidence:** Backend: `clinical_history_classifier.py`, `clinical_workspace_service.py`, `clinical_workspace.py` (schemas) — commits above. Frontend: `useClinicalTimelineData.ts`, `ClinicalTimeline.tsx`, `clinicalWorkspace.{dtos,api,repository.impl}.ts` — commit `cedee6cc`.
+**Tests:** Backend: 139 focused (classifier/service/router/contract-semantics, includes `T-BE-A.3a`'s 16). Frontend: 68 focused (`useClinicalTimelineData`, `ClinicalTimeline`, data-contract, cross-file architecture) + 147 regression, all passing.
+**Traceability:** FR-HIST-1 → design.md §2.1a/§3 → T-BE-A.3/A.4/A.5/A.3a (done) + T-FE-C.5 (done) + T-FE-C.6/C.7 (not started) → source above → tests above → PARTIAL
+**Release Classification:** BLOCKING MVP — backend and the frontend consumption layer are done; the collapsible-hierarchy rendering itself (T-FE-C.6) and its mobile behavior (T-FE-C.7) remain, so the requirement's own AC (17 items, including "each Treatment Plan group is independently collapsible" and mobile-preserved hierarchy) is not yet fully satisfied end-to-end.
+**Remarks:** The single largest coherent chain in the matrix is now more than half closed: all 4 backend tasks and the frontend's own contract-consumption task are done; only the two presentation-hierarchy tasks (`T-FE-C.6`, `T-FE-C.7`) remain, plus `T-Z.9`.
 
 ### FR-HIST-2 — Backend-owned hierarchical clinical history contract
-**Business Objective:** The existing Clinical Workspace aggregate exposes an authoritative `history_items[]` projection (consultation/treatment_review/treatment_plan{sessions}/legacy_treatment_sessions); no competing aggregate; frontend performs zero clinical aggregation.
+**Business Objective:** The existing Clinical Workspace aggregate exposes an authoritative `history_items[]` projection (consultation/treatment_review/treatment_plan{session_counts}/legacy_treatment_sessions); no competing aggregate; frontend performs zero clinical aggregation.
 **Priority:** MVP Mandatory (same ratification as FR-HIST-1)
-**Design:** §2.1a · **Decision:** D10 · **ET refs:** "Sheet-to-Plan cardinality is unverified... no automatic legacy backfill without a verified cardinality/data audit" — an explicitly-stated prerequisite investigation not yet performed · **Owner Ratification:** Decision 10
-**Backend:** Tasks: T-BE-A.3, T-BE-A.4, T-BE-A.5 · Status: **Not Started**
-**Frontend:** Tasks: T-FE-C.5 (consumption) · Status: **Not Started**
-**Implementation Evidence:** none
-**Tests:** none
-**Traceability:** FR-HIST-2 → design.md §2.1a → T-BE-A.3/A.4/A.5 → — → — → Not Started
-**Release Classification:** BLOCKING MVP
+**Design:** §2.1a · **Decision:** D10 · **ET refs:** "Sheet-to-Plan cardinality is unverified... no automatic legacy backfill without a verified cardinality/data audit" — resolved by `T-BE-A.4`'s explicit legacy classification (never inferred) · **Owner Ratification:** Decision 10
+**Backend:** Tasks: T-BE-A.3, T-BE-A.4, T-BE-A.5, T-BE-A.3a · Status: **COMPLETE** **[Updated 2026-07-26]** — same commits as FR-HIST-1's Backend row
+**Frontend:** Tasks: T-FE-C.5 (consumption) · Status: **COMPLETE** **[Updated 2026-07-26]** — commit `cedee6cc`. `useClinicalTimelineData.ts` performs zero encounter classification, zero Session-count aggregation, zero Plan-association inference, zero Treatment Review date derivation, and no local sort — every AC this requirement names is about the contract/non-derivation guarantee (not rich hierarchy rendering, which is FR-HIST-1's `T-FE-C.6/C.7`), and that guarantee is now structurally enforced (proven by source-level architecture tests, `clinicalHistoryArchitecture.test.ts`/`useClinicalTimelineData.test.tsx`'s own architecture describe blocks).
+**Implementation Evidence:** Same files as FR-HIST-1.
+**Tests:** Same test suites as FR-HIST-1.
+**Traceability:** FR-HIST-2 → design.md §2.1a → T-BE-A.3/A.4/A.5/A.3a (done) + T-FE-C.5 (done) → source above → tests above → **COMPLETE**
+**Release Classification:** READY FOR MVP **[Updated 2026-07-26]** — this requirement's own AC (backend-owned classification, no competing aggregate, zero frontend clinical aggregation) is fully satisfied end-to-end; it does not itself require the richer hierarchy UI FR-HIST-1/`T-FE-C.6` still owns.
 **Remarks [Note added 2026-07-26, narrow]:** `T-BE-A.3a` (new) is COMPLETE, adding the authoritative `occurred_at` timestamp this contract was missing — `T-FE-C.5` is now fully unblocked on the backend side. Row's Backend/Frontend Status cells not otherwise recomputed in this pass.
 **Remarks:** `T-BE-A.4` specifically cannot even start until "the data audit itself (count Treatment Sheets per episode/recommendation across real tenant data)" is performed — this is a genuine prerequisite investigation, not a coding task, and per the task's own text "if unperformed when this task starts, it blocks start, it is not skipped."
 

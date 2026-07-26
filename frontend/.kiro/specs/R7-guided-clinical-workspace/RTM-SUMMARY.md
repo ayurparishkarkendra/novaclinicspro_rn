@@ -10,6 +10,8 @@
 
 **Third addendum (2026-07-26, T-BE-E.1a/T-FE-E.1a/T-FE-E.1b closure) — narrow, targeted only:** the statistics below are still NOT recomputed in this pass. `T-BE-E.1a` (Case Sheet contribution snapshot, backend commit `00682b6`, shared-dev DB upgrade `8e43b15`), `T-FE-E.1a` (composition, commit `0ed23f7`), and `T-FE-E.1b` (render history, commit `c93fddf`) are now all complete — the `T-FE-E.1` umbrella (tasks.md) is fully closed. `FR-CS-1` and `FR-CS-5` move from Partially Complete to Fully Complete on `RTM-MASTER.md` (both rows updated directly). A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
 
+**Fourth addendum (2026-07-26, T-FE-C.4/T-BE-A.3a/T-FE-C.5 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.4` (Clinical Timeline composed into `VisitCommandCenter`, commit `b9c3afc0`), `T-BE-A.3` through `A.5` and the new `T-BE-A.3a` (Clinical History backend chain, commits `4472060`/`2147ada`/`6cac1e6`/`8326f33`), and `T-FE-C.5` (backend history-hierarchy consumption, commit `cedee6cc`) are all now complete. `FR-HIST-2` moves from Not Started to Fully Complete; `FR-HIST-1` moves from Not Started to Partially Complete (backend + frontend consumption done, collapsible-hierarchy rendering `T-FE-C.6`/`C.7` still ahead) — both rows updated directly on `RTM-MASTER.md`. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+
 ---
 
 ## Requirement-level statistics (44 total)

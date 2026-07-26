@@ -26,7 +26,7 @@ Forgetting milestones, task groups, and phases, the 44 requirements group into *
 | **9. Therapist Execution** (FR-TS-3, FR-TS-4, FR-TS-5) | ✅ Backend complete and exposed: FR-TS-3 (doctor content) with OCC (`93e9b8d`); FR-TS-4/5 (`record_session_non_execution`) reachable via `POST /treatment-sheets/rows/{row_id}/non-execution` as of `T-BE-E.4a` | ❌ Not Started | ✅ 58 (content) + 44 (non-execution) + 17 (non-execution API) | ❌ None | **[Updated 2026-07-25, T-BE-E.4a closure]** evidence: `RTM-MASTER.md` FR-TS-3/4/5 cards, `MVP-BLOCKERS.md` FR-TS-3/4/5 entries, commits `9497f13`/`ccf56d8`/`1529b47`/`a0aa4c3` |
 | **10. Living Documents** (FR-LD-1, FR-LD-2, FR-LD-3) | ❌ Not Started | ❌ Not Started | ❌ None | ❌ None | **Not Started** — evidence: `RTM-MASTER.md` FR-LD-1/2/3 cards |
 | **11. Billing Visibility** (FR-BILL-1, FR-BILL-2) | ✅ Complete | ❌ Not Started | ✅ Unit (BE only) | ❌ None | **Backend Complete** — evidence: `RTM-MASTER.md` FR-BILL-1/2 cards |
-| **12. Clinical History** (FR-HIST-1, FR-HIST-2) | ❌ Not Started (unblocked) | ❌ Not Started | ❌ None | ❌ None | **Not Started** — evidence: `RTM-MASTER.md` FR-HIST-1/2 cards; `RTM-AUDIT.md` §6 confirms all backend blockers now satisfied |
+| **12. Clinical History** (FR-HIST-1, FR-HIST-2) | ✅ Complete (`T-BE-A.3/A.4/A.5/A.3a`) | 🟡 Partial (`T-FE-C.5` consumption complete, commit `cedee6cc`; `T-FE-C.6`/`C.7` hierarchy rendering not started) | ✅ 139 backend + 68 frontend focused | ❌ None | **[Updated 2026-07-26, T-FE-C.5 closure]** evidence: `RTM-MASTER.md` FR-HIST-1/2 cards (FR-HIST-2 now Complete; FR-HIST-1 Partial — hierarchy rendering remains) |
 | **13. Role-Based Workflow** (FR-RBAC-1) | N/A (pre-existing permission system; no new backend task) | ❌ Not Started | ❌ None R7-specific | ❌ None | **Not Started** — evidence: `RTM-MASTER.md` FR-RBAC-1 card; `episodeWorkspaceConfig.ts` confirmed untouched by any R7 commit |
 | **14. Legacy Navigation** (FR-LEG-1, FR-LEG-2) | N/A | ❌ Not Started | ❌ None | ❌ None | **Not Started** — evidence: `RTM-MASTER.md` FR-LEG-1/2 cards; three legacy routes confirmed to contain zero `cos_v1` references |
 | **15. Mobile-First Presentation** (FR-MOB-1, FR-MOB-2) | N/A | 🟡 Partially Complete (shell only) | ✅ Shell tests only | ❌ None | **Partially Complete** — evidence: `RTM-MASTER.md` FR-MOB-1 card "Partially Complete", FR-MOB-2 card "Not Started" |
@@ -121,7 +121,7 @@ Five phases, each respecting the actual dependency chains already verified in `t
 |---|---|---|---|---|---|---|---|
 | Session Scheduling | FR-SCH-1/2 | 🟡 Partial → target Complete | (Phase III) | T-BE-E.1✅ (satisfied) | T-BE-E.2, T-BE-E.3, T-BE-E.5 | M+M+S | MVP |
 | Therapist Execution | FR-TS-3/4/5 | ❌ → target Complete | (Phase III) | T-BE-E.3 (this phase, sequential) | T-BE-E.4 | M | MVP |
-| Clinical History (backend) | FR-HIST-1/2 | ❌ → target Complete | (Phase III) | T-BE-A.1✅, T-BE-D.4✅, T-BE-E.1✅ (all satisfied) | T-BE-A.3, T-BE-A.4 (blocked on a not-yet-performed data audit), T-BE-A.5 | L+M+S | MVP |
+| Clinical History (backend) | FR-HIST-1/2 | ✅ **Complete 2026-07-26** (`T-BE-A.3/A.4/A.5/A.3a`) | (Phase III) | T-BE-A.1✅, T-BE-D.4✅, T-BE-E.1✅ (all satisfied) | None — backend chain closed | L+M+S | MVP |
 
 ### Roadmap Phase III — Frontend: consume Phase II backend + compose treatment/role surfaces
 | Capability | Related Requirements | Backend | Frontend | Dependencies | Remaining Tasks | Size | MVP/Post-MVP |
@@ -134,7 +134,7 @@ Five phases, each respecting the actual dependency chains already verified in `t
 ### Roadmap Phase IV — Frontend: Clinical History consumption + remaining Legacy Navigation
 | Capability | Related Requirements | Backend | Frontend | Dependencies | Remaining Tasks | Size | MVP/Post-MVP |
 |---|---|---|---|---|---|---|---|
-| Clinical History (compose) | FR-HIST-1/2 | ✅ (Phase II) | ❌ Not Started | T-BE-A.3/A.4/A.5 (Phase II), T-FE-C.4 (Phase III) | T-FE-C.5, T-FE-C.6, T-FE-C.7 | M+M+S | MVP |
+| Clinical History (compose) | FR-HIST-1/2 | ✅ (Phase II) | 🟡 **Partial 2026-07-26** (`T-FE-C.5` complete, commit `cedee6cc`) | T-BE-A.3/A.4/A.5 (Phase II), T-FE-C.4 (Phase III) | T-FE-C.6, T-FE-C.7 | M+S | MVP |
 | Legacy Navigation (remaining) | FR-LEG-2, FR-CR-1 | N/A | ❌ Not Started | T-0.8✅, T-BE-F.3✅ (F.2); T-FE-E.1/E.2 (Phase I/III, for F.3) | T-FE-F.2, T-FE-F.3 | M+M | MVP |
 
 ### Roadmap Phase V — Release Gate (must be last)
