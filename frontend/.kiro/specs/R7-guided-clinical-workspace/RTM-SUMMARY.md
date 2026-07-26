@@ -12,6 +12,8 @@
 
 **Fourth addendum (2026-07-26, T-FE-C.4/T-BE-A.3a/T-FE-C.5 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.4` (Clinical Timeline composed into `VisitCommandCenter`, commit `b9c3afc0`), `T-BE-A.3` through `A.5` and the new `T-BE-A.3a` (Clinical History backend chain, commits `4472060`/`2147ada`/`6cac1e6`/`8326f33`), and `T-FE-C.5` (backend history-hierarchy consumption, commit `cedee6cc`) are all now complete. `FR-HIST-2` moves from Not Started to Fully Complete; `FR-HIST-1` moves from Not Started to Partially Complete (backend + frontend consumption done, collapsible-hierarchy rendering `T-FE-C.6`/`C.7` still ahead) — both rows updated directly on `RTM-MASTER.md`. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
 
+**Fifth addendum (2026-07-26, T-FE-C.6 closure) — narrow, targeted only:** still not recomputed here. `T-FE-C.6` (collapsible Treatment Plan groups, commit `71e9f44d`) is now complete. `FR-HIST-1` remains Partially Complete on `RTM-MASTER.md` (updated directly) — `T-FE-C.7` (mobile hierarchy) is still not started, and Engineering Truth during `T-FE-C.6` found the live Clinical History contract carries no per-session data and no Plan status field, leaving FR-HIST-1's own AC7 (status-distinct Plans)/AC8/AC9 (individual Session detail) unsatisfiable without a further backend amendment — reported on `RTM-MASTER.md`'s FR-HIST-1 row, not fabricated around. A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+
 ---
 
 ## Requirement-level statistics (44 total)
