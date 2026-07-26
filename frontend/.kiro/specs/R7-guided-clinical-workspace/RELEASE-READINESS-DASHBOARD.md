@@ -1,6 +1,9 @@
 # RELEASE-READINESS-DASHBOARD — NovaClinics Clinical Operating System
 
 **As of:** 2026-07-27 (full reconciliation pass) · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`
+
+> **[2026-07-26] Partially stale as of `T-FE-E.2`.** This document was generated from `RTM-MASTER.md`'s 2026-07-27 pass and has NOT been rewritten for `T-FE-E.2`'s partial completion (commits `4fba2ec4`/`80fb96d0`). In particular: Prescription and Treatment Recommendation composition are now done (not "not started"); Session Instructions and Scheduling have real partial composition (current state + write); the Treatment Plan gap is now understood specifically — `TenantTreatmentPlan` has zero public HTTP contract — with a proposed remediation, `T-BE-D.4a`. Treat every `T-FE-E.2`-referencing line below as superseded by `RTM-MASTER.md`'s per-requirement `[Updated 2026-07-26]` markers; this document was not line-by-line corrected to match.
+
 **Legend:** ✅ Complete · 🟠 Implemented, Not Exposed (service-only — no router/caller reaches it) · 🟡 Partial · 🔴 Not Started · N/A Not Applicable to this capability
 
 **Reconciliation note.** This dashboard is fully rewritten this pass, not addended. **Workflow Engine** and **Recommendation Engine** move from 🔴/🔴 to ✅/✅ on Frontend/Release — `T-FE-B.1`, `T-FE-B.2`, `T-FE-D.1` had shipped (commits `6e667d15`, `acfa730a`, `426967bb`) without this dashboard being updated, the same staleness `RTM-MASTER.md`'s reconciliation found in five requirement cards. Every other row was independently re-verified via `git log` and source inspection this pass; see `RTM-MASTER.md`'s Reconciliation Evidence section for method.

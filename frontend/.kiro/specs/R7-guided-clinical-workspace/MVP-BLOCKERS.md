@@ -1,6 +1,9 @@
 # MVP-BLOCKERS — NovaClinics Clinical Operating System
 
 **Scope: requirements only.** Not tasks, not assumptions, not future enhancements. Every entry below is one of the 24 requirements `RTM-MASTER.md` classifies `BLOCKING MVP`, with its full chain: Requirement → Design → Task → Implementation Gap → Evidence → Why it blocks release. Full supporting detail (files, commits, test names) is in `RTM-MASTER.md`; this document exists to be short enough to drive a release conversation on its own.
+
+> **[2026-07-26] Partially stale as of `T-FE-E.2`.** This document was generated from `RTM-MASTER.md`'s 2026-07-27 pass and has NOT been rewritten for `T-FE-E.2`'s partial completion (commits `4fba2ec4`/`80fb96d0`). In particular: Prescription and Treatment Recommendation composition are now done (not "not started"); Session Instructions and Scheduling have real partial composition (current state + write); the Treatment Plan gap is now understood specifically — `TenantTreatmentPlan` has zero public HTTP contract — with a proposed remediation, `T-BE-D.4a`. Treat every `T-FE-E.2`-referencing line below as superseded by `RTM-MASTER.md`'s per-requirement `[Updated 2026-07-26]` markers; this document was not line-by-line corrected to match.
+
 **As of:** 2026-07-27 (full reconciliation pass) · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`.
 
 **Reconciliation note.** This document is fully rewritten this pass, not addended. Five requirements (`FR-VCC-1`, `FR-WFA-1`, `FR-REC-1`, `FR-REC-2`, `FR-MOB-2`) were removed — their blocking frontend tasks (`T-FE-B.1`, `T-FE-B.2`, `T-FE-D.1`) had shipped without this document being updated. `FR-COS-2` remains here (its architecture proof `T-Z.1` genuinely has not run). `FR-HIST-1`/`FR-HIST-2` were already resolved as of last session; unchanged this pass.

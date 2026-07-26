@@ -2,6 +2,9 @@
 
 **Derived from:** `RTM-MASTER.md` (full reconciliation pass). **As of:** 2026-07-27 · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`.
 
+> **[2026-07-26] Partially stale as of `T-FE-E.2`.** This document was generated from `RTM-MASTER.md`'s 2026-07-27 pass and has NOT been rewritten for `T-FE-E.2`'s partial completion (commits `4fba2ec4`/`80fb96d0`). In particular: Prescription and Treatment Recommendation composition are now done (not "not started"); Session Instructions and Scheduling have real partial composition (current state + write); the Treatment Plan gap is now understood specifically — `TenantTreatmentPlan` has zero public HTTP contract — with a proposed remediation, `T-BE-D.4a`. Treat every `T-FE-E.2`-referencing line below as superseded by `RTM-MASTER.md`'s per-requirement `[Updated 2026-07-26]` markers; this document was not line-by-line corrected to match.
+
+
 **Reconciliation note.** The prior version of this document accumulated seven narrow addenda (2026-07-25 through 2026-07-26) that each explicitly stated its own headline statistics table was NOT recomputed. This pass performs the deferred full recount `RTM-MASTER.md`'s own Reconciliation Evidence section documents. The headline tables below are the fresh, arithmetic-checked numbers — no prior addendum's numbers are carried forward. Historical addenda and their evolution remain available in this file's own git history and in `RTM-AUDIT.md`; they are not repeated here.
 
 ---

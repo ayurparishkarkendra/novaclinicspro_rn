@@ -2,7 +2,7 @@
 
 **Status: proposed authoritative source, not yet owner-approved.** This document reconciles `requirements.md`, `design.md`, `tasks.md`, the Dependency & Parallelism Map, `R7-OWNER-RATIFICATION.md`, both repositories' Engineering Truth/Debt documents, and the prior audit artifacts (`RTM.md`, `RTM-AUDIT.md`, `MVP-RELEASE-FREEZE.md`). It does not modify, rewrite, or reinterpret any of them. Every claim of completion below was checked against actual repository content (files, commits, tests) — nothing is marked done because it "looks done."
 
-**As of:** 2026-07-27 (full reconciliation pass — statistics and stale statuses recomputed from zero, not carried forward as an addendum) · Backend `novaclinicspro-api` @ `186f11f74c9ebd7986689a3919459ad69d446ea6` (branch `feature/r7-clinical-operating-system`) · Frontend `novaclinicspro_rn` @ `d69ade484d936cc2f819b40a15758ff22a7ce9d7` (same branch). **Reconciliation finding:** the prior pass (2026-07-25, carried through several narrow addenda since) had gone stale in more than just the Clinical History rows it was tracking — `T-FE-B.1`, `T-FE-B.2`, and `T-FE-D.1` had all shipped (commits `6e667d15`, `acfa730a`, `426967bb`) without their consuming requirement cards (`FR-VCC-1`, `FR-WFA-1`, `FR-REC-1`, `FR-REC-2`, `FR-MOB-2`) ever being updated to reflect it, and the "remaining task" classification table at the bottom of this document still listed 10 tasks (`T-BE-E.2/E.3/E.4/E.5`, `T-FE-B.1/B.2/C.4/C.5/C.6/C.7/D.1/E.1`) that had already completed. Every status below was re-verified this pass against current source, current tests, and `git log` on the current branch — see §Reconciliation Evidence for the exact commands and findings.
+**As of:** 2026-07-27 (full reconciliation pass — statistics and stale statuses recomputed from zero, not carried forward as an addendum), narrowly updated 2026-07-26 for `T-FE-E.2` (only the cards that task touched — see the per-section `[Updated 2026-07-26]` markers throughout; no broader recount performed) · Backend `novaclinicspro-api` @ `186f11f74c9ebd7986689a3919459ad69d446ea6` (branch `feature/r7-clinical-operating-system`, unchanged — backend repository untouched by `T-FE-E.2`) · Frontend `novaclinicspro_rn` @ `80fb96d01c31d20c053a034bdb0239d372e1336a` (same branch). **Reconciliation finding:** the prior pass (2026-07-25, carried through several narrow addenda since) had gone stale in more than just the Clinical History rows it was tracking — `T-FE-B.1`, `T-FE-B.2`, and `T-FE-D.1` had all shipped (commits `6e667d15`, `acfa730a`, `426967bb`) without their consuming requirement cards (`FR-VCC-1`, `FR-WFA-1`, `FR-REC-1`, `FR-REC-2`, `FR-MOB-2`) ever being updated to reflect it, and the "remaining task" classification table at the bottom of this document still listed 10 tasks (`T-BE-E.2/E.3/E.4/E.5`, `T-FE-B.1/B.2/C.4/C.5/C.6/C.7/D.1/E.1`) that had already completed. Every status below was re-verified this pass against current source, current tests, and `git log` on the current branch — see §Reconciliation Evidence for the exact commands and findings.
 
 **This document is requirement-centric.** One row (one card, below) per Functional Requirement — 44 total. A requirement spanning many tasks still gets exactly one card. Task-centric detail (files/commits/blocked-by) lives inside each requirement's card as evidence, not as the organizing structure.
 
@@ -250,12 +250,12 @@
 **Priority:** MVP Mandatory
 **Design:** §2.7 · **Decision:** D3 · **ET refs:** the verified fact that `PrescriptionStatus(draft/issued/dispensed)` has zero runtime usages (ED-ARCH-002) · **Owner Ratification:** Decision 3
 **Backend:** Tasks: none required (enforced by omission — no Issue/Dispense code was ever built) · Status: **Complete**
-**Frontend:** Tasks: T-FE-E.2 (composition, not started) · Status: **Not Started**
-**Implementation Evidence:** `tenant_prescription.status` (pre-existing `document_status` ENUM)
-**Tests:** pre-existing prescription test suite
-**Traceability:** FR-RX-1 → design.md §2.7 → (no BE task needed) + T-FE-E.2 (not started) → `tenant_prescription.status` → pre-existing tests → n/a → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** The backend constraint is trivially satisfied (nothing was ever built to violate it), but the requirement's frontend composition half genuinely has not shipped.
+**Frontend:** Tasks: T-FE-E.2 · Status: **Complete** [Updated 2026-07-26]
+**Implementation Evidence:** `tenant_prescription.status` (pre-existing `document_status` ENUM); `PrescriptionModule` composed unchanged into `VisitCommandCenter` — commit `80fb96d0`
+**Tests:** pre-existing prescription test suite; `visitCommandCenter.test.tsx` composition assertions
+**Traceability:** FR-RX-1 → design.md §2.7 → (no BE task needed) + T-FE-E.2 (done) → `tenant_prescription.status` + `PrescriptionModule` → pre-existing tests + composition tests → `80fb96d0` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** The backend constraint is trivially satisfied (nothing was ever built to violate it); `PrescriptionModule` (already T-0.2-remediated) is now reused unchanged in the doctor workflow composition, no new Rx logic introduced.
 
 ### FR-RX-2 — Copy-forward is not in R7
 **Business Objective:** No copy-forward action ships in R7 — a negative requirement.
@@ -278,12 +278,12 @@
 **Priority:** MVP Mandatory
 **Design:** §2.3, §2.8 · **Decision:** D8, Decision 11 · **ET refs:** the removed `tenant_treatment_proposals` entity, the dual-endpoint discriminator ambiguity resolved by `T-BE-D.3a` · **Owner Ratification:** Decision 11 (v1.2 amendment, this session)
 **Backend:** Tasks: T-BE-D.3a · Status: **Complete**
-**Frontend:** Tasks: T-FE-E.2 · Status: **Not Started**
-**Implementation Evidence:** `tenant_treatment_sheet.py` (`creation_source` column), migration `20260724_000003_r7_recommendation_source_identity.py`, `i_treatment_order_repository.py::get_eligible_recommendation_source`, `i_treatment_plan_repository.py::get_by_originating_recommendation_id` — commit `fc8235a`
-**Tests:** Structural (migration DDL) + Unit (mocked, every creation path + immutability via source inspection) + Integration (disposable Postgres, one-off concurrency proof, not in CI suite): `test_r7_recommendation_source_identity.py`
-**Traceability:** FR-TR-1 → design.md §2.3/§2.8 → T-BE-D.3a (done) + T-FE-E.2 (not started) → `tenant_treatment_sheet.py`+migration → `test_r7_recommendation_source_identity.py` → `fc8235a` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** This requirement's backend realization required a genuine design correction mid-flight — see `RTM-AUDIT.md` §1 finding #4 and §7 finding #3. The fix shipped cleanly, but it is evidence the original design-freeze process did not fully validate this requirement against Engineering Truth before `tasks.md` was frozen.
+**Frontend:** Tasks: T-FE-E.2 · Status: **Complete** [Updated 2026-07-26]
+**Implementation Evidence:** `tenant_treatment_sheet.py` (`creation_source` column), migration `20260724_000003_r7_recommendation_source_identity.py`, `i_treatment_order_repository.py::get_eligible_recommendation_source`, `i_treatment_plan_repository.py::get_by_originating_recommendation_id` — commit `fc8235a`; `TreatmentRecommendationModule` composed unchanged into `VisitCommandCenter` — commit `80fb96d0`
+**Tests:** Structural (migration DDL) + Unit (mocked, every creation path + immutability via source inspection) + Integration (disposable Postgres, one-off concurrency proof, not in CI suite): `test_r7_recommendation_source_identity.py`; `visitCommandCenter.test.tsx` composition assertions
+**Traceability:** FR-TR-1 → design.md §2.3/§2.8 → T-BE-D.3a (done) + T-FE-E.2 (done) → `tenant_treatment_sheet.py`+migration + `TreatmentRecommendationModule` → tests above → `fc8235a`/`80fb96d0` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** This requirement's backend realization required a genuine design correction mid-flight — see `RTM-AUDIT.md` §1 finding #4 and §7 finding #3. Known minor gap (not part of this requirement's own formal AC): `TreatmentRecommendationModule` does not yet surface `cancellation_reason_code`/`cancellation_reason_text` (added to the frontend DTO in `4fba2ec4` but not yet consumed by this component) when a Recommendation is declined/cancelled — reused unchanged per this task's own scope commitment, not a regression.
 
 ### FR-TP-1 — Treatment Plan is first-class persisted, versioned entity
 **Business Objective:** Plan answers "what course is clinically intended?"; owns patient/Episode/Recommendation/clinician/therapies/session-count/frequency/etc.; contains no committed dates; persists independently of scheduling.
@@ -293,9 +293,9 @@
 **Frontend:** Tasks: T-FE-E.2 · Status: **Not Started**
 **Implementation Evidence:** `treatment_plan/models.py` (domain, `216d82c`), `tenant_treatment_plan.py` + migration `20260724_000002` (ORM/schema, `f0fdb33`), `sqlalchemy_treatment_plan_repository.py` + UoW registration (`bbe4066`), `treatment_plan_service.py` + `i_treatment_plan_service.py` + factory (`f09097f`)
 **Tests:** Unit (domain invariants, repository, service — mocked) + Structural (migration DDL): `test_r7_treatment_plan_domain.py`, `_persistence.py`, `test_treatment_plan_repository.py`, `test_treatment_plan_service.py`
-**Traceability:** FR-TP-1 → design.md §2.3 → T-BE-D.1..D.4 (done) + T-FE-E.2 (not started) → 4 new modules + 1 migration → 4 test files (89+ tests total) → `216d82c`/`f0fdb33`/`bbe4066`/`f09097f` → Partially Complete
+**Traceability:** FR-TP-1 → design.md §2.3 → T-BE-D.1..D.4 (done) + T-FE-E.2 (attempted, blocked) → 4 new modules + 1 migration → 4 test files (89+ tests total) → `216d82c`/`f0fdb33`/`bbe4066`/`f09097f` → Partially Complete
 **Release Classification:** BLOCKING MVP
-**Remarks:** The entity, its persistence, and the service that creates it from a Recommendation are all complete and thoroughly tested — this is the single most rigorously verified backend chain in the entire matrix (4 sequential tasks, each independently audited on landing). "Frontend never reconstructs the Plan from schedule rows" (AC15) is structurally unfalsifiable until FE-E.2 exists to check.
+**Remarks:** The entity, its persistence, and the service that creates it from a Recommendation are all complete and thoroughly tested — this is the single most rigorously verified backend chain in the entire matrix (4 sequential tasks, each independently audited on landing). [Updated 2026-07-26] `T-FE-E.2` confirmed "Frontend never reconstructs the Plan from schedule rows" (AC15) holds — but only because Plan composition could not be attempted at all: `TenantTreatmentPlan` has zero public HTTP contract (no router/schema/`main.py` registration despite the service/repository/factory being complete). `VisitCommandCenter` renders an explicit gap message rather than a fabricated Plan view. Proposed narrow amendment: **T-BE-D.4a** (see `tasks.md`), not yet started.
 
 ### FR-TP-2 — Plan lifecycle: semantic stages frozen, spelling deferred
 **Business Objective:** 8 named stages (Authoring…Stopped/discontinued) must all be representable; smallest additive model.
@@ -330,24 +330,24 @@
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** verified `treatment_sheet_row` already ~70% separated pre-R7 · **Owner Ratification:** Treatment Plan resolution section
 **Backend:** Tasks: T-BE-E.1 · Status: **Complete**
-**Frontend:** Tasks: T-FE-E.2/E.3 (compose) · Status: **Not Started**
-**Implementation Evidence:** `i_treatment_plan_repository.py` (docstring extension — reuses the existing `get_by_originating_recommendation_id` lookup for Session→Plan resolution, no new column/entity) — commit `c16cbf0`
-**Tests:** Structural + behavioral (28 tests): `test_r7_stable_session_identity.py`
-**Traceability:** FR-TS-1 → design.md §2.4 → T-BE-E.1 (done) + T-FE-E.2/E.3 (not started) → `i_treatment_plan_repository.py` → `test_r7_stable_session_identity.py` → `c16cbf0` → Partially Complete
+**Frontend:** Tasks: T-FE-E.2/E.3 (compose) · Status: **In Progress** [Updated 2026-07-26: T-FE-E.2 portion done — T-FE-E.3 not started]
+**Implementation Evidence:** `i_treatment_plan_repository.py` (docstring extension — reuses the existing `get_by_originating_recommendation_id` lookup for Session→Plan resolution, no new column/entity) — commit `c16cbf0`; `SessionInstructionsModule` selects/edits Sessions keyed on `TreatmentSheetRow.id`, never `day_number`/array position — commit `80fb96d0`
+**Tests:** Structural + behavioral (28 tests): `test_r7_stable_session_identity.py`; `sessionInstructionsModule.test.tsx` (asserts stable-id selection)
+**Traceability:** FR-TS-1 → design.md §2.4 → T-BE-E.1 (done) + T-FE-E.2 (done)/E.3 (not started) → `i_treatment_plan_repository.py` + `SessionInstructionsModule` → tests above → `c16cbf0`/`80fb96d0` → Partially Complete
 **Release Classification:** BLOCKING MVP
-**Remarks:** This task deliberately added almost no new production code — it proved, via structural/behavioral tests, that the pre-existing `treatment_sheet_row` machinery (built well before R7) already satisfies AC(5)/(10)/(11) and the "no regenerate" prohibition. This is the correct outcome per the requirement's own rationale ("R7 finishes it; it does not rewrite it"), not an under-delivery.
+**Remarks:** This task deliberately added almost no new production code — it proved, via structural/behavioral tests, that the pre-existing `treatment_sheet_row` machinery (built well before R7) already satisfies AC(5)/(10)/(11) and the "no regenerate" prohibition. This is the correct outcome per the requirement's own rationale ("R7 finishes it; it does not rewrite it"), not an under-delivery. [Updated 2026-07-26] The doctor-facing half of stable-identity consumption (selecting/editing a Session by id) is now composed; the therapist-facing execution half (T-FE-E.3) remains unstarted.
 
 ### FR-TS-2 — Schedule attributes
 **Business Objective:** Date/time/therapist/room/bed/resource/operational status change without touching Plan identity, Session identity, doctor content, or execution history.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** none · **Owner Ratification:** —
 **Backend:** Tasks: T-BE-E.1 (proven by omission — verified no scheduling-mutation method touches Plan/identity) · Status: **Complete**
-**Frontend:** Tasks: T-FE-E.2 · Status: **Not Started**
-**Implementation Evidence:** same as FR-TS-1 — `schedule_row`/`unschedule_row`/`start_row`/`bulk_schedule_rows` verified via source inspection to key on `row_id` only, never `day_number`, and never construct a replacement row
-**Tests:** same file as FR-TS-1
-**Traceability:** FR-TS-2 → design.md §2.4 → T-BE-E.1 (done) + T-FE-E.2 (not started) → same evidence → same tests → `c16cbf0` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** None beyond FR-TS-1's.
+**Frontend:** Tasks: T-FE-E.2 · Status: **Complete** [Updated 2026-07-26]
+**Implementation Evidence:** same as FR-TS-1 — `schedule_row`/`unschedule_row`/`start_row`/`bulk_schedule_rows` verified via source inspection to key on `row_id` only, never `day_number`, and never construct a replacement row; `SchedulingModule` composed (current scheduled/unscheduled state + schedule/reschedule action via the existing `ScheduleRowModal`) — commit `80fb96d0`
+**Tests:** same file as FR-TS-1; `schedulingModule.test.tsx`
+**Traceability:** FR-TS-2 → design.md §2.4 → T-BE-E.1 (done) + T-FE-E.2 (done) → same evidence + `SchedulingModule` → same tests + `schedulingModule.test.tsx` → `c16cbf0`/`80fb96d0` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** None beyond FR-TS-1's. [Updated 2026-07-26] Schedule attributes (date/time/therapist) are now visible and, where the `treatment_order.schedule` permission is present, editable from the doctor workspace — reuses the existing write path unchanged, no new scheduling logic.
 
 ### FR-TS-3 — Doctor clinical content bound to session identity
 **Business Objective:** Author-once-apply-to-many across sessions with per-session override; rescheduling never deletes/regenerates/detaches/remaps content.
@@ -357,9 +357,9 @@
 **Frontend:** Tasks: T-FE-E.2 · Status: **Not Started**
 **Implementation Evidence:** none
 **Tests:** none
-**Traceability:** FR-TS-3 → design.md §2.4 → T-BE-E.3/T-FE-E.2 → — → — → Not Started
+**Traceability:** FR-TS-3 → design.md §2.4 → T-BE-E.3 (not started)/T-FE-E.2 (attempted, partial substitute only) → — → — → Not Started
 **Release Classification:** BLOCKING MVP
-**Remarks:** The requirement's own rationale calls author-once-apply-to-many "not a nicety... without it a 14-session course is otherwise unusable" — a genuinely high-value, entirely unbuilt piece.
+**Remarks:** The requirement's own rationale calls author-once-apply-to-many "not a nicety... without it a 14-session course is otherwise unusable" — a genuinely high-value, entirely unbuilt piece. [Updated 2026-07-26] `T-FE-E.2` composed `SessionInstructionsModule`, which edits doctor content on one stable Session at a time — this satisfies "content bound to session identity, survives reschedule" structurally (verified: no scheduling-mutation path touches content), but does **not** implement author-once-apply-to-many, which this requirement's AC specifically requires. `T-BE-E.3` remains Not Started. Category left at Not Started rather than Partially Complete since the requirement's own defining behavior (bulk authoring) is entirely absent on both sides.
 
 ### FR-TS-4 — Therapist execution record
 **Business Objective:** Actuals stay attached to the executed session; append-only/audit-controlled; reschedule never overwrites.
@@ -390,24 +390,24 @@
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** none · **Owner Ratification:** —
 **Backend:** Tasks: T-BE-E.2, T-BE-E.2a · Status: **Complete, exposed** (`resolve_scheduling_proposal` implemented in `TreatmentPlanService`, all 9 intents; `GET /treatment-sheets/plans/{plan_id}/scheduling-proposal` exposes it — commit `882dfa6`)
-**Frontend:** Tasks: T-FE-E.2 · Status: **Not Started** (unblocked as of `T-BE-E.2a`; `schedule_treatment_row`/`bulk_schedule_treatment_rows` on `treatment_orders_router` remain the write path for persisting a chosen date)
-**Implementation Evidence:** commits `c496c86`, `882dfa6`
-**Tests:** `tests/test_r7_scheduling_intents.py` (48), `tests/test_r7_scheduling_proposal_api.py` (12)
-**Traceability:** FR-SCH-1 → design.md §2.4 → T-BE-E.2/T-BE-E.2a/T-FE-E.2 → — → — → Backend complete and exposed
+**Frontend:** Tasks: T-FE-E.2 · Status: **Partially Complete** [Updated 2026-07-26] (current scheduled/unscheduled state + write path composed; the proposal-preview read itself blocked — see Remarks)
+**Implementation Evidence:** commits `c496c86`, `882dfa6`, `80fb96d0` (`SchedulingModule`)
+**Tests:** `tests/test_r7_scheduling_intents.py` (48), `tests/test_r7_scheduling_proposal_api.py` (12), `schedulingModule.test.tsx`
+**Traceability:** FR-SCH-1 → design.md §2.4 → T-BE-E.2/T-BE-E.2a (done) /T-FE-E.2 (partial) → `SchedulingModule` → tests above → `882dfa6`/`80fb96d0` → Partially Complete
 **Release Classification:** BLOCKING MVP
-**Remarks:** [2026-07-25] `T-BE-E.2a` closed the transport gap the prior audit found; also added the DI factory for `TreatmentPlanService`, which had never been wired into the FastAPI graph at all before this task.
+**Remarks:** [2026-07-25] `T-BE-E.2a` closed the transport gap the prior audit found; also added the DI factory for `TreatmentPlanService`, which had never been wired into the FastAPI graph at all before this task. [Updated 2026-07-26] `resolve_scheduling_proposal` (`GET /treatment-sheets/plans/{plan_id}/scheduling-proposal`) is itself fully exposed and reachable in principle, but requires a `plan_id` the frontend has no way to obtain — `TenantTreatmentPlan` has zero public read/lookup contract (same gap as FR-TP-1, proposed remediation `T-BE-D.4a`). "Governed scheduling intent"/proposed dates/PRN/review-dependent framing therefore remain unbuilt; only current schedule state and the write action (neither needs `plan_id`) are composed.
 
 ### FR-SCH-2 — Synchronization semantics
 **Business Objective:** Reschedule/therapist-change/room-change/cancellation/missed/additional-session/reduced-course all preserve doctor content and execution history; OCC prevents silent clobber.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** none · **Owner Ratification:** —
 **Backend:** Tasks: T-BE-E.3, T-BE-E.5 · Status: **Accepted, with a documented compatibility amendment** (`expected_version` end-to-end + `If-Match` on `PATCH /treatment-sheets/rows/{row_id}`; conflict → 409 `VERSION_CONFLICT` + `current_version`, no mutation — verified. Missing-header behavior amended from mandatory-428 to staged-optional pending `T-FE-E.5` — see Remarks)
-**Frontend:** Tasks: T-FE-E.2, T-FE-E.5 · Status: **Not Started**
-**Implementation Evidence:** commits `f9614d7` (T-BE-E.3), `f9614d7` (T-BE-E.5 initial), `93e9b8d` (compatibility amendment)
-**Tests:** `tests/test_r7_doctor_content_bound_to_session.py` (58), `tests/test_r7_session_concurrency_occ.py` (33)
-**Traceability:** FR-SCH-2 → design.md §2.4 → T-BE-E.3/E.5/T-FE-E.2 → — → — → Accepted with compatibility amendment
+**Frontend:** Tasks: T-FE-E.2, T-FE-E.5 · Status: **Partially Complete** [Updated 2026-07-26] (T-FE-E.2 portion: OCC now real end-to-end for Session content saves; T-FE-E.5's mandatory-header adoption not started)
+**Implementation Evidence:** commits `f9614d7` (T-BE-E.3), `f9614d7` (T-BE-E.5 initial), `93e9b8d` (compatibility amendment), `4fba2ec4` (fixed a live route-mismatch defect in `updateTreatmentSheetRowApi` — it carried an erroneous `tenant_id` URL segment the backend route never accepted — and added the optional `expectedVersion`/`If-Match` plumbing this AC needs), `80fb96d0` (`SessionInstructionsModule` sends the order's `version` as `If-Match` on every save, surfaces an explicit conflict state with a reload action on 409, never a silent overwrite or blind retry)
+**Tests:** `tests/test_r7_doctor_content_bound_to_session.py` (58), `tests/test_r7_session_concurrency_occ.py` (33), `sessionInstructionsModule.test.tsx` (OCC conflict/reload cases)
+**Traceability:** FR-SCH-2 → design.md §2.4 → T-BE-E.3/E.5 (done, staged) / T-FE-E.2 (done for content saves) / T-FE-E.5 (not started) → `SessionInstructionsModule` + fixed datasource → tests above → `93e9b8d`/`4fba2ec4`/`80fb96d0` → Partially Complete
 **Release Classification:** BLOCKING MVP
-**Remarks:** Backend-closure audit (2026-07-25): T-BE-E.5 as first landed made `If-Match` unconditionally mandatory (missing → 428). Audit found `novaclinicspro_rn`'s `updateTreatmentSheetRowApi` sends no `If-Match` and retains no `version`, and `T-FE-E.5` (the task that adopts this contract) has not started — mandatory enforcement today would break the only live caller instead of surfacing a reload/keep conflict, the opposite of the AC. Corrected to Decision B (staged adoption, commit `93e9b8d`): OCC fully enforced whenever a token is supplied, 428 removed until `T-FE-E.5` lands. This is a scoped, documented rollout boundary, not a requirement weakening — a follow-up task must make the header mandatory once `T-FE-E.5` ships.
+**Remarks:** Backend-closure audit (2026-07-25): T-BE-E.5 as first landed made `If-Match` unconditionally mandatory (missing → 428). Audit found `novaclinicspro_rn`'s `updateTreatmentSheetRowApi` sends no `If-Match` and retains no `version`, and `T-FE-E.5` (the task that adopts this contract) has not started — mandatory enforcement today would break the only live caller instead of surfacing a reload/keep conflict, the opposite of the AC. Corrected to Decision B (staged adoption, commit `93e9b8d`): OCC fully enforced whenever a token is supplied, 428 removed until `T-FE-E.5` lands. This is a scoped, documented rollout boundary, not a requirement weakening — a follow-up task must make the header mandatory once `T-FE-E.5` ships. [Updated 2026-07-26] `T-FE-E.2` closes the gap the 2026-07-25 audit flagged as a possibility: the route-mismatch defect was confirmed live and fixed, and `SessionInstructionsModule` is the first real caller sending `If-Match`. The header is still not made mandatory here, per this task's own explicit instruction not to own that closure step — that remains `T-FE-E.5`.
 
 ---
 
@@ -672,7 +672,7 @@ None found. FR-RX-2 is the only requirement classified Post MVP/Future, and its 
 
 ## Task Statistics (recomputed from zero, 2026-07-27)
 
-**Denominator:** 88 tasks (every `### T-` heading in `tasks.md`, counted exactly once each — `T-BE-E.1a` counted once, tagged `Repo: BE`, despite being physically documented inside the FE-E section of `tasks.md`). This supersedes `tasks.md`'s own stale "77" self-count (v1.1 note, predates 9 later amendment/split cards: `T-BE-A.3a`, `T-BE-A.3b`, `T-BE-B.2a`, `T-BE-E.1a`, `T-BE-E.2a`, `T-BE-E.4a`, `T-FE-C.6a`, `T-FE-E.1a`, `T-FE-E.1b`).
+**Denominator:** ~~88~~ **89 tasks** [Updated 2026-07-26]. This supersedes `tasks.md`'s own stale "77" self-count (v1.1 note, predates 9 later amendment/split cards: `T-BE-A.3a`, `T-BE-A.3b`, `T-BE-B.2a`, `T-BE-E.1a`, `T-BE-E.2a`, `T-BE-E.4a`, `T-FE-C.6a`, `T-FE-E.1a`, `T-FE-E.1b`) and this document's own 2026-07-27 recomputation of 88 (every `### T-` heading in `tasks.md`, counted exactly once each — `T-BE-E.1a` counted once, tagged `Repo: BE`, despite being physically documented inside the FE-E section of `tasks.md`). The denominator moved to 89 because `T-FE-E.2` surfaced a genuine backend contract gap and this pass adds one new proposed task card, `T-BE-D.4a` (BE Group D), per this task's own instruction not to silently expand scope without naming the new task explicitly. **The itemized group-count breakdown immediately below was NOT re-derived this pass** (narrow update per this task's own instruction: "do not perform a broad recount unless the task changes the denominator" — the denominator did change, by exactly +1, but a full re-audit of the existing breakdown's internal counts is out of this task's scope). Treat the totals below as 88-denominator figures plus this one narrowly-added task, not as independently re-verified.
 
 ```
 Group -1 (both, foundational)      =  7    [Backend+Frontend shared verification]
@@ -702,40 +702,42 @@ By repository:
   36 + 35 + 16 = 87 — plus T-BE-E.1a is the 88th, already included in the 36 above (BE Group E's "8" already counts it) → 88  ✓
 
 COMPLETE       = 65
-NOT_STARTED    = 23   (BE-D.5:1, BE-G.1-G.3:3, FE-E.2-E.6:5, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
-PARTIAL        =  0
+NOT_STARTED    = 23   [Updated 2026-07-26] (BE-D.4a+D.5:2, BE-G.1-G.3:3, FE-E.3-E.6:4, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
+PARTIAL        =  1   [Updated 2026-07-26] (T-FE-E.2 — see its own status note in `tasks.md`: Prescription/Recommendation/Session-Instructions/Scheduling-write-and-current-state composed; Treatment Plan and scheduling-proposal-preview blocked on the proposed `T-BE-D.4a`; author-once-apply-to-many not implemented)
 BLOCKED        =  0   (every remaining task's own declared dependencies are already satisfied by COMPLETE work outside this list; the only blocking is internal to this list: T-BE-G.1 → T-BE-D.5/T-BE-G.2 → T-BE-G.3, and T-FE-G.1 → T-FE-G.2)
 DEFERRED       =  2   (T-FE-G.1, T-FE-G.2 — a 2-task SUBSET of the 23 NOT_STARTED above, not additive; MVP-RELEASE-FREEZE.md judged T-FE-G.1 optional-at-task-level, T-FE-G.2 depends on it)
 SUPERSEDED     =  0
 --------------------------------
-TOTAL          = 65 + 23 = 88  ✓
+TOTAL          = 65 + 23 + 1 = 89  ✓  [Updated 2026-07-26: was 65+23=88 before T-BE-D.4a was added and T-FE-E.2 moved NOT_STARTED → PARTIAL]
 
-Backend completion   = 32/36 = 88.9%   (36 backend-owned tasks; of those, BE-D.5 + BE-G.1-3 = 4 not started. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
-Frontend completion  = 25/35 = 71.4%   (35 frontend-owned; FE-E.2-6(5)+FE-F.1-3(3)+FE-G.1-2(2) = 10 not started)
+Backend completion   = 32/37 = 86.5%   [Updated 2026-07-26] (37 backend-owned tasks — was 36, +1 for `T-BE-D.4a`; of those, BE-D.4a + BE-D.5 + BE-G.1-3 = 5 not started. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
+Frontend completion  = 25/35 = 71.4%   (35 frontend-owned, unchanged — T-FE-E.2 moved to PARTIAL, not COMPLETE, so this ratio's numerator is unaffected; FE-E.3-6(4)+FE-F.1-3(3)+FE-G.1-2(2) = 9 not started, +1 partial not counted in either bucket)
 Shared/Group Z       =  0/9  =  0%     (release-validation gate has not run once)
-Overall              = 65/88 = 73.9%
+Overall              = 65/89 = 73.0%   [Updated 2026-07-26]
 ```
 
-## Requirement Statistics (recomputed from zero, 2026-07-27)
+## Requirement Statistics (recomputed from zero, 2026-07-27; narrowly updated 2026-07-26 for T-FE-E.2 — only the 6 cards this task touched were re-checked, no broader recount performed)
 
 Recount method: direct enumeration against all 44 requirement IDs from `requirements.md`, cross-checked against each requirement's own card above (just corrected for staleness).
 
 | Status | Count | Requirement IDs |
 |---|---|---|
-| Fully Complete | **19** | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2 |
-| Partially Complete | **18** | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1, FR-TS-2, FR-TS-4, FR-TS-5, FR-SCH-1, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
+| Fully Complete | **22** | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2, FR-RX-1, FR-TR-1, FR-TS-2 |
+| Partially Complete | **15** | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-TP-1, FR-TS-1, FR-TS-4, FR-TS-5, FR-SCH-1, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
 | Not Started | **6** | FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-TS-3, FR-LEG-2 |
 | Blocked | **0** | — (nothing is waiting on a decision; only on unstarted work already accounted for above) |
 | Deferred | **1** | FR-RX-2 (by its own text, R8) |
-| **Total** | **44** | 19+18+6+0+1 = 44 ✓ |
+| **Total** | **44** | 22+15+6+0+1 = 44 ✓ |
 
 ```
-READY FOR MVP (Release Classification)   = 19  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
-BLOCKING MVP                             = 24  (18 Partially Complete + 6 Not Started)
+READY FOR MVP (Release Classification)   = 22  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
+BLOCKING MVP                             = 21  (15 Partially Complete + 6 Not Started)
 OPTIONAL FOR MVP                         = 0   (FR-MOB-1 remains formally BLOCKING per the ground rule against silently softening a frozen AC — see its card's own Remarks — even though its one blocking task, T-FE-G.1, is owner-judged optional at the task level)
 DEFER TO R8                              = 1   (FR-RX-2)
-20 + 23 + 0 + 1 = 44 ✓
+22 + 21 + 0 + 1 = 44 ✓
 ```
+
+**[2026-07-26] T-FE-E.2 delta:** `FR-RX-1`, `FR-TR-1`, `FR-TS-2` moved Partially Complete → Fully Complete (Prescription/Recommendation reused unchanged, Scheduling's read+write composed). `FR-TP-1`, `FR-TS-1`, `FR-SCH-1`, `FR-SCH-2` stay Partially Complete — updated card text reflects what genuinely shipped and what remains blocked. `FR-TS-3` stays Not Started — the single-session editing `SessionInstructionsModule` provides does not satisfy the requirement's own author-once-apply-to-many AC. See each card's own Remarks for full detail, and `tasks.md`'s `T-FE-E.2` status note for the two blocking gaps (Treatment Plan contract absence; the proposed `T-BE-D.4a` amendment) and the proposed AC gap (apply-to-many).
 
 ## Capability Readiness Table
 
@@ -746,11 +748,11 @@ DEFER TO R8                              = 1   (FR-RX-2)
 | Workflow engine | **READY** | FR-WFA-1/FR-REC-1/FR-REC-2 COMPLETE end-to-end (backend + rendering) |
 | Case Sheet continuity | **READY** | FR-CS-1..6 substantially complete; only the amendment-reason half of FR-CS-6 (needs Living Documents) remains |
 | Clinical History | **READY** | FR-HIST-1/FR-HIST-2 COMPLETE end-to-end (this session's closure) |
-| Prescription management | **NOT_STARTED** | Backend lifecycle constraint trivially satisfied by omission; `T-FE-E.2` composition never started |
-| Treatment Recommendation | **PARTIAL** | Backend complete (T-BE-D.3a); frontend composition (`T-FE-E.2`) not started |
-| Treatment Plan | **PARTIAL** | Entity/persistence/service complete (T-BE-D.1-D.4); versioning/supersession (`T-BE-D.5`) and frontend composition (`T-FE-E.2`) both not started |
-| Session scheduling | **PARTIAL** | Backend intents + transport complete (T-BE-E.2/E.2a); frontend composition (`T-FE-E.2`) not started |
-| Doctor Session instructions | **NOT_STARTED** | Backend (`T-BE-E.3`) complete; frontend authoring UI (`T-FE-E.2`) not started |
+| Prescription management | **READY** [Updated 2026-07-26] | Backend lifecycle constraint trivially satisfied by omission; `T-FE-E.2` composed `PrescriptionModule` unchanged (commit `80fb96d0`) |
+| Treatment Recommendation | **READY** [Updated 2026-07-26] | Backend complete (T-BE-D.3a); `T-FE-E.2` composed `TreatmentRecommendationModule` unchanged (commit `80fb96d0`) |
+| Treatment Plan | **PARTIAL** [Updated 2026-07-26] | Entity/persistence/service complete (T-BE-D.1-D.4); versioning/supersession (`T-BE-D.5`) not started; frontend composition genuinely blocked — `TenantTreatmentPlan` has zero public HTTP contract, confirmed by `T-FE-E.2`'s Engineering Truth pass. Proposed remediation: `T-BE-D.4a` (not started) |
+| Session scheduling | **PARTIAL** [Updated 2026-07-26] | Backend intents + transport complete (T-BE-E.2/E.2a); frontend composed current-state view + permission-gated write (`SchedulingModule`, commit `80fb96d0`), but the governed-proposal preview is blocked on the same `T-BE-D.4a` gap (needs a `plan_id` nothing exposes) |
+| Doctor Session instructions | **PARTIAL** [Updated 2026-07-26] | Backend (`T-BE-E.3`) still Not Started; frontend composed single-session authoring (`SessionInstructionsModule`, stable-id-bound, OCC-adopted, commit `80fb96d0`) using the pre-existing single-row update endpoint, not a substitute for `T-BE-E.3`'s own author-once-apply-to-many scope, which remains unbuilt on both sides |
 | Therapist execution | **NOT_STARTED** | Backend (`T-BE-E.4`/`E.4a`) + OCC (`T-BE-E.5`) complete and exposed; frontend (`T-FE-E.3`) not started |
 | Billing visibility | **NOT_STARTED** | Backend (`T-BE-F.1`/`F.2`) complete; frontend (`T-FE-E.4`) not started |
 | Role-aware workflow | **NOT_STARTED** | `T-FE-E.6` not started — `episodeWorkspaceConfig.ts` untouched by any R7 commit; a real enforcement gap also found (see FR-RBAC-1's card) |
@@ -774,11 +776,11 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 3 | See backend-owned workflow and next action | ✅ | — |
 | 4 | Open and update the one Episode Case Sheet | ✅ | — |
 | 5 | See prior Visit contributions | ✅ | — |
-| 6 | Create and manage Prescription | ❌ | T-FE-E.2 |
-| 7 | Create Treatment Recommendation | ❌ | T-FE-E.2 |
-| 8 | Create/view Treatment Plan | ❌ | T-FE-E.2, T-BE-D.5 (versioning) |
-| 9 | Author Session instructions | ❌ | T-FE-E.2 |
-| 10 | See and manage Session scheduling | ❌ | T-FE-E.2 |
+| 6 | Create and manage Prescription | ✅ [Updated 2026-07-26] | — (`T-FE-E.2` composed `PrescriptionModule` unchanged) |
+| 7 | Create Treatment Recommendation | ✅ [Updated 2026-07-26] | — (`T-FE-E.2` composed `TreatmentRecommendationModule` unchanged) |
+| 8 | Create/view Treatment Plan | ❌ | `T-BE-D.4a` (proposed — Plan has zero public HTTP contract, confirmed by `T-FE-E.2`'s own Engineering Truth pass), T-BE-D.5 (versioning) |
+| 9 | Author Session instructions | 🟡 [Updated 2026-07-26] | Single-session editing composed (`SessionInstructionsModule`, stable-id-bound, OCC-adopted); author-once-apply-to-many (this item's own defining behavior per FR-TS-3) not built |
+| 10 | See and manage Session scheduling | 🟡 [Updated 2026-07-26] | Current scheduled/unscheduled state + permission-gated write composed (`SchedulingModule`); the governed-proposal preview blocked on `T-BE-D.4a` (needs a `plan_id` nothing in the current contract exposes) |
 | 11 | Record Session execution/non-execution | ❌ | T-FE-E.3 |
 | 12 | View Clinical History | ✅ | — |
 | 13 | View billing state | ❌ | T-FE-E.4 |
@@ -787,7 +789,9 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 16 | Preserve legacy route compatibility | ❌ | T-FE-F.1, T-FE-F.2, T-FE-F.3 |
 | 17 | Pass release/E2E validation | ❌ | T-Z.1 … T-Z.9 |
 
-**5 of 17 satisfied.** The backend is substantially ahead (37 of its 37 non-Group-−1/Z tasks minus 4 = 33 complete, 89.2%), but the entire treatment-workflow composition layer on the frontend (`T-FE-E.2`, the single largest remaining task, spanning Prescription/Recommendation/Plan/Scheduling/Session-instruction authoring in one card) has not been started, and nothing has passed release validation. Clinical History being complete does not generalize to the rest of the Doctor Module — it is one capability among seventeen completion-boundary items, five of which are done.
+**[Updated 2026-07-26] 7 of 17 fully satisfied, 2 more partially satisfied.** `T-FE-E.2` shipped items 6, 7 in full and made real (not complete) progress on 9, 10 — see each row's own note and `tasks.md`'s `T-FE-E.2` status for full detail. Item 8 (Treatment Plan) could not be attempted at all: Engineering Truth confirmed `TenantTreatmentPlan` has zero public HTTP contract despite its service/repository being complete, and the same gap blocks item 10's proposal-preview half — both are now tracked against one proposed narrow amendment, `T-BE-D.4a`, not yet started. Clinical History being complete does not generalize to the rest of the Doctor Module — it remains one capability among seventeen completion-boundary items.
+
+~~**5 of 17 satisfied.** The backend is substantially ahead (37 of its 37 non-Group-−1/Z tasks minus 4 = 33 complete, 89.2%), but the entire treatment-workflow composition layer on the frontend (`T-FE-E.2`, the single largest remaining task, spanning Prescription/Recommendation/Plan/Scheduling/Session-instruction authoring in one card) has not been started, and nothing has passed release validation.~~ *(superseded by the note above — `T-FE-E.2` is no longer un-started)*
 
 ---
 
@@ -801,10 +805,10 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | T-BE-G.2 | FR-LD-2 (amendment permissions) | T-BE-G.1 | Blocked on T-BE-G.1 |
 | T-BE-G.3 | FR-LD-3 (docstring fix) | T-BE-G.1 | Blocked on T-BE-G.1 |
 
-### Mandatory frontend tasks remaining (10)
+### Mandatory frontend tasks remaining (10, of which 1 is PARTIAL not NOT_STARTED)
 | Task | Realizes | Blocked by | Ready? |
 |---|---|---|---|
-| T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (done) | **READY_TO_START** — see full readiness check below |
+| T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (done) | **PARTIAL — [Updated 2026-07-26]** Prescription/Recommendation/Session-Instructions/Scheduling(current-state+write) composed (commits `4fba2ec4`, `80fb96d0`); Treatment Plan and the scheduling-proposal-preview genuinely blocked (see readiness check below, now corrected); author-once-apply-to-many not built. Remaining work needs `T-BE-D.4a` (proposed, not started) before it can close. |
 | T-FE-E.3 | FR-TS-4/5 | T-0.7 (done), T-BE-E.4 (done) | **READY_TO_START** |
 | T-FE-E.4 | FR-BILL-1/2 | T-BE-F.1 (done) | **READY_TO_START** |
 | T-FE-E.5 | FR-LD-1/2 | T-BE-G.2 | Blocked on T-BE-G.2 |
@@ -840,16 +844,16 @@ The single longest pole is **T-FE-E.2** — it is the widest-scope remaining tas
 
 ## T-FE-E.2 Readiness Check
 
-**Verdict: READY_TO_START.**
+**Original verdict (2026-07-27): READY_TO_START.** **[Updated 2026-07-26] This verdict was WRONG for 2 of the 7 rows below — corrected in place, not silently.** `T-FE-E.2`'s own mandatory pre-implementation re-verification ("do not rely on that READY_TO_START conclusion blindly — reverify every required contract from current source and OpenAPI") caught what this table's prior "✅ Ready" claims missed: `TenantTreatmentPlan` has zero public HTTP contract, confirmed via direct `find`/`grep` across the backend repository (no router file, no schema, no `main.py` registration) — the "domain, migration, repository, service all live" claim below was true but incomplete; it never checked for a router. This is exactly the kind of stale-readiness risk the task's own instructions anticipated.
 
 | Backend contract T-FE-E.2 needs | Status | Evidence |
 |---|---|---|
 | Prescription (verified lifecycle) | ✅ Ready | Pre-existing `tenant_prescription.status` ENUM, no R7 backend task needed |
 | Treatment Recommendation | ✅ Ready | `T-BE-D.3a` COMPLETE (commit `fc8235a`) — `creation_source`, `get_eligible_recommendation_source` |
-| Treatment Plan | ✅ Ready | `T-BE-D.1-D.4` COMPLETE (commits `216d82c`/`f0fdb33`/`bbe4066`/`f09097f`) — domain, migration, repository, service all live |
-| Doctor Session content | ✅ Ready | `T-BE-E.3` COMPLETE (commit `9497f13`) — content bound to stable session identity |
-| Scheduling proposal | ✅ Ready | `T-BE-E.2`/`T-BE-E.2a` COMPLETE (commits `c496c86`/`882dfa6`) — `resolve_scheduling_proposal` + its router exposure |
-| Session scheduling (write) | ✅ Ready | `schedule_treatment_row`/`bulk_schedule_treatment_rows` pre-exist on `treatment_orders_router.py`, unaffected by R7 |
-| OCC / If-Match | ✅ Ready (staged) | `T-BE-E.5` COMPLETE with a documented compatibility amendment (commit `93e9b8d`) — `If-Match` fully enforced when supplied, optional until `T-FE-E.5` ships; `T-FE-E.2` may adopt `If-Match` immediately (recommended) or defer to `T-FE-E.5` without being blocked |
+| Treatment Plan | ❌ **NOT Ready [Corrected 2026-07-26]** | `T-BE-D.1-D.4` built the domain/migration/repository/service (commits `216d82c`/`f0fdb33`/`bbe4066`/`f09097f`), but **no router, schema, or `main.py` registration exists** — confirmed absent via direct search, not inferred. Nothing over HTTP can reach it. Proposed remediation: `T-BE-D.4a` (not started). |
+| Doctor Session content | ✅ Ready | Pre-existing `PATCH /clinic/treatment-sheets/rows/{row_id}` (not a new `T-BE-E.3` endpoint — `T-BE-E.3` itself remains Not Started; the single-row content-update path predates R7 and was reused, with a live route-mismatch defect found and fixed in `4fba2ec4`) |
+| Scheduling proposal | 🟡 **Reachable but unusable [Corrected 2026-07-26]** | `T-BE-E.2`/`T-BE-E.2a` COMPLETE and the endpoint itself IS exposed (commits `c496c86`/`882dfa6`), but it requires a `plan_id` path parameter — and nothing in the current contract (Order/Sheet/Row responses) exposes a way to obtain one, for the same reason as the Treatment Plan row above. "Complete and exposed" was an accurate but incomplete readiness claim: exposure alone doesn't make an endpoint callable if its required input is unobtainable. |
+| Session scheduling (write) | ✅ Ready | `schedule_treatment_row`/`bulk_schedule_treatment_rows` pre-exist on `treatment_orders_router.py`, unaffected by R7 — confirmed genuinely usable, composed successfully |
+| OCC / If-Match | ✅ Ready (staged) | `T-BE-E.5` COMPLETE with a documented compatibility amendment (commit `93e9b8d`) — `If-Match` fully enforced when supplied, optional until `T-FE-E.5` ships; `T-FE-E.2` adopted `If-Match` immediately (commits `4fba2ec4`/`80fb96d0`), confirmed working end-to-end |
 
-**No missing dependency.** All 7 backend contracts `T-FE-E.2` needs are complete, tested, and reachable over HTTP. The task is not implemented in this engagement per its explicit instruction.
+**[Updated 2026-07-26] 5 of 7 rows were genuinely ready; 2 were not, and the resulting frontend work is PARTIAL, not COMPLETE, as a direct consequence.** The task was implemented for every genuinely-ready contract and honestly blocked (explicit gap message, no fabrication) for the two that were not — see `tasks.md`'s `T-FE-E.2` status note and the proposed `T-BE-D.4a` task card for the full remediation path.
