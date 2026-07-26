@@ -18,14 +18,30 @@
  * Mounted as a sibling of `ConsultationWorkspaceScreen` (the "ModuleHost" of
  * design.md's own target-architecture diagram) inside `ClinicalWorkspace`,
  * active only when `isClinicalSpineV1Enabled` is ON (ClinicalWorkspace.tsx).
+ * Also composed inside `VisitCommandCenter` (T-FE-C.4, FR-VCC-1) — same
+ * public API (no props; episode scope comes entirely from
+ * `useEpisodeContext()`), so both hosts work unmodified.
+ *
+ * T-FE-C.4: virtualized via `FlatList` (was a plain `ScrollView` + `.map()`)
+ * and given a bounded `maxHeight` so it is always its own independently-
+ * scrollable region -- required both to satisfy the "virtualized" AC and to
+ * make embedding safe inside `VisitCommandCenter`'s single outer
+ * `ScrollView` (an unbounded-height `FlatList` nested in a ScrollView of the
+ * same orientation is a known RN anti-pattern). The legacy `flex: 1` host in
+ * `ClinicalWorkspace.tsx` is unaffected -- `maxHeight` only caps growth, it
+ * doesn't fight a smaller flex-constrained parent.
  */
-import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { formatDate } from '../../../../core/utils/dateTimeUtils';
-import { useClinicalTimelineData, ClinicalTimelineItemType } from '../hooks/useClinicalTimelineData';
+import {
+  useClinicalTimelineData,
+  ClinicalTimelineItem,
+  ClinicalTimelineItemType,
+} from '../hooks/useClinicalTimelineData';
 
 const ITEM_ICON: Record<ClinicalTimelineItemType, keyof typeof Ionicons.glyphMap> = {
   visit: 'calendar-outline',
@@ -35,16 +51,45 @@ const ITEM_ICON: Record<ClinicalTimelineItemType, keyof typeof Ionicons.glyphMap
   clinical_service: 'pulse-outline',
 };
 
+// Bounded height for the panel's own FlatList -- see docstring above.
+const TIMELINE_MAX_HEIGHT = 360;
+
 export const ClinicalTimeline: React.FC = () => {
   const router = useRouter();
   const { colors, spacing, typography } = useClinicTheme();
   const { items, isLoading } = useClinicalTimelineData();
 
+  const renderItem = useCallback(
+    ({ item }: { item: ClinicalTimelineItem }) => (
+      <TouchableOpacity
+        onPress={() => router.push(item.route as any)}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}, ${formatDate(item.date)}`}
+        style={[
+          styles.item,
+          { borderColor: colors.border.subtle, borderRadius: spacing.sm, padding: spacing.sm, gap: spacing.sm },
+        ]}
+      >
+        <Ionicons name={ITEM_ICON[item.type]} size={20} color={colors.primary.default} />
+        <View style={styles.itemText}>
+          <Text style={[typography.subtitle2, { color: colors.text.primary }]}>{item.title}</Text>
+          {!!item.subtitle && (
+            <Text style={[typography.caption, { color: colors.text.secondary }]}>{item.subtitle}</Text>
+          )}
+        </View>
+        <Text style={[typography.caption, { color: colors.text.tertiary }]}>{formatDate(item.date)}</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
+      </TouchableOpacity>
+    ),
+    [router, colors, spacing, typography],
+  );
+  const keyExtractor = useCallback((item: ClinicalTimelineItem) => item.id, []);
+
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.surface.default, borderColor: colors.border.default },
+        { backgroundColor: colors.surface.default, borderColor: colors.border.default, maxHeight: TIMELINE_MAX_HEIGHT },
       ]}
     >
       <Text style={[typography.h6, { color: colors.text.primary, padding: spacing.md, paddingBottom: spacing.sm }]}>
@@ -61,30 +106,12 @@ export const ClinicalTimeline: React.FC = () => {
           No clinical activity recorded yet for this episode.
         </Text>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm }}>
-          {items.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => router.push(item.route as any)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.title}${item.subtitle ? `, ${item.subtitle}` : ''}, ${formatDate(item.date)}`}
-              style={[
-                styles.item,
-                { borderColor: colors.border.subtle, borderRadius: spacing.sm, padding: spacing.sm, gap: spacing.sm },
-              ]}
-            >
-              <Ionicons name={ITEM_ICON[item.type]} size={20} color={colors.primary.default} />
-              <View style={styles.itemText}>
-                <Text style={[typography.subtitle2, { color: colors.text.primary }]}>{item.title}</Text>
-                {!!item.subtitle && (
-                  <Text style={[typography.caption, { color: colors.text.secondary }]}>{item.subtitle}</Text>
-                )}
-              </View>
-              <Text style={[typography.caption, { color: colors.text.tertiary }]}>{formatDate(item.date)}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <FlatList
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm }}
+        />
       )}
     </View>
   );

@@ -103,4 +103,20 @@ describe('ClinicalTimeline (R3B · T-C.2)', () => {
       expect(source).not.toMatch(/TextInput/);
     });
   });
+
+  describe('T-FE-C.4 — virtualization', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '../../../features/episodes/presentation/components/ClinicalTimeline.tsx'),
+      'utf8',
+    );
+
+    it('renders the item list via a virtualized FlatList, not a plain ScrollView + .map()', () => {
+      expect(source).toMatch(/<FlatList/);
+      expect(source).not.toMatch(/<ScrollView/);
+    });
+
+    it('is bounded (maxHeight) so it is safe to embed inside a host with its own outer ScrollView (VisitCommandCenter)', () => {
+      expect(source).toMatch(/maxHeight/);
+    });
+  });
 });

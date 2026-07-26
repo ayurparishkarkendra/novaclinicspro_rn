@@ -57,6 +57,19 @@ jest.mock('../../../core/hooks/useFeatures', () => ({
 jest.mock('../../../features/casesheets/data/datasources/casesheets.api', () => ({
   createCasesheetApi: jest.fn(),
   updateCasesheetApi: jest.fn(),
+  // T-FE-E.1b: CaseSheetModule also composes CaseSheetContributionHistory.
+  getCasesheetContributionsApi: jest.fn().mockResolvedValue({ casesheet_id: '', episode_id: '', contributions: [] }),
+}));
+// T-FE-C.4: the shell now also composes ClinicalTimeline, which pulls in
+// useClinicalTimelineData -- mocked directly here (exactly as
+// clinicalTimeline.test.tsx's own test does) rather than mocking the
+// four/five datasource modules it would otherwise transitively require
+// (appointments/prescriptions/treatmentSheets/clinicalServices ->
+// axiosClient -> supabaseClient, which throws without real env vars).
+// ClinicalTimeline's own behavior is not re-tested here, only that it
+// renders once as part of the shell.
+jest.mock('../../../features/episodes/presentation/hooks/useClinicalTimelineData', () => ({
+  useClinicalTimelineData: () => ({ items: [], isLoading: false }),
 }));
 
 const mockGetClinicalWorkspaceApi = getClinicalWorkspaceApi as jest.Mock;
@@ -346,6 +359,31 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
         'utf8',
       );
       expect(source).not.toMatch(/latestEpisode|latest_episode|mostRecentEpisode/i);
+    });
+  });
+
+  describe('ClinicalTimeline composition (T-FE-C.4, FR-VCC-1)', () => {
+    it('renders ClinicalTimeline exactly once, after CaseSheetModule and before the remaining placeholder', async () => {
+      const { findByText, getByText, toJSON } = renderWithProviders(
+        <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
+      );
+      await findByText('Chief Complaint');
+      expect(getByText('Clinical Timeline')).toBeTruthy();
+      const serialized = JSON.stringify(toJSON());
+      expect(serialized.indexOf('"Chief Complaint"')).toBeLessThan(serialized.indexOf('"Clinical Timeline"'));
+      expect(serialized.indexOf('"Clinical Timeline"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+    });
+
+    it('receives Episode scope through the existing WorkspaceProvider only -- no props threaded, no cross-episode leak', () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const path = require('path');
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/pages/VisitCommandCenter.tsx'),
+        'utf8',
+      );
+      expect(source).toMatch(/<ClinicalTimeline\s*\/>/);
     });
   });
 });

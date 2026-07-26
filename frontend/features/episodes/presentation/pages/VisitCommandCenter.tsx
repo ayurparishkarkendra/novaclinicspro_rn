@@ -29,6 +29,12 @@
  * mirrors exactly what `ClinicalWorkspace.tsx` already does for the same
  * module, not a new pattern.
  *
+ * T-FE-C.4 (FR-VCC-1) composes `ClinicalTimeline` UNCHANGED after
+ * `CaseSheetModule` -- same episode-scoping-via-context pattern (no props),
+ * now virtualized (`FlatList`, bounded `maxHeight`) so it embeds safely
+ * inside this shell's single outer `ScrollView` (see `ClinicalTimeline.tsx`
+ * for the nested-VirtualizedList reasoning).
+ *
  * Case Sheet is the only active-stage module composed here --
  * Prescription/Treatment Recommendation/etc. remain FE Group E's own
  * later scope; the placeholder below still represents that remaining,
@@ -64,6 +70,7 @@ import { BeforeYouActSection } from '../components/BeforeYouActSection';
 import { WorkflowPills } from '../components/WorkflowPills';
 import { NextActionBar } from '../components/NextActionBar';
 import { CaseSheetModule } from '../components/ConsultationSections/CaseSheetModule';
+import { ClinicalTimeline } from '../components/ClinicalTimeline';
 import { SectionKey } from '../hooks/useConsultationWorkspace';
 
 export interface VisitCommandCenterProps {
@@ -191,6 +198,13 @@ const VisitCommandCenterShell: React.FC = () => {
           appointmentId={visit.appointmentId}
         />
         <CaseSheetModule expandedSections={expandedSections} onToggleSection={toggleSection} />
+        {/* T-FE-C.4 (FR-VCC-1): reuses ClinicalTimeline unchanged -- no
+            props needed, it reads tenant/episode/patient/visit identity
+            from the same WorkspaceProvider this shell already wraps
+            everything in, so it is automatically scoped to this Episode
+            (no cross-episode leak), same pattern as CaseSheetModule
+            (T-FE-E.1a). */}
+        <ClinicalTimeline />
         <View
           style={[
             styles.placeholder,
