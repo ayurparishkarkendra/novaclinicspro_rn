@@ -35,10 +35,31 @@
  * inside this shell's single outer `ScrollView` (see `ClinicalTimeline.tsx`
  * for the nested-VirtualizedList reasoning).
  *
- * Case Sheet is the only active-stage module composed here --
- * Prescription/Treatment Recommendation/etc. remain FE Group E's own
- * later scope; the placeholder below still represents that remaining,
- * not-yet-built work.
+ * T-FE-E.2 (FR-RX-1, FR-TR-1, FR-TS-1/2/3, FR-SCH-1): composes
+ * `PrescriptionModule` and `TreatmentRecommendationModule` UNCHANGED --
+ * same components T-0.2/T-0.4 already remediated, same
+ * `{expandedSections, onToggleSection}` props `CaseSheetModule` already
+ * takes. `TreatmentRecommendationModule` additionally needs
+ * `ensureCasesheetExists` (the T-B.1 transitional bridge) -- this shell
+ * now holds a ref to `CaseSheetModule` (previously ref-less) purely to
+ * relay that one method, mirroring the exact pattern
+ * `ConsultationWorkspaceScreen.tsx` already uses between the same two
+ * sibling modules. Also composes two NEW modules built for this task --
+ * `SessionInstructionsModule` (doctor content on stable Sessions, OCC
+ * adoption) and `SchedulingModule` (current scheduled/unscheduled state +
+ * permission-gated schedule writes) -- since no existing frontend module
+ * owned either. Treatment Plan composition is explicitly NOT included:
+ * Engineering Truth (this task's own pre-implementation report) found
+ * `TenantTreatmentPlan` has zero public HTTP contract (service/repository
+ * complete, no router) -- the placeholder below renders that gap
+ * honestly rather than fabricating a Plan view from Session data
+ * (forbidden by this task's own frozen AC, FR-TP-1 AC15). The same gap
+ * ALSO blocks the read-only scheduling-proposal sub-capability inside
+ * `SchedulingModule`: `resolve_scheduling_proposal` (T-BE-E.2a) requires a
+ * `plan_id` path parameter that nothing in the current public contract
+ * exposes a way to obtain -- `SchedulingModule` reports this honestly
+ * rather than guessing or fabricating a proposal (see that file's own
+ * docstring for full detail).
  *
  * Reuses `WorkspaceProvider` (T-A.1, `ClinicalWorkspaceContext.tsx`)
  * exactly as `ClinicalWorkspace.tsx` already does for the consultation
@@ -49,7 +70,7 @@
  * unresolvable `appointmentId` as invalid context (W30: "No active
  * appointment for this episode"), never a guessed Visit.
  */
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +90,11 @@ import { WhatChangedSection } from '../components/WhatChangedSection';
 import { BeforeYouActSection } from '../components/BeforeYouActSection';
 import { WorkflowPills } from '../components/WorkflowPills';
 import { NextActionBar } from '../components/NextActionBar';
-import { CaseSheetModule } from '../components/ConsultationSections/CaseSheetModule';
+import { CaseSheetModule, CaseSheetModuleHandle } from '../components/ConsultationSections/CaseSheetModule';
+import { PrescriptionModule } from '../components/ConsultationSections/PrescriptionModule';
+import { TreatmentRecommendationModule } from '../components/ConsultationSections/TreatmentRecommendationModule';
+import { SessionInstructionsModule } from '../components/ConsultationSections/SessionInstructionsModule';
+import { SchedulingModule } from '../components/ConsultationSections/SchedulingModule';
 import { ClinicalTimeline } from '../components/ClinicalTimeline';
 import { SectionKey } from '../hooks/useConsultationWorkspace';
 
@@ -126,6 +151,16 @@ const VisitCommandCenterShell: React.FC = () => {
       return next;
     });
   };
+
+  // T-FE-E.2: relay CaseSheetModule's own ensureCasesheetExists to
+  // TreatmentRecommendationModule -- same transitional-bridge pattern
+  // ConsultationWorkspaceScreen.tsx already uses between these two
+  // sibling modules (see file header).
+  const caseSheetRef = useRef<CaseSheetModuleHandle>(null);
+  const ensureCasesheetExists = useCallback(
+    () => caseSheetRef.current?.ensureCasesheetExists() ?? Promise.resolve(null),
+    [],
+  );
 
   if (episode.isEpisodeLoading) {
     return (
@@ -197,7 +232,15 @@ const VisitCommandCenterShell: React.FC = () => {
           episodeId={episode.episodeId}
           appointmentId={visit.appointmentId}
         />
-        <CaseSheetModule expandedSections={expandedSections} onToggleSection={toggleSection} />
+        <CaseSheetModule ref={caseSheetRef} expandedSections={expandedSections} onToggleSection={toggleSection} />
+        <PrescriptionModule expandedSections={expandedSections} onToggleSection={toggleSection} />
+        <TreatmentRecommendationModule
+          expandedSections={expandedSections}
+          onToggleSection={toggleSection}
+          ensureCasesheetExists={ensureCasesheetExists}
+        />
+        <SessionInstructionsModule />
+        <SchedulingModule />
         {/* T-FE-C.4 (FR-VCC-1): reuses ClinicalTimeline unchanged -- no
             props needed, it reads tenant/episode/patient/visit identity
             from the same WorkspaceProvider this shell already wraps
@@ -205,6 +248,12 @@ const VisitCommandCenterShell: React.FC = () => {
             (no cross-episode leak), same pattern as CaseSheetModule
             (T-FE-E.1a). */}
         <ClinicalTimeline />
+        {/* T-FE-E.2: Treatment Plan composition is explicitly out of
+            scope this task -- Engineering Truth found TenantTreatmentPlan
+            has no public HTTP contract (see VisitCommandCenter's own
+            file header). This renders that gap honestly, never a
+            fabricated Plan view reconstructed from Session/schedule data
+            (forbidden by this task's own frozen AC, FR-TP-1 AC15). */}
         <View
           style={[
             styles.placeholder,
@@ -217,7 +266,9 @@ const VisitCommandCenterShell: React.FC = () => {
             },
           ]}
         >
-          <Text style={[typography.body2, { color: colors.text.secondary }]}>{t('common.comingSoon')}</Text>
+          <Text style={[typography.body2, { color: colors.text.secondary }]}>
+            {t('visitCommandCenter.treatmentPlanUnavailable')}
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

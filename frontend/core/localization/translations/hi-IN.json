@@ -501,6 +501,7 @@
     }
   },
   "visitCommandCenter": {
+    "treatmentPlanUnavailable": "उपचार योजना अभी इस वर्कस्पेस में उपलब्ध नहीं है।",
     "workflowPills": {
       "title": "वर्कफ़्लो",
       "stage": {
@@ -651,5 +652,46 @@
         "OTHER": "अन्य"
       }
     }
+  },
+  "sessionInstructions": {
+    "title": "सत्र निर्देश",
+    "noOrderYet": "सत्र निर्देश जोड़ने से पहले उपचार सिफ़ारिश को शेड्यूलिंग में भेजें।",
+    "noSessions": "इस ऑर्डर के लिए अभी तक कोई सत्र नहीं मिला।",
+    "dayLabel": "दिन {{day}}",
+    "completedReadOnly": "यह सत्र पूर्ण हो चुका है और अब इसकी सामग्री संपादित नहीं की जा सकती।",
+    "saveFailed": "सत्र निर्देश सहेजे नहीं जा सके।",
+    "fields": {
+      "treatmentName": "उपचार का नाम",
+      "medicines": "दवाइयाँ",
+      "instructions": "निर्देश"
+    },
+    "rowStatus": {
+      "PENDING": "लंबित",
+      "SCHEDULED": "निर्धारित",
+      "IN_PROGRESS": "प्रगति में",
+      "COMPLETED": "पूर्ण",
+      "CANCELLED": "रद्द"
+    },
+    "conflict": {
+      "message": "आपके संपादन के दौरान किसी और ने इस कोर्स को अपडेट किया। दोबारा सहेजने से पहले नवीनतम संस्करण देखने के लिए रीलोड करें।",
+      "reload": "रीलोड करें"
+    }
+  },
+  "scheduling": {
+    "title": "शेड्यूलिंग",
+    "noOrderYet": "शेड्यूलिंग देखने से पहले उपचार सिफ़ारिश को शेड्यूलिंग में भेजें।",
+    "proposalUnavailable": "शेड्यूलिंग प्रस्ताव उपलब्ध नहीं है।",
+    "waitingOnRole": "शेड्यूलिंग एडमिन/फ्रंट-डेस्क द्वारा प्रबंधित की जाती है। आप यहाँ वर्तमान शेड्यूल देख सकते हैं।",
+    "prnLabel": "PRN — कोई पूर्व-निर्धारित तिथि नहीं",
+    "reviewDependentLabel": "समीक्षा-निर्भर — प्रस्ताव अगले समीक्षा माइलस्टोन पर रुकता है",
+    "loadProposal": "प्रस्ताव लोड करें",
+    "startDateLabel": "प्रस्ताव प्रारंभ तिथि",
+    "proposedDates": "प्रस्तावित तिथियाँ",
+    "currentSchedule": "वर्तमान शेड्यूल",
+    "unscheduled": "अनिर्धारित",
+    "assigned": "नियुक्त",
+    "unassigned": "अनियुक्त",
+    "scheduleActionLabel": "शेड्यूल करें",
+    "rescheduleActionLabel": "पुनः शेड्यूल करें"
   }
 }

@@ -387,6 +387,7 @@
   },
   "visitCommandCenter": {
     "title": "Visit Command Center",
+    "treatmentPlanUnavailable": "Treatment Plan is not yet available in this workspace.",
     "invalidContext": {
       "title": "Can't open workspace",
       "message": "No active appointment for this episode."
@@ -925,5 +926,46 @@
         "OTHER": "Other"
       }
     }
+  },
+  "sessionInstructions": {
+    "title": "Session Instructions",
+    "noOrderYet": "Send a Treatment Recommendation to scheduling before authoring Session instructions.",
+    "noSessions": "No Sessions found for this order yet.",
+    "dayLabel": "Day {{day}}",
+    "completedReadOnly": "This Session is completed and its content can no longer be edited.",
+    "saveFailed": "Could not save Session instructions.",
+    "fields": {
+      "treatmentName": "Treatment name",
+      "medicines": "Medicines",
+      "instructions": "Instructions"
+    },
+    "rowStatus": {
+      "PENDING": "Pending",
+      "SCHEDULED": "Scheduled",
+      "IN_PROGRESS": "In progress",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "conflict": {
+      "message": "Someone else updated this course while you were editing. Reload to see the latest version before saving again.",
+      "reload": "Reload"
+    }
+  },
+  "scheduling": {
+    "title": "Scheduling",
+    "noOrderYet": "Send a Treatment Recommendation to scheduling before viewing scheduling.",
+    "proposalUnavailable": "Scheduling proposal is unavailable.",
+    "waitingOnRole": "Scheduling is managed by admin/front-desk. You can view the current schedule here.",
+    "prnLabel": "PRN — no pre-created dates",
+    "reviewDependentLabel": "Review-dependent — proposal stops at the next review milestone",
+    "loadProposal": "Load proposal",
+    "startDateLabel": "Proposal start date",
+    "proposedDates": "Proposed dates",
+    "currentSchedule": "Current schedule",
+    "unscheduled": "Unscheduled",
+    "assigned": "Assigned",
+    "unassigned": "Unassigned",
+    "scheduleActionLabel": "Schedule",
+    "rescheduleActionLabel": "Reschedule"
   }
 }

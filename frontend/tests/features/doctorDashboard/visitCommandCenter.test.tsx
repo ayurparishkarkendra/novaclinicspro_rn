@@ -60,6 +60,58 @@ jest.mock('../../../features/casesheets/data/datasources/casesheets.api', () => 
   // T-FE-E.1b: CaseSheetModule also composes CaseSheetContributionHistory.
   getCasesheetContributionsApi: jest.fn().mockResolvedValue({ casesheet_id: '', episode_id: '', contributions: [] }),
 }));
+// T-FE-E.2: the shell now also composes PrescriptionModule,
+// TreatmentRecommendationModule, SessionInstructionsModule, and
+// SchedulingModule -- mocked at the same true datasource boundary each
+// module's own test file already uses, so none of those modules' own
+// behavior is re-tested here, only that the shell composes them once each.
+jest.mock('../../../features/prescriptions/data/datasources/prescriptions.api', () => ({
+  createPrescriptionApi: jest.fn(),
+  updatePrescriptionApi: jest.fn(),
+  listPrescriptionsApi: jest.fn().mockResolvedValue({ prescriptions: [], total: 0 }),
+}));
+jest.mock('../../../features/treatmentSheets/data/datasources/treatmentSheets.api', () => ({
+  createTreatmentSheetApi: jest.fn(),
+  createSimpleTreatmentSheetApi: jest.fn(),
+  getTreatmentSheetApi: jest.fn(),
+  getTreatmentSheetsByEpisodeApi: jest.fn(),
+  transitionTreatmentSheetStatusApi: jest.fn(),
+  syncTreatmentSheetApi: jest.fn(),
+  printTreatmentSheetApi: jest.fn(),
+  archiveTreatmentSheetApi: jest.fn(),
+  updateTreatmentSheetRowApi: jest.fn(),
+  updateAllTreatmentSheetRowsApi: jest.fn(),
+  completeTreatmentSheetRowApi: jest.fn(),
+}));
+jest.mock('../../../features/treatmentSheets/data/datasources/treatmentOrders.api', () => ({
+  getTreatmentOrderApi: jest.fn().mockResolvedValue({ id: 'sheet-1', version: 1, rows: [] }),
+  listTreatmentOrdersApi: jest.fn(),
+  createTreatmentRecommendationApi: jest.fn(),
+  sendToSchedulingApi: jest.fn(),
+  startSheetRowApi: jest.fn(),
+  scheduleRowApi: jest.fn(),
+  bulkScheduleRowsApi: jest.fn(),
+  cancelTreatmentOrderApi: jest.fn(),
+  placeTreatmentOrderOnHoldApi: jest.fn(),
+}));
+// SchedulingModule statically imports ScheduleRowModal, which imports
+// useStaffListQuery -- mocked at the same datasource boundary even though
+// no test here opens the modal, purely so the import chain never reaches
+// the real axiosClient/supabaseClient.
+jest.mock('../../../features/staff/data/datasources/staff.api', () => ({
+  listStaffApi: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+  getStaffApi: jest.fn(),
+  createStaffApi: jest.fn(),
+  updateStaffApi: jest.fn(),
+  deleteStaffApi: jest.fn(),
+  listStaffLeaveApi: jest.fn(),
+  createStaffLeaveApi: jest.fn(),
+  approveLeaveApi: jest.fn(),
+  rejectLeaveApi: jest.fn(),
+  cancelLeaveApi: jest.fn(),
+  searchStaffApi: jest.fn(),
+  listAllStaffLeaveApi: jest.fn(),
+}));
 // T-FE-C.4: the shell now also composes ClinicalTimeline, which pulls in
 // useClinicalTimelineData -- mocked directly here (exactly as
 // clinicalTimeline.test.tsx's own test does) rather than mocking the
@@ -263,7 +315,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  it('renders the Why Today, What Changed, Before You Act, Workflow, and Next Action regions plus a neutral placeholder for the remaining not-yet-built regions — no fabricated warning/completion content beyond the governed backend recommendation', async () => {
+  it('renders the Why Today, What Changed, Before You Act, Workflow, and Next Action regions plus an honest placeholder for the still-blocked Treatment Plan region (T-FE-E.2: every other region is now composed, not a generic "Coming Soon" stub) — no fabricated warning/completion content beyond the governed backend recommendation', async () => {
     const { queryByText, getByText, findByText } = renderWithProviders(
       <VisitCommandCenter episodeId="episode-1" appointmentId="appointment-1" clientId="client-1" />,
     );
@@ -272,7 +324,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     await findByText('Before you act');
     await findByText('Workflow');
     await findByText('Next action');
-    expect(getByText('Coming Soon')).toBeTruthy();
+    expect(getByText('Treatment Plan is not yet available in this workspace.')).toBeTruthy();
     // The empty workflow resolution mock (no recommended_action, no
     // waiting_role, no blocking_factors, no unresolved_facts) renders
     // NextActionBar's own "no recommendation" state — legitimate,
@@ -294,7 +346,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
     // order, not just presence.
     expect(serialized.indexOf('"Before you act"')).toBeLessThan(serialized.indexOf('"Workflow"'));
     expect(serialized.indexOf('"Workflow"')).toBeLessThan(serialized.indexOf('"Next action"'));
-    expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+    expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Treatment Plan is not yet available in this workspace."'));
   });
 
   describe('CaseSheetModule composition (T-FE-E.1a, FR-CS-1)', () => {
@@ -314,7 +366,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
       await findByText('Chief Complaint');
       const serialized = JSON.stringify(toJSON());
       expect(serialized.indexOf('"Next action"')).toBeLessThan(serialized.indexOf('"Chief Complaint"'));
-      expect(serialized.indexOf('"Chief Complaint"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+      expect(serialized.indexOf('"Chief Complaint"')).toBeLessThan(serialized.indexOf('"Treatment Plan is not yet available in this workspace."'));
     });
 
     it('does not reorder the existing Why Today / What Changed / Before You Act / Workflow / Next Action regions', async () => {
@@ -371,7 +423,7 @@ describe('VisitCommandCenter (T-FE-A.1)', () => {
       expect(getByText('Clinical Timeline')).toBeTruthy();
       const serialized = JSON.stringify(toJSON());
       expect(serialized.indexOf('"Chief Complaint"')).toBeLessThan(serialized.indexOf('"Clinical Timeline"'));
-      expect(serialized.indexOf('"Clinical Timeline"')).toBeLessThan(serialized.indexOf('"Coming Soon"'));
+      expect(serialized.indexOf('"Clinical Timeline"')).toBeLessThan(serialized.indexOf('"Treatment Plan is not yet available in this workspace."'));
     });
 
     it('receives Episode scope through the existing WorkspaceProvider only -- no props threaded, no cross-episode leak', () => {
