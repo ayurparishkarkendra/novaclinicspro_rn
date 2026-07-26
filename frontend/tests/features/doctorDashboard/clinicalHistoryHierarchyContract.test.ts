@@ -38,6 +38,8 @@ const RESPONSE: ClinicalHistoryResponse = {
       plan_id: null,
       session_counts: null,
       occurred_at: '2026-06-01T10:00:00',
+      plan_status: null,
+      sessions: null,
     },
     {
       id: 'plan-1',
@@ -46,6 +48,26 @@ const RESPONSE: ClinicalHistoryResponse = {
       plan_id: 'plan-1',
       session_counts: { completed: 2, scheduled: 1, not_completed: 3, cancelled: 0 },
       occurred_at: '2026-05-15T08:00:00',
+      // T-BE-A.3b (FR-HIST-1 AC7/AC8/AC9)
+      plan_status: 'active_course',
+      sessions: [
+        {
+          id: 'row-1',
+          scheduled_date: '2026-05-20',
+          scheduled_time: '09:00:00',
+          scheduled_at: null,
+          assigned_staff_id: 'staff-1',
+          assigned_staff_name: 'Dr. Rao',
+          treatment_name: 'Ultrasound',
+          medicines_text: null,
+          instructions_text: 'Ice after session',
+          status: 'COMPLETED',
+          completed_at: '2026-05-20T09:30:00',
+          completed_by_staff_id: 'staff-1',
+          non_execution_reason_code: null,
+          non_execution_reason_text: null,
+        },
+      ],
     },
     {
       id: 'sheet-1',
@@ -54,6 +76,8 @@ const RESPONSE: ClinicalHistoryResponse = {
       plan_id: null,
       session_counts: null,
       occurred_at: null,
+      plan_status: null,
+      sessions: null,
     },
   ],
 };

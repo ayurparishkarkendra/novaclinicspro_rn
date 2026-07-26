@@ -290,16 +290,181 @@ describe('ClinicalTimeline (T-FE-C.5, T-BE-A.3/A.3a)', () => {
         'utf8',
       );
 
-      it('never fabricates a Plan status field -- no status/completed/stopped/superseded literal assigned to a rendered item', () => {
-        expect(source).not.toMatch(/planStatus|statusLabel\s*=/);
-      });
-
       it('renders session counts via icon + text, never colour-alone', () => {
         expect(source).toMatch(/SESSION_COUNT_ICON/);
       });
 
-      it('never renders a per-session row -- no sessions[] array is read from the backend item', () => {
-        expect(source).not.toMatch(/item\.sessions\b|\.sessions\[/);
+      // T-BE-A.3b/T-FE-C.6a (2026-07-27): the backend contract gap this
+      // describe block originally guarded against (no plan_status, no
+      // sessions[]) is now closed -- see the dedicated
+      // 'T-FE-C.6a — enriched Plan status and Session hierarchy' block
+      // below for the tests proving planStatus/item.sessions are read
+      // ONLY from the backend item, never locally computed/derived.
+    });
+  });
+
+  describe('T-FE-C.6a — enriched Plan status and Session hierarchy (T-BE-A.3b)', () => {
+    const sessionA = {
+      id: 'row-1',
+      scheduledDate: '2026-05-20',
+      scheduledTime: '09:00:00',
+      scheduledAt: null,
+      assignedStaffId: 'staff-1',
+      assignedStaffName: 'Dr. Rao',
+      treatmentName: 'Ultrasound',
+      medicinesText: null,
+      instructionsText: 'Ice after session',
+      status: 'COMPLETED',
+      completedAt: '2026-05-20T09:30:00',
+      completedByStaffId: 'staff-1',
+      nonExecutionReasonCode: null,
+      nonExecutionReasonText: null,
+    };
+    const enrichedPlanItem = {
+      id: 'p1',
+      type: 'treatment_plan',
+      date: '2026-05-15',
+      title: 'Treatment Plan',
+      appointmentIds: ['a2', 'a3'],
+      planId: 'p1',
+      sessionCounts: { completed: 1, scheduled: 0, not_completed: 0, cancelled: 0 },
+      planStatus: 'active_course',
+      sessions: [sessionA],
+      route: undefined,
+    };
+
+    it('renders the Plan\'s own backend-authoritative status as text when expanded', () => {
+      mockHook({ items: [enrichedPlanItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Active Course')).toBeTruthy();
+    });
+
+    it('an unresolved (null) Plan status renders the honest localized fallback, never a blank or fabricated label', () => {
+      mockHook({ items: [{ ...enrichedPlanItem, planStatus: null }] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Plan status unavailable')).toBeTruthy();
+    });
+
+    it('an unrecognized future status value is rendered as-is, never silently remapped', () => {
+      mockHook({ items: [{ ...enrichedPlanItem, planStatus: 'future_status_code' }] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('future_status_code')).toBeTruthy();
+    });
+
+    it('expanding a Plan renders one child row per backend session, showing its therapist and instructions', () => {
+      mockHook({ items: [enrichedPlanItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Dr. Rao')).toBeTruthy();
+      expect(getByText(/Ultrasound/)).toBeTruthy();
+    });
+
+    it('an unscheduled session renders the "Date unavailable" fallback, never a fabricated date', () => {
+      mockHook({
+        items: [{ ...enrichedPlanItem, sessions: [{ ...sessionA, scheduledDate: null, scheduledTime: null, scheduledAt: null }] }],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Date unavailable')).toBeTruthy();
+    });
+
+    it('an unassigned session renders the "Therapist unavailable" fallback', () => {
+      mockHook({
+        items: [{ ...enrichedPlanItem, sessions: [{ ...sessionA, assignedStaffId: null, assignedStaffName: null }] }],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Therapist unavailable')).toBeTruthy();
+    });
+
+    it('a session with no doctor content renders "Instructions not recorded", never a vague generic message', () => {
+      mockHook({
+        items: [{ ...enrichedPlanItem, sessions: [{ ...sessionA, treatmentName: null, medicinesText: null, instructionsText: null }] }],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Instructions not recorded')).toBeTruthy();
+    });
+
+    it('a cancelled session with a structured non-execution reason renders the reason, never a bare ambiguous "missed" label', () => {
+      mockHook({
+        items: [{
+          ...enrichedPlanItem,
+          sessions: [{
+            ...sessionA, status: 'CANCELLED', completedAt: null, completedByStaffId: null,
+            nonExecutionReasonCode: 'PATIENT_NO_SHOW', nonExecutionReasonText: 'called ahead',
+          }],
+        }],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText(/Cancelled — Patient no-show/)).toBeTruthy();
+    });
+
+    it('multiple sessions within one expanded Plan each render their own row, in backend order -- never locally sorted', () => {
+      const sessionB = { ...sessionA, id: 'row-2', assignedStaffName: 'Dr. Iyer', treatmentName: 'Physio' };
+      mockHook({ items: [{ ...enrichedPlanItem, sessions: [sessionA, sessionB] }] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Dr. Rao')).toBeTruthy();
+      expect(getByText('Dr. Iyer')).toBeTruthy();
+    });
+
+    it('a Plan with no sessions[] (unresolved) shows the expand affordance from session_counts alone and does not crash', () => {
+      mockHook({ items: [{ ...enrichedPlanItem, sessions: null }] });
+      const { getByText, queryByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(queryByText('Dr. Rao')).toBeNull();
+    });
+
+    it('collapsing the Plan hides the Session rows again -- same local UI state as session_counts', () => {
+      mockHook({ items: [enrichedPlanItem] });
+      const { getByText, queryByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText('Dr. Rao')).toBeTruthy();
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(queryByText('Dr. Rao')).toBeNull();
+    });
+
+    it('a legacy_treatment_sessions item never renders Plan status or Session rows -- enrichment applies only to treatment_plan items', () => {
+      mockHook({
+        items: [
+          { id: 'a4', type: 'legacy_treatment_sessions', date: '2026-06-01', title: 'Therapy Sessions', appointmentIds: ['a4'], planId: null, sessionCounts: null, planStatus: null, sessions: null, route: '/clinic-admin/appointments/a4' },
+        ],
+      });
+      const { queryByText } = render(<ClinicalTimeline />);
+      expect(queryByText('Plan status unavailable')).toBeNull();
+    });
+
+    describe('Source-level checks', () => {
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/components/ClinicalTimeline.tsx'),
+        'utf8',
+      );
+
+      it('reads planStatus from the backend item, never computes/derives a status itself', () => {
+        expect(source).toMatch(/item\.planStatus/);
+        expect(source).not.toMatch(/deriveStatus|computeStatus|inferStatus/);
+      });
+
+      it('reads sessions from the backend item and never sorts them locally', () => {
+        expect(source).toMatch(/item\.sessions/);
+        expect(source).not.toMatch(/\.sessions\s*\.\s*sort\(|\[\.\.\.item\.sessions\]\.sort/);
+      });
+
+      it('Session rows are never given an onPress handler -- read-only, no scheduling/execution action from Clinical History', () => {
+        const sessionRowMatch = source.match(/const SessionRow[\s\S]*?^\};/m);
+        expect(sessionRowMatch).not.toBeNull();
+        expect(sessionRowMatch![0]).not.toMatch(/onPress/);
+      });
+
+      it('status/date/therapist/instructions render icon + text, never colour-alone', () => {
+        const sessionRowMatch = source.match(/const SessionRow[\s\S]*?^\};/m);
+        expect(sessionRowMatch![0]).toMatch(/Ionicons/);
+        expect(sessionRowMatch![0]).not.toMatch(/backgroundColor:\s*colors\.feedback\.\w+\s*}\s*\/>/);
       });
     });
   });

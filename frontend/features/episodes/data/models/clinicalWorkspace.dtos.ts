@@ -186,6 +186,39 @@ export interface SessionCountsResponse {
   cancelled: number;
 }
 
+/**
+ * T-BE-A.3b (FR-HIST-1 AC8/AC9) — one individual Session within an
+ * expanded `treatment_plan` history item. One-to-one mirror of the
+ * backend's `ClinicalHistorySessionResponse`. Semantics only: every
+ * field is an identifier, timestamp, state code, or verified content
+ * string — never a presentation label, icon, or colour.
+ *
+ * `id` is the Session's stable identity (`TreatmentSheetRow.id`) — never
+ * an appointment id or day number. `scheduled_date`/`scheduled_time`/
+ * `scheduled_at` are `null` when genuinely unscheduled/PRN.
+ * `assigned_staff_name` is `null` when unassigned or the staff record is
+ * unavailable (e.g. deleted) — the Session stays representable either
+ * way. `status`, `completed_at`/`completed_by_staff_id`, and
+ * `non_execution_reason_code`/`_text` are three independent fields —
+ * never collapsed into one ambiguous value.
+ */
+export interface ClinicalHistorySessionResponse {
+  id: string;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
+  scheduled_at: string | null;
+  assigned_staff_id: string | null;
+  assigned_staff_name: string | null;
+  treatment_name: string | null;
+  medicines_text: string | null;
+  instructions_text: string | null;
+  status: string;
+  completed_at: string | null;
+  completed_by_staff_id: string | null;
+  non_execution_reason_code: string | null;
+  non_execution_reason_text: string | null;
+}
+
 export interface HistoryItemResponse {
   id: string;
   encounter_type: string;
@@ -193,6 +226,20 @@ export interface HistoryItemResponse {
   plan_id: string | null;
   session_counts: SessionCountsResponse | null;
   occurred_at: string | null;
+  /**
+   * T-BE-A.3b (FR-HIST-1 AC7) — present for `treatment_plan` items only;
+   * `null` elsewhere means "not applicable to this encounter type", the
+   * same convention `session_counts` already established. The Plan's own
+   * authoritative status column, never derived.
+   */
+  plan_status: string | null;
+  /**
+   * T-BE-A.3b (FR-HIST-1 AC8/AC9) — present for `treatment_plan` items
+   * only, same "not applicable" convention as `session_counts`.
+   * Backend-ordered (`scheduled_date`/`scheduled_time` ASC NULLS LAST,
+   * then `id`) — never sorted on the frontend.
+   */
+  sessions: ClinicalHistorySessionResponse[] | null;
 }
 
 export interface ClinicalHistoryResponse {

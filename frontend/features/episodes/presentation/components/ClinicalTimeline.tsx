@@ -78,6 +78,22 @@
  * "mobile mode" to degrade into a flat list. (3) every status-bearing
  * element (session counts, item type) already renders icon+text, never a
  * bare colour-only dot.
+ *
+ * T-FE-C.6a (T-BE-A.3b, FR-HIST-1 AC7/AC8/AC9): the backend contract gap
+ * T-FE-C.6/C.7 both reported is now closed -- `HistoryItemResponse`
+ * carries `plan_status` and `sessions[]` for `treatment_plan` items.
+ * Expanding a Plan now renders its real status (text, never colour-alone,
+ * honest "unavailable" fallback when null) plus one child row per
+ * backend Session -- date/time, therapist, doctor instructions, and
+ * execution state/outcome/non-execution reason, each with its own
+ * field-specific "unavailable" localized state, never one vague generic
+ * message and never a value this file computes itself. `SessionCounts
+ * Breakdown` (the aggregate view) is kept alongside the new per-Session
+ * rows, not replaced -- both are genuine backend facts and neither
+ * supersedes the other. Session rows are read-only, non-interactive
+ * (no onPress, no editable field, no scheduling/execution action) with
+ * their own `accessibilityLabel` summarizing the row for screen readers
+ * -- consistent with "Clinical History remains read-only history."
  */
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -90,6 +106,7 @@ import {
   useClinicalTimelineData,
   ClinicalTimelineItem,
   ClinicalTimelineSessionCounts,
+  ClinicalTimelineSession,
 } from '../hooks/useClinicalTimelineData';
 
 const ITEM_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -108,6 +125,105 @@ const SESSION_COUNT_ICON: Record<keyof ClinicalTimelineSessionCounts, keyof type
   scheduled: 'time-outline',
   not_completed: 'ellipse-outline',
   cancelled: 'close-circle-outline',
+};
+
+const KNOWN_PLAN_STATUSES: ReadonlySet<string> = new Set([
+  'authoring',
+  'approved_clinical_intent',
+  'available_for_scheduling',
+  'active_course',
+  'under_clinical_review',
+  'completed',
+  'superseded_amended',
+  'stopped_discontinued',
+]);
+const KNOWN_SESSION_STATUSES: ReadonlySet<string> = new Set([
+  'PENDING',
+  'SCHEDULED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+]);
+const KNOWN_NON_EXECUTION_REASONS: ReadonlySet<string> = new Set([
+  'PATIENT_NO_SHOW',
+  'PATIENT_CANCELLED',
+  'CLINIC_CANCELLED',
+  'CLINICAL_HOLD',
+  'OTHER',
+]);
+
+/**
+ * T-FE-C.6a (T-BE-A.3b): one individual Session row inside an expanded
+ * Plan group -- read-only, non-interactive (no onPress, no editable
+ * field, no scheduling/execution action). Renders only backend-verified
+ * facts; each nullable field gets its own field-specific "unavailable"
+ * state, never one vague generic placeholder, and never a value this
+ * component derives itself.
+ */
+const SessionRow: React.FC<{ session: ClinicalTimelineSession }> = ({ session }) => {
+  const { colors, spacing, typography } = useClinicTheme();
+  const { t } = useTranslation();
+
+  const dateLabel = session.scheduledDate
+    ? formatDate(session.scheduledAt ?? session.scheduledDate)
+    : t('clinicalTimeline.session.dateUnavailable');
+  const therapistLabel = session.assignedStaffName ?? t('clinicalTimeline.session.therapistUnavailable');
+  const instructionsLabel =
+    session.treatmentName || session.medicinesText || session.instructionsText
+      ? [session.treatmentName, session.medicinesText, session.instructionsText].filter(Boolean).join(' — ')
+      : t('clinicalTimeline.session.instructionsUnavailable');
+  const statusLabel = KNOWN_SESSION_STATUSES.has(session.status)
+    ? t(`clinicalTimeline.session.statuses.${session.status}`)
+    : session.status;
+  const reasonLabel = session.nonExecutionReasonCode
+    ? KNOWN_NON_EXECUTION_REASONS.has(session.nonExecutionReasonCode)
+      ? t(`clinicalTimeline.session.nonExecutionReasons.${session.nonExecutionReasonCode}`)
+      : session.nonExecutionReasonCode
+    : null;
+
+  const accessibilityLabel = [
+    dateLabel,
+    therapistLabel,
+    statusLabel,
+    reasonLabel,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        styles.sessionRow,
+        { borderColor: colors.border.subtle, borderRadius: spacing.xs, padding: spacing.xs, gap: spacing.xs / 2 },
+      ]}
+    >
+      <View style={[styles.itemRow, { gap: spacing.xs }]}>
+        <Ionicons name="calendar-clear-outline" size={14} color={colors.text.secondary} />
+        <Text style={[typography.caption, { color: colors.text.secondary }]}>{dateLabel}</Text>
+      </View>
+      <View style={[styles.itemRow, { gap: spacing.xs }]}>
+        <Ionicons name="person-outline" size={14} color={colors.text.secondary} />
+        <Text style={[typography.caption, { color: colors.text.secondary }]}>{therapistLabel}</Text>
+      </View>
+      <View style={[styles.itemRow, { gap: spacing.xs }]}>
+        <Ionicons name="document-text-outline" size={14} color={colors.text.secondary} />
+        <Text style={[typography.caption, { color: colors.text.secondary }]}>{instructionsLabel}</Text>
+      </View>
+      <View style={[styles.itemRow, { gap: spacing.xs }]}>
+        <Ionicons
+          name={session.status === 'COMPLETED' ? 'checkmark-circle-outline' : 'ellipse-outline'}
+          size={14}
+          color={colors.text.secondary}
+        />
+        <Text style={[typography.caption, { color: colors.text.secondary }]}>
+          {statusLabel}
+          {reasonLabel ? ` — ${reasonLabel}` : ''}
+        </Text>
+      </View>
+    </View>
+  );
 };
 
 const SessionCountsBreakdown: React.FC<{ counts: ClinicalTimelineSessionCounts }> = ({ counts }) => {
@@ -157,6 +273,15 @@ export const ClinicalTimeline: React.FC = () => {
       const isExpanded = isPlan && expandedIds.has(item.id);
       const subtitle =
         item.type === 'legacy_treatment_sessions' ? t('clinicalTimeline.legacyUnavailableLabel') : item.subtitle;
+      // T-FE-C.6a (T-BE-A.3b, FR-HIST-1 AC7): the Plan's own authoritative
+      // status -- text, never colour-alone; honest "unavailable" fallback
+      // when the backend genuinely has no status for this Plan, never a
+      // blank line or a fabricated default.
+      const planStatusLabel = isPlan
+        ? item.planStatus && KNOWN_PLAN_STATUSES.has(item.planStatus)
+          ? t(`clinicalTimeline.planStatuses.${item.planStatus}`)
+          : item.planStatus ?? t('clinicalTimeline.planStatusUnavailable')
+        : null;
 
       return (
         <TouchableOpacity
@@ -166,7 +291,9 @@ export const ClinicalTimeline: React.FC = () => {
           disabled={!isPlan && !item.route}
           accessibilityRole="button"
           accessibilityState={isPlan ? { expanded: isExpanded } : undefined}
-          accessibilityLabel={`${item.title}${subtitle ? `, ${subtitle}` : ''}, ${formatDate(item.date)}`}
+          accessibilityLabel={`${item.title}${subtitle ? `, ${subtitle}` : ''}${
+            planStatusLabel ? `, ${planStatusLabel}` : ''
+          }, ${formatDate(item.date)}`}
           style={[
             styles.item,
             {
@@ -187,9 +314,15 @@ export const ClinicalTimeline: React.FC = () => {
             <View style={styles.itemText}>
               <Text style={[typography.subtitle2, { color: colors.text.primary }]}>{item.title}</Text>
               {!!subtitle && <Text style={[typography.caption, { color: colors.text.secondary }]}>{subtitle}</Text>}
+              {isPlan && !!planStatusLabel && (
+                <View style={[styles.itemRow, { gap: spacing.xs }]}>
+                  <Ionicons name="flag-outline" size={12} color={colors.text.secondary} />
+                  <Text style={[typography.caption, { color: colors.text.secondary }]}>{planStatusLabel}</Text>
+                </View>
+              )}
             </View>
             <Text style={[typography.caption, { color: colors.text.tertiary }]}>{formatDate(item.date)}</Text>
-            {isPlan && !!item.sessionCounts && (
+            {isPlan && (!!item.sessionCounts || !!item.sessions) && (
               <Ionicons
                 name={isExpanded ? 'chevron-up' : 'chevron-down'}
                 size={18}
@@ -199,6 +332,13 @@ export const ClinicalTimeline: React.FC = () => {
             {!isPlan && !!item.route && <Ionicons name="chevron-forward" size={18} color={colors.text.secondary} />}
           </View>
           {isExpanded && item.sessionCounts && <SessionCountsBreakdown counts={item.sessionCounts} />}
+          {isExpanded && item.sessions && item.sessions.length > 0 && (
+            <View style={[styles.sessionsList, { gap: spacing.xs, paddingTop: spacing.xs }]}>
+              {item.sessions.map((session) => (
+                <SessionRow key={session.id} session={session} />
+              ))}
+            </View>
+          )}
         </TouchableOpacity>
       );
     },
@@ -255,4 +395,6 @@ const styles = StyleSheet.create({
   itemText: { flex: 1 },
   sessionCounts: {},
   sessionCountRow: { flexDirection: 'row', alignItems: 'center' },
+  sessionsList: {},
+  sessionRow: { borderWidth: 1 },
 });

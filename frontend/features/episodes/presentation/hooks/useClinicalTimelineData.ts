@@ -48,6 +48,13 @@
  * Review items) -- that is accepted as-is per this task's explicit
  * instruction not to reorder using `occurred_at` or any other
  * locally-derived fact.
+ *
+ * T-FE-C.6a (T-BE-A.3b, FR-HIST-1 AC7/AC8/AC9): `plan_status`/`sessions`
+ * are passed through unchanged, same passthrough discipline as every
+ * other backend fact here -- `sessions` is mapped field-by-field to
+ * `ClinicalTimelineSession` (camelCase, matching this file's existing
+ * `appointmentIds`/`planId`/`sessionCounts` convention) with zero
+ * reordering, zero filtering, zero derived fields.
  */
 import { useMemo } from 'react';
 import { useEpisodeContext, usePatientContext } from '../context/ClinicalWorkspaceContext';
@@ -65,6 +72,35 @@ export interface ClinicalTimelineSessionCounts {
   scheduled: number;
   not_completed: number;
   cancelled: number;
+}
+
+/**
+ * T-BE-A.3b (FR-HIST-1 AC8/AC9) -- one individual Session, passed through
+ * from `ClinicalHistorySessionResponse` unchanged (field-renamed to
+ * camelCase only, matching this file's own convention). `id` is the
+ * Session's stable identity. `scheduledDate`/`scheduledTime`/`scheduledAt`
+ * are `null` when genuinely unscheduled/PRN -- never fabricated.
+ * `assignedStaffName` is `null` when unassigned or unresolvable (e.g. a
+ * deleted staff record) -- the Session itself is never dropped either
+ * way. `status`, `completedAt`/`completedByStaffId`, and
+ * `nonExecutionReasonCode`/`nonExecutionReasonText` remain three
+ * independent fields, never composed into one derived label here.
+ */
+export interface ClinicalTimelineSession {
+  id: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledAt: string | null;
+  assignedStaffId: string | null;
+  assignedStaffName: string | null;
+  treatmentName: string | null;
+  medicinesText: string | null;
+  instructionsText: string | null;
+  status: string;
+  completedAt: string | null;
+  completedByStaffId: string | null;
+  nonExecutionReasonCode: string | null;
+  nonExecutionReasonText: string | null;
 }
 
 export interface ClinicalTimelineItem {
@@ -97,6 +133,14 @@ export interface ClinicalTimelineItem {
   appointmentIds: string[];
   planId: string | null;
   sessionCounts: ClinicalTimelineSessionCounts | null;
+  /** T-BE-A.3b (FR-HIST-1 AC7) -- present for `treatment_plan` items
+   * only; `null` elsewhere means "not applicable", same convention as
+   * `sessionCounts`. The Plan's own authoritative status, never derived. */
+  planStatus: string | null;
+  /** T-BE-A.3b (FR-HIST-1 AC8/AC9) -- present for `treatment_plan` items
+   * only, same "not applicable" convention. Backend-ordered; never
+   * sorted here. */
+  sessions: ClinicalTimelineSession[] | null;
 }
 
 export interface ClinicalTimelineData {
@@ -150,6 +194,25 @@ export function useClinicalTimelineData(): ClinicalTimelineData {
         appointmentIds: item.appointment_ids,
         planId: item.plan_id,
         sessionCounts: item.session_counts,
+        planStatus: item.plan_status,
+        sessions: item.sessions
+          ? item.sessions.map((session) => ({
+              id: session.id,
+              scheduledDate: session.scheduled_date,
+              scheduledTime: session.scheduled_time,
+              scheduledAt: session.scheduled_at,
+              assignedStaffId: session.assigned_staff_id,
+              assignedStaffName: session.assigned_staff_name,
+              treatmentName: session.treatment_name,
+              medicinesText: session.medicines_text,
+              instructionsText: session.instructions_text,
+              status: session.status,
+              completedAt: session.completed_at,
+              completedByStaffId: session.completed_by_staff_id,
+              nonExecutionReasonCode: session.non_execution_reason_code,
+              nonExecutionReasonText: session.non_execution_reason_text,
+            }))
+          : null,
       };
     });
   }, [historyQuery.data]);

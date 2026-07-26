@@ -619,6 +619,37 @@
       "scheduled": "निर्धारित",
       "notCompleted": "अपूर्ण",
       "cancelled": "रद्द"
+    },
+    "planStatuses": {
+      "authoring": "प्रारूपण",
+      "approved_clinical_intent": "स्वीकृत क्लिनिकल इरादा",
+      "available_for_scheduling": "शेड्यूलिंग के लिए उपलब्ध",
+      "active_course": "सक्रिय कोर्स",
+      "under_clinical_review": "क्लिनिकल समीक्षा में",
+      "completed": "पूर्ण",
+      "superseded_amended": "प्रतिस्थापित / संशोधित",
+      "stopped_discontinued": "रोका / बंद"
+    },
+    "planStatusUnavailable": "योजना स्थिति उपलब्ध नहीं है",
+    "session": {
+      "dateUnavailable": "तिथि उपलब्ध नहीं है",
+      "therapistUnavailable": "थेरेपिस्ट उपलब्ध नहीं है",
+      "instructionsUnavailable": "निर्देश दर्ज नहीं किए गए",
+      "completedOn": "पूर्ण हुआ",
+      "statuses": {
+        "PENDING": "लंबित",
+        "SCHEDULED": "निर्धारित",
+        "IN_PROGRESS": "प्रगति में",
+        "COMPLETED": "पूर्ण",
+        "CANCELLED": "रद्द"
+      },
+      "nonExecutionReasons": {
+        "PATIENT_NO_SHOW": "मरीज़ अनुपस्थित",
+        "PATIENT_CANCELLED": "मरीज़ द्वारा रद्द",
+        "CLINIC_CANCELLED": "क्लिनिक द्वारा रद्द",
+        "CLINICAL_HOLD": "क्लिनिकल होल्ड",
+        "OTHER": "अन्य"
+      }
     }
   }
 }

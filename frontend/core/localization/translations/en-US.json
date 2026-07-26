@@ -893,6 +893,37 @@
       "scheduled": "Scheduled",
       "notCompleted": "Not completed",
       "cancelled": "Cancelled"
+    },
+    "planStatuses": {
+      "authoring": "Authoring",
+      "approved_clinical_intent": "Approved Clinical Intent",
+      "available_for_scheduling": "Available for Scheduling",
+      "active_course": "Active Course",
+      "under_clinical_review": "Under Clinical Review",
+      "completed": "Completed",
+      "superseded_amended": "Superseded / Amended",
+      "stopped_discontinued": "Stopped / Discontinued"
+    },
+    "planStatusUnavailable": "Plan status unavailable",
+    "session": {
+      "dateUnavailable": "Date unavailable",
+      "therapistUnavailable": "Therapist unavailable",
+      "instructionsUnavailable": "Instructions not recorded",
+      "completedOn": "Completed",
+      "statuses": {
+        "PENDING": "Pending",
+        "SCHEDULED": "Scheduled",
+        "IN_PROGRESS": "In progress",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled"
+      },
+      "nonExecutionReasons": {
+        "PATIENT_NO_SHOW": "Patient no-show",
+        "PATIENT_CANCELLED": "Cancelled by patient",
+        "CLINIC_CANCELLED": "Cancelled by clinic",
+        "CLINICAL_HOLD": "Clinical hold",
+        "OTHER": "Other"
+      }
     }
   }
 }
