@@ -884,6 +884,15 @@
       "legacy_treatment_sessions": "Therapy Sessions"
     },
     "unknownType": "Clinical Encounter",
-    "error": "Could not load clinical history."
+    "error": "Could not load clinical history.",
+    "legacyUnavailableLabel": "Plan association unavailable",
+    "expandGroup": "Show session summary",
+    "collapseGroup": "Hide session summary",
+    "sessionCounts": {
+      "completed": "Completed",
+      "scheduled": "Scheduled",
+      "notCompleted": "Not completed",
+      "cancelled": "Cancelled"
+    }
   }
 }

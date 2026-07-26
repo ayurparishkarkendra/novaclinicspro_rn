@@ -159,8 +159,11 @@ describe('ClinicalTimeline (T-FE-C.5, T-BE-A.3/A.3a)', () => {
       expect(source).not.toMatch(/useAppointmentsListQuery|usePrescriptionsListQuery|useTreatmentSheetsByEpisodeQuery|useQueries\(/);
     });
 
-    it('holds no clinical-artifact state (CO-4) — no useState/useReducer anywhere in this file', () => {
-      expect(source).not.toMatch(/useState|useReducer/);
+    it('holds no clinical-artifact state (CO-4) -- no useReducer, and the only useState is the T-FE-C.6 presentation-only expand/collapse id set', () => {
+      expect(source).not.toMatch(/useReducer/);
+      const useStateCalls = source.match(/useState[<(]/g) ?? [];
+      expect(useStateCalls.length).toBe(1);
+      expect(source).toMatch(/useState<Set<string>>\(new Set\(\)\)/);
     });
 
     it('calls zero create/update/save APIs of any kind, including no Visit Note API (N-7, CO-6)', () => {
@@ -173,6 +176,130 @@ describe('ClinicalTimeline (T-FE-C.5, T-BE-A.3/A.3a)', () => {
 
     it('performs no local sort/reverse of items -- backend order rendered exactly as received (T-FE-C.5)', () => {
       expect(source).not.toMatch(/\.sort\(|\.reverse\(/);
+    });
+  });
+
+  describe('T-FE-C.6 — collapsible Treatment Plan groups + legacy distinction', () => {
+    const planItem = {
+      id: 'p1',
+      type: 'treatment_plan',
+      date: '2026-05-15',
+      title: 'Treatment Plan',
+      appointmentIds: ['a2', 'a3'],
+      planId: 'p1',
+      sessionCounts: { completed: 2, scheduled: 1, not_completed: 3, cancelled: 0 },
+      route: undefined,
+    };
+
+    it('a Treatment Plan row is collapsed by default -- session counts are not shown until expanded', () => {
+      mockHook({ items: [planItem] });
+      const { queryByText } = render(<ClinicalTimeline />);
+      expect(queryByText(/Completed: 2/)).toBeNull();
+    });
+
+    it('pressing a Treatment Plan row expands it, revealing the real backend session_counts breakdown', () => {
+      mockHook({ items: [planItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText(/Completed: 2/)).toBeTruthy();
+      expect(getByText(/Scheduled: 1/)).toBeTruthy();
+      expect(getByText(/Not completed: 3/)).toBeTruthy();
+      expect(getByText(/Cancelled: 0/)).toBeTruthy();
+    });
+
+    it('pressing an expanded Treatment Plan row again collapses it -- local UI state only, toggles both ways', () => {
+      mockHook({ items: [planItem] });
+      const { getByText, queryByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(getByText(/Completed: 2/)).toBeTruthy();
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(queryByText(/Completed: 2/)).toBeNull();
+    });
+
+    it('expanding a Treatment Plan row never triggers navigation (no route exists for this type)', () => {
+      mockHook({ items: [planItem] });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it('a Treatment Plan with no session_counts (unresolved) shows no expand affordance and nothing crashes on press', () => {
+      mockHook({ items: [{ ...planItem, sessionCounts: null }] });
+      const { getByText, queryByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Treatment Plan'));
+      expect(queryByText(/Completed:/)).toBeNull();
+    });
+
+    it('multiple Treatment Plan rows expand/collapse independently', () => {
+      const plan2 = { ...planItem, id: 'p2', planId: 'p2', sessionCounts: { completed: 5, scheduled: 0, not_completed: 0, cancelled: 1 } };
+      mockHook({ items: [planItem, plan2] });
+      const { getAllByText, getByText, queryByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getAllByText('Treatment Plan')[0]);
+      expect(getByText(/Completed: 2/)).toBeTruthy();
+      expect(queryByText(/Completed: 5/)).toBeNull();
+    });
+
+    it('every Treatment Plan item the backend returns is rendered -- never locally filtered by any status heuristic (AC-4, literal "remain visible" clause)', () => {
+      const plans = [
+        { ...planItem, id: 'p1', planId: 'p1' },
+        { ...planItem, id: 'p2', planId: 'p2' },
+        { ...planItem, id: 'p3', planId: 'p3' },
+      ];
+      mockHook({ items: plans });
+      const { getAllByText } = render(<ClinicalTimeline />);
+      expect(getAllByText('Treatment Plan')).toHaveLength(3);
+    });
+
+    it('a legacy_treatment_sessions item shows the explicit "Plan association unavailable" label (AC-6)', () => {
+      mockHook({
+        items: [
+          { id: 'a4', type: 'legacy_treatment_sessions', date: '2026-06-01', title: 'Therapy Sessions', appointmentIds: ['a4'], planId: null, sessionCounts: null, route: '/clinic-admin/appointments/a4' },
+        ],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      expect(getByText('Plan association unavailable')).toBeTruthy();
+    });
+
+    it('a legacy_treatment_sessions item still navigates normally on press -- the added subtitle does not disable its existing route', () => {
+      mockHook({
+        items: [
+          { id: 'a4', type: 'legacy_treatment_sessions', date: '2026-06-01', title: 'Therapy Sessions', appointmentIds: ['a4'], planId: null, sessionCounts: null, route: '/clinic-admin/appointments/a4' },
+        ],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      fireEvent.press(getByText('Therapy Sessions'));
+      expect(router.push).toHaveBeenCalledWith('/clinic-admin/appointments/a4');
+    });
+
+    it('consultation and treatment_review items are unaffected by the expand/collapse feature -- render top-level, never nested (AC-1)', () => {
+      mockHook({
+        items: [
+          { id: 'a1', type: 'consultation', date: '2026-06-04', title: 'Consultation', appointmentIds: ['a1'], planId: null, sessionCounts: null, route: '/clinic-admin/appointments/a1' },
+          { id: 'sheet-1', type: 'treatment_review', date: null, title: 'Treatment Review', appointmentIds: [], planId: null, sessionCounts: null, route: undefined },
+        ],
+      });
+      const { getByText } = render(<ClinicalTimeline />);
+      expect(getByText('Consultation')).toBeTruthy();
+      expect(getByText('Treatment Review')).toBeTruthy();
+    });
+
+    describe('Source-level checks', () => {
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../features/episodes/presentation/components/ClinicalTimeline.tsx'),
+        'utf8',
+      );
+
+      it('never fabricates a Plan status field -- no status/completed/stopped/superseded literal assigned to a rendered item', () => {
+        expect(source).not.toMatch(/planStatus|statusLabel\s*=/);
+      });
+
+      it('renders session counts via icon + text, never colour-alone', () => {
+        expect(source).toMatch(/SESSION_COUNT_ICON/);
+      });
+
+      it('never renders a per-session row -- no sessions[] array is read from the backend item', () => {
+        expect(source).not.toMatch(/item\.sessions\b|\.sessions\[/);
+      });
     });
   });
 

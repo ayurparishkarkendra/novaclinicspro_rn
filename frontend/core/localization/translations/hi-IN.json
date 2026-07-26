@@ -610,6 +610,15 @@
       "legacy_treatment_sessions": "थेरेपी सत्र"
     },
     "unknownType": "क्लिनिकल एनकाउंटर",
-    "error": "क्लिनिकल इतिहास लोड नहीं हो सका।"
+    "error": "क्लिनिकल इतिहास लोड नहीं हो सका।",
+    "legacyUnavailableLabel": "योजना संबद्धता उपलब्ध नहीं है",
+    "expandGroup": "सत्र सारांश दिखाएं",
+    "collapseGroup": "सत्र सारांश छुपाएं",
+    "sessionCounts": {
+      "completed": "पूर्ण",
+      "scheduled": "निर्धारित",
+      "notCompleted": "अपूर्ण",
+      "cancelled": "रद्द"
+    }
   }
 }
