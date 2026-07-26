@@ -8,6 +8,8 @@
 
 **Self-correction, stated plainly per this exercise's own ground rules ("never assume, never infer... everything must be backed by evidence"):** the prior audit (`RTM-AUDIT.md` §1, previous session) stated "51 tasks complete, 29 not started." Recomputing task-by-task from the same underlying, independently-verified backend and frontend task lists for this pass yields **42 complete, 38 not started** — a genuine arithmetic error in the prior document, not a change in repository state (no commits landed between the two audits; both HEADs are identical). The number below is the recount, shown with its addition, not the earlier unverified total.
 
+**Third addendum (2026-07-26, T-BE-E.1a/T-FE-E.1a/T-FE-E.1b closure) — narrow, targeted only:** the statistics below are still NOT recomputed in this pass. `T-BE-E.1a` (Case Sheet contribution snapshot, backend commit `00682b6`, shared-dev DB upgrade `8e43b15`), `T-FE-E.1a` (composition, commit `0ed23f7`), and `T-FE-E.1b` (render history, commit `c93fddf`) are now all complete — the `T-FE-E.1` umbrella (tasks.md) is fully closed. `FR-CS-1` and `FR-CS-5` move from Partially Complete to Fully Complete on `RTM-MASTER.md` (both rows updated directly). A full recount remains recommended before the next RTM-AUDIT pass, not performed here.
+
 ---
 
 ## Requirement-level statistics (44 total)

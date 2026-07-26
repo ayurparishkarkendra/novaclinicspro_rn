@@ -134,12 +134,12 @@
 **Priority:** MVP Mandatory
 **Design:** §2.2 · **Decision:** D1 · **ET refs:** ETX-2 (null-episode_id sheets, audited, no migration in R7) · **Owner Ratification:** Decision 1
 **Backend:** Tasks: T-BE-C.1 · Status: **Complete**
-**Frontend:** Tasks: T-FE-E.1 (compose) · Status: **Not Started**
-**Implementation Evidence:** `casesheets_service.py` — commit `fa03a4a`
-**Tests:** Unit + integration dup-guard: `test_casesheet_find_or_create.py`
-**Traceability:** FR-CS-1 → design.md §2.2 → T-BE-C.1 (done) + T-FE-E.1 (not started) → `casesheets_service.py` → `test_casesheet_find_or_create.py` → `fa03a4a` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** Backend rule is solid and tested; no frontend surface exists yet to exercise it for a real user.
+**Frontend:** Tasks: T-FE-E.1a (compose — complete, commit `0ed23f7`) · Status: **Complete** **[Updated 2026-07-26]**
+**Implementation Evidence:** `casesheets_service.py` — commit `fa03a4a`; `CaseSheetModule.tsx` composition — commit `0ed23f7`
+**Tests:** Unit + integration dup-guard: `test_casesheet_find_or_create.py`; frontend composition/Episode-ownership tests in `caseSheetModuleComposition.test.tsx`
+**Traceability:** FR-CS-1 → design.md §2.2 → T-BE-C.1 (done) + T-FE-E.1a (done) → `casesheets_service.py` + `CaseSheetModule.tsx` → tests above → `fa03a4a`, `0ed23f7` → Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** Backend rule is solid and tested; the Episode Case Sheet is now composed and exercised through `VisitCommandCenter` (`T-FE-E.1a`).
 
 ### FR-CS-2 — Contribution attributed to current Visit
 **Business Objective:** Every Case Sheet write receives an explicit, backend-validated current-Visit context; `appointment_id` must never be used to resolve attribution (fixes the verified F-1 defect: every contribution after the first was mis-attributed to the creating visit).
@@ -181,13 +181,13 @@
 **Business Objective:** Prior visits' notes visibly retained with author + timestamp; a visit appends, never overwrites.
 **Priority:** MVP Mandatory
 **Design:** §2.2(g) · **Decision:** D1, **Decision 12** (DO-2 amendment, v1.3) · **ET refs:** T-BE-E.1a pre-implementation investigation · **Owner Ratification:** Decision 12
-**Backend:** Tasks: `T-BE-E.1a` (in progress — snapshot migration/write/read contract) · Status: **In progress**. **[Corrected 2026-07-25]** The prior "Complete (underlying mechanism)" claim on this row was wrong — Engineering Truth proved `TenantCasesheetContribution` was attribution-only (no content field existed anywhere), so the "underlying mechanism" did not actually support this requirement's own AC. Decision 12 ratifies the narrow fix (additive `content_snapshot` column).
-**Frontend:** Tasks: `T-FE-E.1a` (composition — complete, commit `0ed23f7`), `T-FE-E.1b` (render history — blocked on `T-BE-E.1a`) · Status: **Partially Complete**
-**Implementation Evidence:** `T-FE-E.1a` commit `0ed23f7`; `T-BE-E.1a` in progress
-**Tests:** `T-FE-E.1a`'s 14 tests (composition only, no history claim yet)
-**Traceability:** FR-CS-5 → design.md §2.2(g) → T-BE-E.1a/T-FE-E.1a/T-FE-E.1b → — → — → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** The original requirement rationale ("the contribution model exists but has no UI") undersold the actual gap — the model didn't persist content at all, only attribution. Decision 12 closes that gap without reopening DO-2's core invariant (one current, editable Case Sheet per Episode).
+**Backend:** Tasks: `T-BE-E.1a` (snapshot migration/write/read contract) · Status: **Complete** **[Updated 2026-07-26]**. Implementation commit `00682b6`; shared development Supabase upgraded and verified at `20260727_000001` (commit `8e43b15`, see `.kiro/engineering/DB-T-BE-E1A-SNAPSHOT-UPGRADE-RESULT.md` in `novaclinicspro-api`).
+**Frontend:** Tasks: `T-FE-E.1a` (composition — complete, commit `0ed23f7`), `T-FE-E.1b` (render history — complete, commit `c93fddf`) · Status: **Complete** **[Updated 2026-07-26]**
+**Implementation Evidence:** `T-FE-E.1a` commit `0ed23f7`; `T-BE-E.1a` commit `00682b6` + DB upgrade `8e43b15`; `T-FE-E.1b` commit `c93fddf`
+**Tests:** `T-FE-E.1a`'s composition tests; `T-BE-E.1a`'s 88 focused backend tests (snapshot, history, migration, idempotency, write path); `T-FE-E.1b`'s 26 focused frontend tests (data hook + rendering + isolation + architecture) plus updated `caseSheetModule.test.tsx`/`caseSheetModuleComposition.test.tsx` regression coverage
+**Traceability:** FR-CS-5 → design.md §2.2(g) → T-BE-E.1a/T-FE-E.1a/T-FE-E.1b (all done) → `casesheets_service.py`, `casesheets_router.py`, `CaseSheetModule.tsx`, `CaseSheetContributionHistory.tsx` → tests above → `00682b6`, `8e43b15`, `0ed23f7`, `c93fddf` → Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** The original requirement rationale ("the contribution model exists but has no UI") undersold the actual gap — the model didn't persist content at all, only attribution. Decision 12 closed that gap without reopening DO-2's core invariant (one current, editable Case Sheet per Episode); the frontend now renders that history read-only, never merging it into the active draft.
 
 ### FR-CS-6 — Audit
 **Business Objective:** Every contribution records actor, time, visit; amendments additionally record reason.

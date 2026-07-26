@@ -17,11 +17,13 @@ Design §2.1 → T-FE-D.1 (not started) → **Gap:** backend assembly complete a
 ### FR-WFA-2 — Permissions gate actionability, not presence
 Design §2.1 → T-FE-E.6 (not started) → **Gap:** `waiting_role`/`blocking_factors` fields exist on the backend contract, unconsumed → Evidence: contract fields present in `clinical_workflow_resolver.py`; `episodeWorkspaceConfig.ts` untouched by any R7 commit → **Blocks release because:** without this, a non-actionable stage cannot be shown as "waiting on X role" — the requirement's entire visible behavior is missing.
 
-### FR-CS-1 — One Case Sheet per Episode (find-or-create)
-Design §2.2 → T-FE-E.1 (not started) → **Gap:** backend find-or-create rule complete and tested; no frontend surface exercises it → Evidence: `casesheets_service.py` (`fa03a4a`), `test_casesheet_find_or_create.py` passing; no FE composition found → **Blocks release because:** no user-facing way to open a case sheet through the new workspace exists yet.
+### FR-CS-1 — One Case Sheet per Episode (find-or-create) — **RESOLVED 2026-07-26**
+Design §2.2 → T-FE-E.1a (complete, commit `0ed23f7`) → **Gap closed:** `CaseSheetModule` is composed inside `VisitCommandCenter`, opening the Episode's existing Case Sheet and never creating a second one → Evidence: `casesheets_service.py` (`fa03a4a`), `test_casesheet_find_or_create.py` + `caseSheetModuleComposition.test.tsx` passing → **No longer blocks release.** `RTM-MASTER.md`'s FR-CS-1 row now reads READY FOR MVP.
 
-### FR-CS-5 — Append-only visit notes surface
-— (no design.md section; cited via GAP-MATRIX) → T-FE-E.1 (not started) → **Gap:** the underlying contribution model has existed since Phase 2; zero UI renders it → Evidence: `TenantCasesheetContribution` exercised by FR-CS-2's own tests; no frontend file found → **Blocks release because:** prior visits' notes — a core longitudinal-care promise — are invisible to a clinician today.
+### FR-CS-5 — Append-only visit notes surface — **RESOLVED 2026-07-26**
+Design §2.2(g) → T-BE-E.1a (complete, commit `00682b6`, shared-dev DB upgraded `8e43b15`) + T-FE-E.1b (complete, commit `c93fddf`) → **Gap closed:** `TenantCasesheetContribution.content_snapshot` persists an immutable snapshot per contribution; `GET /clinic/{tenant_id}/casesheets/{casesheet_id}/contributions` exposes it; `CaseSheetContributionHistory` renders it read-only, author+timestamp, inside `CaseSheetModule` → Evidence: 88 backend + 26 frontend focused tests passing → **No longer blocks release.** `RTM-MASTER.md`'s FR-CS-5 row now reads READY FOR MVP.
+
+**Note:** this document's own summary line ("33 requirements classified BLOCKING MVP") is now stale by 2 — not recomputed here per this task's narrow scope; the next full RTM-AUDIT pass should update the count.
 
 ### FR-CS-6 — Audit
 Design §2.2 → T-BE-G.2 (amendment-reason half, not started) → **Gap:** write-side attribution audit works; amendment-reason recording cannot exist before Living Documents ships → Evidence: `casesheets_service.py` covers actor/time/visit; no amendment mechanism exists anywhere → **Blocks release because:** the requirement's full AC ("amendments additionally record reason") is unsatisfiable until Group G ships.

@@ -506,7 +506,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Repo:** FE · **Blocked by:** **T-0.3**, T-BE-C.4 · **Size:** M
 **AC:** opens the **Episode's** sheet (never a second); prior visits' notes **visibly retained** with author+timestamp, never overwritten; supplies the explicit current-visit context (T-BE-C.2 transport).
 **Tests:** unit · integration (multi-visit) · regression. **Rollback:** *Behavior*. **Reqs:** FR-CS-1, FR-CS-5
-**Status: PARTIAL / IN PROGRESS.** Backend-closure-style audit found this AC's "prior visits' notes visibly retained with author+timestamp" clause (FR-CS-5 AC2) has **no backend contract to consume** — `ICasesheetContributionRepository` has only `create`/`create_idempotent`/`get_by_id` (verified: no list method), and `casesheets_router.py` has no contribution-listing endpoint. The other two AC clauses ("opens the Episode's sheet, never a second" and "supplies the explicit current-visit context") are achievable now. Split into three controlled units below **without renumbering this task**; this card now serves as the umbrella and is not renamed or removed. **Complete only when `T-FE-E.1a`, `T-BE-E.1a`, and `T-FE-E.1b` are all complete.**
+**Status [Updated 2026-07-26]: COMPLETE.** All three split units (`T-FE-E.1a`, `T-BE-E.1a`, `T-FE-E.1b`) are complete — see each unit's own Status line. FR-CS-1 (single Episode-owned Case Sheet, never a second), FR-CS-2's frontend half (explicit current-Visit `appointment_id` transport), and FR-CS-5 (prior Visit contributions visibly retained, read-only, with author+timestamp) are all satisfied end-to-end.
 
 ### T-FE-E.1a · Compose Episode Case Sheet + supply current-Visit attribution **[NEW, split from T-FE-E.1, 2026-07-25]**
 **Repo:** FE · **Layer:** Presentation · **Blocked by:** **T-0.3**, T-BE-C.4 · **Unblocks:** (none — parallel with `T-BE-E.1a`) · **Size:** S
@@ -514,6 +514,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **AC:** (1) opens the Episode's existing Case Sheet. (2) never creates a second Case Sheet for the same Episode. (3) update payload includes the explicit current `appointment_id`. (4) uses existing hooks, DTOs, routes and module — no duplicate form/datasource/query/repository/route. (5) backend remains untouched.
 **Tests:** unit (composition, Episode ownership, current-Visit transport) · architecture (no datasource/axios import, no duplicate query key) · regression (existing `CaseSheetModule` tests, VCC region order, WorkflowPills/NextActionBar unchanged).
 **Rollback:** *Behavior*. **Reqs:** FR-CS-1, part of FR-CS-2's frontend half · **Design:** §3 (region order)
+**Status: COMPLETE.**
 
 ### T-BE-E.1a · Expose Episode Case Sheet contribution history **[NEW, split from T-FE-E.1, 2026-07-25]**
 **Repo:** BE · **Layer:** Application/API · **Blocked by:** T-BE-C.4 (complete, commit `e7715d4`) · **Unblocks:** `T-FE-E.1b` · **Size:** S
@@ -521,6 +522,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **Tests:** unit · contract · integration (multi-visit chronological order). **Rollback:** *Behavior* — additive read endpoint only.
 **Reqs:** FR-CS-5, FR-CS-6 · **Design:** §2.2
 **Status [Updated 2026-07-25, owner-ratified snapshot amendment]:** Engineering Truth (pre-implementation report, this task) proved AC(3)'s "contribution content" clause had no persisted fact to serve — `TenantCasesheetContribution` was attribution-only by the original DO-2 decision, no content field existed anywhere. **`T-BE-E.1a` now includes the ratified immutable snapshot migration/write/read contract** (Decision 12, `R7-OWNER-RATIFICATION.md`, v1.3 amendment): one additive nullable `content_snapshot` JSONB column, populated inside the existing atomic contribution-recording transaction, legacy rows explicitly `content_available: false`. AC(8)'s migration condition is satisfied under this ratified exception — Engineering Truth proved the field was genuinely missing, and the owner ratified the narrow schema amendment rather than leaving AC(3) unsatisfiable.
+**Status [Updated 2026-07-26]: COMPLETE.** `GET /clinic/{tenant_id}/casesheets/{casesheet_id}/contributions` implemented and verified (commit `00682b6`); shared development Supabase upgraded to `20260727_000001` and verified (commit `8e43b15`, see `.kiro/engineering/DB-T-BE-E1A-SNAPSHOT-UPGRADE-RESULT.md`). `T-FE-E.1b` unblocked and now also complete.
 
 ### T-FE-E.1b · Render prior Visit Case Sheet contributions **[NEW, split from T-FE-E.1, 2026-07-25]**
 **Repo:** FE · **Layer:** Presentation · **Blocked by:** `T-FE-E.1a`, `T-BE-E.1a` · **Size:** S
@@ -528,6 +530,7 @@ See each task's full definition under its owning **BE Group A / BE Group B / BE 
 **AC:** (1) prior Visit notes remain visibly retained. (2) each contribution shows author and timestamp. (3) current and prior contributions are visually distinguishable. (4) contributions are never edited, replaced, or collapsed into the current draft. (5) uses the backend contribution-history contract only (`T-BE-E.1a`). (6) no frontend history reconstruction or inference.
 **Tests:** unit · integration (multi-visit) · regression. **Rollback:** *Behavior*.
 **Reqs:** FR-CS-5 · **Design:** §2.2
+**Status [Updated 2026-07-26]: COMPLETE.** `CaseSheetContributionHistory` composed as a read-only 4th child of `CaseSheetModule`, consuming `T-BE-E.1a`'s endpoint via a new `useCasesheetContributionHistoryQuery` hook. All 6 AC clauses satisfied: prior contributions visibly retained in backend order, author+timestamp shown, read-only badge visually distinguishes history from the editable draft, no mutation hook imported (structurally proven), legacy rows show an explicit unavailable state, no frontend reconstruction. Commit `c93fddf`.
 
 ### T-FE-E.2 · Compose Prescription · Recommendation · Plan · Scheduling
 **Repo:** FE · **Blocked by:** **T-0.2/T-0.4/T-0.7**, T-BE-D.4, T-BE-E.2, T-BE-E.3 · **Size:** M

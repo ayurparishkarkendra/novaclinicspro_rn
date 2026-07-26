@@ -19,7 +19,7 @@ Forgetting milestones, task groups, and phases, the 44 requirements group into *
 | **2. Patient Safety Surface** (FR-VCC-4, FR-PS-1) | ✅ Complete | ✅ Complete | ✅ Unit incl. explicit negative-assertion test | ❌ None | **Complete** — evidence: `RTM-MASTER.md` FR-VCC-4/FR-PS-1 cards, both "Complete" |
 | **3. Workflow Engine** (FR-WFA-1, FR-WFA-2, FR-CR-1) | ✅ Complete | ❌ Not Started | ✅ Unit+Architecture (BE only) | ❌ None | **Backend Complete** — evidence: `RTM-MASTER.md` FR-WFA-1/2, FR-CR-1 cards; `MVP-BLOCKERS.md` entries for same |
 | **4. Recommendation Engine** (FR-REC-1, FR-REC-2) | ✅ Complete | ❌ Not Started | ✅ Contract/semantics guard (BE only) | ❌ None | **Backend Complete** — evidence: `RTM-MASTER.md` FR-REC-1/2 cards |
-| **5. Case Sheet Continuity** (FR-CS-1..6) | ✅ Complete | ❌ Not Started | ✅ Unit+Integration (BE only) | ❌ None | **Backend Complete** — evidence: `RTM-MASTER.md` FR-CS-1..6 cards (FR-CS-2/3/4 fully Complete; FR-CS-1/5/6 Partially Complete = FE gap) |
+| **5. Case Sheet Continuity** (FR-CS-1..6) | ✅ Complete | ✅ Complete (`T-FE-E.1a`/`T-FE-E.1b`, commits `0ed23f7`/`c93fddf`) | ✅ Unit+Integration (BE+FE) | ❌ None | **[Updated 2026-07-26, T-BE-E.1a/T-FE-E.1a/T-FE-E.1b closure]** evidence: `RTM-MASTER.md` FR-CS-1..6 cards (FR-CS-1/2/3/4/5 now Complete; FR-CS-6's amendment-reason half still depends on FR-LD-2) |
 | **6. Prescription Management** (FR-RX-1, FR-RX-2) | ✅ Complete (by omission — no violating code exists) | ❌ Not Started | ✅ Pre-existing suite | ❌ None | **Backend Complete** — evidence: `RTM-MASTER.md` FR-RX-1 card |
 | **7. Treatment Recommendation & Plan** (FR-TR-1, FR-TP-1, FR-TP-2, FR-TP-3) | 🟡 Partially Complete (creation done, versioning not) | ❌ Not Started | ✅ Extensive unit/structural (89+ tests, BE only) | ❌ None | **Backend Complete for creation; Not Started for versioning** — evidence: `RTM-MASTER.md` FR-TR-1/TP-1/TP-2 cards "Complete"/"Partially Complete", FR-TP-3 card "Not Started" |
 | **8. Session Scheduling** (FR-TS-1, FR-TS-2, FR-SCH-1, FR-SCH-2) | ✅ Backend complete and exposed (identity, intent-resolution, doctor-content OCC, and `resolve_scheduling_proposal` all implemented and reachable over HTTP as of `T-BE-E.2a`) | ❌ Not Started | ✅ 28 (identity) + 48 (intents) + 58 (content) + 33 (OCC) + 12 (proposal API) | ❌ None | **[Updated 2026-07-25, T-BE-E.2a closure]** evidence: `RTM-MASTER.md` FR-SCH-1/FR-SCH-2 cards, `MVP-BLOCKERS.md` FR-SCH-1/2 entries, commits `c496c86`/`f9614d7`/`93e9b8d`/`882dfa6` |
@@ -112,7 +112,7 @@ Five phases, each respecting the actual dependency chains already verified in `t
 | Capability | Related Requirements | Backend | Frontend | Dependencies | Remaining Tasks | Size | MVP/Post-MVP |
 |---|---|---|---|---|---|---|---|
 | Workflow Engine (render) | FR-WFA-1/2 | ✅ Complete | ❌ Not Started | None (T-FE-A.2✅, T-BE-B.2✅, T-BE-B.3✅ all satisfied) | T-FE-B.1, T-FE-B.2, T-FE-D.1 | M+M+M | MVP |
-| Case Sheet Continuity (render) | FR-CS-1/5/6 | ✅ Complete | ❌ Not Started | None (T-0.3✅, T-BE-C.4✅) | T-FE-E.1 | M | MVP |
+| Case Sheet Continuity (render) | FR-CS-1/5/6 | ✅ Complete | ✅ **Complete 2026-07-26** (`T-FE-E.1a`/`T-FE-E.1b`, commits `0ed23f7`/`c93fddf`) | None (T-0.3✅, T-BE-C.4✅) | None — `T-FE-E.1` umbrella closed | M | MVP |
 | Billing Visibility (render) | FR-BILL-1/2 | ✅ Complete | ❌ Not Started | None (T-BE-F.1✅) | T-FE-E.4 | M | MVP |
 | Legacy Navigation (partial — start/consultation only) | FR-LEG-1/2 | N/A | ❌ Not Started | T-FE-D.1 (this same phase) | T-FE-F.1 | M | MVP |
 
