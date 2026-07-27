@@ -354,12 +354,12 @@
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** none · **Owner Ratification:** —
 **Backend:** Tasks: T-BE-E.3 · Status: **Complete** [Corrected 2026-07-27 — see Remarks]
-**Frontend:** Tasks: T-FE-E.2 · Status: **In Progress**
-**Implementation Evidence:** `sqlalchemy_treatment_sheet_repository.py` (protected-field rejection, commit `9497f13`); `SessionInstructionsModule.tsx` (single-session authoring, commit `80fb96d0`)
-**Tests:** `test_r7_doctor_content_bound_to_session.py` (58, backend AC6)
-**Traceability:** FR-TS-3 → design.md §2.4 → T-BE-E.3 (done, `9497f13`) / T-FE-E.2 (single-session done, apply-to-many not built) → `sqlalchemy_treatment_sheet_repository.py` + `SessionInstructionsModule.tsx` → tests above → `9497f13`/`80fb96d0` → Partially Complete
-**Release Classification:** BLOCKING MVP
-**Remarks:** [Corrected 2026-07-27, Engineering Truth re-verification] This card and every downstream document (through several prior sessions' own completion reports) claimed `T-BE-E.3` was "Not Started" — **false**, confirmed via direct `git log`: commit `9497f13` (2026-07-25) predates every one of those claims. AC6 ("doctor instructions survive rescheduling by construction") is satisfied: the row-update path now rejects Session-identity and therapist-execution fields instead of silently applying them, closing the gap between "every current caller happens to be careful" and "structurally guaranteed." The requirement's own "Adoption requirement" (author-once-apply-to-many) is distinct from AC6 and remains genuinely unbuilt on the frontend — `SessionInstructionsModule` is single-select only. Its backend primitive already exists and is reachable (`bulk_update_treatment_sheet_rows_by_tenant`, `PATCH /clinic/{tenant_id}/treatment-sheets/{treatment_sheet_id}/rows`, confirmed via direct OpenAPI inspection, delegates to the same guarded `bulk_update_rows` service method) — an initial suspicion that this endpoint had a route-mismatch defect (the same class fixed on the single-row endpoint in `4fba2ec4`) was investigated and disproven; no backend work is needed. Category corrected from Not Started to Partially Complete: the requirement's AC (survives rescheduling) is done; only its Adoption requirement (bulk UI) remains, a frontend-only gap.
+**Frontend:** Tasks: T-FE-E.2a · Status: **Complete** [Updated 2026-07-27]
+**Implementation Evidence:** `sqlalchemy_treatment_sheet_repository.py` (protected-field rejection, commit `9497f13`); `SessionInstructionsModule.tsx` (single-session authoring, commit `80fb96d0`; author-once-apply-to-many multi-select + bulk apply, commit `7e2ce7f1`)
+**Tests:** `test_r7_doctor_content_bound_to_session.py` (58, backend AC6); `sessionInstructionsBulkApply.test.tsx` (20), `sessionInstructionsArchitecture.test.ts` (10), `sessionInstructionsModule.test.tsx` (8, unchanged — regression proof)
+**Traceability:** FR-TS-3 → design.md §2.4 → T-BE-E.3 (done, `9497f13`) / T-FE-E.2a (done, `7e2ce7f1`) → `sqlalchemy_treatment_sheet_repository.py` + `SessionInstructionsModule.tsx` → tests above → `9497f13`/`7e2ce7f1` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** [Corrected 2026-07-27, Engineering Truth re-verification] This card and every downstream document (through several prior sessions' own completion reports) claimed `T-BE-E.3` was "Not Started" — **false**, confirmed via direct `git log`: commit `9497f13` (2026-07-25) predates every one of those claims. AC6 ("doctor instructions survive rescheduling by construction") is satisfied: the row-update path now rejects Session-identity and therapist-execution fields instead of silently applying them, closing the gap between "every current caller happens to be careful" and "structurally guaranteed." [Updated 2026-07-27, T-FE-E.2a closure] The requirement's own "Adoption requirement" (author-once-apply-to-many) is now built: `SessionInstructionsModule` adds an independent `checkedRowIds: Set<string>` multi-select (never conflated with the pre-existing single-row `selectedRowId` flow), a shared author-once draft applied via exactly one call to the existing `useUpdateAllTreatmentSheetRowsMutation`/`bulk_update_treatment_sheet_rows_by_tenant` (no new endpoint, no client-side mutation loop). Confirmed-atomic backend (`bulk_update` validates every row — sheet-edit permission, row-exists, row-belongs-to-sheet, no row COMPLETED — before any mutation; any failure rolls the whole batch back, never partially applies), so no confirmation-race or partial-success handling was needed beyond surfacing the atomic error. One gap remains, reported not fixed (out of this task's scope, does not block FR-TS-3's own AC): the bulk endpoint carries no OCC/version parameter at any layer, unlike the single-row path's `If-Match`; documented in code and covered by a dedicated architecture test (`sessionInstructionsArchitecture.test.ts`). Category corrected from Partially Complete to Fully Complete.
 
 ### FR-TS-4 — Therapist execution record
 **Business Objective:** Actuals stay attached to the executed session; append-only/audit-controlled; reschedule never overwrites.
@@ -701,19 +701,19 @@ By repository:
   Shared/both (Group -1 + Group Z) = 7+9                        = 16
   36 + 35 + 16 = 87 — plus T-BE-E.1a is the 88th, already included in the 36 above (BE Group E's "8" already counts it) → 88  ✓
 
-COMPLETE       = 66   [Updated 2026-07-27: +1, T-BE-D.4a]
+COMPLETE       = 68   [Updated 2026-07-27: +2, T-FE-E.2 + new task T-FE-E.2a]
 NOT_STARTED    = 22   [Updated 2026-07-27] (BE-D.5:1, BE-G.1-G.3:3, FE-E.3-E.6:4, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
-PARTIAL        =  1   [Updated 2026-07-27] (T-FE-E.2 remains PARTIAL — see its own status note in `tasks.md`: Prescription/Recommendation/Session-Instructions/Scheduling/Treatment-Plan all composed; the sole remaining gap is author-once-apply-to-many, FR-TS-3's own AC, out of this closure's scope and blocked on `T-BE-E.3`)
+PARTIAL        =  0   [Updated 2026-07-27] (T-FE-E.2 moved PARTIAL→COMPLETE — `T-FE-E.2a` closed the sole remaining AC gap, author-once-apply-to-many, commit `7e2ce7f1`)
 BLOCKED        =  0   (every remaining task's own declared dependencies are already satisfied by COMPLETE work outside this list; the only blocking is internal to this list: T-BE-G.1 → T-BE-D.5/T-BE-G.2 → T-BE-G.3, and T-FE-G.1 → T-FE-G.2)
 DEFERRED       =  2   (T-FE-G.1, T-FE-G.2 — a 2-task SUBSET of the 22 NOT_STARTED above, not additive; MVP-RELEASE-FREEZE.md judged T-FE-G.1 optional-at-task-level, T-FE-G.2 depends on it)
 SUPERSEDED     =  0
 --------------------------------
-TOTAL          = 66 + 22 + 1 = 89  ✓  [Updated 2026-07-27: T-BE-D.4a moved COMPLETE, was 65+23+1]
+TOTAL          = 68 + 22 = 90  ✓  [Updated 2026-07-27: T-FE-E.2 moved COMPLETE, T-FE-E.2a added as new task and marked COMPLETE — denominator +1 for the amendment, per this task's own instruction not to silently expand scope; was 66+22+1=89]
 
-Backend completion   = 33/37 = 89.2%   [Updated 2026-07-27] (37 backend-owned tasks; of those, BE-D.5 + BE-G.1-3 = 4 not started — `T-BE-D.4a` is now COMPLETE. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
-Frontend completion  = 25/35 = 71.4%   (35 frontend-owned, unchanged — T-FE-E.2 stays PARTIAL, not COMPLETE, so this ratio's numerator is unaffected; FE-E.3-6(4)+FE-F.1-3(3)+FE-G.1-2(2) = 9 not started, +1 partial not counted in either bucket)
+Backend completion   = 33/37 = 89.2%   [unchanged this pass] (37 backend-owned tasks; of those, BE-D.5 + BE-G.1-3 = 4 not started. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
+Frontend completion  = 27/36 = 75.0%   [Updated 2026-07-27] (36 frontend-owned — was 35, +1 for the new `T-FE-E.2a` amendment card; `T-FE-E.2` and `T-FE-E.2a` both now COMPLETE, +2 from 25; FE-E.3-6(4)+FE-F.1-3(3)+FE-G.1-2(2) = 9 remain not started)
 Shared/Group Z       =  0/9  =  0%     (release-validation gate has not run once)
-Overall              = 66/89 = 74.2%   [Updated 2026-07-27]
+Overall              = 68/90 = 75.6%   [Updated 2026-07-27]
 ```
 
 ## Requirement Statistics (recomputed from zero, 2026-07-27 base pass; narrowly updated 2026-07-26 and again 2026-07-27 for T-FE-E.2/T-BE-D.4a — only the cards these tasks touched were re-checked each time, no broader recount performed)
@@ -722,26 +722,28 @@ Recount method: direct enumeration against all 44 requirement IDs from `requirem
 
 | Status | Count | Requirement IDs |
 |---|---|---|
-| Fully Complete | **24** | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-1, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2, FR-RX-1, FR-TR-1, FR-TS-2, FR-SCH-1 |
-| Partially Complete | **14** [Updated 2026-07-27: +1, FR-TS-3] | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-TS-1, FR-TS-3, FR-TS-4, FR-TS-5, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
-| Not Started | **5** [Updated 2026-07-27: -1] | FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-LEG-2 |
+| Fully Complete | **25** [Updated 2026-07-27: +1, FR-TS-3] | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-1, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2, FR-RX-1, FR-TR-1, FR-TS-2, FR-SCH-1, FR-TS-3 |
+| Partially Complete | **13** [Updated 2026-07-27: -1, FR-TS-3] | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-TS-1, FR-TS-4, FR-TS-5, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
+| Not Started | **5** | FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-LEG-2 |
 | Blocked | **0** | — (nothing is waiting on a decision; only on unstarted work already accounted for above) |
 | Deferred | **1** | FR-RX-2 (by its own text, R8) |
-| **Total** | **44** | 24+14+5+0+1 = 44 ✓ |
+| **Total** | **44** | 25+13+5+0+1 = 44 ✓ |
 
 ```
-READY FOR MVP (Release Classification)   = 24  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
-BLOCKING MVP                             = 19  (14 Partially Complete + 5 Not Started)
+READY FOR MVP (Release Classification)   = 25  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
+BLOCKING MVP                             = 18  (13 Partially Complete + 5 Not Started)
 OPTIONAL FOR MVP                         = 0   (FR-MOB-1 remains formally BLOCKING per the ground rule against silently softening a frozen AC — see its card's own Remarks — even though its one blocking task, T-FE-G.1, is owner-judged optional at the task level)
 DEFER TO R8                              = 1   (FR-RX-2)
-24 + 19 + 0 + 1 = 44 ✓
+25 + 18 + 0 + 1 = 44 ✓
 ```
 
 **[2026-07-26] T-FE-E.2 (partial closure) delta:** `FR-RX-1`, `FR-TR-1`, `FR-TS-2` moved Partially Complete → Fully Complete. `FR-TP-1`, `FR-TS-1`, `FR-SCH-1`, `FR-SCH-2` stayed Partially Complete. `FR-TS-3` stayed Not Started.
 
 **[Updated 2026-07-27] T-BE-D.4a + T-FE-E.2 closure delta:** `FR-TP-1` and `FR-SCH-1` move Partially Complete → Fully Complete — `T-BE-D.4a` exposed the Treatment Plan public contract, `TreatmentPlanModule` composes create/view, and `SchedulingModule` now consumes the scheduling-proposal read using the resulting `plan_id`. `FR-TS-1`, `FR-SCH-2` remain Partially Complete (unrelated to this closure — `T-FE-E.3`/`T-FE-E.5` respectively). See each card's own Remarks, and `tasks.md`'s `T-FE-E.2` status note for the exact remaining blocker.
 
-**[Corrected 2026-07-27, Engineering Truth re-verification, separate from the closure above] `FR-TS-3` moves Not Started → Partially Complete.** `T-BE-E.3` was already COMPLETE (commit `9497f13`, 2026-07-25) — every prior document claiming it "remains Not Started" was factually wrong, and this was never caught because no prior pass re-verified the claim against `git log`. The frontend Adoption requirement (author-once-apply-to-many) remains genuinely unbuilt, and its backend primitive is confirmed reachable (no defect), so the category correctly reflects "AC done, adoption pending" rather than "nothing done."
+**[Corrected 2026-07-27, Engineering Truth re-verification] `FR-TS-3` moved Not Started → Partially Complete.** `T-BE-E.3` was already COMPLETE (commit `9497f13`, 2026-07-25) — every prior document claiming it "remains Not Started" was factually wrong, and this was never caught because no prior pass re-verified the claim against `git log`. The frontend Adoption requirement (author-once-apply-to-many) remained genuinely unbuilt at that point, and its backend primitive was confirmed reachable (no defect).
+
+**[Updated 2026-07-27, T-FE-E.2a closure] `FR-TS-3` moves Partially Complete → Fully Complete.** `T-FE-E.2a` (commit `7e2ce7f1`) implemented the frontend Adoption requirement: `SessionInstructionsModule` now offers an independent multi-select mechanism, keyed by stable Session id, applying a shared author-once draft via exactly one call to the existing atomic bulk-update endpoint. `T-FE-E.2` itself moves Partially Complete → Fully Complete (Release Classification, above) as a direct consequence — this was its sole remaining AC gap.
 
 ## Capability Readiness Table
 
@@ -756,7 +758,7 @@ DEFER TO R8                              = 1   (FR-RX-2)
 | Treatment Recommendation | **READY** [Updated 2026-07-26] | Backend complete (T-BE-D.3a); `T-FE-E.2` composed `TreatmentRecommendationModule` unchanged (commit `80fb96d0`) |
 | Treatment Plan | **READY** [Updated 2026-07-27] | Entity/persistence/service complete (T-BE-D.1-D.4); public contract exposed (`T-BE-D.4a`, commit `c69f7ef`); `TreatmentPlanModule` composes create/view (commit `bfe31956`). Versioning/supersession (`T-BE-D.5`) remains separately Not Started (post-MVP for this capability's own basic readiness) |
 | Session scheduling | **READY** [Updated 2026-07-27] | Backend intents + transport complete (T-BE-E.2/E.2a); frontend composes current-state view, permission-gated write, AND the governed-proposal preview (`SchedulingModule`, commits `80fb96d0`/`bfe31956`) — the `plan_id` gap `T-BE-D.4a` closed |
-| Doctor Session instructions | **PARTIAL** [Corrected 2026-07-27] | Backend (`T-BE-E.3`) genuinely COMPLETE (commit `9497f13`, corrected from a prior false "Not Started" claim); frontend composed single-session authoring (`SessionInstructionsModule`, stable-id-bound, OCC-adopted, commit `80fb96d0`). Remaining gap is frontend-only: author-once-apply-to-many multi-select UI, not yet built, though its backend bulk endpoint already exists and works |
+| Doctor Session instructions | **READY** [Updated 2026-07-27] | Backend (`T-BE-E.3`) COMPLETE (commit `9497f13`); frontend composes single-session authoring AND author-once-apply-to-many multi-select bulk apply (`SessionInstructionsModule`, stable-id-bound, OCC-adopted on the single-row path, atomic bulk apply via the existing endpoint, commits `80fb96d0`/`7e2ce7f1`, `T-FE-E.2a`) |
 | Therapist execution | **NOT_STARTED** | Backend (`T-BE-E.4`/`E.4a`) + OCC (`T-BE-E.5`) complete and exposed; frontend (`T-FE-E.3`) not started |
 | Billing visibility | **NOT_STARTED** | Backend (`T-BE-F.1`/`F.2`) complete; frontend (`T-FE-E.4`) not started |
 | Role-aware workflow | **NOT_STARTED** | `T-FE-E.6` not started — `episodeWorkspaceConfig.ts` untouched by any R7 commit; a real enforcement gap also found (see FR-RBAC-1's card) |
@@ -783,7 +785,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 6 | Create and manage Prescription | ✅ [Updated 2026-07-26] | — (`T-FE-E.2` composed `PrescriptionModule` unchanged) |
 | 7 | Create Treatment Recommendation | ✅ [Updated 2026-07-26] | — (`T-FE-E.2` composed `TreatmentRecommendationModule` unchanged) |
 | 8 | Create/view Treatment Plan | ✅ [Updated 2026-07-27] | — (`T-BE-D.4a` exposed the contract; `TreatmentPlanModule` composes create/view; versioning, T-BE-D.5, remains separate and out of this item's own scope) |
-| 9 | Author Session instructions | 🟡 [Corrected 2026-07-27] | Single-session editing composed (`SessionInstructionsModule`, stable-id-bound, OCC-adopted, backend guard `T-BE-E.3` genuinely COMPLETE — corrected from a prior false "Not Started" claim); author-once-apply-to-many (frontend-only gap — the backend bulk endpoint it needs already exists and works) not yet built |
+| 9 | Author Session instructions | ✅ [Updated 2026-07-27] | — (single-session editing AND author-once-apply-to-many multi-select bulk apply both composed, `SessionInstructionsModule`, stable-id-bound, backend guard `T-BE-E.3` COMPLETE, `T-FE-E.2a` commit `7e2ce7f1`) |
 | 10 | See and manage Session scheduling | ✅ [Updated 2026-07-27] | — (`SchedulingModule` composes current state, permission-gated write, AND the governed-proposal preview using the `plan_id` `T-BE-D.4a` made obtainable) |
 | 11 | Record Session execution/non-execution | ❌ | T-FE-E.3 |
 | 12 | View Clinical History | ✅ | — |
@@ -793,7 +795,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 16 | Preserve legacy route compatibility | ❌ | T-FE-F.1, T-FE-F.2, T-FE-F.3 |
 | 17 | Pass release/E2E validation | ❌ | T-Z.1 … T-Z.9 |
 
-**[Updated 2026-07-27] 9 of 17 fully satisfied, 1 more partially satisfied.** `T-BE-D.4a` (commit `c69f7ef`) exposed the Treatment Plan public contract, closing item 8 in full and item 10's remaining proposal-preview half — both were previously blocked on the identical gap. Only item 9 (author-once-apply-to-many, FR-TS-3's own defining AC) remains partial: `SessionInstructionsModule` still edits one Session at a time, and `T-BE-E.3` remains unstarted; this closure's own scope explicitly did not reopen that module. Clinical History being complete does not generalize to the rest of the Doctor Module — it remains one capability among seventeen completion-boundary items, nine of which are now fully done.
+**[Updated 2026-07-27, T-FE-E.2a closure] 10 of 17 fully satisfied, 0 partially satisfied.** `T-BE-D.4a` (commit `c69f7ef`) exposed the Treatment Plan public contract, closing item 8 in full and item 10's remaining proposal-preview half. `T-FE-E.2a` (commit `7e2ce7f1`) closed item 9 in full — `SessionInstructionsModule` now composes both single-session editing and author-once-apply-to-many multi-select bulk apply, using the already-existing atomic `bulk_update_treatment_sheet_rows_by_tenant` endpoint. Clinical History and Doctor Session instructions being complete does not generalize to the rest of the Doctor Module — 7 of 17 completion-boundary items remain unmet (routes 1/16, Therapist execution 11, Billing 13, RBAC 14, Living Documents 15, Release validation 17).
 
 ~~**5 of 17 satisfied.** The backend is substantially ahead (37 of its 37 non-Group-−1/Z tasks minus 4 = 33 complete, 89.2%), but the entire treatment-workflow composition layer on the frontend (`T-FE-E.2`, the single largest remaining task, spanning Prescription/Recommendation/Plan/Scheduling/Session-instruction authoring in one card) has not been started, and nothing has passed release validation.~~ *(superseded by the note above — `T-FE-E.2` is no longer un-started)*
 
@@ -812,7 +814,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 ### Mandatory frontend tasks remaining (10, of which 1 is PARTIAL not NOT_STARTED)
 | Task | Realizes | Blocked by | Ready? |
 |---|---|---|---|
-| T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (**done — corrected 2026-07-27**, `9497f13`) | **PARTIAL — [Corrected 2026-07-27]** Prescription/Recommendation/Session-Instructions/Scheduling/Treatment-Plan all composed (commits `4fba2ec4`, `80fb96d0`, `c69f7ef` [backend], `bfe31956`). Only remaining gap: author-once-apply-to-many (FR-TS-3's own Adoption requirement) — a purely frontend implementation task; the backend it needs is complete and reachable. Not implemented — an Engineering-Truth-only task explicitly scoped to verification stopped rather than opportunistically building it outside its own authorization. |
+| T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (done, `9497f13`) | **COMPLETE — [Updated 2026-07-27, T-FE-E.2a closure]** Prescription/Recommendation/Session-Instructions (single + bulk apply)/Scheduling/Treatment-Plan all composed (commits `4fba2ec4`, `80fb96d0`, `c69f7ef` [backend], `bfe31956`, `7e2ce7f1`). The sole remaining gap, author-once-apply-to-many (FR-TS-3's own Adoption requirement), was closed by the narrow amendment task `T-FE-E.2a`, reusing the already-complete backend bulk endpoint. Note: `FR-TS-1` itself stays Partially Complete at the requirement level — its card also names `T-FE-E.3` (therapist execution composition, not started, out of `T-FE-E.2`'s own scope) — but every AC item this task's own frozen card names is satisfied. |
 | T-FE-E.3 | FR-TS-4/5 | T-0.7 (done), T-BE-E.4 (done) | **READY_TO_START** |
 | T-FE-E.4 | FR-BILL-1/2 | T-BE-F.1 (done) | **READY_TO_START** |
 | T-FE-E.5 | FR-LD-1/2 | T-BE-G.2 | Blocked on T-BE-G.2 |
@@ -860,4 +862,4 @@ The single longest pole is **T-FE-E.2** — it is the widest-scope remaining tas
 | Session scheduling (write) | ✅ Ready | `schedule_treatment_row`/`bulk_schedule_treatment_rows` pre-exist on `treatment_orders_router.py`, unaffected by R7 — confirmed genuinely usable, composed successfully |
 | OCC / If-Match | ✅ Ready (staged) | `T-BE-E.5` COMPLETE with a documented compatibility amendment (commit `93e9b8d`) — `If-Match` fully enforced when supplied, optional until `T-FE-E.5` ships; `T-FE-E.2` adopted `If-Match` immediately (commits `4fba2ec4`/`80fb96d0`), confirmed working end-to-end |
 
-**[Updated 2026-07-27] All 7 rows are now genuinely ready.** `T-BE-D.4a` closed the two gaps this table's 2026-07-26 correction identified. `T-FE-E.2` remains PARTIAL for one reason unrelated to any row above: `SessionInstructionsModule`'s author-once-apply-to-many gap (FR-TS-3's own AC), out of this closure's scope and blocked on the separate, still-unstarted `T-BE-E.3`.
+**[Updated 2026-07-27, T-FE-E.2a closure] All 7 rows are ready, and `T-FE-E.2` is now COMPLETE.** `T-BE-D.4a` closed the two gaps this table's 2026-07-26 correction identified. The last remaining gap, `SessionInstructionsModule`'s author-once-apply-to-many (FR-TS-3's own AC), was closed by `T-FE-E.2a` (commit `7e2ce7f1`), which reused the already-working `bulk_update_treatment_sheet_rows_by_tenant` endpoint — no backend change was needed, contrary to this table's earlier belief that `T-BE-E.3` was unstarted.
