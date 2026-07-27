@@ -6,6 +6,9 @@
 
 > **[2026-07-27] Further update: `T-BE-D.4a` + `T-FE-E.2` closure.** The gap the banner above describes is now closed for Treatment Plan and the scheduling-proposal preview: `T-BE-D.4a` (backend commit `c69f7ef`) exposed the Treatment Plan public contract, and `TreatmentPlanModule` + `SchedulingModule`'s proposal consumption compose it (frontend commit `bfe31956`). `T-FE-E.2` is still not COMPLETE -- the sole remaining gap is author-once-apply-to-many (FR-TS-3's own AC), blocked on the separate, still-unstarted `T-BE-E.3`, out of this closure's own scope. Treat every `T-FE-E.2`/`T-BE-D.4a`-referencing line below as superseded by `RTM-MASTER.md`'s per-requirement `[Updated 2026-07-27]` markers; this document was not line-by-line corrected to match.
 
+> **[2026-07-27] Correction: `T-BE-E.3` was already complete.** Every reference below (and in every prior session's own reports) claiming `T-BE-E.3` "remains Not Started" was factually wrong -- commit `9497f13` (2026-07-25) predates all of them; a re-verification against `git log` this session caught it. `FR-TS-3` moves Not Started -> Partially Complete in `RTM-MASTER.md`. The one remaining gap for `T-FE-E.2` (author-once-apply-to-many) is now understood to be purely a frontend implementation task -- its backend primitive already exists and works; no backend defect was found. Not implemented this session (an Engineering-Truth-only task stopped at verification, as instructed). Treat every `T-BE-E.3`-referencing line below as superseded by `RTM-MASTER.md`'s `[Corrected 2026-07-27]` markers.
+
+
 
 **Legend:** ✅ Complete · 🟠 Implemented, Not Exposed (service-only — no router/caller reaches it) · 🟡 Partial · 🔴 Not Started · N/A Not Applicable to this capability
 
