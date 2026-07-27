@@ -30,6 +30,7 @@ jest.mock('../../../features/treatmentSheets/data/datasources/treatmentOrders.ap
 }));
 jest.mock('../../../features/treatmentSheets/data/datasources/treatmentSheets.api', () => ({
   updateTreatmentSheetRowApi: jest.fn(),
+  updateAllTreatmentSheetRowsApi: jest.fn(),
 }));
 jest.mock('../../../core/theme/useClinicTheme', () => ({
   useClinicTheme: () => ({

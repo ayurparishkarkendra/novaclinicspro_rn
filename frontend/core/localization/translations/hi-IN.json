@@ -675,6 +675,23 @@
     "conflict": {
       "message": "आपके संपादन के दौरान किसी और ने इस कोर्स को अपडेट किया। दोबारा सहेजने से पहले नवीनतम संस्करण देखने के लिए रीलोड करें।",
       "reload": "रीलोड करें"
+    },
+    "bulk": {
+      "selectAllEligible": "सभी पात्र चुनें",
+      "clearSelection": "चयन साफ़ करें",
+      "selectSessionCheckbox": "दिन {{day}} चुनें",
+      "selectAllCheckboxLabel": "सभी पात्र सत्र चुनें",
+      "sessionsSelectedCount": "{{count}} सत्र चयनित",
+      "applyToCount": "{{count}} सत्रों पर लागू करें",
+      "confirmTitle": "बल्क लागू करने की पुष्टि करें",
+      "confirmReplaceNotice": "यह चयनित सत्रों पर डॉक्टर के निर्देशों को प्रतिस्थापित करेगा।",
+      "confirmUnchangedNotice": "शेड्यूलिंग और निष्पादन विवरण नहीं बदलेंगे।",
+      "appliedSuccess": "सफलतापूर्वक लागू किया गया",
+      "someNotEditable": "कुछ सत्र संपादित नहीं किए जा सकते",
+      "emptyDraftDisallowed": "लागू करने से पहले कम से कम एक फ़ील्ड भरें",
+      "applyFailedValidation": "लागू नहीं किया जा सका — एक या अधिक चयनित सत्र पात्र नहीं हैं।",
+      "applyFailedPermission": "आपको सत्र निर्देश लागू करने की अनुमति नहीं है।",
+      "applyFailedGeneral": "सत्र निर्देश लागू नहीं किए जा सके। कृपया पुनः प्रयास करें।"
     }
   },
   "scheduling": {

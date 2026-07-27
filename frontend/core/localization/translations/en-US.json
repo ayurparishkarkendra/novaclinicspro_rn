@@ -949,6 +949,23 @@
     "conflict": {
       "message": "Someone else updated this course while you were editing. Reload to see the latest version before saving again.",
       "reload": "Reload"
+    },
+    "bulk": {
+      "selectAllEligible": "Select all eligible",
+      "clearSelection": "Clear selection",
+      "selectSessionCheckbox": "Select Day {{day}}",
+      "selectAllCheckboxLabel": "Select all eligible Sessions",
+      "sessionsSelectedCount": "{{count}} Sessions selected",
+      "applyToCount": "Apply to {{count}} Sessions",
+      "confirmTitle": "Confirm bulk apply",
+      "confirmReplaceNotice": "This replaces doctor instructions on the selected Sessions.",
+      "confirmUnchangedNotice": "Scheduling and execution details will not change.",
+      "appliedSuccess": "Applied successfully",
+      "someNotEditable": "Some Sessions cannot be edited",
+      "emptyDraftDisallowed": "Enter at least one field before applying",
+      "applyFailedValidation": "Could not apply — one or more selected Sessions is not eligible.",
+      "applyFailedPermission": "You do not have permission to apply Session instructions.",
+      "applyFailedGeneral": "Could not apply Session instructions. Please try again."
     }
   },
   "scheduling": {
