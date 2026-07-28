@@ -2055,7 +2055,7 @@ isolation, clinical truth, existing customer terms, Clean Architecture, reuse
 before create, localization, accessibility, Theme, typed failures, audit,
 idempotency, concurrency, rollback, and E9 ownership.
 
-### TG26.1 — Source Reuse and Compatibility Proof
+### TG26.1 — Source Reuse and Compatibility Proof (COMPLETE)
 
 - **Objective:** Prove the semantic fit of existing commercial, Demo, trial,
   subscription, readiness, export/archive, repository, audit, authorization,
@@ -2069,6 +2069,94 @@ idempotency, concurrency, rollback, and E9 ownership.
   disposition, allowed file boundaries, configuration ownership, migration
   count, test matrix, and stop conditions are source-backed with no unresolved
   implementation decision.
+
+#### TG26.1 Completion Evidence
+
+Status: **COMPLETE — 2026-07-29**
+
+The proof inspected current backend and frontend source. The classifications
+below govern TG26.2 onward and do not authorize TG26.3 or later work.
+
+**Backend reuse classification**
+
+| Capability | Classification | Source-backed disposition |
+| --- | --- | --- |
+| Effective Tenant and organization context | Reuse unchanged | Existing authenticated organization context, effective-tenant selection, and membership authorities remain the mandatory scope boundary. |
+| RBAC and authorization | Reuse with extension | Existing organization authorization remains authoritative; E8 adds only approved trial/commercial capabilities and must not create a parallel role model. |
+| Active SQLAlchemy Unit of Work | Reuse with extension | Existing caller-owned commit/rollback and flush-only repository behavior remains authoritative; register only the E8 repository required by TG26.2. |
+| SQLAlchemy repository pattern | Reuse with extension | Reuse aggregate mapping, optimistic-concurrency, database-time, tenant isolation, and history patterns; E8 requires its own repository port and adapter. |
+| Organization/platform audit | Reuse with extension | Reuse append-only audit persistence and transaction participation; add only the approved E8 event vocabulary and safe metadata. |
+| Typed-error pattern | Reuse with extension | Reuse fail-closed domain/application/transport mapping conventions; define only approved E8 failures. |
+| Configuration framework | Reuse with extension | Existing typed settings remain configuration authority; E8 adds immutable trial and retention policy configuration captured at activation. |
+| Organization idempotency | Reuse unchanged | Existing organization-scoped fingerprint, replay, conflict, and flush semantics govern E8 commands. |
+| Ready-to-Start authority | Reuse unchanged | Existing E5 readiness composition remains the activation prerequisite; E8 must consume, not recalculate, readiness. |
+| Existing organization/workspace lifecycle | Reuse unchanged | Existing organization, tenant, and workspace authorities remain independent; E8 observes their identifiers and does not replace their lifecycle. |
+| Migration conventions and model registry | Reuse unchanged | Use the current additive Alembic/model-registry conventions and leave historical migrations untouched. |
+| Scheduler/background-job infrastructure | New implementation required | No governed production scheduler/executor authority exists in current source. TG26.3 must not invent one without an approved Platform Foundation boundary. |
+| API versioning and transport conventions | Reuse unchanged | Existing `/api/v1`, dependency-injection, schema, and typed-transport patterns govern later E8 transport work. |
+| Legacy trial/Demo implementation | New implementation required | Legacy trial service, DTO, router, and `org_trial_sessions` semantics are compatibility inputs only, not E8 authority; they must not be extended into the E8 lifecycle. |
+
+**Frontend reuse classification**
+
+| Capability | Classification | Source-backed disposition |
+| --- | --- | --- |
+| Onboarding repository and datasource layers | Reuse with extension | Add E8 operations through existing interfaces/adapters; do not create a competing commercial datasource stack. |
+| React Query ownership | Reuse with extension | Reuse tenant/organization-scoped key, invalidation, foreground refresh, and cache-clear patterns; E8 requires distinct keys from legacy Demo. |
+| Existing onboarding state and wizard flow | Reuse with extension | Reuse the current orchestration and handoff boundaries; backend E8 state remains authoritative. |
+| Theme | Reuse unchanged | Central Theme, typography, color, and spacing tokens remain the only presentation authority. |
+| Localization | Reuse unchanged | Existing localization framework and `en-US`/`hi-IN` parity rules remain authoritative; E8 adds keys only. |
+| Accessibility | Reuse unchanged | Existing semantic, focus, live-region, loading, touch-target, and font-scaling patterns remain mandatory. |
+| Navigation | Reuse with extension | Extend existing Expo Router and effective-tenant handoff patterns only for approved E8 surfaces/actions. |
+| Generic status/loading/error presentation | Reuse with extension | Reuse existing primitives and presentation patterns while adding E8-specific semantics. |
+| Legacy `DemoStatusBanner` and Demo hooks/models | New implementation required | Device-time countdowns and Demo semantics cannot represent backend-authoritative E8 commercial state; keep them compatibility-only and do not reuse them as E8 authority. |
+
+**Compatibility and legacy proof**
+
+- E8 is additive: it consumes Effective Tenant, E5 readiness, RBAC,
+  idempotency, audit, active UoW, configuration, and migration conventions.
+- E8 does not compete with E6 revision/conflict ownership or E7 offline queue
+  ownership. Later E8 commands must continue to use those established
+  boundaries where applicable.
+- Existing seven-day/provisional and other historical trial records retain
+  their original terms and authority. TG26.2 must not synthesize E8 identity,
+  configuration, or lifecycle evidence for them.
+- The legacy trial router/service and Demo presentation remain compatibility
+  surfaces only. They must not activate, mutate, or calculate the E8 lifecycle.
+- Subscription and payment authority remains E9. E8 may expose only the
+  approved subscription-request handoff.
+
+**TG26.2 implementation boundary**
+
+- **Allowed backend areas:** E8-owned domain model/value objects/errors;
+  repository port and SQLAlchemy adapter; E8 persistence models; active UoW
+  registration; typed configuration extension; model registry; exactly one
+  additive Alembic migration; and focused TG26.2 backend tests.
+- **Prohibited areas:** all frontend source; legacy trial service/interface/
+  router/billing schemas; tenant provisioning behavior; API routes and
+  dependencies; scheduler/jobs; subscription/payment behavior; extension
+  workflows; retention execution; and historical migrations.
+- **Migration authorization:** exactly one additive TG26.2 migration for the
+  approved E8 persistence authority and approved permission seed, with safe
+  downgrade and no historical backfill or legacy-term reinterpretation.
+- **Focused test matrix:** lifecycle/value-object invariants; unknown
+  state/version fail-closed behavior; immutable identity/configuration;
+  organization/effective-tenant isolation; create/load/history round trips;
+  uniqueness and optimistic concurrency; server-UTC behavior; audit-safe
+  persistence; legacy-row non-interference; migration upgrade/downgrade,
+  current/head, fresh-database compatibility, and model-registry coverage.
+- **Stop conditions:** stop if TG26.2 requires a second migration, legacy data
+  inference, transport/application behavior, scheduler authority, E9 behavior,
+  a parallel UoW/repository/configuration system, or any product/architecture
+  decision not present in the frozen E8 constitution.
+
+**Gap and readiness decision**
+
+TG26.2 is **READY**: its domain, persistence, configuration, migration, reuse,
+test, and stop boundaries are source-backed with no unresolved decision inside
+that checkpoint. The governed production scheduler/executor required for
+scheduled transitions is a genuine Platform Foundation gap for TG26.3; TG26.3
+must remain blocked on that authority unless an approved reusable mechanism is
+identified before implementation.
 
 ### TG26.2 — Backend Trial Domain and Persistence
 
