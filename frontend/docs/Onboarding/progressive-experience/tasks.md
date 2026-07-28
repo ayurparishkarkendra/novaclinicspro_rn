@@ -2158,7 +2158,7 @@ scheduled transitions is a genuine Platform Foundation gap for TG26.3; TG26.3
 must remain blocked on that authority unless an approved reusable mechanism is
 identified before implementation.
 
-### TG26.2 — Backend Trial Domain and Persistence
+### TG26.2 — Backend Trial Domain and Persistence (COMPLETE)
 
 - **Objective:** Establish the approved immutable trial identity, lifecycle,
   configuration capture, history, retention schedule, compatibility, and
@@ -2172,6 +2172,31 @@ identified before implementation.
 - **Acceptance boundary:** Lifecycle invariants, UTC/configuration authority,
   uniqueness/versioning, legacy preservation, scheduled-transition evidence,
   audit safety, migration upgrade/downgrade, PostgreSQL, and isolation pass.
+
+#### TG26.2 Completion Evidence
+
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented the pure `commercial_trial_v1` aggregate with persisted
+  `ELIGIBLE`, `ACTIVE`, and `EXPIRED` states; `EXPIRING` is derived at runtime
+  and is absent from persistence.
+- Added immutable organization-clinic trial identity, readiness evidence,
+  audit correlation, captured duration/configuration, server-UTC timestamps,
+  aggregate versioning, lifecycle validation, and typed failures.
+- Added a flush-only repository port/adapter, active-UoW registration,
+  organization/effective-tenant association validation, one-trial uniqueness,
+  compare-and-swap activation, and append-only safe lifecycle history.
+- Added exactly one additive migration (`20260729_010000`) for
+  `org_commercial_trials`, `org_commercial_trial_events`, indexes,
+  constraints, and the `trial.activate` permission catalogue entry. No legacy
+  trial/Demo row was migrated, inferred, restarted, or converted.
+- Verified 20 focused TG26.2 tests, 118 passing adjacent backend regressions
+  with two environment-gated skips, 13 passing metadata/permission
+  regressions, new-file Ruff, full `app` compileall, and an isolated
+  PostgreSQL full-chain upgrade, TG26.2 downgrade, and re-upgrade to head.
+- TG26.3 scheduler, application services, transport, retention, extension,
+  subscription, payment, and all frontend work remain unimplemented and
+  unauthorized by this completion record.
 
 ### TG26.3 — Backend Application, Scheduling, and Transport
 
