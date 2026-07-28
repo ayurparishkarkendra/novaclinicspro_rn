@@ -684,7 +684,7 @@ accepted contracts. A roadmap entry is not implementation design by itself.
 | E5 Ready-to-Start Experience | Req 34 and the E5 constitutional contract in this document | Accepted and implemented by TG22. |
 | E6 Conflict and Multi-Clinic Recovery | E6 constitutional product contract in `requirements.md` and the E6 constitutional design contract above | Constitutionally complete. Implementation remains unauthorized pending a separately approved task boundary and implementation-readiness review. |
 | E7 Offline Mutation Recovery | E7 constitutional requirements and the E7 constitutional design in this document | Constitutionally complete; TG24 implementation authorized, with TG25 reserved for final acceptance. |
-| E8 Commercial Trial | Historical Req 13 intent, Req 18, and roadmap E8 | Incomplete. The former direct Demo/Live mutation is superseded; trial lifecycle and commercial authority require an accepted design. |
+| E8 Commercial Trial | `E8-CONSTITUTIONAL-DECISIONS.md`, E8 requirements, and roadmap E8 | Constitutionally complete; TG26 implementation authorized. |
 | E9 Subscription Conversion and Payment Recovery | Req 12, 18–20, 23–28, 30, 32 and roadmap E9 | Incomplete. Payment ownership, verification, recovery, and security contracts are not accepted. |
 | E10 Informational Dunning | Req 20, 24, 25, 28 and roadmap E10 | Incomplete. Trigger, timing, channel, severity, and owned-action design is absent. |
 | E11 Dashboard First Actions and Progressive Guidance | Req 14, 15, 21, 23–25, 28 and roadmap E11 | Incomplete. Dashboard ownership, first-action authority, growth eligibility, and branding criteria are absent. |
@@ -693,8 +693,44 @@ accepted contracts. A roadmap entry is not implementation design by itself.
 The E4 and E5 sections above are the TG21/TG22 constitutional updates. They
 supersede any older implication that the frontend may derive capability
 visibility or readiness locally. Likewise, the historical Demo/Live transition
-design must not be used to bypass Req 34 or the future E8 commercial contract.
+design must not be used to bypass Req 34 or the approved E8 commercial contract.
 No other design section is declared obsolete by this reconciliation.
+
+### E8 Constitutional Design Ownership
+
+`E8-CONSTITUTIONAL-DECISIONS.md` is the accepted E8 authority. The backend
+commercial-trial domain owns the immutable trial identity, lifecycle, policy,
+server-UTC clock, commercial configuration, persistence/history, scheduled
+transitions, readiness-evidence validation, authorization, Effective Tenant and
+organization isolation, idempotency/concurrency, transactions, audit, retries,
+versioned typed APIs, compatibility, rollout, and rollback.
+
+The lifecycle is `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` → `EXPIRED` →
+`SUSPENDED` → `ARCHIVED` → `DELETED`. Extension is an audited Super Admin
+action on the same identity and returns the retained trial to `ACTIVE`.
+Subscription initiation and paid conversion remain E9-owned.
+
+The frontend owns presentation, orchestration, navigation, and user interaction
+through existing Clean Architecture. It consumes backend-authoritative
+commercial and retention states through verified existing datasource,
+repository, React Query, tenant-scoped cache, localization, accessibility, and
+Theme boundaries. It does not calculate policy, expiry, entitlement, retention,
+or commercial authority. Tenant switch, logout, authorization loss, stale
+responses, loading, errors, disabled actions, downloads, and retention
+navigation must preserve the approved authority and isolation boundaries.
+
+TG26 must first prove semantic fit before reusing Demo, trial, subscription,
+billing, Go-Live, status, countdown, export, or archive assets. Compatibility
+code is source evidence, not authority to retain obsolete seven-day
+pre-readiness or Demo semantics. TG23 conflict handling and the E7 queue are not
+trial transition/retry owners. Commercial mutations must not be added to E7.
+
+Implementation must preserve existing paid and seven-day terms, avoid automatic
+Demo conversion or trial restart, classify ambiguous legacy organizations for
+governed review, and apply the new configuration-driven 30-day default only to
+new E8 activations. Rollback must disable new commands while preserving
+identities, elapsed time, lifecycle history, retention evidence, and clinical
+truth.
 
 ### Documentation Design Governance v1.0
 

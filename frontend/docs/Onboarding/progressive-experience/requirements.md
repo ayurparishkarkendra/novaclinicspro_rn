@@ -1148,6 +1148,69 @@ screens, card completion, or local wizard state.
     actions, localization/accessibility/Theme, telemetry leakage, rollback,
     TG18–TG23 regressions, and Requirement 32 device/staging evidence.
 
+### E8 Commercial Trial Constitutional Requirements
+
+`E8-CONSTITUTIONAL-DECISIONS.md` is the approved Product and Architecture
+authority for E8. The following requirements are frozen:
+
+1. The trial SHALL be a clinic-scoped commercial entitlement. Ready to Start
+   SHALL establish `ELIGIBLE` only and SHALL NOT start the trial. The clinic MAY
+   remain eligible indefinitely until an authorized actor explicitly confirms
+   Start Trial.
+2. The backend SHALL own the immutable trial identity, policy, server-UTC clock,
+   commercial configuration, lifecycle, persistence, scheduled transitions,
+   authorization, audit, transactions, concurrency, retries, rollback, and
+   versioned typed APIs. The frontend SHALL never be commercial authority.
+3. The lifecycle SHALL be `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` →
+   `EXPIRED` → `SUSPENDED` → `ARCHIVED` → `DELETED`. Extension SHALL return the
+   same trial to `ACTIVE`, SHALL preserve identity, and SHALL change only the
+   authoritative end timestamp.
+4. Super Admin SHALL be platform commercial authority. Organization Admin SHALL
+   be customer commercial authority and MAY activate or request an extension.
+   Clinic Admin SHALL have no commercial authority and SHALL NOT activate,
+   approve extension, or override commercial state.
+5. Activation SHALL require `trial.activate`, current authoritative
+   Ready-to-Start evidence, `ELIGIBLE` state, effective-tenant and organization
+   authority, and explicit confirmation. The backend SHALL record immutable
+   evidence and SHALL make activation idempotent and concurrency-safe.
+6. Newly activated E8 trials SHALL use a configuration-driven default of 30
+   consecutive days. Configuration changes SHALL affect future activations
+   only. Existing active trials SHALL retain their agreed duration.
+7. Super Admin alone SHALL approve manual extensions. Each extension SHALL be
+   no more than 30 days and SHALL record a business reason, approval channel,
+   approver, timestamp, and audit evidence. Organization Admin MAY request an
+   extension. There SHALL be no constitutional count limit on Super
+   Admin-approved extensions.
+8. Retention defaults SHALL be configuration-driven: 90 days `SUSPENDED`, 90
+   days `ARCHIVED`, and seven days final deletion notice. During `SUSPENDED`,
+   Organization Admin MAY log in, view, search, export/download, request
+   subscription, and request extension, but normal mutations SHALL be blocked.
+   During `ARCHIVED`, Organization Admin MAY use the archive portal to retrieve
+   records, download approved exports, see deletion timing, and contact support;
+   normal application usage SHALL be blocked.
+9. Downloads SHALL remain available through final notice. Deletion SHALL wait
+   for an approved export in progress to complete or reach its governed timeout.
+   After `DELETED`, operational customer data SHALL be unavailable and
+   unrecoverable subject to legal-retention obligations outside the operational
+   platform.
+10. Super Admin MAY restore a retained trial through an approved extension.
+    Paid subscription handoff SHALL belong to E9. E8 SHALL NOT implement
+    subscription, payment, invoicing, dunning, legal-retention policy,
+    secure-deletion infrastructure, or export formats.
+11. Existing paid organizations and seven-day trials SHALL retain their terms.
+    No existing trial or Demo state SHALL restart or convert automatically.
+    Ambiguous legacy organizations SHALL require governed review. The new
+    30-day policy SHALL apply only to newly activated E8 trials.
+12. The frontend SHALL present backend-authoritative commercial and retention
+    state through existing Clean Architecture, repository/datasource, React
+    Query, Theme, localization, and accessibility boundaries. It SHALL NOT
+    calculate commercial policy, expiry, entitlement, retention, or authority.
+13. Commercial state SHALL remain organization/tenant isolated and SHALL NOT
+    alter authorization, clinical ownership, or clinical truth.
+
+These requirements constitutionally authorize TG26 only. They do not authorize
+TG27 or redefine E9.
+
 ## Requirements Governance and Current-State Authority
 
 Requirement numbers 1–34 are permanent. This file remains the authority for
@@ -1165,7 +1228,7 @@ As reconciled after TG18–TG22, the requirements inventory is:
 
 Requirement 13 is the sole superseded requirement. Its direct Demo/Live
 mutation and Demo Mode contract was replaced by the accepted E5 Ready-to-Start
-contract in Requirement 34 and by the future E8 commercial-trial ownership in
+contract in Requirement 34 and by the approved E8 commercial-trial ownership in
 TG26. Its reusable non-commercial status/navigation intent survives through
 those contracts; the obsolete mutation behavior is not an implementation gap.
 The original wording is retained above as historical evidence and must not be

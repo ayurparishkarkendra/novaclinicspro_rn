@@ -2040,6 +2040,124 @@ functionality, redefine contracts, or begin E8.
 
 **TG25 FINAL ACCEPTANCE AUTHORIZED AFTER TG24.5**
 
+### E8 Constitutional Governance and TG26 Authorization
+
+Status: **CONSTITUTIONALLY COMPLETE; TG26 IMPLEMENTATION AUTHORIZED**
+
+`E8-CONSTITUTIONAL-DECISIONS.md`, the E8 requirements, design ownership, and RTM
+are frozen. TG26 may implement only the approved commercial-trial lifecycle and
+retention/recovery boundary. TG27 subscription/payment implementation remains
+unauthorized.
+
+Every checkpoint must preserve backend commercial authority, immutable trial
+identity, server-UTC/configuration policy, organization/effective-tenant
+isolation, clinical truth, existing customer terms, Clean Architecture, reuse
+before create, localization, accessibility, Theme, typed failures, audit,
+idempotency, concurrency, rollback, and E9 ownership.
+
+### TG26.1 — Source Reuse and Compatibility Proof
+
+- **Objective:** Prove the semantic fit of existing commercial, Demo, trial,
+  subscription, readiness, export/archive, repository, audit, authorization,
+  scheduling, and presentation assets; classify every legacy cohort.
+- **Ownership:** Read-only backend/frontend source audit and E8 governance.
+- **Repository:** Backend and frontend documentation/evidence only; no product
+  behavior is authorized in this checkpoint.
+- **Rollback boundary:** Documentation/evidence can be reverted without runtime
+  or data effects.
+- **Acceptance boundary:** Exact reuse/extend/do-not-reuse decisions, legacy
+  disposition, allowed file boundaries, configuration ownership, migration
+  count, test matrix, and stop conditions are source-backed with no unresolved
+  implementation decision.
+
+### TG26.2 — Backend Trial Domain and Persistence
+
+- **Objective:** Establish the approved immutable trial identity, lifecycle,
+  configuration capture, history, retention schedule, compatibility, and
+  persistence authority.
+- **Ownership:** Backend E8 domain, persistence, active Unit of Work, migration,
+  organization/effective-tenant isolation, and platform audit owners.
+- **Repository:** Backend only.
+- **Rollback boundary:** E8-owned additive persistence/configuration changes may
+  roll back without altering historical migrations, existing paid/seven-day
+  terms, clinical truth, or unrelated platform state.
+- **Acceptance boundary:** Lifecycle invariants, UTC/configuration authority,
+  uniqueness/versioning, legacy preservation, scheduled-transition evidence,
+  audit safety, migration upgrade/downgrade, PostgreSQL, and isolation pass.
+
+### TG26.3 — Backend Application, Scheduling, and Transport
+
+- **Objective:** Implement authorized reads and lifecycle commands, including
+  explicit activation, extension request/approval, retained-state recovery,
+  scheduled transitions, downloads/exports handoff, and E9 subscription-request
+  handoff.
+- **Ownership:** Backend E8 application/transport, E5 readiness authority,
+  authorization/RBAC, idempotency, audit, scheduler/executor, and typed-error
+  owners.
+- **Repository:** Backend only.
+- **Rollback boundary:** E8 routes, composition, and scheduled execution may be
+  disabled while preserving records, elapsed commercial time, retained access,
+  immutable evidence, and E9 boundary.
+- **Acceptance boundary:** Actor hierarchy, `trial.activate`, readiness,
+  explicit confirmation, concurrent replay, extensions, scheduled state
+  transitions, export-in-progress protection, typed failures, transactions,
+  retries, rollback, and tenant/organization isolation pass.
+
+### TG26.4 — Frontend Data and Domain Integration
+
+- **Objective:** Integrate backend-authoritative commercial and retention reads
+  and commands through approved frontend data/domain boundaries.
+- **Ownership:** Existing datasource, repository, domain/application, React
+  Query, auth/effective-tenant, and canonical cache owners.
+- **Repository:** Frontend only.
+- **Rollback boundary:** E8 frontend data/domain integration may be removed
+  without changing backend state, legacy terms, or existing readiness and
+  subscription owners.
+- **Acceptance boundary:** Typed mapping, unknown-version fail-closed behavior,
+  tenant-scoped keys, invalidation, stale-response protection, logout/switch/
+  authorization-loss isolation, transport retry ownership, and no frontend
+  policy calculation pass.
+
+### TG26.5 — Frontend Commercial and Retention Presentation
+
+- **Objective:** Present eligible, active, expiring, expired, suspended,
+  archived, final-notice, deleted, unavailable, and recovery experiences with
+  only backend-authorized actions.
+- **Ownership:** Frontend E8 presentation/orchestration/navigation, existing
+  download/export navigation, localization, accessibility, and Theme owners.
+- **Repository:** Frontend only.
+- **Rollback boundary:** E8 surfaces/routes may return to the prior safe
+  read-only compatibility experience without issuing transitions or hiding
+  retained download rights.
+- **Acceptance boundary:** Explicit Start Trial, extension request, subscription
+  request, retained downloads, archive access, deletion timeline, loading/
+  error/disabled states, English/Hindi parity, screen reader/focus/live/touch/
+  font behavior, Theme-only styling, and no Demo semantics pass.
+
+### TG26.6 — Final Verification and Acceptance
+
+- **Objective:** Verify the complete frozen E8 contract and correct only
+  verified TG26-owned defects.
+- **Ownership:** Backend/frontend E8 verification plus release, security,
+  localization, accessibility, migration, and multi-clinic acceptance.
+- **Repository:** Backend and frontend; no new functionality or TG27 work.
+- **Rollback boundary:** Exercise and confirm the approved feature-disable,
+  persistence-preserving, schedule-safe, and frontend fallback boundaries.
+- **Acceptance boundary:** Complete lifecycle, configuration, activation,
+  extension, retention, recovery, legacy compatibility, export protection,
+  E9 handoff boundary, authorization, audit, concurrency/idempotency, scheduled
+  transitions, tenant/organization isolation, accessibility/localization/Theme,
+  migrations, rollback, regressions, and Requirement 32 evidence pass.
+
+TG26.1 is the first authorized checkpoint. No later checkpoint may begin until
+its predecessor meets its acceptance boundary. A checkpoint MUST stop if source
+evidence contradicts the approved contract or requires a new Product or
+Architecture decision.
+
+**TG26 IMPLEMENTATION AUTHORIZED**
+
+**TG27 IMPLEMENTATION NOT AUTHORIZED**
+
 ## Git Delivery Strategy
 
 All future onboarding tasks in this plan must follow the Git Delivery Strategy recorded in `design.md`: start both repositories from latest `dev`, create paired frontend/backend onboarding feature branches, push those branches immediately, commit only reviewed onboarding files in logical groups, merge validated work into `test`, run integrated onboarding verification on `test`, then promote validated `test` to `dev`.
