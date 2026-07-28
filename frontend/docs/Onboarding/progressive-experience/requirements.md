@@ -1161,10 +1161,14 @@ authority for E8. The following requirements are frozen:
    commercial configuration, lifecycle, persistence, scheduled transitions,
    authorization, audit, transactions, concurrency, retries, rollback, and
    versioned typed APIs. The frontend SHALL never be commercial authority.
-3. The lifecycle SHALL be `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` →
-   `EXPIRED` → `SUSPENDED` → `ARCHIVED` → `DELETED`. Extension SHALL return the
-   same trial to `ACTIVE`, SHALL preserve identity, and SHALL change only the
-   authoritative end timestamp.
+3. The Trial Lifecycle SHALL be `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` →
+   `EXPIRED` and SHALL end at `EXPIRED`. The separate Commercial Retention
+   Lifecycle SHALL begin after expiry and SHALL be `SUSPENDED` → `ARCHIVED` →
+   `DELETED`. This conceptual separation SHALL preserve the approved behavior
+   while keeping E8 trial authority distinct from future E9 subscription
+   authority. Extension SHALL return the same immutable trial to `ACTIVE`,
+   SHALL NOT create a second trial, and SHALL change only the authoritative end
+   timestamp.
 4. Super Admin SHALL be platform commercial authority. Organization Admin SHALL
    be customer commercial authority and MAY activate or request an extension.
    Clinic Admin SHALL have no commercial authority and SHALL NOT activate,
@@ -1190,6 +1194,9 @@ authority for E8. The following requirements are frozen:
    normal application usage SHALL be blocked.
 9. Downloads SHALL remain available through final notice. Deletion SHALL wait
    for an approved export in progress to complete or reach its governed timeout.
+   Commercial deletion SHALL NOT bypass legal hold, regulatory preservation,
+   or mandatory statutory retention; commercial policy SHALL NOT override legal
+   obligations.
    After `DELETED`, operational customer data SHALL be unavailable and
    unrecoverable subject to legal-retention obligations outside the operational
    platform.

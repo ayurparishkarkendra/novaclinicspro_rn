@@ -705,10 +705,18 @@ transitions, readiness-evidence validation, authorization, Effective Tenant and
 organization isolation, idempotency/concurrency, transactions, audit, retries,
 versioned typed APIs, compatibility, rollout, and rollback.
 
-The lifecycle is `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` → `EXPIRED` →
-`SUSPENDED` → `ARCHIVED` → `DELETED`. Extension is an audited Super Admin
-action on the same identity and returns the retained trial to `ACTIVE`.
-Subscription initiation and paid conversion remain E9-owned.
+The Trial Lifecycle is `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` → `EXPIRED`
+and ends at `EXPIRED`. The separate Commercial Retention Lifecycle begins after
+expiry and is `SUSPENDED` → `ARCHIVED` → `DELETED`. This conceptual ownership
+separation does not alter approved behavior and keeps E8 trial authority
+distinct from future E9 subscription authority. An audited Super Admin
+extension restores the same immutable retained trial from `SUSPENDED` or
+`ARCHIVED` to `ACTIVE`; it never creates a second trial. Subscription initiation
+hands commercial authority to E9.
+
+Commercial deletion remains subordinate to legal hold, regulatory preservation,
+and mandatory statutory retention. E8 does not own those legal obligations and
+commercial policy cannot override them.
 
 The frontend owns presentation, orchestration, navigation, and user interaction
 through existing Clean Architecture. It consumes backend-authoritative

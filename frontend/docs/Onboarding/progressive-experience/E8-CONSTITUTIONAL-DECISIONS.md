@@ -1,6 +1,6 @@
 # E8 Constitutional Decisions
 
-**Version:** 1.0
+**Version:** 1.1
 
 **Status:** APPROVED
 
@@ -41,9 +41,9 @@ Clinics after the clinic is operationally Ready to Start.
 Product owns commercial policy. The backend enforces that policy. The frontend
 presents backend-authoritative state and actions.
 
-## 3. Trial Lifecycle
+## 3. Trial and Commercial Retention Lifecycles
 
-The authoritative lifecycle is:
+The authoritative **Trial Lifecycle** is:
 
 ```text
 ELIGIBLE
@@ -53,7 +53,12 @@ ACTIVE
 EXPIRING (derived)
     ↓
 EXPIRED
-    ↓
+```
+
+The Trial Lifecycle ends at `EXPIRED`. After expiry, the organization enters
+the separate **Commercial Retention Lifecycle**:
+
+```text
 SUSPENDED
     ↓
 ARCHIVED
@@ -65,8 +70,13 @@ DELETED
 has not activated its immutable trial identity. `ACTIVE` means the explicit
 activation succeeded and the commercial clock is running. `EXPIRING` is a
 derived view of the same active trial near its authoritative end. `EXPIRED`
-means its authoritative end timestamp has passed. `SUSPENDED`, `ARCHIVED`, and
-`DELETED` are backend-owned retention/recovery states.
+means its authoritative end timestamp has passed and the Trial Lifecycle has
+ended. `SUSPENDED`, `ARCHIVED`, and `DELETED` belong to the backend-owned
+Commercial Retention Lifecycle that begins after expiry.
+
+This conceptual separation keeps E8 trial authority distinct from future E9
+subscription authority. It does not alter any approved transition, access,
+retention, recovery, or deletion behavior.
 
 The following invariants are mandatory:
 
@@ -209,6 +219,29 @@ Super Admin MAY restore a retained trial from `SUSPENDED` or `ARCHIVED` through
 an approved extension. The same trial identity MUST return to `ACTIVE`. Paid
 subscription initiation and conversion belong to E9.
 
+```text
+SUSPENDED
+      │
+      ├── Extension ─────► ACTIVE
+      │
+      └── Subscription ─► E9
+
+ARCHIVED
+      │
+      ├── Extension ─────► ACTIVE
+      │
+      └── Subscription ─► E9
+```
+
+Extension restores the same immutable trial; it MUST NOT create a second trial.
+Subscription hands commercial authority to E9.
+
+### Legal hold and statutory preservation
+
+Commercial deletion MUST NOT bypass legal hold, regulatory preservation, or
+mandatory statutory retention. Commercial policy cannot override legal
+obligations. Ownership and execution of those obligations remain outside E8.
+
 ## 8. Backend Constitutional Ownership
 
 The backend MUST own:
@@ -310,7 +343,8 @@ Product and Architecture approve and freeze:
 
 - [x] the clinic-scoped commercial entitlement model;
 - [x] indefinite `ELIGIBLE` state and explicit Start Trial activation;
-- [x] the complete lifecycle through `DELETED`, with derived `EXPIRING`;
+- [x] the Trial Lifecycle through `EXPIRED`, with derived `EXPIRING`, and the
+  separate Commercial Retention Lifecycle through `DELETED`;
 - [x] immutable trial identity and server-UTC commercial clock;
 - [x] Super Admin, Organization Admin, and Clinic Admin commercial hierarchy;
 - [x] `trial.activate`, Ready-to-Start validation, explicit confirmation,
@@ -323,6 +357,8 @@ Product and Architecture approve and freeze:
 - [x] approved Organization Admin access and download behavior throughout
   retained states;
 - [x] export-in-progress protection before deletion;
+- [x] legal-hold, regulatory-preservation, and mandatory-statutory-retention
+  precedence over commercial deletion;
 - [x] E9 ownership of paid subscription handoff;
 - [x] backend lifecycle, policy, persistence, scheduling, authorization, audit,
   transaction, concurrency, retry, rollback, and versioning ownership;
