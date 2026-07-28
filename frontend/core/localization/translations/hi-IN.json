@@ -694,6 +694,31 @@
       "applyFailedGeneral": "सत्र निर्देश लागू नहीं किए जा सके। कृपया पुनः प्रयास करें।"
     }
   },
+  "therapistExecution": {
+    "recordNonExecution": "गैर-निष्पादन दर्ज करें",
+    "executionDidNotOccur": "निष्पादन नहीं हुआ",
+    "reasonLabel": "कारण",
+    "otherReasonPlaceholder": "कारण बताएं",
+    "otherReasonRequired": "कृपया \"अन्य\" के लिए कारण बताएं।",
+    "completionRecorded": "पूर्णता दर्ज की गई",
+    "alreadyCompleted": "पहले से पूर्ण",
+    "waitingForAssignedTherapist": "नियुक्त चिकित्सक की प्रतीक्षा है",
+    "noAssignedSessions": "कोई नियुक्त सत्र नहीं",
+    "submitting": "जमा किया जा रहा है…",
+    "submit": "जमा करें",
+    "cancel": "रद्द करें",
+    "reasonCodes": {
+      "PATIENT_NO_SHOW": "रोगी उपस्थित नहीं हुआ",
+      "PATIENT_CANCELLED": "रोगी ने रद्द किया",
+      "CLINIC_CANCELLED": "क्लिनिक ने रद्द किया",
+      "CLINICAL_HOLD": "क्लिनिकल होल्ड",
+      "OTHER": "अन्य कारण"
+    },
+    "nonExecutionRecordedTransient": "दर्ज किया गया: {{scheduleState}} — निष्पादन नहीं हुआ — {{reason}}",
+    "failedValidation": "इस सत्र को इसकी वर्तमान स्थिति में गैर-निष्पादित के रूप में चिह्नित नहीं किया जा सकता।",
+    "failedPermission": "आपको यह परिणाम दर्ज करने की अनुमति नहीं है।",
+    "failedGeneral": "गैर-निष्पादन दर्ज नहीं किया जा सका। कृपया पुनः प्रयास करें।"
+  },
   "scheduling": {
     "title": "शेड्यूलिंग",
     "noOrderYet": "शेड्यूलिंग देखने से पहले उपचार सिफ़ारिश को शेड्यूलिंग में भेजें।",

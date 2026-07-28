@@ -968,6 +968,31 @@
       "applyFailedGeneral": "Could not apply Session instructions. Please try again."
     }
   },
+  "therapistExecution": {
+    "recordNonExecution": "Record non-execution",
+    "executionDidNotOccur": "Execution did not occur",
+    "reasonLabel": "Reason",
+    "otherReasonPlaceholder": "Describe the reason",
+    "otherReasonRequired": "Please describe the reason for \"Other\".",
+    "completionRecorded": "Completion recorded",
+    "alreadyCompleted": "Already completed",
+    "waitingForAssignedTherapist": "Waiting for assigned therapist",
+    "noAssignedSessions": "No assigned Sessions",
+    "submitting": "Submitting…",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "reasonCodes": {
+      "PATIENT_NO_SHOW": "Patient did not attend",
+      "PATIENT_CANCELLED": "Patient cancelled",
+      "CLINIC_CANCELLED": "Clinic cancelled",
+      "CLINICAL_HOLD": "Clinical hold",
+      "OTHER": "Other reason"
+    },
+    "nonExecutionRecordedTransient": "Recorded: {{scheduleState}} — execution did not occur — {{reason}}",
+    "failedValidation": "This Session cannot be marked non-executed in its current state.",
+    "failedPermission": "You do not have permission to record this outcome.",
+    "failedGeneral": "Could not record non-execution. Please try again."
+  },
   "scheduling": {
     "title": "Scheduling",
     "noOrderYet": "Send a Treatment Recommendation to scheduling before viewing scheduling.",
