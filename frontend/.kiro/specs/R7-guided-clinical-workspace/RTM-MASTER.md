@@ -366,24 +366,24 @@
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** [VP] adverse-events marker · **Owner Ratification:** —
 **Backend:** Tasks: T-BE-E.4, T-BE-E.4a · Status: **Complete, exposed** (`record_session_non_execution` implemented in `TreatmentSheetsService`; `POST /treatment-sheets/rows/{row_id}/non-execution` exposes it — commit `a0aa4c3`)
-**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (unblocked as of `T-BE-E.4a`)
-**Implementation Evidence:** commits `9497f13`, `ccf56d8`, `1529b47`, `a0aa4c3`; DB result doc `DB-T-BE-E4-MIGRATION-UPGRADE-RESULT.md`
-**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_doctor_content_bound_to_session.py`, `tests/test_r7_session_non_execution_api.py` (17)
-**Traceability:** FR-TS-4 → design.md §2.4 → T-BE-E.4/T-BE-E.4a/T-FE-E.3 → — → — → Backend complete and exposed
-**Release Classification:** BLOCKING MVP
-**Remarks:** [2026-07-25] `T-BE-E.4a` closed the transport gap the prior audit found. Two prerequisite gaps discovered and fixed while exposing it: the interface method was missing entirely, and the row `_to_dict` projection never exposed the two migrated columns (response would have always read `None`). See `T-BE-E.4a`'s task card for full detail.
+**Frontend:** Tasks: T-FE-E.3 · Status: **Complete** [Updated 2026-07-28]
+**Implementation Evidence:** commits `9497f13`, `ccf56d8`, `1529b47`, `a0aa4c3` (backend); `302bccbf` (frontend — `TherapistDashboardScreen.tsx` composes the full lifecycle: assigned-session listing, read-only doctor instructions, Start Session, Complete with materials, and the new Record Non-Execution action, all via the already-established `useTherapistSessionsQuery`/`useStartSessionMutation`/`useCompleteSheetRowMutation`/new `useRecordSessionNonExecutionMutation` canonical hooks); DB result doc `DB-T-BE-E4-MIGRATION-UPGRADE-RESULT.md`
+**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_doctor_content_bound_to_session.py`, `tests/test_r7_session_non_execution_api.py` (17); `sessionNonExecutionModal.test.tsx` (8), `therapistExecutionArchitecture.test.ts` (10)
+**Traceability:** FR-TS-4 → design.md §2.4 → T-BE-E.4/T-BE-E.4a (done) / T-FE-E.3 (done, `302bccbf`) → `TherapistDashboardScreen.tsx` + `SessionNonExecutionModal.tsx` → tests above → `a0aa4c3`/`302bccbf` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** [2026-07-25] `T-BE-E.4a` closed the transport gap the prior audit found. Two prerequisite gaps discovered and fixed while exposing it: the interface method was missing entirely, and the row `_to_dict` projection never exposed the two migrated columns (response would have always read `None`). See `T-BE-E.4a`'s task card for full detail. [Updated 2026-07-28, T-FE-E.3] Engineering Truth found `start`/`complete` were already composed by a pre-existing, pre-R7 `TherapistDashboardScreen` (row_id-based, idempotent completion, materials handling) — this was not a from-scratch build, only the structured non-execution action was genuinely missing and has now been added. One reported, non-blocking gap: `TherapistSessionItem` (the `get_therapist_sessions` list schema the therapist screen actually reads) carries no `non_execution_reason_code`/`non_execution_reason_text` field, and non-execution does not mutate row `status` server-side — so the composed 3-fact label is genuinely displayed immediately after the action (from the record endpoint's own response) but cannot be durably re-shown after the list's next refetch (30s auto-refetch/focus-refetch, both pre-existing). This is a backend contract gap, reported not worked around — no client-side fake persistence was added. Tracked as follow-up debt, not a blocker for this card's own frozen AC (composed-from-3-facts, no MISSED), which is satisfied.
 
 ### FR-TS-5 — "Missed" is decomposed, not a single state
 **Business Objective:** Backend semantics distinguish what was scheduled / whether execution occurred / why not; UI composes the label from three facts, never a single ambiguous state.
 **Priority:** MVP Mandatory
 **Design:** §2.4 · **ET refs:** [VP] exact state names deferred to implementation, after Engineering Truth · **Owner Ratification:** "Session 'Missed' — RESOLVED at architecture level" (the three-part shape is ratified; spelling is not)
 **Backend:** Tasks: T-BE-E.4, T-BE-E.4a · Status: **Complete, exposed** (state-name spelling decided: `PATIENT_NO_SHOW`/`PATIENT_CANCELLED`/`CLINIC_CANCELLED`/`CLINICAL_HOLD`/`OTHER`, migration `20260726_000001` on shared dev; reachable via `POST /treatment-sheets/rows/{row_id}/non-execution` — commit `a0aa4c3`)
-**Frontend:** Tasks: T-FE-E.3 · Status: **Not Started** (unblocked as of `T-BE-E.4a`)
-**Implementation Evidence:** commits `ccf56d8`, `1529b47`, `a0aa4c3`; migration `20260726_000001_r7_session_non_execution_reason.py`
-**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_session_non_execution_api.py` (17)
-**Traceability:** FR-TS-5 → design.md §2.4 → T-BE-E.4/T-BE-E.4a/T-FE-E.3 → — → — → Backend complete and exposed
-**Release Classification:** BLOCKING MVP
-**Remarks:** [2026-07-25] Both the spelling question and the exposure gap are now resolved.
+**Frontend:** Tasks: T-FE-E.3 · Status: **Complete** [Updated 2026-07-28]
+**Implementation Evidence:** commits `ccf56d8`, `1529b47`, `a0aa4c3` (backend); `302bccbf` (frontend — `SessionNonExecutionModal.tsx` renders the exact governed vocabulary via localized labels only, never a raw code; `TherapistDashboardScreen.tsx` renders schedule state / "execution did not occur" / reason as three separate lines, never composed into one `MISSED` string); migration `20260726_000001_r7_session_non_execution_reason.py`
+**Tests:** `tests/test_r7_session_non_execution.py` (44), `tests/test_r7_session_non_execution_api.py` (17); `sessionNonExecutionModal.test.tsx` (8, incl. "never renders a Missed label"), `therapistExecutionArchitecture.test.ts` (10, incl. a dedicated no-MISSED source-scan)
+**Traceability:** FR-TS-5 → design.md §2.4 → T-BE-E.4/T-BE-E.4a (done) / T-FE-E.3 (done, `302bccbf`) → `SessionNonExecutionModal.tsx` → tests above → `a0aa4c3`/`302bccbf` → Fully Complete
+**Release Classification:** READY FOR MVP
+**Remarks:** [2026-07-25] Both the spelling question and the exposure gap are now resolved. [Updated 2026-07-28, T-FE-E.3] The three-part composition is rendered honestly: schedule state, "execution did not occur", and the localized reason are three separate `Text` lines, sourced only from the record-non-execution response's own three fields — no invented ambiguous status. See FR-TS-4's Remarks for the one reported (non-blocking) gap in durable re-display after a list refetch.
 
 ### FR-SCH-1 — Scheduling intents
 **Business Objective:** Consecutive · alternate-day · specific weekdays · weekly · multiple/week · non-sequential · PRN · review-dependent continuation, capability-gated never specialty-gated.
@@ -701,19 +701,19 @@ By repository:
   Shared/both (Group -1 + Group Z) = 7+9                        = 16
   36 + 35 + 16 = 87 — plus T-BE-E.1a is the 88th, already included in the 36 above (BE Group E's "8" already counts it) → 88  ✓
 
-COMPLETE       = 68   [Updated 2026-07-27: +2, T-FE-E.2 + new task T-FE-E.2a]
-NOT_STARTED    = 22   [Updated 2026-07-27] (BE-D.5:1, BE-G.1-G.3:3, FE-E.3-E.6:4, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
-PARTIAL        =  0   [Updated 2026-07-27] (T-FE-E.2 moved PARTIAL→COMPLETE — `T-FE-E.2a` closed the sole remaining AC gap, author-once-apply-to-many, commit `7e2ce7f1`)
+COMPLETE       = 69   [Updated 2026-07-28: +1, T-FE-E.3]
+NOT_STARTED    = 21   [Updated 2026-07-28] (BE-D.5:1, BE-G.1-G.3:3, FE-E.4-E.6:3, FE-F.1-F.3:3, FE-G.1-G.2:2, Z.1-Z.9:9)
+PARTIAL        =  0
 BLOCKED        =  0   (every remaining task's own declared dependencies are already satisfied by COMPLETE work outside this list; the only blocking is internal to this list: T-BE-G.1 → T-BE-D.5/T-BE-G.2 → T-BE-G.3, and T-FE-G.1 → T-FE-G.2)
-DEFERRED       =  2   (T-FE-G.1, T-FE-G.2 — a 2-task SUBSET of the 22 NOT_STARTED above, not additive; MVP-RELEASE-FREEZE.md judged T-FE-G.1 optional-at-task-level, T-FE-G.2 depends on it)
+DEFERRED       =  2   (T-FE-G.1, T-FE-G.2 — a 2-task SUBSET of the 21 NOT_STARTED above, not additive; MVP-RELEASE-FREEZE.md judged T-FE-G.1 optional-at-task-level, T-FE-G.2 depends on it)
 SUPERSEDED     =  0
 --------------------------------
-TOTAL          = 68 + 22 = 90  ✓  [Updated 2026-07-27: T-FE-E.2 moved COMPLETE, T-FE-E.2a added as new task and marked COMPLETE — denominator +1 for the amendment, per this task's own instruction not to silently expand scope; was 66+22+1=89]
+TOTAL          = 69 + 21 = 90  ✓  [Updated 2026-07-28: T-FE-E.3 moved NOT_STARTED→COMPLETE, was 68+22=90]
 
 Backend completion   = 33/37 = 89.2%   [unchanged this pass] (37 backend-owned tasks; of those, BE-D.5 + BE-G.1-3 = 4 not started. T-BE-F.3a is a real, complete, but orphaned/undocumented task — excluded from this denominator, reported separately, not counted toward either side.)
-Frontend completion  = 27/36 = 75.0%   [Updated 2026-07-27] (36 frontend-owned — was 35, +1 for the new `T-FE-E.2a` amendment card; `T-FE-E.2` and `T-FE-E.2a` both now COMPLETE, +2 from 25; FE-E.3-6(4)+FE-F.1-3(3)+FE-G.1-2(2) = 9 remain not started)
+Frontend completion  = 28/36 = 77.8%   [Updated 2026-07-28] (36 frontend-owned; `T-FE-E.3` moves to COMPLETE, +1 from 27; FE-E.4-6(3)+FE-F.1-3(3)+FE-G.1-2(2) = 8 remain not started)
 Shared/Group Z       =  0/9  =  0%     (release-validation gate has not run once)
-Overall              = 68/90 = 75.6%   [Updated 2026-07-27]
+Overall              = 69/90 = 76.7%   [Updated 2026-07-28]
 ```
 
 ## Requirement Statistics (recomputed from zero, 2026-07-27 base pass; narrowly updated 2026-07-26 and again 2026-07-27 for T-FE-E.2/T-BE-D.4a — only the cards these tasks touched were re-checked each time, no broader recount performed)
@@ -722,20 +722,22 @@ Recount method: direct enumeration against all 44 requirement IDs from `requirem
 
 | Status | Count | Requirement IDs |
 |---|---|---|
-| Fully Complete | **25** [Updated 2026-07-27: +1, FR-TS-3] | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-1, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2, FR-RX-1, FR-TR-1, FR-TS-2, FR-SCH-1, FR-TS-3 |
-| Partially Complete | **13** [Updated 2026-07-27: -1, FR-TS-3] | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-TS-1, FR-TS-4, FR-TS-5, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
+| Fully Complete | **27** [Updated 2026-07-28: +2, FR-TS-4, FR-TS-5] | FR-COS-1, FR-VCC-1, FR-VCC-2, FR-VCC-3, FR-VCC-4, FR-WFA-1, FR-CS-1, FR-CS-2, FR-CS-3, FR-CS-4, FR-CS-5, FR-TP-1, FR-TP-2, FR-REC-1, FR-REC-2, FR-PS-1, FR-MOB-2, FR-FLAG-1, FR-HIST-1, FR-HIST-2, FR-RX-1, FR-TR-1, FR-TS-2, FR-SCH-1, FR-TS-3, FR-TS-4, FR-TS-5 |
+| Partially Complete | **11** [Updated 2026-07-28: -2, FR-TS-4/FR-TS-5] | FR-COS-2 (T-Z.1 proof not run), FR-WFA-2, FR-CS-6, FR-TS-1, FR-SCH-2, FR-BILL-1, FR-BILL-2, FR-CR-1, FR-MOB-1, FR-LEG-1, FR-RBAC-1 |
 | Not Started | **5** | FR-LD-1, FR-LD-2, FR-LD-3, FR-TP-3, FR-LEG-2 |
 | Blocked | **0** | — (nothing is waiting on a decision; only on unstarted work already accounted for above) |
 | Deferred | **1** | FR-RX-2 (by its own text, R8) |
-| **Total** | **44** | 25+13+5+0+1 = 44 ✓ |
+| **Total** | **44** | 27+11+5+0+1 = 44 ✓ |
 
 ```
-READY FOR MVP (Release Classification)   = 25  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
-BLOCKING MVP                             = 18  (13 Partially Complete + 5 Not Started)
+READY FOR MVP (Release Classification)   = 27  (same set as Fully Complete — every fully-complete requirement above already carries READY FOR MVP; verified no fully-complete requirement is marked otherwise)
+BLOCKING MVP                             = 16  (11 Partially Complete + 5 Not Started)
 OPTIONAL FOR MVP                         = 0   (FR-MOB-1 remains formally BLOCKING per the ground rule against silently softening a frozen AC — see its card's own Remarks — even though its one blocking task, T-FE-G.1, is owner-judged optional at the task level)
 DEFER TO R8                              = 1   (FR-RX-2)
-25 + 18 + 0 + 1 = 44 ✓
+27 + 16 + 0 + 1 = 44 ✓
 ```
+
+**[Updated 2026-07-28, T-FE-E.3 closure] `FR-TS-4` and `FR-TS-5` move Partially Complete → Fully Complete.** `T-FE-E.3` (commit `302bccbf`) composed structured non-execution — the sole genuinely missing piece; `start`/`complete` were already composed by a pre-existing `TherapistDashboardScreen` (not built this task, discovered via Engineering Truth). One reported, non-blocking gap tracked as follow-up debt, not a blocker for either card's own frozen AC — see FR-TS-4's Remarks.
 
 **[2026-07-26] T-FE-E.2 (partial closure) delta:** `FR-RX-1`, `FR-TR-1`, `FR-TS-2` moved Partially Complete → Fully Complete. `FR-TP-1`, `FR-TS-1`, `FR-SCH-1`, `FR-SCH-2` stayed Partially Complete. `FR-TS-3` stayed Not Started.
 
@@ -759,7 +761,7 @@ DEFER TO R8                              = 1   (FR-RX-2)
 | Treatment Plan | **READY** [Updated 2026-07-27] | Entity/persistence/service complete (T-BE-D.1-D.4); public contract exposed (`T-BE-D.4a`, commit `c69f7ef`); `TreatmentPlanModule` composes create/view (commit `bfe31956`). Versioning/supersession (`T-BE-D.5`) remains separately Not Started (post-MVP for this capability's own basic readiness) |
 | Session scheduling | **READY** [Updated 2026-07-27] | Backend intents + transport complete (T-BE-E.2/E.2a); frontend composes current-state view, permission-gated write, AND the governed-proposal preview (`SchedulingModule`, commits `80fb96d0`/`bfe31956`) — the `plan_id` gap `T-BE-D.4a` closed |
 | Doctor Session instructions | **READY** [Updated 2026-07-27] | Backend (`T-BE-E.3`) COMPLETE (commit `9497f13`); frontend composes single-session authoring AND author-once-apply-to-many multi-select bulk apply (`SessionInstructionsModule`, stable-id-bound, OCC-adopted on the single-row path, atomic bulk apply via the existing endpoint, commits `80fb96d0`/`7e2ce7f1`, `T-FE-E.2a`) |
-| Therapist execution | **NOT_STARTED** | Backend (`T-BE-E.4`/`E.4a`) + OCC (`T-BE-E.5`) complete and exposed; frontend (`T-FE-E.3`) not started |
+| Therapist execution | **READY** [Updated 2026-07-28] | Backend (`T-BE-E.4`/`E.4a`) + OCC (`T-BE-E.5`) complete and exposed; frontend (`T-FE-E.3`, commit `302bccbf`) composes assigned-session listing, read-only doctor instructions, start, complete-with-materials, and structured non-execution. Reported non-blocking gap: non-execution reason not durably re-displayable after a list refetch (backend list schema lacks the field) — see FR-TS-4's card |
 | Billing visibility | **NOT_STARTED** | Backend (`T-BE-F.1`/`F.2`) complete; frontend (`T-FE-E.4`) not started |
 | Role-aware workflow | **NOT_STARTED** | `T-FE-E.6` not started — `episodeWorkspaceConfig.ts` untouched by any R7 commit; a real enforcement gap also found (see FR-RBAC-1's card) |
 | Living Documents | **NOT_STARTED** | Zero implementation — `T-BE-G.1/G.2/G.3`, `T-FE-E.5` all not started |
@@ -787,7 +789,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 8 | Create/view Treatment Plan | ✅ [Updated 2026-07-27] | — (`T-BE-D.4a` exposed the contract; `TreatmentPlanModule` composes create/view; versioning, T-BE-D.5, remains separate and out of this item's own scope) |
 | 9 | Author Session instructions | ✅ [Updated 2026-07-27] | — (single-session editing AND author-once-apply-to-many multi-select bulk apply both composed, `SessionInstructionsModule`, stable-id-bound, backend guard `T-BE-E.3` COMPLETE, `T-FE-E.2a` commit `7e2ce7f1`) |
 | 10 | See and manage Session scheduling | ✅ [Updated 2026-07-27] | — (`SchedulingModule` composes current state, permission-gated write, AND the governed-proposal preview using the `plan_id` `T-BE-D.4a` made obtainable) |
-| 11 | Record Session execution/non-execution | ❌ | T-FE-E.3 |
+| 11 | Record Session execution/non-execution | ✅ [Updated 2026-07-28] | — (`T-FE-E.3` composed the full lifecycle, commit `302bccbf`) |
 | 12 | View Clinical History | ✅ | — |
 | 13 | View billing state | ❌ | T-FE-E.4 |
 | 14 | Render role-appropriate actions | ❌ | T-FE-E.6 |
@@ -795,7 +797,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | 16 | Preserve legacy route compatibility | ❌ | T-FE-F.1, T-FE-F.2, T-FE-F.3 |
 | 17 | Pass release/E2E validation | ❌ | T-Z.1 … T-Z.9 |
 
-**[Updated 2026-07-27, T-FE-E.2a closure] 10 of 17 fully satisfied, 0 partially satisfied.** `T-BE-D.4a` (commit `c69f7ef`) exposed the Treatment Plan public contract, closing item 8 in full and item 10's remaining proposal-preview half. `T-FE-E.2a` (commit `7e2ce7f1`) closed item 9 in full — `SessionInstructionsModule` now composes both single-session editing and author-once-apply-to-many multi-select bulk apply, using the already-existing atomic `bulk_update_treatment_sheet_rows_by_tenant` endpoint. Clinical History and Doctor Session instructions being complete does not generalize to the rest of the Doctor Module — 7 of 17 completion-boundary items remain unmet (routes 1/16, Therapist execution 11, Billing 13, RBAC 14, Living Documents 15, Release validation 17).
+**[Updated 2026-07-28, T-FE-E.3 closure] 11 of 17 fully satisfied, 0 partially satisfied.** `T-BE-D.4a` (commit `c69f7ef`) exposed the Treatment Plan public contract, closing item 8 in full and item 10's remaining proposal-preview half. `T-FE-E.2a` (commit `7e2ce7f1`) closed item 9 in full. `T-FE-E.3` (commit `302bccbf`) closes item 11 — a pre-existing `TherapistDashboardScreen` already composed start/complete; the genuinely missing piece, structured non-execution, is now built. Clinical History, Doctor Session instructions, and Therapist execution being complete does not generalize to the rest of the Doctor Module — 6 of 17 completion-boundary items remain unmet (routes 1/16, Billing 13, RBAC 14, Living Documents 15, Release validation 17).
 
 ~~**5 of 17 satisfied.** The backend is substantially ahead (37 of its 37 non-Group-−1/Z tasks minus 4 = 33 complete, 89.2%), but the entire treatment-workflow composition layer on the frontend (`T-FE-E.2`, the single largest remaining task, spanning Prescription/Recommendation/Plan/Scheduling/Session-instruction authoring in one card) has not been started, and nothing has passed release validation.~~ *(superseded by the note above — `T-FE-E.2` is no longer un-started)*
 
@@ -815,7 +817,7 @@ Of the 17 completion-boundary items (see the governing prompt's own definition),
 | Task | Realizes | Blocked by | Ready? |
 |---|---|---|---|
 | T-FE-E.2 | FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-1/2/3, FR-SCH-1 | T-0.2/T-0.4/T-0.7 (done), T-BE-D.4 (done), T-BE-E.2 (done), T-BE-E.3 (done, `9497f13`) | **COMPLETE — [Updated 2026-07-27, T-FE-E.2a closure]** Prescription/Recommendation/Session-Instructions (single + bulk apply)/Scheduling/Treatment-Plan all composed (commits `4fba2ec4`, `80fb96d0`, `c69f7ef` [backend], `bfe31956`, `7e2ce7f1`). The sole remaining gap, author-once-apply-to-many (FR-TS-3's own Adoption requirement), was closed by the narrow amendment task `T-FE-E.2a`, reusing the already-complete backend bulk endpoint. Note: `FR-TS-1` itself stays Partially Complete at the requirement level — its card also names `T-FE-E.3` (therapist execution composition, not started, out of `T-FE-E.2`'s own scope) — but every AC item this task's own frozen card names is satisfied. |
-| T-FE-E.3 | FR-TS-4/5 | T-0.7 (done), T-BE-E.4 (done) | **READY_TO_START** |
+| T-FE-E.3 | FR-TS-4/5 | T-0.7 (done), T-BE-E.4 (done) | **COMPLETE — [Updated 2026-07-28]** Assigned-session listing, doctor instructions (read-only), start, complete-with-materials all pre-existed via `TherapistDashboardScreen`; structured non-execution now added (commit `302bccbf`). One reported, non-blocking gap: non-execution reason not durably re-displayed after a list refetch (backend list schema gap). |
 | T-FE-E.4 | FR-BILL-1/2 | T-BE-F.1 (done) | **READY_TO_START** |
 | T-FE-E.5 | FR-LD-1/2 | T-BE-G.2 | Blocked on T-BE-G.2 |
 | T-FE-E.6 | FR-RBAC-1, FR-WFA-2 | T--1.2 (done), T-FE-D.1 (done) | **READY_TO_START** |

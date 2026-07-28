@@ -10,6 +10,8 @@
 
 > **[2026-07-27] `T-FE-E.2` CLOSED.** The narrow frontend amendment `T-FE-E.2a` (commit `7e2ce7f1`) implemented author-once-apply-to-many in `SessionInstructionsModule` (multi-select keyed by stable Session id, one call to the existing atomic bulk-update endpoint, no backend change). `T-FE-E.2` moves PARTIAL → COMPLETE; `FR-TS-3` moves Partially Complete → Fully Complete. Every "❌ Not Started" / "T-FE-E.2 not started" reference to Prescription Management, Session Scheduling, or Doctor Session Instructions below is superseded — see `RTM-MASTER.md`'s `[Updated 2026-07-27, T-FE-E.2a closure]` markers for the current state (frontend completion, Category A readiness list, Requirement Statistics).
 
+> **[2026-07-28] `T-FE-E.3` CLOSED.** `TherapistDashboardScreen` already composed start/complete (pre-existing, discovered via Engineering Truth, not built this task); structured non-execution was genuinely missing and is now built (commit `302bccbf`). `T-FE-E.3` moves ❌ Not Started → ✅ Complete; `FR-TS-4`/`FR-TS-5` move Partially Complete → Fully Complete. Every "❌ Not Started" reference to Therapist Execution / `T-FE-E.3` below is superseded — see `RTM-MASTER.md`'s `[Updated 2026-07-28]` markers for current frontend completion and Requirement Statistics figures.
+
 
 
 **As of:** 2026-07-27 (full reconciliation pass) · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`.

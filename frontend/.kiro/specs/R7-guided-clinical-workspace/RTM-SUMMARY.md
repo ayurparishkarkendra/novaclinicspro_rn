@@ -10,6 +10,8 @@
 
 > **[2026-07-27] `T-FE-E.2` CLOSED.** The narrow frontend amendment `T-FE-E.2a` (commit `7e2ce7f1`) implemented author-once-apply-to-many in `SessionInstructionsModule` (multi-select keyed by stable Session id, one call to the existing atomic bulk-update endpoint, no backend change). `T-FE-E.2` moves PARTIAL → COMPLETE, `FR-TS-3` moves Partially Complete → Fully Complete. Every `T-FE-E.2 not started`/`PARTIAL` reference below is superseded — see `RTM-MASTER.md`'s `[Updated 2026-07-27, T-FE-E.2a closure]` markers for the authoritative current figures (task totals, Requirement Statistics, Capability Readiness Table, completion-boundary item 9).
 
+> **[2026-07-28] `T-FE-E.3` CLOSED.** Engineering Truth found assigned-session listing, read-only doctor instructions, Start Session, and Complete Session were already composed by a pre-existing `TherapistDashboardScreen` — not built this task. The genuinely missing piece, structured non-execution, is now built (commit `302bccbf`): `SessionNonExecutionModal.tsx` + `useRecordSessionNonExecutionMutation`, using the exact governed backend vocabulary, never a `MISSED` status. `FR-TS-4`/`FR-TS-5` move Partially Complete → Fully Complete. Every `T-FE-E.3 not started`/`READY_TO_START` reference below is superseded — see `RTM-MASTER.md`'s `[Updated 2026-07-28]` markers for the current state, including one reported non-blocking gap (non-execution reason not durably re-displayed after a list refetch — a backend list-schema gap, not a frontend defect).
+
 
 
 

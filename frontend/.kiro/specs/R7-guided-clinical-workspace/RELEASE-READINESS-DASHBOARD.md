@@ -10,6 +10,8 @@
 
 > **[2026-07-27] `T-FE-E.2` CLOSED.** The narrow frontend amendment `T-FE-E.2a` (commit `7e2ce7f1`) implemented author-once-apply-to-many in `SessionInstructionsModule` (multi-select keyed by stable Session id, one call to the existing atomic bulk-update endpoint, no backend change). Every Frontend column `🔴 (T-FE-E.2 not started)` below for Prescription Management, Treatment Recommendation & Plan, Session Scheduling, and Doctor Session Instructions is superseded — those 4 rows' Frontend columns are now ✅. See `RTM-MASTER.md`'s `[Updated 2026-07-27, T-FE-E.2a closure]` markers for the authoritative current state. Release Validation (Group Z) still has not run once — no row should be read as passed an end-to-end gate.
 
+> **[2026-07-28] `T-FE-E.3` CLOSED.** `TherapistDashboardScreen` already composed start/complete (pre-existing, discovered via Engineering Truth, not built this task); structured non-execution was genuinely missing and is now built (commit `302bccbf`). The Therapist Execution row's Frontend column `🔴 (T-FE-E.3 not started)` below is superseded — now ✅. Release Validation (Group Z) still has not run once — no row should be read as passed an end-to-end gate.
+
 
 
 **Legend:** ✅ Complete · 🟠 Implemented, Not Exposed (service-only — no router/caller reaches it) · 🟡 Partial · 🔴 Not Started · N/A Not Applicable to this capability

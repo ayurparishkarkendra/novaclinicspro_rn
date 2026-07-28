@@ -10,6 +10,8 @@
 
 > **[2026-07-27] `T-FE-E.2` CLOSED — blockers FR-RX-1, FR-TR-1, FR-TP-1, FR-TS-2, FR-SCH-1 (partial), and now FR-TS-3 no longer block release.** The narrow frontend amendment `T-FE-E.2a` (commit `7e2ce7f1`) implemented author-once-apply-to-many in `SessionInstructionsModule` (multi-select keyed by stable Session id, one call to the existing atomic bulk-update endpoint, no backend change). `FR-TS-3` moves Partially Complete → Fully Complete. Every "T-FE-E.2 not started" gap line below is superseded — see `RTM-MASTER.md`'s `[Updated 2026-07-27, T-FE-E.2a closure]` markers for current figures. `FR-TS-1` (session identity, still names the separate `T-FE-E.3` execution-composition task) and `FR-SCH-2` (still names `T-FE-E.5`'s mandatory-header adoption) remain the only genuinely open items in this section, unrelated to this closure.
 
+> **[2026-07-28] `T-FE-E.3` CLOSED — blockers `FR-TS-4`/`FR-TS-5` no longer block release.** `TherapistDashboardScreen` already composed start/complete (pre-existing, not built this task); structured non-execution was genuinely missing and is now built (commit `302bccbf`). `FR-TS-4`/`FR-TS-5` move Partially Complete → Fully Complete. Every "T-FE-E.3 not started" gap line below (the two Design §2.4 rows citing it) is superseded. One reported, non-blocking gap remains, tracked as follow-up debt, not a release blocker: the non-execution reason cannot be durably re-shown after a list refetch (backend list-schema gap, `TherapistSessionItem` lacks the field) — see `RTM-MASTER.md`'s `[Updated 2026-07-28]` markers.
+
 
 
 **As of:** 2026-07-27 (full reconciliation pass) · Backend `186f11f74c9ebd7986689a3919459ad69d446ea6` · Frontend `d69ade484d936cc2f819b40a15758ff22a7ce9d7`.
