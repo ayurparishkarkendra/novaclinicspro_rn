@@ -2622,9 +2622,9 @@ reported no TG26.5B-owned error. Re-scans found no obsolete production
 download route, action mapping, datasource, repository, hook, or navigation.
 No migration was created.
 
-### E8 Final Acceptance Re-run — PENDING
+### E8 Final Acceptance Re-run — CONDITIONALLY ACCEPTED
 
-**Status:** AUTHORIZED — TG26.5B dependency complete.
+**Status:** CONDITIONALLY ACCEPTED — 2026-07-29; no Critical or High findings.
 
 - **Objective:** Re-run the original E8 Product, Architecture, Engineering,
   Security, UX, Traceability, and regression acceptance review.
@@ -2634,10 +2634,43 @@ No migration was created.
 - **Explicitly out of scope:** New E8 functionality, TG27 implementation, or
   acceptance waivers without evidence.
 
+**Acceptance evidence:** Product, Architecture, Backend, Frontend, Security,
+UX/Accessibility, Documentation, RTM, and corrective-boundary review found no
+Critical or High issue. TG26.5A workflows are executable and TG26.5B removed
+the obsolete E8 downloads/package chain while preserving informational
+`REQUEST_WORKSPACE_DATA_EXPORT`. Fifty-one focused backend E8 tests and 95
+readiness/journey regressions passed. Frontend assertions passed across 106
+focused and onboarding-regression tests; 82 presentation, localization,
+datasource, Journey, and Setup Wizard assertions terminated cleanly. Ruff,
+compileall, scoped ESLint, repository searches, and diff checks passed.
+Repository-wide TypeScript retained only unrelated baseline errors.
+
+**Non-blocking findings and merge conditions:**
+
+1. The configured development PostgreSQL database reports Alembic revision
+   `20260727_000001`, which is absent from this branch; repository head is
+   `20260729_030000`. Migration structure tests pass, but deployment migration
+   compatibility must be reconciled against the target environment before
+   promotion.
+2. `commercial-trial.repository.test.tsx` passes all 13 assertions but retains
+   a Jest handle after its mutation test; the presentation, retention
+   repository, localization, datasource, Journey, and Setup Wizard suites
+   terminate cleanly. The TG26 query/mutation test harness must close its
+   handle before the final release gate.
+3. Source implements bounded duration/channel validation and stale-authority
+   refresh, but focused presentation coverage does not directly assert invalid
+   grant duration, missing/unknown channel, conflict-driven refetch, or
+   activation authorization failure. Those assertions must be added before the
+   final release gate.
+
+Merge into `dev` is recommended only after these three conditions are closed
+or explicitly resolved by the responsible release gate. This verdict does not
+authorize TG26.6 yet and does not mark E8 unconditionally accepted.
+
 ### TG26.6 — Final Verification and Acceptance
 
-**Status:** NOT YET AUTHORIZED — requires successful TG26.5A, TG26.5B, and E8
-Final Acceptance Re-run completion.
+**Status:** NOT YET AUTHORIZED — TG26.5A and TG26.5B are complete; the three
+E8 Final Acceptance Re-run conditions must be closed before authorization.
 
 - **Objective:** Verify the complete frozen E8 contract and correct only
   verified TG26-owned defects.
