@@ -2220,7 +2220,18 @@ foundation canonical TG26.3 consumes. Source evidence confirms:
 TG26.2 remains complete for its delivered trial-phase boundary. The missing
 retention and extension foundation is not silently reassigned to TG26.3.
 
-### TG26.2A — Retention and Extension Domain/Persistence Foundation (AUTHORIZED)
+### TG26.2A — Retention and Extension Domain/Persistence Foundation (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented and verified the E8 retained-state, extension/recovery,
+  protection-evidence, scoped CAS/due/claim repository, configuration, and
+  PostgreSQL persistence foundation in backend commit `b5d7a60`.
+- Migration `20260729_020000` passed fresh upgrade, safe downgrade, and
+  re-upgrade against isolated PostgreSQL. Focused TG26.2/TG26.2A and metadata
+  registry tests passed; no scheduler, executor, application service,
+  transport, frontend, E9, billing, payment, or export implementation was
+  introduced.
 
 - **Objective:** Complete only the E8 domain and persistence contracts required
   for canonical TG26.3 to orchestrate retention, extension, recovery, and
@@ -2294,9 +2305,9 @@ retention and extension foundation is not silently reassigned to TG26.3.
   migration, PostgreSQL, concurrency, protection, rollback, and focused
   regression evidence pass with no runtime or transport implementation.
 
-TG26.2A is the exact next authorized task. TG26.3, TG26.4, TG26.5, TG27, and E9
-remain unauthorized until their existing prerequisites and acceptance
-boundaries are satisfied.
+TG26.2A is complete. Its TG26.3 prerequisite is satisfied; TG26.4, TG26.5,
+TG27, and E9 remain unauthorized until their existing prerequisites and
+acceptance boundaries are satisfied.
 
 ### TG26.3 Prerequisite — Governed Scheduler/Executor Authority (COMPLETE)
 
@@ -2327,7 +2338,7 @@ Status: **COMPLETE — 2026-07-29**
   and the non-governed Legacy Billing Job Service without implementing or
   expanding any runtime.
 
-### TG26.3 — Backend Application, Scheduling, and Transport (BLOCKED UNTIL TG26.2A COMPLETE)
+### TG26.3 — Backend Application, Scheduling, and Transport (AUTHORIZED)
 
 - **Objective:** Implement authorized reads and lifecycle commands, including
   explicit activation, extension request/approval, retained-state recovery,
@@ -2337,8 +2348,9 @@ Status: **COMPLETE — 2026-07-29**
   authorization/RBAC, idempotency, audit, scheduler/executor, and typed-error
   owners.
 - **Repository:** Backend only.
-- **Prerequisite:** TG26.2A must be implemented, verified, accepted, committed,
-  and synchronized before TG26.3 begins. TG26.3 consumes its retained states,
+- **Prerequisite:** TG26.2A is implemented, verified, accepted, and committed;
+  backend synchronization remains the final Git gate before TG26.3 begins.
+  TG26.3 consumes its retained states,
   extension/recovery evidence, transition/protection evidence, configuration,
   and repository/claim contracts; TG26.3 must not redesign or duplicate them.
 - **Scheduler authority:** Implement against
