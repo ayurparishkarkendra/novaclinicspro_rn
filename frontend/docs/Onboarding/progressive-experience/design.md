@@ -917,6 +917,25 @@ TG26.3/backend owners retain authorization and handoff authority, and future
 exports, Support, and E9 owners retain their respective downstream behavior.
 Unsupported or deferred behavior must remain explicit and fail closed.
 
+##### TG26.5 implementation evidence correction
+
+Implementation inspection after the Version 1 freeze proves that the existing
+TG26.3/TG26.4 contracts are insufficient for the retained-data presentation
+defined above. `GET .../commercial-trial/downloads` returns only
+`owner`, `action`, and `tenant_id`; the commercial-trial read model exposes no
+approved-download collection, download availability/expiry, export-in-progress
+state, export failure, retained-record collection, archive availability, or
+archive empty-state evidence. No archive/retained-record transport exists.
+
+The frontend therefore cannot truthfully distinguish available, empty,
+in-progress, failed, expired, or unavailable retained data from the current
+contracts. It must not infer those states from commercial lifecycle state or
+fabricate records. TG26.5 presentation implementation remains blocked until an
+approved backend-owned, organization/tenant-scoped retained-data read contract
+provides that evidence, or Product and Architecture explicitly narrow the
+accepted presentation behavior. This correction does not authorize an API,
+backend, export, archive, or prerequisite implementation.
+
 ### Documentation Design Governance v1.0
 
 This document owns implementation design only. It consumes approved intent from

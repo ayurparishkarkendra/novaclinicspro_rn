@@ -2436,9 +2436,9 @@ Status: **COMPLETE — 2026-07-29**
   authorization-loss isolation, transport retry ownership, and no frontend
   policy calculation pass.
 
-### TG26.5 — Frontend Commercial and Retention Presentation — AUTHORIZED
+### TG26.5 — Frontend Commercial and Retention Presentation — BLOCKED
 
-**Status:** AUTHORIZED — Version 1 Product and Architecture contracts frozen.
+**Status:** BLOCKED — retained-data evidence contract is missing.
 
 **Version 1 authority:** `requirements.md` and the TG26.5 design contract now
 freeze a single E8 retained-data destination with typed `DOWNLOADS`/`ARCHIVE`
@@ -2447,6 +2447,19 @@ mandatory trimmed `1..160` business-reason text; and the closed approval-channel
 vocabulary `IN_APP_REQUEST`, `SUPPORT`, `SALES`, and `CUSTOMER_SUCCESS`.
 TG26.5 must implement only those presentation/navigation contracts through the
 existing TG26.4 repository/handoff boundary.
+
+**Verified implementation blocker:** TG26.3/TG26.4 expose only an
+`owner`/`action`/`tenant_id` handoff for downloads and expose no retained-data
+or archive read model. The current contracts cannot distinguish approved
+downloads, empty results, export in progress, retrieval failure, expired
+downloads, retained records, or archive availability. TG26.5 cannot invent
+those backend-authoritative states, and this checkpoint does not authorize
+backend, transport, export, or archive changes.
+
+TG26.5 may be re-authorized only after an approved backend-owned,
+organization/tenant-scoped retained-data evidence contract exists, or after an
+approved Product/Architecture revision explicitly narrows the acceptance
+behavior. No prerequisite implementation task is authorized by this finding.
 
 - **Objective:** Present eligible, active, expiring, expired, suspended,
   archived, final-notice, deleted, unavailable, and recovery experiences with
@@ -2480,8 +2493,9 @@ existing TG26.4 repository/handoff boundary.
 TG26.1 is the first authorized checkpoint. No later checkpoint may begin until
 its predecessor meets its acceptance boundary. A checkpoint MUST stop if source
 evidence contradicts the approved contract or requires a new Product or
-Architecture decision. TG26.5 is the next authorized implementation task.
-TG26.6 and TG27 remain unauthorized until TG26.5 meets its acceptance boundary.
+Architecture decision. TG26.5 is the next canonical task but is blocked by the
+retained-data evidence contract recorded above. TG26.6 and TG27 remain
+unauthorized.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
