@@ -2340,6 +2340,33 @@ Status: **COMPLETE — 2026-07-29**
 
 ### TG26.3 — Backend Application, Scheduling, and Transport (AUTHORIZED)
 
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented the single code-owned E8 lifecycle registration, governed
+  scheduler contracts/coordinator, separate worker startup and graceful
+  shutdown, typed bounded configuration, database-UTC due discovery, bounded
+  concurrency, claim/lease execution, expired-lease recovery, retry exhaustion,
+  deterministic execution identity, and safe worker health state.
+- Implemented E8 lifecycle execution through the existing aggregate,
+  commercial-trial repository, active Unit of Work, organization audit, and
+  platform audit. Each execution validates organization/tenant scope and applies
+  at most one legal transition; optimistic conflicts replay as safe no-ops.
+- Implemented backend-authoritative commercial-trial reads, explicit
+  readiness-gated activation, Organization Admin extension requests, Super
+  Admin direct grants/request approvals and retained recovery, typed errors,
+  Effective Tenant composition, organization-scoped idempotency, and
+  export/download plus E9 subscription-request handoffs without implementing
+  export generation or E9 behavior.
+- Added the narrowly required additive platform-audit actor migration
+  `20260729_030000`; it authorizes only the governed lifecycle system actor and
+  refuses downgrade while its immutable audit evidence exists.
+- Focused TG26.3 application/scheduler/transport tests and TG26.2/TG26.2A plus
+  platform-audit regressions pass. Ruff, compileall, import composition,
+  Alembic single-head graph, and diff checks pass. Applying the migration to the
+  configured shared development database was intentionally not performed by
+  this checkpoint; deployment migration verification remains an environment
+  gate.
+
 - **Objective:** Implement authorized reads and lifecycle commands, including
   explicit activation, extension request/approval, retained-state recovery,
   scheduled transitions, downloads/exports handoff, and E9 subscription-request
