@@ -2461,6 +2461,18 @@ organization/tenant-scoped retained-data evidence contract exists, or after an
 approved Product/Architecture revision explicitly narrows the acceptance
 behavior. No prerequisite implementation task is authorized by this finding.
 
+**Outstanding Product and Architecture decisions:** define the approved
+retained artifact and its producer; artifact lifecycle, expiry, failure and
+opaque retrieval semantics; Version 1 archive record scope and projection
+shape; and whether additive artifact-metadata persistence/migration is
+authorized. Current lifecycle, transition, protection, scheduler, legacy
+export, and handoff evidence cannot answer these questions.
+
+**Governance outcome:** Outcome C. A backend prerequisite and its dependent
+frontend integration prerequisite are expected after the decisions above, but
+neither can be named or authorized truthfully yet. Completed TG26.3 and TG26.4
+remain complete and are not reopened.
+
 - **Objective:** Present eligible, active, expiring, expired, suspended,
   archived, final-notice, deleted, unavailable, and recovery experiences with
   only backend-authorized actions.

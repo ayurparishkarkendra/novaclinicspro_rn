@@ -1252,6 +1252,15 @@ authority for E8. The following requirements are frozen:
     ownership; the frontend localizes presentation but SHALL NOT translate the
     submitted value.
 
+**OPEN DECISION — blocks TG26.5 retained-data implementation:** Product and
+Architecture have not yet defined (a) what constitutes an approved retained
+download artifact, (b) which governed producer creates and updates its
+authoritative metadata, (c) the artifact lifecycle and expiry/retrieval
+semantics, or (d) what record scope and summary constitute the Version 1
+archive. Commercial lifecycle and protection evidence alone SHALL NOT be
+treated as artifact or archive-content evidence. No retained-data prerequisite
+may invent these decisions.
+
 These requirements constitutionally authorize TG26 only. They do not authorize
 TG27 or redefine E9.
 

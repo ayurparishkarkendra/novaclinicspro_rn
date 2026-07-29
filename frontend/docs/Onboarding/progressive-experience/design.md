@@ -936,6 +936,65 @@ provides that evidence, or Product and Architecture explicitly narrow the
 accepted presentation behavior. This correction does not authorize an API,
 backend, export, archive, or prerequisite implementation.
 
+The source-backed evidence inventory is:
+
+| Evidence source | Owner and persisted authority | Direct TG26.5 support | Gap |
+|---|---|---|---|
+| `org_commercial_trials` / `CommercialTrialRecord` | E8 commercial lifecycle; organization/tenant scope, lifecycle timestamps, retention terms, aggregate version, claim lease | Lifecycle and deletion-timeline context only | No artifact, retrieval, archive-content, or failure evidence |
+| `org_commercial_trial_events` / `CommercialTrialEventRecord` | E8 append-only transition/audit history | Safe lifecycle history only | Event history is not current artifact availability |
+| `org_commercial_trial_extensions` / `CommercialTrialExtensionRecord` | E8 extension request/decision evidence | Extension history only | No retained-data evidence |
+| `org_commercial_trial_protections` / `CommercialTrialProtectionRecord` | E8 deletion-protection snapshot; legal/statutory booleans and references, export-in-progress boolean/reference/timeout | Can prove only the latest protected/in-progress observation | Constraint removes export reference and timeout when not in progress; cannot prove completed, available, failed, expired, or downloadable artifacts |
+| Scheduler claims and lifecycle executor | ADR-PF-019 runtime coordination and E8 transition execution | None | Runtime rows, claims, attempts, and raw failures are prohibited presentation authority |
+| Legacy `AccountLifecycleService.export_account_data` | Ungoverned legacy billing utility | None | No approved route, artifact persistence, tenant/organization authorization contract, lifecycle, or E8 ownership |
+| TG26.3 `CommercialTrialHandoffV1` | E8 transport handoff | Proves only expected owner/action/tenant | No collection, item, archive, protection, or retrieval projection |
+
+Existing persistence can support lifecycle context, the latest protection
+summary, and export-in-progress observation. It cannot support a truthful
+retained-download collection or archive summary without an approved artifact
+metadata authority. New artifact metadata persistence may be required, but its
+schema and writer cannot be authorized before Product and Architecture define
+the artifact producer and lifecycle. Archive summary may reuse existing
+operational records only after Product defines which retained record classes
+belong in Version 1 and whether summary, collection, or approved-export access
+is the authoritative experience.
+
+The required future application projection must keep these states separate:
+
+- E8 owns commercial lifecycle state;
+- a Product-approved retained-data owner owns retained-record state;
+- the approved export producer owns preparation and artifact lifecycle;
+- ADR-PF-019 owns runtime coordination only;
+- the artifact owner owns availability and retrieval action;
+- backend authorization owns organization/tenant access;
+- transport owns typed failure mapping; and
+- TG26.5 consumes only the governed projection.
+
+The frontend must never derive artifact state from scheduler claims, retry
+counts, transition events, raw executor failures, protection references, or
+commercial lifecycle state.
+
+Before a backend prerequisite can be authorized, Product and Architecture must
+freeze:
+
+1. the Version 1 approved-artifact definition and governed producer;
+2. artifact states and legal transitions for empty, preparing, available,
+   failed, expired, and unavailable outcomes;
+3. whether item evidence includes an opaque retrieval action and which owner
+   resolves it, without selecting storage or signing infrastructure;
+4. the Version 1 archive record scope and whether it is a summary, paged
+   collection, or approved-export-only experience;
+5. safe artifact type, timestamps, expiry, failure classification, permitted
+   actions, organization/tenant/version evidence, and protection fields; and
+6. whether additive artifact metadata persistence and a migration are
+   authorized.
+
+Only after those decisions may governance define a backend evidence/query task
+and, because TG26.4 has no generic mapping for a new retained-data DTO, a
+dependent frontend data/domain integration task. Binary generation, rendering,
+object storage, signed URLs, external archives, generalized document
+management, E9, Support, retention-policy redesign, approval workflow,
+presentation screens, and unrelated lifecycle transitions remain out of scope.
+
 ### Documentation Design Governance v1.0
 
 This document owns implementation design only. It consumes approved intent from
