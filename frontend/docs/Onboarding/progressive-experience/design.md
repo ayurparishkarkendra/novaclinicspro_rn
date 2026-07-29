@@ -799,36 +799,12 @@ truth.
 
 #### TG26.5 presentation and navigation contract audit
 
-The TG26.3 transport and TG26.4 frontend data/domain integration establish
-typed handoffs only:
+The prior retained-artifact and archive-content model is superseded. Commercial
+Retention owns the workspace lifecycle and eligibility decisions; it does not
+own export packages, downloadable artifacts, archive files, document
+generation, or storage.
 
-- retained downloads return owner `exports`, action
-  `OPEN_APPROVED_DOWNLOADS`, and the effective tenant ID;
-- subscription requests return owner `E9`, action `REQUEST_SUBSCRIPTION`, and
-  the effective tenant ID.
-
-Neither handoff identifies a route, URL, destination version, organization
-context, unavailable-state policy, or destination authorization contract.
-Source inspection confirms that no E8-owned retained-download, retained-data,
-archive, support, or E9 subscription destination is registered. The plausible
-existing routes are not reusable:
-
-| Candidate route | Existing owner | TG26.5 decision |
-|---|---|---|
-| `/clinic-admin/reports` | Clinic operational reporting | Not suitable: it is Clinic Admin-scoped and does not own Organization Admin retained-data access. |
-| `/clinic-admin/billing` | Clinic billing | Not suitable: billing is not E8 retained-data or E9 subscription authority. |
-| `/super-admin/billing` | Platform billing administration | Not suitable: it is a Super Admin surface, not the Organization Admin commercial handoff. |
-| `/clinic-admin/settings` | Clinic operational settings | Not suitable: it has neither retained-data nor commercial ownership. |
-| `/owner` | Organization-owner dashboard | Not suitable: no retained-download, archive, support, or subscription destination contract is implemented there. |
-| `/onboarding/*` | Existing onboarding and workspace preparation | Not suitable: no commercial-retention or support route is registered. |
-
-The following Version 1 Product and Architecture decisions resolve the audited
-presentation gap.
-
-##### Retained downloads and archived records
-
-Version 1 uses one E8-owned retained-data presentation destination with a typed
-mode:
+Version 1 uses one E8-owned Commercial Retention presentation destination:
 
 ```text
 CommercialRetentionDestinationV1
@@ -838,29 +814,43 @@ CommercialRetentionDestinationV1
   trialId
   aggregateVersion
   contractVersion
-  mode: DOWNLOADS | ARCHIVE
 ```
 
-Product owns the retained-access experience. E8 owns the commercial-retention
-domain context. TG26.5 owns the destination's presentation, typed navigation
-contract, and route registration. The existing onboarding repository and
-TG26.3 handoff remain the only data/handoff path. Backend Effective Tenant,
-organization authorization, commercial state, and the `exports` owner remain
-authoritative; navigation is never authorization.
+The backend Commercial Retention owner must supply one versioned,
+organization/tenant-scoped read projection containing only:
 
-`DOWNLOADS` presents approved-download access only after the exact
-`exports`/`OPEN_APPROVED_DOWNLOADS` handoff succeeds. `ARCHIVE` presents the
-same retained-data surface in archived mode and must not restore normal
-application navigation. An empty result is a localized empty state. Missing,
-unknown, stale, expired, or unavailable handoff authority is a localized
-informational/retry state with no data disclosure. Export-in-progress is
-read-only backend evidence; TG26.5 may present it but cannot infer completion,
-cancel it, or permit deletion. All export/download audit remains with the
-backend exports owner. TG26.5 emits only safe presentation telemetry.
+- authoritative workspace/commercial state;
+- archived timestamp and retention-until timestamp when applicable;
+- restoration, permanent-deletion, extension, and export-request eligibility;
+- legal/statutory hold awareness;
+- allowed commercial actions; and
+- safe reason classifications for unavailable or ineligible actions.
 
-TG26.5 does not generate exports, store archives, define deletion, or create a
-second data-access API. Future retained-data modes require a versioned additive
-contract.
+Eligibility and timestamps are backend-derived. Unknown versions, missing
+scope, unavailable protection evidence, and stale authority fail closed. The
+frontend must not infer eligibility from timestamps, scheduler evidence,
+transition history, or raw protection records.
+
+TG26.5 owns the destination presentation and route registration. It may show
+Workspace Status, Archived Date, Retention Until, Restore Workspace, Delete
+Permanently, Request Extension, Request Workspace Data Export, and Contact
+Support only when the backend read model authorizes or classifies them. It must
+not show artifact collections, export status, package metadata, download
+links, archive files, or retained-record collections.
+
+##### Workspace Data Export boundary
+
+Workspace Data Export is a separate future bounded capability. Commercial
+Retention may expose only whether a request is permitted. A
+`REQUEST_WORKSPACE_DATA_EXPORT` action is a governed future handoff, not proof
+that a request, export, package, retrieval, or download exists.
+
+Workspace Data Export owns export requests, content scope, generation, package
+lifecycle, metadata, retrieval, download, expiry, audit, and storage
+integration. Runtime owns execution, retry, and scheduling. Infrastructure
+owns storage providers, streaming, object storage, and file transport. TG26.5
+must remain informational when the future destination is unavailable and must
+not call the current `exports` handoff as if it were a package catalog.
 
 ##### Support
 
@@ -911,89 +901,33 @@ immutable audit. TG26.5 rejects unknown values before submission. Future values
 require additive Product approval and coordinated backend/frontend contract
 versioning; they cannot be inferred from arbitrary transport strings.
 
-Across all five decisions, Product owns behavior, E8 owns commercial context,
+Across these decisions, Product owns behavior, E8 owns commercial context,
 TG26.5 owns presentation, E8 frontend navigation owns its route contract,
-TG26.3/backend owners retain authorization and handoff authority, and future
-exports, Support, and E9 owners retain their respective downstream behavior.
+backend owners retain authorization and read-model authority, and future
+Workspace Data Export, Support, and E9 owners retain their downstream behavior.
 Unsupported or deferred behavior must remain explicit and fail closed.
 
-##### TG26.5 implementation evidence correction
+##### TG26.5 implementation prerequisite
 
-Implementation inspection after the Version 1 freeze proves that the existing
-TG26.3/TG26.4 contracts are insufficient for the retained-data presentation
-defined above. `GET .../commercial-trial/downloads` returns only
-`owner`, `action`, and `tenant_id`; the commercial-trial read model exposes no
-approved-download collection, download availability/expiry, export-in-progress
-state, export failure, retained-record collection, archive availability, or
-archive empty-state evidence. No archive/retained-record transport exists.
+Source inspection proves that existing E8 persistence contains lifecycle
+timestamps, captured retention terms, extension evidence, and latest
+protection evidence, but the TG26.3 response does not expose the complete
+Commercial Retention projection above. TG26.4 therefore has no DTO/domain
+mapping for it.
 
-The frontend therefore cannot truthfully distinguish available, empty,
-in-progress, failed, expired, or unavailable retained data from the current
-contracts. It must not infer those states from commercial lifecycle state or
-fabricate records. TG26.5 presentation implementation remains blocked until an
-approved backend-owned, organization/tenant-scoped retained-data read contract
-provides that evidence, or Product and Architecture explicitly narrow the
-accepted presentation behavior. This correction does not authorize an API,
-backend, export, archive, or prerequisite implementation.
+The smallest genuine prerequisites are:
 
-The source-backed evidence inventory is:
+1. a backend Commercial Retention read-projection checkpoint that reuses
+   existing E8 persistence and authorization, adds no artifact model and no
+   export lifecycle, and exposes the approved typed projection; then
+2. a frontend data/domain integration checkpoint that maps that projection
+   through the existing datasource, repository, React Query, tenant-scoped
+   cache, and fail-closed domain boundaries without presentation.
 
-| Evidence source | Owner and persisted authority | Direct TG26.5 support | Gap |
-|---|---|---|---|
-| `org_commercial_trials` / `CommercialTrialRecord` | E8 commercial lifecycle; organization/tenant scope, lifecycle timestamps, retention terms, aggregate version, claim lease | Lifecycle and deletion-timeline context only | No artifact, retrieval, archive-content, or failure evidence |
-| `org_commercial_trial_events` / `CommercialTrialEventRecord` | E8 append-only transition/audit history | Safe lifecycle history only | Event history is not current artifact availability |
-| `org_commercial_trial_extensions` / `CommercialTrialExtensionRecord` | E8 extension request/decision evidence | Extension history only | No retained-data evidence |
-| `org_commercial_trial_protections` / `CommercialTrialProtectionRecord` | E8 deletion-protection snapshot; legal/statutory booleans and references, export-in-progress boolean/reference/timeout | Can prove only the latest protected/in-progress observation | Constraint removes export reference and timeout when not in progress; cannot prove completed, available, failed, expired, or downloadable artifacts |
-| Scheduler claims and lifecycle executor | ADR-PF-019 runtime coordination and E8 transition execution | None | Runtime rows, claims, attempts, and raw failures are prohibited presentation authority |
-| Legacy `AccountLifecycleService.export_account_data` | Ungoverned legacy billing utility | None | No approved route, artifact persistence, tenant/organization authorization contract, lifecycle, or E8 ownership |
-| TG26.3 `CommercialTrialHandoffV1` | E8 transport handoff | Proves only expected owner/action/tenant | No collection, item, archive, protection, or retrieval projection |
-
-Existing persistence can support lifecycle context, the latest protection
-summary, and export-in-progress observation. It cannot support a truthful
-retained-download collection or archive summary without an approved artifact
-metadata authority. New artifact metadata persistence may be required, but its
-schema and writer cannot be authorized before Product and Architecture define
-the artifact producer and lifecycle. Archive summary may reuse existing
-operational records only after Product defines which retained record classes
-belong in Version 1 and whether summary, collection, or approved-export access
-is the authoritative experience.
-
-The required future application projection must keep these states separate:
-
-- E8 owns commercial lifecycle state;
-- a Product-approved retained-data owner owns retained-record state;
-- the approved export producer owns preparation and artifact lifecycle;
-- ADR-PF-019 owns runtime coordination only;
-- the artifact owner owns availability and retrieval action;
-- backend authorization owns organization/tenant access;
-- transport owns typed failure mapping; and
-- TG26.5 consumes only the governed projection.
-
-The frontend must never derive artifact state from scheduler claims, retry
-counts, transition events, raw executor failures, protection references, or
-commercial lifecycle state.
-
-Before a backend prerequisite can be authorized, Product and Architecture must
-freeze:
-
-1. the Version 1 approved-artifact definition and governed producer;
-2. artifact states and legal transitions for empty, preparing, available,
-   failed, expired, and unavailable outcomes;
-3. whether item evidence includes an opaque retrieval action and which owner
-   resolves it, without selecting storage or signing infrastructure;
-4. the Version 1 archive record scope and whether it is a summary, paged
-   collection, or approved-export-only experience;
-5. safe artifact type, timestamps, expiry, failure classification, permitted
-   actions, organization/tenant/version evidence, and protection fields; and
-6. whether additive artifact metadata persistence and a migration are
-   authorized.
-
-Only after those decisions may governance define a backend evidence/query task
-and, because TG26.4 has no generic mapping for a new retained-data DTO, a
-dependent frontend data/domain integration task. Binary generation, rendering,
-object storage, signed URLs, external archives, generalized document
-management, E9, Support, retention-policy redesign, approval workflow,
-presentation screens, and unrelated lifecycle transitions remain out of scope.
+No migration is expected because the approved projection is derived from
+existing TG26.2/TG26.2A evidence. If implementation inspection disproves that
+fit, the prerequisite must stop rather than invent persistence. TG26.5 remains
+presentation-only and begins only after both prerequisites are complete.
 
 ### Documentation Design Governance v1.0
 

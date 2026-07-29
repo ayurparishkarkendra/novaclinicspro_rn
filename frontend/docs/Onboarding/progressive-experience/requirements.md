@@ -1186,24 +1186,30 @@ authority for E8. The following requirements are frozen:
    extension. There SHALL be no constitutional count limit on Super
    Admin-approved extensions.
 8. Retention defaults SHALL be configuration-driven: 90 days `SUSPENDED`, 90
-   days `ARCHIVED`, and seven days final deletion notice. During `SUSPENDED`,
-   Organization Admin MAY log in, view, search, export/download, request
-   subscription, and request extension, but normal mutations SHALL be blocked.
-   During `ARCHIVED`, Organization Admin MAY use the archive portal to retrieve
-   records, download approved exports, see deletion timing, and contact support;
-   normal application usage SHALL be blocked.
-9. Downloads SHALL remain available through final notice. Deletion SHALL wait
-   for an approved export in progress to complete or reach its governed timeout.
-   Commercial deletion SHALL NOT bypass legal hold, regulatory preservation,
-   or mandatory statutory retention; commercial policy SHALL NOT override legal
-   obligations.
+   days `ARCHIVED`, and seven days final deletion notice. During retained
+   states, Organization Admin MAY view backend-authoritative commercial status,
+   retention timing, restoration and deletion eligibility, hold awareness, and
+   allowed commercial actions. Normal application mutations SHALL be blocked.
+   `ARCHIVED` SHALL mean an archived workspace whose data remains retained by
+   policy; it SHALL NOT mean an artifact repository, export library, filesystem,
+   or object-storage catalog.
+9. Commercial Retention MAY expose whether a Workspace Data Export request is
+   permitted, but SHALL NOT own export requests, generation, packages,
+   metadata, retrieval, download, expiry, audit, storage, or export lifecycle.
+   Export SHALL be an action, not a commercial, archive, retention, or runtime
+   state. Deletion SHALL wait for an approved export already in progress to
+   complete or reach its governed timeout. Commercial deletion SHALL NOT bypass
+   legal hold, regulatory preservation, or mandatory statutory retention;
+   commercial policy SHALL NOT override legal obligations.
    After `DELETED`, operational customer data SHALL be unavailable and
    unrecoverable subject to legal-retention obligations outside the operational
    platform.
 10. Super Admin MAY restore a retained trial through an approved extension.
-    Paid subscription handoff SHALL belong to E9. E8 SHALL NOT implement
+    Paid subscription handoff SHALL belong to E9. Workspace Data Export SHALL
+    be a separate future bounded capability. E8 SHALL NOT implement
     subscription, payment, invoicing, dunning, legal-retention policy,
-    secure-deletion infrastructure, or export formats.
+    secure-deletion infrastructure, export formats, or export-package
+    lifecycle.
 11. Existing paid organizations and seven-day trials SHALL retain their terms.
     No existing trial or Demo state SHALL restart or convert automatically.
     Ambiguous legacy organizations SHALL require governed review. The new
@@ -1214,33 +1220,39 @@ authority for E8. The following requirements are frozen:
     calculate commercial policy, expiry, entitlement, retention, or authority.
 13. Commercial state SHALL remain organization/tenant isolated and SHALL NOT
     alter authorization, clinical ownership, or clinical truth.
-14. Version 1 retained downloads and archived-record access SHALL use one
-    E8-owned retained-data presentation destination at
-    `/onboarding/commercial-retention`, with a typed mode of `DOWNLOADS` or
-    `ARCHIVE`. The destination SHALL receive the organization ID, effective
-    tenant ID, commercial-trial ID, aggregate version, and contract version.
-    Backend authorization and the `exports` owner SHALL remain authoritative.
-    Missing, unsupported, expired, or unavailable export authority SHALL fail
-    closed with localized informational or retry presentation and SHALL NOT
-    expose clinical data.
-15. Version 1 support SHALL be a deferred informational capability. TG26.5
+14. Version 1 TG26.5 presentation SHALL use the E8-owned Commercial Retention
+    destination at `/onboarding/commercial-retention`. It MAY present only
+    backend-authoritative workspace status, archived date, retention end,
+    restoration eligibility, permanent-deletion eligibility, extension
+    eligibility, legal/statutory hold awareness, allowed commercial actions,
+    and localized informational support guidance. It SHALL NOT present
+    downloadable artifacts, export packages, archive files, retained-record
+    collections, or an export-package lifecycle.
+15. `Request Workspace Data Export` SHALL be a governed handoff to the future
+    Workspace Data Export capability only when Commercial Retention says the
+    request is permitted. TG26.5 SHALL NOT claim that an export request,
+    package, retrieval, or download exists. Missing or unavailable future
+    capability authority SHALL fail closed with localized informational
+    presentation. Exact export content and all export lifecycle behavior remain
+    future Workspace Data Export decisions.
+16. Version 1 support SHALL be a deferred informational capability. TG26.5
     SHALL NOT invent an in-app route, external URL, email address, phone number,
     provider, or support request. It MAY present localized support guidance
     without an enabled navigation action. A future governed support owner MUST
     define any navigable handoff.
-16. Before E9 exists, the subscription action SHALL be a deferred
+17. Before E9 exists, the subscription action SHALL be a deferred
     informational action. TG26.5 SHALL NOT navigate to billing, pricing, or
     payment, and SHALL NOT claim that a subscription request was persisted.
     Future E9 SHALL own its destination and may consume a typed handoff carrying
     organization ID, effective tenant ID, commercial-trial ID, aggregate
     version, and contract version.
-17. An extension reason SHALL be mandatory trimmed free text. It SHALL contain
+18. An extension reason SHALL be mandatory trimmed free text. It SHALL contain
     1 through 160 characters after trimming, SHALL map unchanged after trimming
     to the existing `reason` transport field, and SHALL use localized labels,
     guidance, and validation. Guidance SHALL prohibit clinical details,
     patient information, credentials, payment data, and other sensitive
     content.
-18. `approval channel` SHALL mean the provenance of the extension request or
+19. `approval channel` SHALL mean the provenance of the extension request or
     approval interaction, not an approval state. Version 1 values SHALL be
     `IN_APP_REQUEST`, `SUPPORT`, `SALES`, or `CUSTOMER_SUCCESS`.
     Organization Admin requests SHALL submit the Product-defined
@@ -1252,14 +1264,9 @@ authority for E8. The following requirements are frozen:
     ownership; the frontend localizes presentation but SHALL NOT translate the
     submitted value.
 
-**OPEN DECISION — blocks TG26.5 retained-data implementation:** Product and
-Architecture have not yet defined (a) what constitutes an approved retained
-download artifact, (b) which governed producer creates and updates its
-authoritative metadata, (c) the artifact lifecycle and expiry/retrieval
-semantics, or (d) what record scope and summary constitute the Version 1
-archive. Commercial lifecycle and protection evidence alone SHALL NOT be
-treated as artifact or archive-content evidence. No retained-data prerequisite
-may invent these decisions.
+The former retained-artifact and archive-content assumptions are superseded.
+Commercial Retention is not an artifact domain. No TG26 task may invent export
+content, package state, retrieval behavior, or storage integration.
 
 These requirements constitutionally authorize TG26 only. They do not authorize
 TG27 or redefine E9.

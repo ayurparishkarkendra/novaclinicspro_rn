@@ -1,6 +1,6 @@
 # E8 Constitutional Decisions
 
-**Version:** 1.1
+**Version:** 1.2
 
 **Status:** APPROVED
 
@@ -182,8 +182,8 @@ contract explicitly permits it.
 During `SUSPENDED`, Organization Admin MAY:
 
 - log in;
-- view and search retained data;
-- export and download approved data;
+- view backend-authoritative commercial status and retention timing;
+- view restoration, extension, deletion, and export-request eligibility;
 - request subscription; and
 - request an extension.
 
@@ -194,19 +194,27 @@ grant clinical or operational mutation authority.
 
 During `ARCHIVED`, Organization Admin MAY:
 
-- log in to the archive portal;
-- download approved exports;
-- retrieve clinical records;
-- view the deletion timeline; and
-- contact support.
+- view the backend-authoritative archived workspace status;
+- view the archived date and retention/deletion timeline;
+- view restoration, extension, deletion, and export-request eligibility;
+- view legal/statutory hold awareness where applicable; and
+- use only the backend-authorized commercial actions presented for that
+  workspace.
 
 Normal application usage MUST be prohibited.
 
+`ARCHIVED` means a commercial workspace that is no longer operational while
+its data remains retained according to policy. It is not a filesystem,
+document repository, object-storage catalog, retained-artifact domain, export
+library, or archive-file collection.
+
 ### Final deletion notice and DELETED
 
-During the final-notice period, approved downloads MUST remain available.
-Deletion MUST wait for an approved export already in progress to complete or
-reach its governed timeout.
+If the future Workspace Data Export capability has an approved download
+available during final notice, that capability owns its continued availability.
+Commercial deletion MUST wait when the governed export-protection evidence says
+an approved export is already in progress, until that work completes or reaches
+its governed timeout. Commercial Retention does not own the export lifecycle.
 
 After `DELETED`, operational customer data MUST be unavailable and
 unrecoverable, subject only to legal-retention obligations outside the
@@ -241,6 +249,27 @@ Subscription hands commercial authority to E9.
 Commercial deletion MUST NOT bypass legal hold, regulatory preservation, or
 mandatory statutory retention. Commercial policy cannot override legal
 obligations. Ownership and execution of those obligations remain outside E8.
+
+### Commercial Retention and Workspace Data Export
+
+Commercial Retention owns the commercial lifecycle, archive status, retention
+countdown, restoration eligibility, permanent-deletion eligibility,
+legal/statutory hold awareness, extension eligibility, and whether a Workspace
+Data Export request is permitted.
+
+Workspace Data Export is a separate future bounded capability. It owns export
+requests, content scope, generation, package lifecycle, metadata, retrieval,
+download, expiry, audit, and storage integration. Export is a user-requested
+business action, not a workspace, archive, retention, or runtime state.
+Commercial Retention MUST NOT derive export status or represent export
+packages.
+
+TG26.5 may present a governed `Request Workspace Data Export` handoff when the
+backend-authoritative Commercial Retention read model permits it. That handoff
+does not assert that the future capability, request, package, or download
+exists. Runtime owns execution, retries, and scheduling; infrastructure owns
+storage providers, streaming, object storage, and file transport. Presentation
+consumes only backend-authoritative read models.
 
 ## 8. Backend Constitutional Ownership
 
@@ -286,8 +315,8 @@ The frontend MUST:
 
 - present backend-authoritative commercial and retention states;
 - present only backend-authorized actions;
-- preserve Organization Admin download capability throughout the approved
-  retention lifecycle;
+- present Workspace Data Export only as a future governed request handoff when
+  backend authority permits it;
 - isolate or invalidate trial state on tenant switch, logout, authorization
   loss, and relevant successful commands;
 - prevent stale responses from overwriting newer authority;
@@ -329,6 +358,8 @@ E8 does not own:
 - legal-retention policy;
 - secure-deletion infrastructure;
 - export file format;
+- export requests, export packages, package lifecycle, retrieval, download,
+  expiry, audit, or storage integration;
 - recurring trials;
 - pause/resume;
 - trial transfer between clinics;
@@ -354,8 +385,10 @@ Product and Architecture approve and freeze:
   constitutional count limit and mandatory reason/channel/audit;
 - [x] configuration-driven 90-day suspension, 90-day archive, and seven-day
   final-notice defaults;
-- [x] approved Organization Admin access and download behavior throughout
-  retained states;
+- [x] Commercial Retention ownership of archived-workspace status, retention,
+  recovery/deletion/extension eligibility, and hold awareness;
+- [x] separate future Workspace Data Export ownership and request-handoff
+  boundary;
 - [x] export-in-progress protection before deletion;
 - [x] legal-hold, regulatory-preservation, and mandatory-statutory-retention
   precedence over commercial deletion;

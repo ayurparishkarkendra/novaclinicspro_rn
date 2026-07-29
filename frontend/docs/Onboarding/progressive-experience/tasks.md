@@ -2436,56 +2436,72 @@ Status: **COMPLETE — 2026-07-29**
   authorization-loss isolation, transport retry ownership, and no frontend
   policy calculation pass.
 
+### TG26.3A — Backend Commercial Retention Read Projection — AUTHORIZED
+
+**Status:** AUTHORIZED — first canonical implementation task.
+
+- **Objective:** Expose the approved Version 1 Commercial Retention read
+  projection through the existing E8 application/transport boundaries.
+- **Ownership:** Backend E8 owns workspace/commercial state, archived and
+  retention timestamps, restoration/deletion/extension/export-request
+  eligibility, hold awareness, allowed actions, safe reason classifications,
+  authorization, and versioned typed failures.
+- **Reuse:** Existing TG26.2/TG26.2A persistence and repositories, TG26.3
+  application/transport/DI, Effective Tenant, organization authority, Unit of
+  Work, typed errors, and audit conventions.
+- **Explicitly out of scope:** Export requests, packages, generation,
+  retrieval, download, expiry, storage, artifact metadata, retained-record
+  collections, frontend, lifecycle mutation, scheduler changes, and E9.
+- **Migration boundary:** No migration is authorized. If existing persistence
+  cannot derive the projection without new evidence, stop and return to
+  governance.
+- **Acceptance boundary:** Organization/tenant-isolated projection, exact
+  versioned fields, backend-derived eligibility, unknown/missing evidence
+  failing closed, stable typed errors, authorization, focused unit/transport/
+  PostgreSQL tests, Ruff, compileall, and no export/artifact lifecycle pass.
+- **Stop condition:** Stop before TG26.4A.
+
+### TG26.4A — Frontend Commercial Retention Data and Domain Integration — BLOCKED
+
+**Status:** BLOCKED until TG26.3A is complete.
+
+- **Objective:** Map the approved Commercial Retention projection through the
+  existing datasource, repository, React Query, tenant-scoped cache, and
+  fail-closed domain model without presentation.
+- **Ownership:** Frontend E8 data/domain only.
+- **Explicitly out of scope:** Screens, routes, visual presentation, export
+  implementation, artifact models, local eligibility calculation, and TG26.5.
+- **Acceptance boundary:** Exact DTO mapping, unknown-version/state/action
+  fail-closed behavior, tenant-switch/logout/authorization-loss isolation,
+  stale-response protection, localization-neutral domain values, focused
+  repository/query tests, scoped lint/typecheck, and no source of competing
+  commercial authority pass.
+- **Stop condition:** Stop before TG26.5.
+
 ### TG26.5 — Frontend Commercial and Retention Presentation — BLOCKED
 
-**Status:** BLOCKED — retained-data evidence contract is missing.
+**Status:** BLOCKED until TG26.3A and TG26.4A are complete.
 
-**Version 1 authority:** `requirements.md` and the TG26.5 design contract now
-freeze a single E8 retained-data destination with typed `DOWNLOADS`/`ARCHIVE`
-modes; deferred non-navigating Support and pre-E9 subscription presentation;
-mandatory trimmed `1..160` business-reason text; and the closed approval-channel
-vocabulary `IN_APP_REQUEST`, `SUPPORT`, `SALES`, and `CUSTOMER_SUCCESS`.
-TG26.5 must implement only those presentation/navigation contracts through the
-existing TG26.4 repository/handoff boundary.
-
-**Verified implementation blocker:** TG26.3/TG26.4 expose only an
-`owner`/`action`/`tenant_id` handoff for downloads and expose no retained-data
-or archive read model. The current contracts cannot distinguish approved
-downloads, empty results, export in progress, retrieval failure, expired
-downloads, retained records, or archive availability. TG26.5 cannot invent
-those backend-authoritative states, and this checkpoint does not authorize
-backend, transport, export, or archive changes.
-
-TG26.5 may be re-authorized only after an approved backend-owned,
-organization/tenant-scoped retained-data evidence contract exists, or after an
-approved Product/Architecture revision explicitly narrows the acceptance
-behavior. No prerequisite implementation task is authorized by this finding.
-
-**Outstanding Product and Architecture decisions:** define the approved
-retained artifact and its producer; artifact lifecycle, expiry, failure and
-opaque retrieval semantics; Version 1 archive record scope and projection
-shape; and whether additive artifact-metadata persistence/migration is
-authorized. Current lifecycle, transition, protection, scheduler, legacy
-export, and handoff evidence cannot answer these questions.
-
-**Governance outcome:** Outcome C. A backend prerequisite and its dependent
-frontend integration prerequisite are expected after the decisions above, but
-neither can be named or authorized truthfully yet. Completed TG26.3 and TG26.4
-remain complete and are not reopened.
+**Version 1 authority:** Commercial Retention presentation only. The former
+retained-artifact, `DOWNLOADS`/`ARCHIVE` artifact-mode, archive-file, and export
+package assumptions are superseded. TG26.5 consumes the governed Commercial
+Retention projection and must not invent export or retained-record state.
 
 - **Objective:** Present eligible, active, expiring, expired, suspended,
   archived, final-notice, deleted, unavailable, and recovery experiences with
-  only backend-authorized actions.
+  only backend-authorized commercial information and actions.
 - **Ownership:** Frontend E8 presentation/orchestration/navigation, existing
-  download/export navigation, localization, accessibility, and Theme owners.
+  localization, accessibility, Theme, and typed future-capability handoff
+  boundaries.
 - **Repository:** Frontend only.
 - **Rollback boundary:** E8 surfaces/routes may return to the prior safe
-  read-only compatibility experience without issuing transitions or hiding
-  retained download rights.
+  read-only compatibility experience without issuing transitions.
 - **Acceptance boundary:** Explicit Start Trial, extension request, subscription
-  request, retained downloads, archive access, deletion timeline, loading/
-  error/disabled states, English/Hindi parity, screen reader/focus/live/touch/
-  font behavior, Theme-only styling, and no Demo semantics pass.
+  request, workspace status, archived date, retention timeline, eligibility
+  presentation, legal/statutory hold awareness, informational future Workspace
+  Data Export handoff, loading/error/disabled states, English/Hindi parity,
+  screen reader/focus/live/touch/font behavior, Theme-only styling, no artifact
+  presentation, and no Demo semantics pass.
 
 ### TG26.6 — Final Verification and Acceptance
 
@@ -2502,12 +2518,11 @@ remain complete and are not reopened.
   transitions, tenant/organization isolation, accessibility/localization/Theme,
   migrations, rollback, regressions, and Requirement 32 evidence pass.
 
-TG26.1 is the first authorized checkpoint. No later checkpoint may begin until
-its predecessor meets its acceptance boundary. A checkpoint MUST stop if source
-evidence contradicts the approved contract or requires a new Product or
-Architecture decision. TG26.5 is the next canonical task but is blocked by the
-retained-data evidence contract recorded above. TG26.6 and TG27 remain
-unauthorized.
+No checkpoint may begin until its predecessor meets its acceptance boundary. A
+checkpoint MUST stop if source evidence contradicts the approved contract or
+requires a new Product or Architecture decision. TG26.3A is the next canonical
+authorized task. TG26.4A, TG26.5, TG26.6, and TG27 remain unauthorized until
+their stated prerequisites complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
