@@ -2403,7 +2403,25 @@ Status: **COMPLETE — 2026-07-29**
   transitions, export-in-progress protection, typed failures, transactions,
   retries, rollback, and tenant/organization isolation pass.
 
-### TG26.4 — Frontend Data and Domain Integration
+### TG26.4 — Frontend Data and Domain Integration (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Added the immutable Version 1 commercial-trial frontend domain contract,
+  typed fail-closed failures, and exact backend DTOs without reusing legacy
+  Demo semantics or deriving commercial policy on device.
+- Extended the existing onboarding datasource and repository boundaries for
+  backend-authoritative reads, activation, extension request/grant, retained
+  downloads, and E9 subscription-request handoff. State-changing commands
+  preserve caller-owned idempotency keys and disable transport mutation retry.
+- Added organization/tenant/contract-scoped React Query keys, cancellation,
+  bounded typed query retry, exact invalidation, outgoing-scope eviction, and
+  aggregate-version protection against stale command responses.
+- Focused datasource/repository tests pass with 28 tests. Scoped ESLint and
+  `git diff --check` pass. Repository-wide TypeScript verification retains only
+  pre-existing failures outside TG26.4-owned files.
+- No presentation, localization, backend, migration, legacy Demo, E9
+  subscription/payment, or TG26.5 work was introduced.
 
 - **Objective:** Integrate backend-authoritative commercial and retention reads
   and commands through approved frontend data/domain boundaries.

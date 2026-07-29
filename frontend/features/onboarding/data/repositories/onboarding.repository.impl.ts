@@ -34,6 +34,12 @@ import {
   retryWorkspacePreparationApi,
   getJourneyVisibilityApi,
   getReadyToStartApi,
+  activateCommercialTrialApi,
+  getCommercialTrialApi,
+  getCommercialTrialDownloadsApi,
+  grantCommercialTrialExtensionApi,
+  requestCommercialTrialExtensionApi,
+  requestCommercialTrialSubscriptionApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -59,6 +65,9 @@ import {
   ReadyToStartDatasourceError,
   ReadyToStartResponseDTO,
   StepSubmissionDatasourceError,
+  CommercialTrialDatasourceError,
+  CommercialTrialHandoffDTO,
+  CommercialTrialResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -83,6 +92,7 @@ import {
 import {
   IJourneyVisibilityRepository,
   IReadyToStartRepository,
+  ICommercialTrialRepository,
 } from '../../domain/repositories/onboarding.repository';
 import {
   Advisory,
@@ -94,6 +104,14 @@ import {
   ReadyToStart,
   ReadyToStartError,
 } from '../../domain/entities/ready-to-start.entity';
+import {
+  COMMERCIAL_TRIAL_CONTRACT_V1,
+  CommercialTrial,
+  CommercialTrialAction,
+  CommercialTrialError,
+  CommercialTrialHandoff,
+  CommercialTrialState,
+} from '../../domain/entities/commercial-trial.entity';
 import {
   PendingMutationContractError,
   parsePendingMutationRecord,
@@ -152,6 +170,13 @@ export const onboardingKeys = {
     [
       ...onboardingKeys.readinesses(organizationId, tenantId),
       READY_TO_START_CONTRACT_V1,
+    ] as const,
+  commercialTrials: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'commercial-trial', organizationId, tenantId] as const,
+  commercialTrial: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.commercialTrials(organizationId, tenantId),
+      COMMERCIAL_TRIAL_CONTRACT_V1,
     ] as const,
 };
 
@@ -542,6 +567,448 @@ export const useClearReadyToStartCache = () => {
   return useCallback(
     async (organizationId: string, tenantId: string): Promise<void> => {
       const queryKey = onboardingKeys.readinesses(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+const COMMERCIAL_TRIAL_STATES: readonly CommercialTrialState[] = [
+  'ELIGIBLE',
+  'ACTIVE',
+  'EXPIRING',
+  'EXPIRED',
+  'SUSPENDED',
+  'ARCHIVED',
+  'DELETED',
+];
+const COMMERCIAL_TRIAL_ACTIONS: readonly CommercialTrialAction[] = [
+  'START_TRIAL',
+  'REQUEST_EXTENSION',
+  'GRANT_EXTENSION',
+  'DOWNLOADS',
+  'REQUEST_SUBSCRIPTION',
+];
+
+const commercialTrialInvalid = (
+  kind: CommercialTrialError['kind'] = 'INVALID_AGGREGATE',
+  code = 'commercial_trial.invalid_aggregate',
+  token = 'errors.commercialTrial.invalid_aggregate'
+): never => {
+  throw new CommercialTrialError(kind, code, token, false);
+};
+
+const validOptionalTimestamp = (value: string | null): boolean =>
+  value === null || timestamp(value);
+
+export const mapCommercialTrial = (
+  dto: CommercialTrialResponseDTO,
+  requestedOrganizationId: string,
+  requestedTenantId: string
+): CommercialTrial => {
+  if (dto.organization_id !== requestedOrganizationId) {
+    commercialTrialInvalid(
+      'ORGANIZATION_MISMATCH',
+      'commercial_trial.organization_mismatch',
+      'errors.commercialTrial.organization_mismatch'
+    );
+  }
+  if (dto.tenant_id !== requestedTenantId) {
+    commercialTrialInvalid(
+      'TENANT_MISMATCH',
+      'commercial_trial.tenant_mismatch',
+      'errors.commercialTrial.tenant_mismatch'
+    );
+  }
+  if (dto.contract_version !== COMMERCIAL_TRIAL_CONTRACT_V1) {
+    commercialTrialInvalid(
+      'UNSUPPORTED_CONTRACT',
+      'commercial_trial.unsupported_contract',
+      'errors.commercialTrial.unsupported_contract'
+    );
+  }
+  if (
+    !present(dto.trial_id) ||
+    !COMMERCIAL_TRIAL_STATES.includes(dto.state as CommercialTrialState) ||
+    !Number.isInteger(dto.aggregate_version) ||
+    dto.aggregate_version < 1 ||
+    !validOptionalTimestamp(dto.activation_at) ||
+    !validOptionalTimestamp(dto.expires_at) ||
+    !validOptionalTimestamp(dto.final_notice_starts_at) ||
+    !Array.isArray(dto.allowed_actions) ||
+    dto.allowed_actions.some(
+      (action) => !COMMERCIAL_TRIAL_ACTIONS.includes(action as CommercialTrialAction)
+    ) ||
+    new Set(dto.allowed_actions).size !== dto.allowed_actions.length
+  ) {
+    commercialTrialInvalid();
+  }
+
+  return Object.freeze({
+    contractVersion: COMMERCIAL_TRIAL_CONTRACT_V1,
+    trialId: dto.trial_id,
+    organizationId: dto.organization_id,
+    tenantId: dto.tenant_id,
+    state: dto.state as CommercialTrialState,
+    aggregateVersion: dto.aggregate_version,
+    activationAt: dto.activation_at,
+    expiresAt: dto.expires_at,
+    finalNoticeStartsAt: dto.final_notice_starts_at,
+    allowedActions: Object.freeze([...dto.allowed_actions]) as readonly CommercialTrialAction[],
+  });
+};
+
+const mapCommercialTrialHandoff = (
+  dto: CommercialTrialHandoffDTO,
+  requestedTenantId: string,
+  expectedOwner: CommercialTrialHandoff['owner'],
+  expectedAction: CommercialTrialHandoff['action']
+): CommercialTrialHandoff => {
+  if (
+    dto.tenant_id !== requestedTenantId ||
+    dto.owner !== expectedOwner ||
+    dto.action !== expectedAction
+  ) {
+    commercialTrialInvalid();
+  }
+  return Object.freeze({
+    owner: expectedOwner,
+    action: expectedAction,
+    tenantId: dto.tenant_id,
+  });
+};
+
+const commercialTrialFailureKind = (
+  error: CommercialTrialDatasourceError
+): CommercialTrialError['kind'] => {
+  if (error.httpStatus === 401) return 'UNAUTHORIZED';
+  if (error.errorCode === 'commercial_trial.tenant_mismatch') return 'TENANT_MISMATCH';
+  if (error.errorCode === 'commercial_trial.organization_mismatch') {
+    return 'ORGANIZATION_MISMATCH';
+  }
+  if (error.httpStatus === 403 || error.errorCode === 'commercial_trial.forbidden') {
+    return 'FORBIDDEN';
+  }
+  if (error.errorCode === 'commercial_trial.unsupported_contract') {
+    return 'UNSUPPORTED_CONTRACT';
+  }
+  if (error.errorCode === 'commercial_trial.not_ready') return 'NOT_READY';
+  if (error.errorCode === 'commercial_trial.confirmation_required') {
+    return 'CONFIRMATION_REQUIRED';
+  }
+  if (
+    error.httpStatus === 409 ||
+    error.errorCode.includes('conflict') ||
+    error.errorCode === 'commercial_trial.duplicate_operation'
+  ) return 'CONFLICT';
+  if (error.httpStatus === 404 || error.errorCode === 'commercial_trial.not_found') {
+    return 'NOT_FOUND';
+  }
+  return 'BACKEND_FAILURE';
+};
+
+const mapCommercialTrialError = (error: unknown): never => {
+  if (
+    error instanceof Error &&
+    (error.name === 'CanceledError' || (error as Error & { code?: string }).code === 'ERR_CANCELED')
+  ) throw error;
+  if (error instanceof CommercialTrialError) throw error;
+  if (error instanceof CommercialTrialDatasourceError) {
+    throw new CommercialTrialError(
+      commercialTrialFailureKind(error),
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new CommercialTrialError(
+    'BACKEND_FAILURE',
+    'commercial_trial.application_failure',
+    'errors.commercialTrial.application_failure',
+    true
+  );
+};
+
+export const commercialTrialRepository: ICommercialTrialRepository = {
+  async getCommercialTrial(organizationId, tenantId, signal) {
+    try {
+      return mapCommercialTrial(
+        await getCommercialTrialApi(tenantId, signal),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async activateCommercialTrial(
+    organizationId,
+    tenantId,
+    aggregateVersion,
+    confirmed,
+    idempotencyKey
+  ) {
+    try {
+      return mapCommercialTrial(
+        await activateCommercialTrialApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            aggregate_version: aggregateVersion,
+            confirmed,
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async requestCommercialTrialExtension(
+    organizationId,
+    tenantId,
+    reason,
+    channel,
+    idempotencyKey
+  ) {
+    try {
+      return mapCommercialTrial(
+        await requestCommercialTrialExtensionApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            reason,
+            channel,
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async grantCommercialTrialExtension(
+    organizationId,
+    tenantId,
+    aggregateVersion,
+    extensionDays,
+    reason,
+    channel,
+    idempotencyKey,
+    requesterId,
+    requestOperationId
+  ) {
+    try {
+      return mapCommercialTrial(
+        await grantCommercialTrialExtensionApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            aggregate_version: aggregateVersion,
+            extension_days: extensionDays,
+            reason,
+            channel,
+            ...(requesterId ? { requester_id: requesterId } : {}),
+            ...(requestOperationId ? { request_operation_id: requestOperationId } : {}),
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async getCommercialTrialDownloads(_organizationId, tenantId) {
+    try {
+      return mapCommercialTrialHandoff(
+        await getCommercialTrialDownloadsApi(tenantId),
+        tenantId,
+        'exports',
+        'OPEN_APPROVED_DOWNLOADS'
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async requestCommercialTrialSubscription(_organizationId, tenantId) {
+    try {
+      return mapCommercialTrialHandoff(
+        await requestCommercialTrialSubscriptionApi(tenantId),
+        tenantId,
+        'E9',
+        'REQUEST_SUBSCRIPTION'
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+};
+
+export const shouldRetryCommercialTrial = (
+  failureCount: number,
+  error: Error
+): boolean =>
+  error instanceof CommercialTrialError && error.retryable && failureCount < 2;
+
+const updateCommercialTrialCache = (
+  current: CommercialTrial | undefined,
+  incoming: CommercialTrial
+): CommercialTrial =>
+  current && current.aggregateVersion > incoming.aggregateVersion ? current : incoming;
+
+export const useCommercialTrialQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<CommercialTrial, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<CommercialTrial, Error>({
+    queryKey: onboardingKeys.commercialTrial(organizationId, tenantId),
+    queryFn: ({ signal }) =>
+      commercialTrialRepository.getCommercialTrial(organizationId, tenantId, signal),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryCommercialTrial,
+    ...options,
+  });
+
+const useCommercialTrialMutation = <
+  Variables,
+  Result extends CommercialTrial | CommercialTrialHandoff,
+>(
+  organizationId: string,
+  tenantId: string,
+  mutationFn: (variables: Variables) => Promise<Result>
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.commercialTrial(organizationId, tenantId);
+  return useMutation<Result, Error, Variables>({
+    mutationFn,
+    onSuccess: (value) => {
+      if ('aggregateVersion' in value) {
+        queryClient.setQueryData<CommercialTrial>(queryKey, (current) =>
+          updateCommercialTrialCache(current, value)
+        );
+      }
+      queryClient.invalidateQueries({ queryKey });
+    },
+    retry: false,
+  });
+};
+
+export const useActivateCommercialTrialMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      aggregateVersion,
+      confirmed,
+      idempotencyKey,
+    }: {
+      aggregateVersion: number;
+      confirmed: boolean;
+      idempotencyKey: string;
+    }) =>
+      commercialTrialRepository.activateCommercialTrial(
+        organizationId,
+        tenantId,
+        aggregateVersion,
+        confirmed,
+        idempotencyKey
+      )
+  );
+
+export const useRequestCommercialTrialExtensionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      reason,
+      channel,
+      idempotencyKey,
+    }: {
+      reason: string;
+      channel: string;
+      idempotencyKey: string;
+    }) =>
+      commercialTrialRepository.requestCommercialTrialExtension(
+        organizationId,
+        tenantId,
+        reason,
+        channel,
+        idempotencyKey
+      )
+  );
+
+export const useGrantCommercialTrialExtensionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      aggregateVersion,
+      extensionDays,
+      reason,
+      channel,
+      idempotencyKey,
+      requesterId,
+      requestOperationId,
+    }: {
+      aggregateVersion: number;
+      extensionDays: number;
+      reason: string;
+      channel: string;
+      idempotencyKey: string;
+      requesterId?: string;
+      requestOperationId?: string;
+    }) =>
+      commercialTrialRepository.grantCommercialTrialExtension(
+        organizationId,
+        tenantId,
+        aggregateVersion,
+        extensionDays,
+        reason,
+        channel,
+        idempotencyKey,
+        requesterId,
+        requestOperationId
+      )
+  );
+
+export const useCommercialTrialDownloadsMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation<void, CommercialTrialHandoff>(organizationId, tenantId, () =>
+    commercialTrialRepository.getCommercialTrialDownloads(organizationId, tenantId)
+  );
+
+export const useCommercialTrialSubscriptionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation<void, CommercialTrialHandoff>(organizationId, tenantId, () =>
+    commercialTrialRepository.requestCommercialTrialSubscription(organizationId, tenantId)
+  );
+
+export const useClearCommercialTrialCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.commercialTrials(organizationId, tenantId);
       await queryClient.cancelQueries({ queryKey });
       queryClient.removeQueries({ queryKey });
     },

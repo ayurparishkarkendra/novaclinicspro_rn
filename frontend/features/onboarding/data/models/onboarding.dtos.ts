@@ -95,6 +95,60 @@ export interface DemoStatusResponse {
   created_at: string;
 }
 
+// === Commercial Trial (E8 Version 1) ===
+export interface CommercialTrialResponseDTO {
+  contract_version: string;
+  trial_id: string;
+  organization_id: string;
+  tenant_id: string;
+  state: string;
+  aggregate_version: number;
+  activation_at: string | null;
+  expires_at: string | null;
+  final_notice_starts_at: string | null;
+  allowed_actions: string[];
+}
+
+export interface ActivateCommercialTrialRequestDTO {
+  contract_version: 'commercial_trial_v1';
+  aggregate_version: number;
+  confirmed: boolean;
+}
+
+export interface RequestCommercialTrialExtensionDTO {
+  contract_version: 'commercial_trial_v1';
+  reason: string;
+  channel: string;
+}
+
+export interface GrantCommercialTrialExtensionDTO {
+  contract_version: 'commercial_trial_v1';
+  aggregate_version: number;
+  extension_days: number;
+  reason: string;
+  channel: string;
+  requester_id?: string;
+  request_operation_id?: string;
+}
+
+export interface CommercialTrialHandoffDTO {
+  owner: string;
+  action: string;
+  tenant_id: string;
+}
+
+export class CommercialTrialDatasourceError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly httpStatus?: number
+  ) {
+    super(messageToken);
+    this.name = 'CommercialTrialDatasourceError';
+  }
+}
+
 // === Setup Wizard (OLD - Keep for backward compatibility) ===
 export interface SetupWizardContextResponse {
   application_id: string;
