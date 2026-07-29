@@ -58,6 +58,8 @@ describe('StepCard Component', () => {
     category: 'resources',
     isVisible: true,
     isActionable: true,
+    evidenceAvailability: 'UNAVAILABLE',
+    authoritativeEvidence: null,
     ...overrides,
   });
 

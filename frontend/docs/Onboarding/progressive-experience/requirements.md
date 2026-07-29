@@ -673,6 +673,88 @@ All UI work must use `useClinicTheme()` exclusively — zero hardcoded colours, 
 
 ---
 
+## E6 Constitutional Product Contract — Draft Conflict and Multi-Clinic Recovery
+
+This contract governs Requirements 9, 11, 16, 17, and 29–32. Where the earlier
+timestamp-only comparison wording in Requirements 16 and 29 conflicts with this
+contract, this contract is the approved successor. It changes no implementation
+status.
+
+### Authority and invariants
+
+1. The backend SHALL be the sole authority for accepted onboarding step state,
+   completion, current Journey Visibility identity, and the concurrency revision
+   of each visible step. A local draft is non-authoritative user input until an
+   authorized backend mutation accepts it.
+2. Each visible step SHALL have a backend-issued, non-null, opaque revision and
+   a non-null UTC `updated_at`. The revision is the concurrency authority;
+   `updated_at` is user-facing freshness evidence and SHALL NOT be the sole
+   overwrite guard. Both SHALL change atomically with an authoritative step
+   state/content change. The client SHALL never synthesize either value.
+3. A step without a persisted progress row, including `not_started`, SHALL still
+   receive a backend-authoritative revision and timestamp tied to the current
+   projection. The backend owns how that identity is maintained or derived.
+4. Accepted mutations capable of replacing step state SHALL be validated against
+   the current backend revision. A stale, missing, unknown, or cross-scope
+   revision SHALL fail closed without changing authoritative state.
+5. Drafts SHALL be scoped to the authenticated user, organization, effective
+   tenant, Journey Visibility identity, and stable step code. A draft SHALL
+   never be read, displayed, compared, or submitted in another scope.
+
+### Conflict and recovery lifecycle
+
+1. A conflict exists only when a valid local draft was based on an older backend
+   revision and the current backend step is still eligible for editing. A local
+   timestamp alone SHALL NOT establish that the draft is safe to overwrite.
+2. Completed, retired, hidden, or no-longer-applicable server steps SHALL win
+   without an overwrite choice. Their stale local drafts SHALL be removed from
+   active use and SHALL NOT restore or submit.
+3. For an editable conflicting step, the user SHALL receive two explicit,
+   localized, accessible choices:
+   - **Use Latest** discards the local draft for that scope and displays the
+     current server state.
+   - **Keep Local** preserves the draft for continued editing but does not write
+     it to the server. Any later submission SHALL revalidate against the latest
+     server revision and may surface another conflict.
+4. Missing, invalid, unsupported, or unavailable revision evidence SHALL preserve
+   the local draft, prevent submission, and present a safe retryable recovery
+   state. It SHALL NOT silently choose either version.
+5. Conflict detection, user choice, revalidation, successful resolution, and
+   failed recovery SHALL be auditable without storing draft contents or other
+   sensitive values in analytics/audit metadata.
+
+### Multi-device and multi-clinic behavior
+
+1. Devices do not synchronize local drafts with one another. They converge only
+   through fresh backend-authoritative state and revision evidence.
+2. A successful step mutation SHALL atomically update its authoritative state,
+   completion, revision, and timestamp before the response is visible to any
+   device. Other devices SHALL treat the next fresh response as authoritative.
+3. Effective-tenant switching and logout SHALL cancel or invalidate outgoing
+   onboarding reads, unload in-memory drafts, complete the approved outgoing
+   draft cleanup, and only then load the new scope. Stale responses from the
+   outgoing scope SHALL be rejected.
+4. Recovery SHALL remain specialty-agnostic and compatible with multiple clinics
+   per organization. Organization membership never grants permission to read a
+   different clinic's local or server onboarding state without effective-tenant
+   authorization.
+
+### Responsibilities and prohibitions
+
+- The backend owns authoritative revisions/timestamps, atomic state transitions,
+  stale-write rejection, tenant authorization, and safe typed failures.
+- The frontend owns local draft persistence, scope binding, conflict and recovery
+  presentation, user choice, refresh/revalidation requests, and outgoing-scope
+  cleanup. It does not decide authoritative freshness.
+- The authenticated user owns only the explicit choice for an editable conflict;
+  the user cannot override completed, retired, hidden, unauthorized, or
+  cross-tenant server state.
+- Silent last-write-wins, client clock authority, timestamp-string comparison,
+  frontend-generated revisions, cross-tenant caches, automatic stale-draft
+  submission, raw server errors, and draft-content telemetry are forbidden.
+
+---
+
 ### Requirement 33: Capability-Driven Journey Visibility (E4/TG21)
 
 **User Story:** As a person preparing a clinic workspace, I want the Review &
@@ -919,3 +1001,328 @@ screens, card completion, or local wizard state.
     parity failure SHALL fall back to the generic localized unavailable token,
     omit actions, and fail acceptance; raw keys, reasons, exceptions, provider
     jargon, and capability jargon SHALL never be presented.
+
+### E7 Offline Mutation Recovery Constitutional Contract
+
+#### Version 1 scope and queueable operation
+
+1. E7 SHALL provide durable recovery only for the existing onboarding step
+   submission operation identified as `onboarding.step.submit.v1`.
+2. A queueable record SHALL target one current Journey-visible step through the
+   existing onboarding step datasource/repository boundary. It SHALL contain the
+   existing step submission body, an existing opaque E6 expected revision and
+   projection identity, and one frontend-generated idempotency key.
+3. The step submission body SHALL pass a versioned per-step field allowlist
+   before persistence. Version 1 SHALL permit only JSON onboarding-configuration
+   fields already accepted by that step contract. Credentials, authentication
+   tokens, verification evidence, contact values, payment or banking data,
+   clinical/patient payloads, files/blobs, raw errors, and unknown fields SHALL
+   NOT be queued.
+4. Clinic Entry, organization/tenant creation or association, setup completion,
+   workspace preparation start/retry, readiness actions, ownership/contact
+   verification, trial, subscription, payment, billing, dunning, and every
+   clinical mutation SHALL NOT be queueable in Version 1.
+5. Arbitrary HTTP methods, URLs, headers, operation names, and unknown step
+   contracts SHALL be rejected. E7 SHALL NOT create a generic request queue.
+6. When connectivity is known offline, existing CTA gating SHALL prevent a new
+   submission. E7 enqueue is permitted only after a user submission began while
+   connectivity was online or indeterminate and then failed with an eligible
+   transient transport outcome.
+
+#### Single retry authority and outcomes
+
+7. The E7 replay coordinator SHALL be the sole retry authority for a persisted
+   mutation. Axios or any other transport layer SHALL perform zero independent
+   automatic retries for that queued attempt.
+8. A queued attempt SHALL have at most four executions: the original execution
+   plus three replays. Replay backoff SHALL be 2, 4, then 8 seconds after
+   connectivity is confirmed. Time spent offline SHALL not consume an attempt.
+9. Network loss, `ERR_NETWORK`, `ECONNRESET`, timeout without an authoritative
+   response, and safe 5xx typed failures SHALL be retryable. User cancellation,
+   app backgrounding, logout, tenant switch, or executor cancellation SHALL not
+   consume an attempt.
+10. Validation, authentication/authorization denial, tenant/organization
+    mismatch, malformed or unsupported response, idempotency conflict, and
+    non-E6 4xx failures SHALL terminate automatic replay.
+11. An E6 stale/missing/projection revision conflict SHALL enter
+    `CONFLICT_BLOCKED`, preserve the safe intent, and delegate to E6 refresh and
+    explicit Use Latest/Keep Local recovery. It SHALL never automatically
+    replace the captured revision or overwrite newer state.
+
+#### Durable record and isolation
+
+12. The Version 1 durable record SHALL contain only: schema version; mutation
+    ID; operation ID; authenticated user ID; organization ID; effective tenant
+    ID; step code; allowlisted step body; opaque E6 revision and projection
+    identity; idempotency key; lifecycle state; enqueue/update/expiry
+    timestamps; attempt count; next-attempt time; and safe failure category.
+13. Lifecycle states SHALL be `PENDING`, `REPLAYING`, `CONFLICT_BLOCKED`,
+    `MANUAL_ACTION_REQUIRED`, `SUCCEEDED`, `DISCARDED`, and `EXPIRED`.
+14. Records SHALL use the existing tenant/user-scoped local-storage boundary
+    with Version 1 schema validation. Unknown schema versions, corruption,
+    missing scope identity, prohibited fields, or failed migration SHALL fail
+    closed, never replay, preserve no unrestricted payload, and surface a safe
+    localized recovery notice.
+15. Pending records expire seven days after enqueue and become `EXPIRED`;
+    terminal records may be retained for acknowledgement for at most 30 days.
+    Expiry SHALL be visible and telemetered. Silent deletion is forbidden.
+16. Tenant switch SHALL cancel execution and evict the outgoing queue from
+    memory/cache; its durable records remain inaccessible and suspended under
+    their original user/organization/tenant scope until that exact scope
+    returns or they expire. Logout/account removal SHALL delete that user's
+    durable queue. Authorization loss SHALL enter
+    `MANUAL_ACTION_REQUIRED` and prevent replay.
+
+#### Replay, locking, and duplicate safety
+
+17. Enqueue SHALL validate operation, scope, payload allowlist, current Journey
+    visibility, E6 evidence, and a non-empty idempotency key before one atomic
+    durable write. Duplicate mutation IDs or identical active operation/scope/
+    idempotency identities SHALL collapse to one record.
+18. Replay SHALL be FIFO by `(enqueued_at, mutation_id)` within one effective
+    tenant. Exactly one mutation per tenant may execute at a time. A
+    process-local claim/lock SHALL prevent concurrent foreground, reconnect, or
+    restart executors from replaying the same record.
+19. Restart, confirmed reconnect, and foreground resume SHALL request replay.
+    Before every execution the coordinator SHALL refresh and verify the
+    authenticated user, organization, Effective Tenant, authorization, Journey
+    visibility, current step eligibility, and E6 revision/projection evidence.
+20. A successful authoritative response SHALL update/invalidate the existing
+    onboarding query family, remove the durable record atomically, and announce
+    recovery. Failed deletion SHALL leave a safely replayable idempotent record.
+21. User cancellation SHALL stop only the in-flight local executor and retain
+    the record. It SHALL NOT cancel or reverse a backend command whose
+    authoritative outcome is unknown; the next replay SHALL reuse the same
+    idempotency key to resolve that outcome.
+
+#### Dead letter and manual recovery
+
+22. Exhausted attempts, validation/authorization/unsupported terminal outcomes,
+    and unresolved malformed responses SHALL enter
+    `MANUAL_ACTION_REQUIRED`. E6 conflicts use `CONFLICT_BLOCKED`.
+23. Manual actions SHALL be limited by outcome: refresh authority; reopen and
+    edit the owning step; retry after fresh validation; discard with explicit
+    confirmation; or use an existing support route when one is available.
+    Unsupported actions SHALL not be shown.
+24. Manual retry SHALL revalidate all scope, authorization, visibility, payload,
+    and E6 evidence and SHALL create a fresh execution cycle while preserving
+    the original mutation identity and idempotency key. Editing creates a new
+    user attempt with a new mutation/idempotency identity after the old intent
+    is explicitly discarded or resolved.
+25. Infinite retry, silent deletion, cross-tenant transfer, background
+    overwrite, and automatic conflict resolution are forbidden.
+
+#### Ownership, telemetry, experience, and rollback
+
+26. The backend SHALL remain authoritative for replay acceptance,
+    authorization, organization/tenant isolation, idempotency, transaction,
+    audit, mutation state, E6 conflict detection, and safe typed failures.
+27. The frontend SHALL own only the non-authoritative durable intent,
+    allowlisted persistence, single replay coordinator, safe presentation, and
+    calls through existing datasource/repository/query boundaries. A second
+    backend replay engine, second idempotency service, alternate tenant
+    authority, duplicate repository family, or new generic API is forbidden.
+28. The onboarding application telemetry boundary SHALL own fire-and-forget
+    events for enqueue, replay started/succeeded/failed, conflict blocked,
+    manual recovery, discard, expiry, and terminal outcome. Events SHALL contain
+    only mutation/operation IDs, safe scope identifiers, attempt count, safe
+    category, duration, and connectivity state; payloads, contact/clinical/
+    payment data, tokens, evidence, and raw errors are forbidden. If no external
+    provider is configured, a safe no-op adapter SHALL preserve product flow.
+29. All queue, retry, conflict, terminal, and recovery copy SHALL have `en-US`
+    and `hi-IN` key/placeholder parity. Presentation SHALL use central Theme,
+    existing loading/error primitives, live-region announcements, deterministic
+    focus, disabled/busy state, non-color meaning, 44×44 minimum touch targets,
+    font scaling, and hardware-back behavior that cannot dismiss an unresolved
+    decision silently.
+30. Schema evolution SHALL be additive with explicit pure migrations. Legacy or
+    unknown records SHALL never replay until validated/migrated. Rollout SHALL
+    enable typed backend/idempotency support before queue enablement.
+    Disablement SHALL stop enqueue/replay while retaining valid scoped records;
+    rollback SHALL return to offline gating without executing or transferring
+    retained intents.
+31. Acceptance SHALL cover allowlist/prohibited data, schema migration and
+    corruption, FIFO/locking/concurrent triggers, restart/reconnect/foreground,
+    retry taxonomy/backoff/exhaustion, idempotency, E6 conflicts, Effective
+    Tenant/authorization/Journey refresh, tenant switch/logout, dead-letter
+    actions, localization/accessibility/Theme, telemetry leakage, rollback,
+    TG18–TG23 regressions, and Requirement 32 device/staging evidence.
+
+### E8 Commercial Trial Constitutional Requirements
+
+`E8-CONSTITUTIONAL-DECISIONS.md` is the approved Product and Architecture
+authority for E8. The following requirements are frozen:
+
+1. The trial SHALL be a clinic-scoped commercial entitlement. Ready to Start
+   SHALL establish `ELIGIBLE` only and SHALL NOT start the trial. The clinic MAY
+   remain eligible indefinitely until an authorized actor explicitly confirms
+   Start Trial.
+2. The backend SHALL own the immutable trial identity, policy, server-UTC clock,
+   commercial configuration, lifecycle, persistence, scheduled transitions,
+   authorization, audit, transactions, concurrency, retries, rollback, and
+   versioned typed APIs. The frontend SHALL never be commercial authority.
+3. The Trial Lifecycle SHALL be `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` →
+   `EXPIRED` and SHALL end at `EXPIRED`. The separate Commercial Retention
+   Lifecycle SHALL begin after expiry and SHALL be `SUSPENDED` → `ARCHIVED` →
+   `DELETED`. This conceptual separation SHALL preserve the approved behavior
+   while keeping E8 trial authority distinct from future E9 subscription
+   authority. Extension SHALL return the same immutable trial to `ACTIVE`,
+   SHALL NOT create a second trial, and SHALL change only the authoritative end
+   timestamp.
+4. Super Admin SHALL be platform commercial authority. Organization Admin SHALL
+   be customer commercial authority and MAY activate or request an extension.
+   Clinic Admin SHALL have no commercial authority and SHALL NOT activate,
+   approve extension, or override commercial state.
+5. Activation SHALL require `trial.activate`, current authoritative
+   Ready-to-Start evidence, `ELIGIBLE` state, effective-tenant and organization
+   authority, and explicit confirmation. The backend SHALL record immutable
+   evidence and SHALL make activation idempotent and concurrency-safe.
+6. Newly activated E8 trials SHALL use a configuration-driven default of 30
+   consecutive days. Configuration changes SHALL affect future activations
+   only. Existing active trials SHALL retain their agreed duration.
+7. Super Admin alone SHALL approve manual extensions. Each extension SHALL be
+   no more than 30 days and SHALL record a business reason, approval channel,
+   approver, timestamp, and audit evidence. Organization Admin MAY request an
+   extension. There SHALL be no constitutional count limit on Super
+   Admin-approved extensions.
+8. Retention defaults SHALL be configuration-driven: 90 days `SUSPENDED`, 90
+   days `ARCHIVED`, and seven days final deletion notice. During retained
+   states, Organization Admin MAY view backend-authoritative commercial status,
+   retention timing, restoration and deletion eligibility, hold awareness, and
+   allowed commercial actions. Normal application mutations SHALL be blocked.
+   `ARCHIVED` SHALL mean an archived workspace whose data remains retained by
+   policy; it SHALL NOT mean an artifact repository, export library, filesystem,
+   or object-storage catalog.
+9. Commercial Retention MAY expose whether a Workspace Data Export request is
+   permitted, but SHALL NOT own export requests, generation, packages,
+   metadata, retrieval, download, expiry, audit, storage, or export lifecycle.
+   Export SHALL be an action, not a commercial, archive, retention, or runtime
+   state. Deletion SHALL wait for an approved export already in progress to
+   complete or reach its governed timeout. Commercial deletion SHALL NOT bypass
+   legal hold, regulatory preservation, or mandatory statutory retention;
+   commercial policy SHALL NOT override legal obligations.
+   After `DELETED`, operational customer data SHALL be unavailable and
+   unrecoverable subject to legal-retention obligations outside the operational
+   platform.
+10. Super Admin MAY restore a retained trial through an approved extension.
+    Paid subscription handoff SHALL belong to E9. Workspace Data Export SHALL
+    be a separate future bounded capability. E8 SHALL NOT implement
+    subscription, payment, invoicing, dunning, legal-retention policy,
+    secure-deletion infrastructure, export formats, or export-package
+    lifecycle.
+11. Existing paid organizations and seven-day trials SHALL retain their terms.
+    No existing trial or Demo state SHALL restart or convert automatically.
+    Ambiguous legacy organizations SHALL require governed review. The new
+    30-day policy SHALL apply only to newly activated E8 trials.
+12. The frontend SHALL present backend-authoritative commercial and retention
+    state through existing Clean Architecture, repository/datasource, React
+    Query, Theme, localization, and accessibility boundaries. It SHALL NOT
+    calculate commercial policy, expiry, entitlement, retention, or authority.
+13. Commercial state SHALL remain organization/tenant isolated and SHALL NOT
+    alter authorization, clinical ownership, or clinical truth.
+14. Version 1 TG26.5 presentation SHALL use the E8-owned Commercial Retention
+    destination at `/onboarding/commercial-retention`. It MAY present only
+    backend-authoritative workspace status, archived date, retention end,
+    restoration eligibility, permanent-deletion eligibility, extension
+    eligibility, legal/statutory hold awareness, allowed commercial actions,
+    and localized informational support guidance. It SHALL NOT present
+    downloadable artifacts, export packages, archive files, retained-record
+    collections, or an export-package lifecycle.
+15. `Request Workspace Data Export` SHALL be a governed handoff to the future
+    Workspace Data Export capability only when Commercial Retention says the
+    request is permitted. TG26.5 SHALL NOT claim that an export request,
+    package, retrieval, or download exists. Missing or unavailable future
+    capability authority SHALL fail closed with localized informational
+    presentation. Exact export content and all export lifecycle behavior remain
+    future Workspace Data Export decisions.
+16. Version 1 support SHALL be a deferred informational capability. TG26.5
+    SHALL NOT invent an in-app route, external URL, email address, phone number,
+    provider, or support request. It MAY present localized support guidance
+    without an enabled navigation action. A future governed support owner MUST
+    define any navigable handoff.
+17. Before E9 exists, the subscription action SHALL be a deferred
+    informational action. TG26.5 SHALL NOT navigate to billing, pricing, or
+    payment, and SHALL NOT claim that a subscription request was persisted.
+    Future E9 SHALL own its destination and may consume a typed handoff carrying
+    organization ID, effective tenant ID, commercial-trial ID, aggregate
+    version, and contract version.
+18. An extension reason SHALL be mandatory trimmed free text. It SHALL contain
+    1 through 160 characters after trimming, SHALL map unchanged after trimming
+    to the existing `reason` transport field, and SHALL use localized labels,
+    guidance, and validation. Guidance SHALL prohibit clinical details,
+    patient information, credentials, payment data, and other sensitive
+    content.
+19. `approval channel` SHALL mean the provenance of the extension request or
+    approval interaction, not an approval state. Version 1 values SHALL be
+    `IN_APP_REQUEST`, `SUPPORT`, `SALES`, or `CUSTOMER_SUCCESS`.
+    Organization Admin requests SHALL submit the Product-defined
+    `IN_APP_REQUEST` without a user-selectable control. Super Admin direct
+    grants SHALL select the verified offline channel from `SUPPORT`, `SALES`,
+    or `CUSTOMER_SUCCESS`. Unknown values SHALL fail closed in TG26.5
+    presentation. Product owns the vocabulary; the backend retains existing
+    authorization, bounded transport validation, persistence, and audit
+    ownership; the frontend localizes presentation but SHALL NOT translate the
+    submitted value.
+
+The former retained-artifact and archive-content assumptions are superseded.
+Commercial Retention is not an artifact domain. No TG26 task may invent export
+content, package state, retrieval behavior, or storage integration.
+
+These requirements constitutionally authorize TG26 only. They do not authorize
+TG27 or redefine E9.
+
+## Requirements Governance and Current-State Authority
+
+Requirement numbers 1–34 are permanent. This file remains the authority for
+product intent and acceptance criteria; it is not an execution ledger. Current
+implementation, verification, roadmap, design, and Task Group ownership are
+governed by `requirements-traceability-matrix.md`, with `tasks.md` retaining the
+execution record.
+
+As reconciled after TG18–TG22, the requirements inventory is:
+
+- 11 `COMPLETE`;
+- 19 `PARTIALLY COMPLETE`;
+- 3 `NOT STARTED`;
+- 1 `SUPERSEDED`.
+
+Requirement 13 is the sole superseded requirement. Its direct Demo/Live
+mutation and Demo Mode contract was replaced by the accepted E5 Ready-to-Start
+contract in Requirement 34 and by the approved E8 commercial-trial ownership in
+TG26. Its reusable non-commercial status/navigation intent survives through
+those contracts; the obsolete mutation behavior is not an implementation gap.
+The original wording is retained above as historical evidence and must not be
+implemented independently.
+
+E1–E3 were delivered from their approved constitutional requirement and design
+documents before numbered Requirements 33 and 34 established the later E4/E5
+pattern. They are not renumbered or duplicated here. Their acceptance and
+implementation ownership is mapped explicitly in the RTM. E6–E12 remain owned
+by their existing numbered requirements and roadmap destinations; no future
+Task Group may treat roadmap prose alone as sufficient implementation
+authorization.
+
+### Documentation Governance Model v1.0
+
+The mandatory, non-duplicating authority chain is:
+
+```text
+requirements.md
+↓
+design.md
+↓
+requirements-traceability-matrix.md
+↓
+tasks.md
+```
+
+- `requirements.md` records approved product intent and acceptance criteria.
+- `design.md` records approved implementation design and architecture.
+- `requirements-traceability-matrix.md` records implementation fulfillment,
+  ownership, status, and evidence.
+- `tasks.md` records execution and acceptance history.
+
+Product intent may be changed only here through approval. A Task Group must not
+use the RTM, design, or execution ledger to create or redefine a requirement.
+Every future constitutional approval for TG23–TG31 must update all four
+authorities consistently before implementation is authorized.

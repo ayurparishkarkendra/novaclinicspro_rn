@@ -1514,6 +1514,176 @@ inventory, billing/payment implementation, analytics-platform implementation,
 backend redesign, or architecture rewrites. TG19 requires its own readiness
 review before any implementation.
 
+### TG18–TG22 Execution Ledger Reconciliation (2026-07-23)
+
+This ledger records execution evidence only. Requirements and acceptance
+criteria remain governed by `requirements.md`; bidirectional ownership and
+current status are governed by `requirements-traceability-matrix.md`.
+
+| TG | Implemented requirements and scope | Implementation summary | Verification summary | Status and acceptance reference |
+|---|---|---|---|---|
+| TG18 | E1 constitutional scope; contributes to Req 5, 14, 15, 21, 23–25, 28 | Versioned tenant-scoped journey domain, projection, reusable Journey Cards, progress, empty/unsupported handling, and existing navigation/onboarding reuse. | 7 focused frontend suites / 77 tests; localization, Theme, accessibility, tenant mismatch, unsupported version, and empty journey verified. | **COMPLETE**. E1 constitutional documents and `TG18-IMPLEMENTATION-READINESS.md`; no numbered requirement is claimed complete solely by TG18. |
+| TG19 | E2 constitutional scope; contributes to Req 11, 19, 24, 25, 30 | Clinic Entry/New Clinic/Bring Your Clinic, organization and tenant foundation, identity and verified-contact persistence, verification strategy, audit, idempotency, effective-tenant handoff, and frontend orchestration. | Final acceptance classified 27 Version 1 items verified and 1 out of scope; backend 154 focused tests plus prior 161 isolated-PostgreSQL tests, frontend 4 suites / 15 tests, Ruff, compileall, ESLint, and Alembic head verified. | **COMPLETE / ACCEPTED**. `TG19-FINAL-ACCEPTANCE.md` and the final acceptance entry below. Shared numbered requirements remain partial where their broader ACs extend beyond E2. |
+| TG20 | E3 constitutional scope; completes Req 15 coverage for its owned surfaces and contributes to Req 11, 23–25, 27, 28 | Workspace Preparation domain, persistence/migration, query services, execution and retry boundaries, transport, frontend data/domain/presentation, and handoff. | TG20.1–TG20.3 focused domain, PostgreSQL, application, transport, frontend, regression, static-analysis, migration, and Supabase acceptance gates passed. | **COMPLETE / ACCEPTED**. `frontend/docs/TG20/acceptance.md` (final acceptance evidence) and `frontend/docs/TG20/tasks.md` (TG20.7 execution record). |
+| TG21 | Req 33; shares regression ownership for Req 1–4, 15, 23–25 | Backend-authoritative capability/template projection, source authority, query/transport, frontend data/domain integration, and Journey presentation consumption. | Backend projection/query/transport suites and TG18/onboarding regressions; frontend datasource/repository/domain/presentation, JourneySurface, and SetupWizardFlow verification; fail-closed revision/tenant behavior verified. | **COMPLETE / ACCEPTED**. Req 33, the E4 design contract, and TG21 final verification and acceptance. Req 33 is complete. |
+| TG22 | Req 34; contributes to Req 13, 15, 17, 23–28, 32 | Provider-owned readiness aggregation over TG21 setup and TG20 workspace evidence, read transport/authorization, frontend data/domain integration, checklist explanation, and bounded next actions. | Backend readiness/TG21/onboarding regressions (100 tests); frontend onboarding verification (33 suites / 235 tests) including isolated TG22 (5 suites / 45 tests); Ruff, compileall, ESLint, scoped TypeScript, localization, accessibility, and Alembic head `20260721_030000` verified. | **COMPLETE / ACCEPTED**. Req 34, the E5 design contract, and TG22.3 final acceptance. Req 34 is complete; commercial activation remains outside TG22. |
+
+No prior ledger entry authorized a later Task Group. E6 is complete and
+accepted. The approved E7 constitutional requirements/design and the E7
+authorization record below now authorize TG24. TG25 remains reserved for final
+E7 acceptance and does not authorize implementation detail beyond that gate.
+
+### Standard Task Group Documentation Lifecycle v1.0
+
+Every future Progressive Experience Task Group (TG23–TG31) must follow this
+exact lifecycle without omission or reversal:
+
+```text
+Roadmap
+↓
+Requirements
+↓
+Design
+↓
+RTM
+↓
+Tasks
+↓
+Implementation
+↓
+Verification
+↓
+Acceptance
+↓
+RTM update
+↓
+Tasks update
+```
+
+Mandatory maintenance rules:
+
+1. At constitutional approval, update `requirements.md`, `design.md`,
+   `requirements-traceability-matrix.md`, and `tasks.md` together.
+2. At implementation completion, update only the RTM fulfillment/evidence and
+   this execution ledger unless approved product intent or architecture changed.
+3. At acceptance completion, update the RTM verification fields and add the
+   acceptance record here. Manual evidence must be identified explicitly; an
+   absent manual run must never be inferred from automated tests.
+4. No Task Group may begin implementation with missing roadmap, requirements,
+   design, RTM, task boundary, or acceptance ownership.
+5. Commits, tests, and acceptance results must be recorded from repository or
+   accepted-report evidence. Unknown evidence is recorded as not identified,
+   never guessed.
+
+This ledger must not restate product rules or architecture. It records the
+objective, authorized boundary, execution, verification, acceptance decision,
+and stopping point for each Task Group.
+
+### E6 Constitutional Requirements and Design — COMPLETE (2026-07-23)
+
+- **Objective:** Freeze product and architectural ownership for draft conflict,
+  backend step revision/timestamp authority, multi-device convergence,
+  effective-tenant isolation, and safe recovery.
+- **Requirements:** Requirements 9, 11, 16, 17, and 29–32 now reference the E6
+  constitutional contract. Existing implementation statuses are unchanged.
+- **Design:** Backend authoritative state/revision, frontend local-draft and
+  recovery presentation, persistence separation, request-driven convergence,
+  tenant switching, audit safety, accessibility/localization, and acceptance
+  boundaries are approved.
+- **Verification:** Canonical documents and current source ownership were
+  inspected. Current backend progress persistence owns `updated_at`, the status
+  projection does not yet expose per-step revision/timestamp evidence, and the
+  frontend draft owns device-local `lastSavedAt`; no implementation claim is
+  made.
+- **Status at this checkpoint:** **CONSTITUTIONALLY COMPLETE / IMPLEMENTATION
+  NOT YET AUTHORIZED**. The later readiness record and TG23 ledger below now
+  supply that authorization; this historical checkpoint created no source task.
+- **Acceptance reference:** E6 constitutional product contract in
+  `requirements.md`, E6 constitutional design contract in `design.md`, and the
+  affected E6 rows/readiness decision in the RTM.
+
+## TG23 — Draft Conflict and Multi-Clinic Recovery (AUTHORIZED)
+
+Status: **IMPLEMENTATION AUTHORIZED; CHECKPOINTS NOT STARTED** (2026-07-23)
+
+- **Objective:** Prevent stale device-local drafts from overwriting newer server
+  state or crossing organization/effective-tenant boundaries, with deterministic
+  accessible recovery and auditable outcomes.
+- **Requirements:** Req 9, 11, 16, 17, and 29–32. Implementation fulfillment
+  status remains unchanged until checkpoint and acceptance evidence exists.
+- **Design:** E6 constitutional product contract in `requirements.md`; E6
+  constitutional design contract in `design.md`; TG18 journey identity, TG19
+  Effective Tenant/isolation, TG21 projection identity, and TG22 tenant/readiness
+  boundaries remain authoritative.
+- **Readiness:** `E6-IMPLEMENTATION-READINESS.md` — **COMPLETE / IMPLEMENTATION
+  AUTHORIZED**.
+- **Reuse:** Existing `org_setup_progress`, setup-progress repository, onboarding
+  status/service/routes, active SQLAlchemy UoW, Effective Tenant/organization
+  context, authorization, organization audit, Platform Idempotency, Wizard Draft
+  store, onboarding datasource/repository/query keys, `useJourneyFoundation`,
+  SetupWizardFlow, tenant cleanup, Theme, localization, and accessibility systems.
+- **Out of scope:** E7 offline queue/replay, arbitrary or field-level merge,
+  peer-to-peer draft sync, cross-tenant transfer, frontend-generated authority,
+  duplicate stores/repositories/API clients, commercial lifecycle, Doctor Module,
+  Clinical Workspace, scheduling, inventory, billing, and payment implementation.
+
+### TG23.1 — Backend Per-Step Revision Foundation (NOT STARTED)
+
+- Add the authorized additive progress-revision migration, model/port/adapter
+  support, concurrency-safe revision primitives, active-UoW registration, and
+  per-step status evidence including baseline visible steps.
+- Verify migration compatibility, historical/new/absent rows, atomic revision+
+  timestamp behavior, concurrent comparison, response compatibility, and tenant
+  isolation with focused PostgreSQL tests, Ruff, compileall, and Alembic checks.
+- Stop if the migration graph is not single-head/current or authoritative evidence
+  cannot be produced atomically for every visible step.
+
+### TG23.2 — Backend Conflict-Aware Submission and Transport (NOT STARTED)
+
+- Compose expected revision, Effective Tenant/organization/permission checks,
+  existing mutation, idempotency, safe organization audit, typed conflict, and
+  rollback through the active UoW; routers remain rule-free.
+- Verify accepted/stale/missing/cross-scope/concurrent revisions, replay/conflict,
+  authorization, safe errors, audit, rollback, and TG19/TG21/TG22 regressions.
+- Stop if a second mutation path or non-atomic commit boundary is required.
+
+### TG23.3 — Frontend Revision and Conflict Data/Domain (NOT STARTED)
+
+- Extend DTO/domain/datasource/repository owners, Wizard Draft schema v2,
+  server-base/projection binding, typed errors, scoped cleanup, and pure recovery
+  rules without adding another store/query/API client.
+- Verify mapping, legacy draft migration, missing evidence, conflict eligibility,
+  stale responses, expiry, isolation, and TG13–TG22 regressions.
+- Stop if frontend must generate or reinterpret authoritative revision.
+
+### TG23.4 — Frontend Conflict and Recovery Presentation (NOT STARTED)
+
+- Add the domain-specific accessible DraftConflictModal and orchestration for Use
+  Latest, Keep Local, unavailable refresh, completed/retired/hidden cleanup,
+  duplicate-action protection, and tenant switching using central Theme and both
+  locale catalogs.
+- Verify no-conflict/conflict/repeat-conflict, Device A/B, tenant switch,
+  logout/login, no leakage, focus/screen-reader/touch/font semantics, Hindi parity,
+  Theme compliance, and presentation regressions.
+- Stop before deleting a draft without a confirmed safe outcome or rendering any
+  cross-scope state.
+
+### TG23.5 — Final E6 Verification and Acceptance (NOT STARTED)
+
+- Run the complete backend/frontend, PostgreSQL migration/concurrency, static,
+  isolation, rollback, and Req 32 manual/staging E6 matrix.
+- Fix only verified E6 defects; then update RTM implementation/verification evidence
+  and this ledger acceptance record.
+- E6 remains unaccepted while any stale-write, missing-evidence, multi-device,
+  tenant-switch, accessibility/localization, audit, rollback, or migration gate is
+  unverified.
+
+Rollback order is frontend/E6-enforcement disable first, then backend compatibility
+revert, then additive revision-column downgrade. No rollback may silently submit,
+overwrite, or delete an unresolved editable draft. TG23.1 is the only authorized
+source activity after this checkpoint; each later checkpoint requires a separate
+execution prompt and must stop after its own evidence/commit/push.
+
 ## Notes
 
 ### TG21 E4 Constitutional Contract — APPROVED (2026-07-22)
@@ -1776,6 +1946,805 @@ billing implementation, or architecture rewrites.
 - All UI changes must use `useClinicTheme()` exclusively — zero hardcoded colours, spacing, font sizes, or border radii (except `flex`, `zIndex`, `minHeight: 44`, `minWidth: 44`, animation timing).
 - The `submissionId` guard (task 6.2) and the `Idempotency-Key` (task 11.2) are complementary layers: `submissionId` prevents frontend double-dispatch; `Idempotency-Key` prevents backend duplicate records if a network retry reaches the server.
 - WizardDraftStore was excluded from the earlier production-hardening checkpoint. It is now complete through Task Groups 13-15. OfflineBanner visibility/gating is complete through Task Group 16. Other deferred items remain out of scope until a later canonical task group authorizes them: PendingMutationStore, Axios retry interceptor, conflict resolution modal, analytics beyond the approved draft-storage event path, i18n additions beyond user-visible strings introduced by an authorized task, accessibility enhancements beyond touched controls, and payment recovery.
+
+## E7 Constitutional Completion and TG24 Authorization (2026-07-23)
+
+E7 — Offline Mutation Recovery is constitutionally complete. Requirements 8,
+12, 20, 22–24, 26, 28, 30, and 32 remain implementation-partial, but their E7
+scope, ownership, invariants, prohibitions, retry/persistence/replay lifecycle,
+security, telemetry, experience, compatibility, rollback, and acceptance
+contracts are approved in `requirements.md` and `design.md`.
+
+TG24 is authorized to implement only the Version 1
+`onboarding.step.submit.v1` durable recovery contract. TG24 must reuse Effective
+Tenant, E6 revision authority, Platform Idempotency, the existing onboarding
+datasource/repository/query family, Wizard Draft scope conventions, central
+Theme/localization/accessibility systems, and the approved application
+telemetry boundary. It must not implement any prohibited operation family or
+create a generic request queue, new backend API, migration, idempotency service,
+tenant authority, repository family, or second replay engine.
+
+### TG24.1 — E7 Domain and Safe Record Contract
+
+- **Objective:** Implement immutable Version 1 operation, lifecycle, retry
+  taxonomy, safe durable-record validation, payload allowlist, schema
+  migration/corruption, expiry, and scope rules.
+- **Ownership:** Frontend E7 domain plus the existing tenant/user-scoped local
+  persistence boundary. Backend is reference-only.
+- **Acceptance boundary:** Closed operation/field allowlists, prohibited-data
+  rejection, lifecycle invariants, schema/legacy/corruption handling, expiry,
+  user/organization/tenant isolation, and no source outside E7-owned frontend
+  domain/persistence boundaries.
+
+### TG24.2 — E7 Application Replay Coordination
+
+- **Objective:** Implement the single replay authority for enqueue, claim,
+  deterministic tenant FIFO, duplicate collapse, backoff, restart/reconnect/
+  foreground triggers, cancellation, success removal, and terminal transition.
+- **Ownership:** Frontend E7 application/presentation-hook orchestration using
+  existing auth, Effective Tenant, connectivity, Journey Visibility, E6
+  evidence, and query owners.
+- **Acceptance boundary:** One active claim per tenant, original plus three
+  bounded replays, fresh authority before execution, no competing transport
+  retry, deterministic concurrent triggers, and safe tenant-switch/logout/
+  authorization-loss behavior.
+
+### TG24.3 — Existing Datasource and Repository Integration
+
+- **Objective:** Execute only approved queued step submissions through the
+  existing onboarding datasource/repository/query boundary with original
+  idempotency identity and normalized typed outcomes.
+- **Ownership:** Existing frontend onboarding datasource/repository and query
+  keys; existing backend step mutation, authorization, transaction,
+  idempotency, audit, and E6 conflict owners remain unchanged.
+- **Acceptance boundary:** No new API or repository family; operation registry
+  cannot build arbitrary requests; successful replay invalidates current
+  queries; E6 conflict blocks and delegates without replacing revision;
+  authorization, validation, malformed, unsupported, and idempotency outcomes
+  follow the approved taxonomy.
+
+### TG24.4 — Recovery Presentation, Telemetry, and Lifecycle Integration
+
+- **Objective:** Integrate pending/replaying/conflict/manual/expired recovery
+  states, bounded user actions, safe lifecycle telemetry, and existing
+  wizard/connectivity behavior.
+- **Ownership:** E7 presentation components/hooks, existing E6 recovery owner,
+  onboarding telemetry port/provider or safe no-op adapter, both locale
+  catalogs, and central Theme/accessibility primitives.
+- **Acceptance boundary:** Refresh/edit/retry/discard/support actions appear
+  only when owned; no silent deletion or infinite retry; English/Hindi parity,
+  focus/live/busy/disabled/touch/font/back semantics, Theme-only presentation,
+  and zero payload/raw-error telemetry leakage.
+
+### TG24.5 — TG24 Verification and Implementation Completion
+
+- **Objective:** Verify the complete implemented E7 contract and correct only
+  TG24-owned defects before handing the frozen implementation to TG25.
+- **Ownership:** Frontend E7 unit/integration/device verification plus read-only
+  backend contract/regression verification.
+- **Acceptance boundary:** Operation and data deny lists; persistence,
+  migration, corruption, expiry; FIFO/locking/concurrency; retry/exhaustion;
+  restart/reconnect/foreground; E6 conflict; idempotency; tenant/organization/
+  user isolation; logout/switch; telemetry; localization/accessibility/Theme;
+  rollback; and TG18–TG23 regressions pass with clean synchronized worktrees.
+
+### TG25 — E7 Final Acceptance
+
+TG25 is authorized solely as the final verification and acceptance gate after
+TG24.5 completes. It may validate Requirement 32 staging/device evidence,
+rollback, regressions, and the frozen TG24 implementation and may correct only
+verified E7 defects under explicit execution authorization. It must not add E7
+functionality, redefine contracts, or begin E8.
+
+**TG24 IMPLEMENTATION AUTHORIZED**
+
+**TG25 FINAL ACCEPTANCE AUTHORIZED AFTER TG24.5**
+
+### E8 Constitutional Governance and TG26 Authorization
+
+Status: **CONSTITUTIONALLY COMPLETE; TG26 IMPLEMENTATION AUTHORIZED**
+
+`E8-CONSTITUTIONAL-DECISIONS.md`, the E8 requirements, design ownership, and RTM
+are frozen. TG26 may implement only the approved commercial-trial lifecycle and
+retention/recovery boundary. TG27 subscription/payment implementation remains
+unauthorized.
+
+Every checkpoint must preserve backend commercial authority, immutable trial
+identity, server-UTC/configuration policy, organization/effective-tenant
+isolation, clinical truth, existing customer terms, Clean Architecture, reuse
+before create, localization, accessibility, Theme, typed failures, audit,
+idempotency, concurrency, rollback, and E9 ownership.
+
+### TG26.1 — Source Reuse and Compatibility Proof (COMPLETE)
+
+- **Objective:** Prove the semantic fit of existing commercial, Demo, trial,
+  subscription, readiness, export/archive, repository, audit, authorization,
+  scheduling, and presentation assets; classify every legacy cohort.
+- **Ownership:** Read-only backend/frontend source audit and E8 governance.
+- **Repository:** Backend and frontend documentation/evidence only; no product
+  behavior is authorized in this checkpoint.
+- **Rollback boundary:** Documentation/evidence can be reverted without runtime
+  or data effects.
+- **Acceptance boundary:** Exact reuse/extend/do-not-reuse decisions, legacy
+  disposition, allowed file boundaries, configuration ownership, migration
+  count, test matrix, and stop conditions are source-backed with no unresolved
+  implementation decision.
+
+#### TG26.1 Completion Evidence
+
+Status: **COMPLETE — 2026-07-29**
+
+The proof inspected current backend and frontend source. The classifications
+below govern TG26.2 onward and do not authorize TG26.3 or later work.
+
+**Backend reuse classification**
+
+| Capability | Classification | Source-backed disposition |
+| --- | --- | --- |
+| Effective Tenant and organization context | Reuse unchanged | Existing authenticated organization context, effective-tenant selection, and membership authorities remain the mandatory scope boundary. |
+| RBAC and authorization | Reuse with extension | Existing organization authorization remains authoritative; E8 adds only approved trial/commercial capabilities and must not create a parallel role model. |
+| Active SQLAlchemy Unit of Work | Reuse with extension | Existing caller-owned commit/rollback and flush-only repository behavior remains authoritative; register only the E8 repository required by TG26.2. |
+| SQLAlchemy repository pattern | Reuse with extension | Reuse aggregate mapping, optimistic-concurrency, database-time, tenant isolation, and history patterns; E8 requires its own repository port and adapter. |
+| Organization/platform audit | Reuse with extension | Reuse append-only audit persistence and transaction participation; add only the approved E8 event vocabulary and safe metadata. |
+| Typed-error pattern | Reuse with extension | Reuse fail-closed domain/application/transport mapping conventions; define only approved E8 failures. |
+| Configuration framework | Reuse with extension | Existing typed settings remain configuration authority; E8 adds immutable trial and retention policy configuration captured at activation. |
+| Organization idempotency | Reuse unchanged | Existing organization-scoped fingerprint, replay, conflict, and flush semantics govern E8 commands. |
+| Ready-to-Start authority | Reuse unchanged | Existing E5 readiness composition remains the activation prerequisite; E8 must consume, not recalculate, readiness. |
+| Existing organization/workspace lifecycle | Reuse unchanged | Existing organization, tenant, and workspace authorities remain independent; E8 observes their identifiers and does not replace their lifecycle. |
+| Migration conventions and model registry | Reuse unchanged | Use the current additive Alembic/model-registry conventions and leave historical migrations untouched. |
+| Scheduler/background-job infrastructure | New implementation required | No governed production scheduler/executor authority exists in current source. TG26.3 must not invent one without an approved Platform Foundation boundary. |
+| API versioning and transport conventions | Reuse unchanged | Existing `/api/v1`, dependency-injection, schema, and typed-transport patterns govern later E8 transport work. |
+| Legacy trial/Demo implementation | New implementation required | Legacy trial service, DTO, router, and `org_trial_sessions` semantics are compatibility inputs only, not E8 authority; they must not be extended into the E8 lifecycle. |
+
+**Frontend reuse classification**
+
+| Capability | Classification | Source-backed disposition |
+| --- | --- | --- |
+| Onboarding repository and datasource layers | Reuse with extension | Add E8 operations through existing interfaces/adapters; do not create a competing commercial datasource stack. |
+| React Query ownership | Reuse with extension | Reuse tenant/organization-scoped key, invalidation, foreground refresh, and cache-clear patterns; E8 requires distinct keys from legacy Demo. |
+| Existing onboarding state and wizard flow | Reuse with extension | Reuse the current orchestration and handoff boundaries; backend E8 state remains authoritative. |
+| Theme | Reuse unchanged | Central Theme, typography, color, and spacing tokens remain the only presentation authority. |
+| Localization | Reuse unchanged | Existing localization framework and `en-US`/`hi-IN` parity rules remain authoritative; E8 adds keys only. |
+| Accessibility | Reuse unchanged | Existing semantic, focus, live-region, loading, touch-target, and font-scaling patterns remain mandatory. |
+| Navigation | Reuse with extension | Extend existing Expo Router and effective-tenant handoff patterns only for approved E8 surfaces/actions. |
+| Generic status/loading/error presentation | Reuse with extension | Reuse existing primitives and presentation patterns while adding E8-specific semantics. |
+| Legacy `DemoStatusBanner` and Demo hooks/models | New implementation required | Device-time countdowns and Demo semantics cannot represent backend-authoritative E8 commercial state; keep them compatibility-only and do not reuse them as E8 authority. |
+
+**Compatibility and legacy proof**
+
+- E8 is additive: it consumes Effective Tenant, E5 readiness, RBAC,
+  idempotency, audit, active UoW, configuration, and migration conventions.
+- E8 does not compete with E6 revision/conflict ownership or E7 offline queue
+  ownership. Later E8 commands must continue to use those established
+  boundaries where applicable.
+- Existing seven-day/provisional and other historical trial records retain
+  their original terms and authority. TG26.2 must not synthesize E8 identity,
+  configuration, or lifecycle evidence for them.
+- The legacy trial router/service and Demo presentation remain compatibility
+  surfaces only. They must not activate, mutate, or calculate the E8 lifecycle.
+- Subscription and payment authority remains E9. E8 may expose only the
+  approved subscription-request handoff.
+
+**TG26.2 implementation boundary**
+
+- **Allowed backend areas:** E8-owned domain model/value objects/errors;
+  repository port and SQLAlchemy adapter; E8 persistence models; active UoW
+  registration; typed configuration extension; model registry; exactly one
+  additive Alembic migration; and focused TG26.2 backend tests.
+- **Prohibited areas:** all frontend source; legacy trial service/interface/
+  router/billing schemas; tenant provisioning behavior; API routes and
+  dependencies; scheduler/jobs; subscription/payment behavior; extension
+  workflows; retention execution; and historical migrations.
+- **Migration authorization:** exactly one additive TG26.2 migration for the
+  approved E8 persistence authority and approved permission seed, with safe
+  downgrade and no historical backfill or legacy-term reinterpretation.
+- **Focused test matrix:** lifecycle/value-object invariants; unknown
+  state/version fail-closed behavior; immutable identity/configuration;
+  organization/effective-tenant isolation; create/load/history round trips;
+  uniqueness and optimistic concurrency; server-UTC behavior; audit-safe
+  persistence; legacy-row non-interference; migration upgrade/downgrade,
+  current/head, fresh-database compatibility, and model-registry coverage.
+- **Stop conditions:** stop if TG26.2 requires a second migration, legacy data
+  inference, transport/application behavior, scheduler authority, E9 behavior,
+  a parallel UoW/repository/configuration system, or any product/architecture
+  decision not present in the frozen E8 constitution.
+
+**Gap and readiness decision**
+
+TG26.2 is **READY**: its domain, persistence, configuration, migration, reuse,
+test, and stop boundaries are source-backed with no unresolved decision inside
+that checkpoint. The governed production scheduler/executor required for
+scheduled transitions is a genuine Platform Foundation gap for TG26.3; TG26.3
+must remain blocked on that authority unless an approved reusable mechanism is
+identified before implementation. This historical TG26.1 finding was resolved
+on 2026-07-29 by
+`ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md`; it does not retroactively expand
+TG26.1 or TG26.2.
+
+### TG26.2 — Backend Trial Domain and Persistence (COMPLETE)
+
+- **Objective:** Establish the approved immutable trial identity, lifecycle,
+  configuration capture, history, retention schedule, compatibility, and
+  persistence authority.
+- **Ownership:** Backend E8 domain, persistence, active Unit of Work, migration,
+  organization/effective-tenant isolation, and platform audit owners.
+- **Repository:** Backend only.
+- **Rollback boundary:** E8-owned additive persistence/configuration changes may
+  roll back without altering historical migrations, existing paid/seven-day
+  terms, clinical truth, or unrelated platform state.
+- **Acceptance boundary:** Lifecycle invariants, UTC/configuration authority,
+  uniqueness/versioning, legacy preservation, scheduled-transition evidence,
+  audit safety, migration upgrade/downgrade, PostgreSQL, and isolation pass.
+
+#### TG26.2 Completion Evidence
+
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented the pure `commercial_trial_v1` aggregate with persisted
+  `ELIGIBLE`, `ACTIVE`, and `EXPIRED` states; `EXPIRING` is derived at runtime
+  and is absent from persistence.
+- Added immutable organization-clinic trial identity, readiness evidence,
+  audit correlation, captured duration/configuration, server-UTC timestamps,
+  aggregate versioning, lifecycle validation, and typed failures.
+- Added a flush-only repository port/adapter, active-UoW registration,
+  organization/effective-tenant association validation, one-trial uniqueness,
+  compare-and-swap activation, and append-only safe lifecycle history.
+- Added exactly one additive migration (`20260729_010000`) for
+  `org_commercial_trials`, `org_commercial_trial_events`, indexes,
+  constraints, and the `trial.activate` permission catalogue entry. No legacy
+  trial/Demo row was migrated, inferred, restarted, or converted.
+- Verified 20 focused TG26.2 tests, 118 passing adjacent backend regressions
+  with two environment-gated skips, 13 passing metadata/permission
+  regressions, new-file Ruff, full `app` compileall, and an isolated
+  PostgreSQL full-chain upgrade, TG26.2 downgrade, and re-upgrade to head.
+- TG26.3 scheduler, application services, transport, retention, extension,
+  subscription, payment, and all frontend work remain unimplemented and
+  unauthorized by this completion record.
+
+#### TG26.2 scope reconciliation
+
+The accepted TG26.2 implementation is narrower than the full persistence
+foundation canonical TG26.3 consumes. Source evidence confirms:
+
+| Missing TG26.3 prerequisite | Required owner before TG26.3 |
+| --- | --- |
+| `SUSPENDED`, `ARCHIVED`, and terminal commercial `DELETED` lifecycle invariants and transitions | TG26.2A domain |
+| Extension request/direct-grant/approval evidence and same-trial recovery to `ACTIVE` | TG26.2A domain and persistence |
+| Retention-policy identity, UTC transition timestamps, and derived final-notice boundary | TG26.2A domain, configuration, and persistence |
+| Immutable extension and retention lifecycle history | TG26.2A persistence and audit-evidence contract |
+| Export-in-progress timeout evidence and legal/regulatory/statutory protection evidence | TG26.2A persistence and repository protection contract; external policy owners remain unchanged |
+| Scoped compare-and-swap lifecycle update, due eligibility, protection check, execution claim/lease, and recovery operations | TG26.2A repository port/adapter |
+| Due-work polling, scheduler registration/runtime, lifecycle execution, retries, orchestration, and typed outcomes | TG26.3 scheduler/executor and application |
+| Activation, extension request/direct grant/approval, retained recovery, export/download handoff, and E9 request handoff APIs | TG26.3 application and transport |
+
+TG26.2 remains complete for its delivered trial-phase boundary. The missing
+retention and extension foundation is not silently reassigned to TG26.3.
+
+### TG26.2A — Retention and Extension Domain/Persistence Foundation (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented and verified the E8 retained-state, extension/recovery,
+  protection-evidence, scoped CAS/due/claim repository, configuration, and
+  PostgreSQL persistence foundation in backend commit `b5d7a60`.
+- Migration `20260729_020000` passed fresh upgrade, safe downgrade, and
+  re-upgrade against isolated PostgreSQL. Focused TG26.2/TG26.2A and metadata
+  registry tests passed; no scheduler, executor, application service,
+  transport, frontend, E9, billing, payment, or export implementation was
+  introduced.
+
+- **Objective:** Complete only the E8 domain and persistence contracts required
+  for canonical TG26.3 to orchestrate retention, extension, recovery, and
+  protected scheduled transitions without inventing aggregate or schema
+  behavior.
+- **Ownership:** Backend E8 domain, value objects, typed errors, persistence,
+  repository port/adapter, active Unit of Work, typed configuration, migration,
+  lifecycle/extension history, organization/effective-tenant isolation, and
+  protection-evidence boundaries.
+- **Repository:** Backend only.
+- **Authorized domain:** Persist `SUSPENDED`, `ARCHIVED`, and terminal
+  commercial `DELETED`; preserve derived `EXPIRING` and final notice as views;
+  define legal server-UTC transitions; preserve immutable trial identity and
+  original activation evidence; support same-trial extension recovery from
+  `SUSPENDED` or `ARCHIVED` to `ACTIVE`; enforce the 30-day per-extension
+  maximum and typed fail-closed invariants.
+- **Authorized extension evidence:** Persist immutable request/direct-grant,
+  approval or rejection, required business reason, approval channel, requester
+  where applicable, Super Admin approver, decision timestamp, days granted,
+  prior and resulting authoritative end timestamps, correlation, and
+  idempotency evidence. No extension may create another trial or imply
+  subscription/payment.
+- **Authorized retention evidence:** Persist captured policy identity and
+  durations, authoritative transition timestamps, append-only lifecycle
+  history, export-in-progress reference/status/timeout evidence, and
+  legal-hold/regulatory/statutory protection evidence sufficient to make
+  deletion eligibility fail closed. TG26.2A does not own export formats, legal
+  policy, secure deletion, or external protection decisions.
+- **Authorized repository boundary:** Add flush-only scoped operations for
+  compare-and-swap lifecycle persistence, due-transition eligibility,
+  protection checks, deterministic execution identity, claim acquisition,
+  lease renewal/reclamation/release, idempotent replay, extension evidence, and
+  retained-state recovery. No polling or executor loop is authorized.
+- **Configuration:** Add typed, validated Version 1 retention durations,
+  extension maximum, protection timeout, and immutable policy-version
+  configuration. Configuration affects future captured terms only.
+- **Migration authorization:** Exactly one additive migration may extend the
+  E8 tables and constraints and add only constitutionally required E8
+  extension/protection persistence. Historical migrations remain untouched.
+  Existing rows retain their current facts; no lifecycle timestamp, policy
+  identity, extension decision, legal hold, export state, or protection
+  evidence may be fabricated. Existing rows lacking required evidence fail
+  closed for later scheduled retention until governed classification.
+- **Audit boundary:** Persist append-only safe lifecycle and decision evidence
+  suitable for later transactional organization/platform audit. No clinical
+  content, export payload, legal document, contact, credential, token,
+  fingerprint, payment data, or raw exception may be stored.
+- **Rollback boundary:** Downgrade must preserve or refuse safely when retained
+  states, extensions, protection evidence, or claims exist; it must never
+  collapse retained state into `EXPIRED`, shorten terms, remove legal/export
+  protection, restart a trial, or delete clinical truth.
+- **Focused tests:** State/version fail-closed behavior; every legal and illegal
+  trial/retention transition; derived-state behavior; immutable identity and
+  activation evidence; extension limit and repeated extension history;
+  retained recovery; organization/tenant isolation; optimistic concurrency;
+  due eligibility; multi-worker claim/lease safety and expiry; idempotent
+  replay; export/legal protection blocking; safe history; configuration
+  capture; legacy-row fail-closed behavior; migration upgrade/downgrade,
+  constraints/indexes, current/head, and model-registry coverage.
+- **Explicitly prohibited:** Scheduler runtime, due-work polling, worker
+  startup, lifecycle executor, application services, public APIs, frontend,
+  E9/subscription, payment, billing, dunning, export generation/format,
+  legal-retention policy, secure deletion, additional runtime registrations,
+  legacy Demo conversion, or historical backfill/inference.
+- **Stop conditions:** Stop if implementation needs more than one migration,
+  a product lifecycle change, a second trial identity, fabricated legacy
+  evidence, a scheduler/application/transport behavior, an external export or
+  legal-policy decision, E9 behavior, or any weakening of tenant isolation,
+  audit, idempotency, legal protection, or clinical truth.
+- **Acceptance boundary:** Domain, repository, persistence, configuration,
+  migration, PostgreSQL, concurrency, protection, rollback, and focused
+  regression evidence pass with no runtime or transport implementation.
+
+TG26.2A is complete. Its TG26.3 prerequisite is satisfied; TG26.4, TG26.5,
+TG27, and E9 remain unauthorized until their existing prerequisites and
+acceptance boundaries are satisfied.
+
+### TG26.3 Prerequisite — Governed Scheduler/Executor Authority (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Audited the outbox worker and handler registry, workspace-preparation
+  executor, active Unit of Work and audit/idempotency infrastructure,
+  in-process async processor, FastAPI lifespan, legacy billing jobs,
+  repair-on-read sweeps, and E7 replay/retry ownership.
+- Confirmed that no existing component is approved unchanged as a production
+  time-based lifecycle scheduler. The outbox worker and
+  workspace-preparation executor provide reusable operational and execution
+  patterns, but retain their existing event-delivery and onboarding ownership.
+- Accepted `ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md` as the additive
+  Platform Foundation authority for explicit registration, database-UTC
+  due-work discovery, bounded dispatch, claim safety, retries, system-actor
+  audit, tenant isolation, and domain-owned lifecycle execution.
+- Established the runtime authority later consumed by TG26.3: the minimum
+  scheduler/executor contracts and separate-process runtime, the single E8
+  registration/provider/executor, and canonical backend application/transport
+  work. This authority does not make TG26.3 ready independently of TG26.2A.
+- No scheduler, worker, lifecycle transition, API, migration, or frontend
+  runtime behavior was implemented by this prerequisite.
+- `ADR-PF-020-PLATFORM-BACKGROUND-RUNTIME-CATALOG.md` now governs runtime
+  selection and ownership across the platform. It catalogs the Outbox Worker,
+  Lifecycle Scheduler and Executors, E7 Replay Coordinator, Workspace
+  Preparation Executor, FastAPI lifespan, `AsyncProcessor`, repair-on-read,
+  and the non-governed Legacy Billing Job Service without implementing or
+  expanding any runtime.
+
+### TG26.3 — Backend Application, Scheduling, and Transport (AUTHORIZED)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Implemented the single code-owned E8 lifecycle registration, governed
+  scheduler contracts/coordinator, separate worker startup and graceful
+  shutdown, typed bounded configuration, database-UTC due discovery, bounded
+  concurrency, claim/lease execution, expired-lease recovery, retry exhaustion,
+  deterministic execution identity, and safe worker health state.
+- Implemented E8 lifecycle execution through the existing aggregate,
+  commercial-trial repository, active Unit of Work, organization audit, and
+  platform audit. Each execution validates organization/tenant scope and applies
+  at most one legal transition; optimistic conflicts replay as safe no-ops.
+- Implemented backend-authoritative commercial-trial reads, explicit
+  readiness-gated activation, Organization Admin extension requests, Super
+  Admin direct grants/request approvals and retained recovery, typed errors,
+  Effective Tenant composition, organization-scoped idempotency, and
+  export/download plus E9 subscription-request handoffs without implementing
+  export generation or E9 behavior.
+- Added the narrowly required additive platform-audit actor migration
+  `20260729_030000`; it authorizes only the governed lifecycle system actor and
+  refuses downgrade while its immutable audit evidence exists.
+- Focused TG26.3 application/scheduler/transport tests and TG26.2/TG26.2A plus
+  platform-audit regressions pass. Ruff, compileall, import composition,
+  Alembic single-head graph, and diff checks pass. Applying the migration to the
+  configured shared development database was intentionally not performed by
+  this checkpoint; deployment migration verification remains an environment
+  gate.
+
+- **Objective:** Implement authorized reads and lifecycle commands, including
+  explicit activation, extension request/approval, retained-state recovery,
+  scheduled transitions, downloads/exports handoff, and E9 subscription-request
+  handoff.
+- **Ownership:** Backend E8 application/transport, E5 readiness authority,
+  authorization/RBAC, idempotency, audit, scheduler/executor, and typed-error
+  owners.
+- **Repository:** Backend only.
+- **Prerequisite:** TG26.2A is implemented, verified, accepted, and committed;
+  backend synchronization remains the final Git gate before TG26.3 begins.
+  TG26.3 consumes its retained states,
+  extension/recovery evidence, transition/protection evidence, configuration,
+  and repository/claim contracts; TG26.3 must not redesign or duplicate them.
+- **Scheduler authority:** Implement against
+  `ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md`. Reuse the existing outbox
+  worker's separate-process and concurrency patterns and the
+  workspace-preparation executor's claim/transaction patterns without merging
+  their ownership. Register only the E8 lifecycle job; business transitions
+  remain E8-owned.
+- **Final application/transport boundary:** Own activation reads/commands,
+  extension request/direct-grant/approval orchestration, database-UTC due-work
+  discovery, the single E8 scheduler registration/runtime, lifecycle
+  execution, scheduled transitions, retained-state recovery orchestration,
+  bounded retry and claims, idempotency, transactional audit, typed failures,
+  and the approved export/download and E9 subscription-request handoffs. It
+  does not own export generation/format, legal-retention policy, secure
+  deletion, subscription, payment, billing, dunning, frontend, or another
+  runtime registration.
+- **Rollback boundary:** E8 routes, composition, and scheduled execution may be
+  disabled while preserving records, elapsed commercial time, retained access,
+  immutable evidence, and E9 boundary.
+- **Acceptance boundary:** Actor hierarchy, `trial.activate`, readiness,
+  explicit confirmation, concurrent replay, extensions, scheduled state
+  transitions, export-in-progress protection, typed failures, transactions,
+  retries, rollback, and tenant/organization isolation pass.
+
+### TG26.4 — Frontend Data and Domain Integration (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Added the immutable Version 1 commercial-trial frontend domain contract,
+  typed fail-closed failures, and exact backend DTOs without reusing legacy
+  Demo semantics or deriving commercial policy on device.
+- Extended the existing onboarding datasource and repository boundaries for
+  backend-authoritative reads, activation, extension request/grant, retained
+  downloads, and E9 subscription-request handoff. State-changing commands
+  preserve caller-owned idempotency keys and disable transport mutation retry.
+- Added organization/tenant/contract-scoped React Query keys, cancellation,
+  bounded typed query retry, exact invalidation, outgoing-scope eviction, and
+  aggregate-version protection against stale command responses.
+- Focused datasource/repository tests pass with 28 tests. Scoped ESLint and
+  `git diff --check` pass. Repository-wide TypeScript verification retains only
+  pre-existing failures outside TG26.4-owned files.
+- No presentation, localization, backend, migration, legacy Demo, E9
+  subscription/payment, or TG26.5 work was introduced.
+
+- **Objective:** Integrate backend-authoritative commercial and retention reads
+  and commands through approved frontend data/domain boundaries.
+- **Ownership:** Existing datasource, repository, domain/application, React
+  Query, auth/effective-tenant, and canonical cache owners.
+- **Repository:** Frontend only.
+- **Rollback boundary:** E8 frontend data/domain integration may be removed
+  without changing backend state, legacy terms, or existing readiness and
+  subscription owners.
+- **Acceptance boundary:** Typed mapping, unknown-version fail-closed behavior,
+  tenant-scoped keys, invalidation, stale-response protection, logout/switch/
+  authorization-loss isolation, transport retry ownership, and no frontend
+  policy calculation pass.
+
+### TG26.3A — Backend Commercial Retention Read Projection — COMPLETE
+
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** Backend commit
+`076cf1240254c6e33bd47d2d815999f8feb7545b` adds the authenticated,
+organization/tenant-isolated `GET
+/onboarding/{tenant_id}/commercial-trial/retention` projection through the
+existing E8 application, repository, Effective Tenant, authorization, schema,
+router, and typed-error boundaries. It derives lifecycle state, retention
+timing, actor-scoped eligibility, hold awareness, allowed actions, and safe
+ineligibility reasons from existing TG26 persistence. It adds no migration,
+export request, artifact/package model, storage field, scheduler detail, or
+frontend behavior.
+
+**Verification evidence:** 14 focused TG26.3A application/transport tests and
+50 complete TG26.1–TG26.3A backend regression tests passed. Ruff and compileall
+passed for touched paths. Existing migration-contract tests passed unchanged.
+
+- **Objective:** Expose the approved Version 1 Commercial Retention read
+  projection through the existing E8 application/transport boundaries.
+- **Ownership:** Backend E8 owns workspace/commercial state, archived and
+  retention timestamps, restoration/deletion/extension/export-request
+  eligibility, hold awareness, allowed actions, safe reason classifications,
+  authorization, and versioned typed failures.
+- **Reuse:** Existing TG26.2/TG26.2A persistence and repositories, TG26.3
+  application/transport/DI, Effective Tenant, organization authority, Unit of
+  Work, typed errors, and audit conventions.
+- **Explicitly out of scope:** Export requests, packages, generation,
+  retrieval, download, expiry, storage, artifact metadata, retained-record
+  collections, frontend, lifecycle mutation, scheduler changes, and E9.
+- **Migration boundary:** No migration is authorized. If existing persistence
+  cannot derive the projection without new evidence, stop and return to
+  governance.
+- **Acceptance boundary:** Organization/tenant-isolated projection, exact
+  versioned fields, backend-derived eligibility, unknown/missing evidence
+  failing closed, stable typed errors, authorization, focused unit/transport/
+  PostgreSQL tests, Ruff, compileall, and no export/artifact lifecycle pass.
+- **Stop condition:** Stop before TG26.4A.
+
+### TG26.4A — Frontend Commercial Retention Data and Domain Integration — COMPLETE
+
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** The existing E8 onboarding datasource, repository,
+domain, TanStack Query, typed-error, and tenant-scoped cache boundaries now
+consume the TG26.3A
+`GET /onboarding/{tenant_id}/commercial-trial/retention` projection. The
+immutable frontend model preserves backend-authoritative commercial state,
+timestamps, eligibility, hold awareness, allowed actions, ineligibility
+reasons, and aggregate version without deriving lifecycle policy or adding
+presentation.
+
+**Verification evidence:** 40 focused datasource, repository, mapping, query,
+cache-isolation, loading/error, retry, and existing Commercial Trial tests
+passed. Scoped ESLint and `git diff --check` passed. Repository-wide TypeScript
+verification reported only the established unrelated baseline failures and no
+TG26.4A-owned failure. No backend, migration, presentation, route, Workspace
+Data Export, download, package, or artifact implementation changed.
+
+- **Objective:** Map the approved Commercial Retention projection through the
+  existing datasource, repository, React Query, tenant-scoped cache, and
+  fail-closed domain model without presentation.
+- **Ownership:** Frontend E8 data/domain only.
+- **Explicitly out of scope:** Screens, routes, visual presentation, export
+  implementation, artifact models, local eligibility calculation, and TG26.5.
+- **Acceptance boundary:** Exact DTO mapping, unknown-version/state/action
+  fail-closed behavior, tenant-switch/logout/authorization-loss isolation,
+  stale-response protection, localization-neutral domain values, focused
+  repository/query tests, scoped lint/typecheck, and no source of competing
+  commercial authority pass.
+- **Stop condition:** Stop before TG26.5.
+
+### TG26.5 — Frontend Commercial and Retention Presentation — COMPLETE
+
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** The E8-owned
+`/onboarding/commercial-retention` destination now presents the existing
+TG26.4A query projection through central Theme, `en-US`/`hi-IN`
+localization, and accessible onboarding loading/error/content patterns. It
+shows backend-authoritative workspace status, archived and retention dates,
+legal/statutory hold awareness, exact allowed actions, and safe ineligibility
+reasons without identifiers, raw enums, lifecycle derivation, or policy
+calculation. Export, Support, and E9 actions remain explicit informational
+handoffs; no export, package, download, support request, billing, or navigation
+behavior was invented.
+
+**Verification evidence:** 41 focused TG26.5/TG26.4A UI, localization,
+datasource, repository, query, and cache tests passed. The TG26.5 UI plus
+SetupWizardFlow, JourneySurface, and WorkspacePreparation presentation
+regressions passed with 58 tests. Scoped ESLint, localization key parity, and
+`git diff --check` passed. Repository-wide TypeScript reported no
+TG26.5-owned failure and retained only the established unrelated baseline.
+Backend, API, repository, migration, and Workspace Data Export source remained
+unchanged.
+
+**Version 1 authority:** Commercial Retention presentation only. The former
+retained-artifact, `DOWNLOADS`/`ARCHIVE` artifact-mode, archive-file, and export
+package assumptions are superseded. TG26.5 consumes the governed Commercial
+Retention projection and must not invent export or retained-record state.
+
+- **Objective:** Present eligible, active, expiring, expired, suspended,
+  archived, final-notice, deleted, unavailable, and recovery experiences with
+  only backend-authorized commercial information and actions.
+- **Ownership:** Frontend E8 presentation/orchestration/navigation, existing
+  localization, accessibility, Theme, and typed future-capability handoff
+  boundaries.
+- **Repository:** Frontend only.
+- **Rollback boundary:** E8 surfaces/routes may return to the prior safe
+  read-only compatibility experience without issuing transitions.
+- **Acceptance boundary:** Explicit Start Trial, extension request, subscription
+  request, workspace status, archived date, retention timeline, eligibility
+  presentation, legal/statutory hold awareness, informational future Workspace
+  Data Export handoff, loading/error/disabled states, English/Hindi parity,
+  screen reader/focus/live/touch/font behavior, Theme-only styling, no artifact
+  presentation, and no Demo semantics pass.
+
+### TG26.5A — Executable Commercial Retention Workflows — COMPLETE
+
+**Status:** IMPLEMENTED (CORRECTIVE) — 2026-07-29.
+
+**Purpose and constitutional justification:** This post-acceptance-review
+corrective checkpoint follows the E8 Closure Review and subsequent Product and
+Architecture reconciliation, which confirmed that TG26.5
+presentation ownership includes the already-approved Start Trial confirmation,
+extension-request interaction, bounded reason validation, approved
+approval-channel handling, mutation orchestration, and authoritative refresh.
+TG26.5A closes that verified implementation gap without changing backend
+commercial policy or introducing Workspace Data Export behavior.
+
+**Implementation evidence:** Frontend commit
+`465365af2601ca32c2111de2f3a3bec4df25029a` adds explicit Start Trial
+confirmation, Organization Admin `IN_APP_REQUEST` extension requests, Super
+Admin grant/restore inputs, duplicate-submission protection, safe typed errors,
+authoritative refetch, central Theme, accessibility, and `en-US`/`hi-IN`
+localization through the existing TG26.4A query and mutation boundaries.
+
+**Verification evidence:** 29 focused TG26.5A and localization tests and 109
+broader onboarding presentation/data regressions passed. Scoped ESLint and
+`git diff --check` passed. Repository-wide TypeScript reported no
+TG26.5A-owned error and retained the established unrelated baseline. Backend,
+migrations, Product requirements, and Workspace Data Export remained
+unchanged.
+
+### TG26.5B — Remove Superseded Commercial Retention Downloads / Export-Package Architecture — COMPLETE
+
+**Status:** COMPLETE — 2026-07-29.
+
+- **Objective:** Remove the obsolete E8 `/commercial-trial/downloads` handoff
+  and `DOWNLOADS`/download-package contracts introduced before Commercial
+  Retention was separated from the future Workspace Data Export capability.
+- **Ownership:** Backend and frontend E8 cleanup only.
+- **Required boundary:** Remove obsolete backend transport and frontend
+  datasource, repository, domain, hook, mock, fixture, and test ownership while
+  preserving the backend-authoritative informational
+  `REQUEST_WORKSPACE_DATA_EXPORT` action.
+- **Explicitly out of scope:** New export requests, generation, packages,
+  storage, retrieval, download, navigation, compatibility aliases, Product
+  redesign, and unrelated export bounded contexts.
+- **Acceptance boundary:** Backend/frontend focused tests and relevant
+  regressions prove the obsolete route and contracts are absent, current E8
+  lifecycle/retention/TG26.5A behavior is unchanged, future export permission
+  remains informational and fail closed, and no migration exists.
+- **Delivery:** Use separate reviewed backend and frontend commits, then update
+  only the affected task and RTM evidence.
+- **Stop condition:** Stop before the E8 Final Acceptance Re-run.
+
+**Implementation evidence:** Backend commit `a2ad7be` removes the obsolete
+`/commercial-trial/downloads` route and prevents the E8 trial projection from
+emitting `DOWNLOADS`. The companion frontend TG26.5B commit removes the
+obsolete datasource, repository method, hook, domain action/owner variants,
+and positive transport assertions. The frontend retains one negative
+`DOWNLOADS` assertion solely to prove that stale cached actions fail closed.
+`REQUEST_WORKSPACE_DATA_EXPORT` remains an informational, backend-authoritative
+Commercial Retention action without an executable export workflow.
+
+**Verification evidence:** 43 focused backend E8 domain, repository,
+retention, application, projection, and transport tests passed; Ruff and
+compileall passed. Sixty-nine focused frontend Commercial Trial/Retention
+tests and 37 Journey/Setup Wizard regressions passed; scoped ESLint passed.
+Repository-wide TypeScript retained only unrelated baseline errors and
+reported no TG26.5B-owned error. Re-scans found no obsolete production
+download route, action mapping, datasource, repository, hook, or navigation.
+No migration was created.
+
+### E8 Final Acceptance Re-run — CONDITIONS RESOLVED; CONDITIONALLY READY
+
+**Status:** CONDITIONS RESOLVED — 2026-07-29; no Critical, High, or open
+Medium findings. Merge is ready subject to the environment-owned pre-promotion
+migration gate below.
+
+- **Objective:** Re-run the original E8 Product, Architecture, Engineering,
+  Security, UX, Traceability, and regression acceptance review.
+- **Acceptance boundary:** Confirm that no Critical or High findings remain,
+  reconcile only verified E8 task/RTM evidence, and issue an evidence-backed
+  merge recommendation.
+- **Explicitly out of scope:** New E8 functionality, TG27 implementation, or
+  acceptance waivers without evidence.
+
+**Acceptance evidence:** Product, Architecture, Backend, Frontend, Security,
+UX/Accessibility, Documentation, RTM, and corrective-boundary review found no
+Critical or High issue. TG26.5A workflows are executable and TG26.5B removed
+the obsolete E8 downloads/package chain while preserving informational
+`REQUEST_WORKSPACE_DATA_EXPORT`. Fifty-one focused backend E8 tests and 95
+readiness/journey regressions passed. Frontend assertions passed across 106
+focused and onboarding-regression tests; 82 presentation, localization,
+datasource, Journey, and Setup Wizard assertions terminated cleanly. Ruff,
+compileall, scoped ESLint, repository searches, and diff checks passed.
+Repository-wide TypeScript retained only unrelated baseline errors.
+
+**Acceptance-condition closure:**
+
+1. **Closed — Environment/Release Gate.** Full remote-ref and Git-history
+   inspection proves `20260727_000001` is the R7 Case Sheet contribution
+   snapshot migration on `origin/feature/r7-clinical-operating-system`, not a
+   lost or superseded E8 migration. R7 evidence records that migration as
+   applied to the shared development Supabase database. The E8 branch has one
+   valid head, `20260729_030000`, and its migration structure tests pass. The
+   Release/Database Migration owner must reconcile the integrated target
+   migration graph and run `alembic upgrade head`, `alembic current`, and
+   `alembic heads` after branch integration and before promotion. No E8
+   migration was created or altered.
+2. **Closed — Technical.** Frontend commit `5fee1758` gives the focused
+   Commercial Trial QueryClient explicit non-scheduling query/mutation
+   garbage-collection semantics. The repository suite and the broader seven
+   suite E8/onboarding set terminate normally under `--detectOpenHandles`,
+   without `--forceExit`, warnings, or retained TG26 handles.
+3. **Closed — Technical.** Frontend commit `5fee1758` directly verifies invalid
+   and boundary extension durations, fail-closed missing/unknown approval
+   channels, the approved channel vocabulary, fixed Organization Admin
+   `IN_APP_REQUEST`, conflict-driven authoritative refetch with no automatic
+   retry, and safe activation authorization failure with no optimistic state or
+   sensitive-detail leakage.
+
+Closure verification passed 154 backend E8/readiness/journey assertions and 98
+frontend E8/onboarding assertions. The frontend run used
+`--detectOpenHandles`; scoped ESLint and diff checks passed. Repository-wide
+TypeScript and Ruff still report only pre-existing unrelated baseline debt;
+neither changed file has a scoped lint or TypeScript error. Backend compileall
+passed. No Product, architecture, API, migration, or runtime behavior changed.
+
+Merge into `dev` is ready. Promotion remains conditional on the
+Release/Database Migration owner completing the integrated-environment action
+recorded above. This accepted ownership boundary closes the three Medium
+findings and authorizes TG26.6; it does not itself execute TG26.6.
+
+### TG26.6 — Final Verification and Acceptance
+
+**Status:** COMPLETE — 2026-07-29. E8 engineering is accepted and ready to
+merge into `dev`. Promotion remains subject to the approved
+Release/Database Migration environment gate.
+
+- **Objective:** Verify the complete frozen E8 contract and correct only
+  verified TG26-owned defects.
+- **Ownership:** Backend/frontend E8 verification plus release, security,
+  localization, accessibility, migration, and multi-clinic acceptance.
+- **Repository:** Backend and frontend; no new functionality or TG27 work.
+- **Rollback boundary:** Exercise and confirm the approved feature-disable,
+  persistence-preserving, schedule-safe, and frontend fallback boundaries.
+- **Acceptance boundary:** Complete lifecycle, configuration, activation,
+  extension, retention, recovery, legacy compatibility, export protection,
+  E9 handoff boundary, authorization, audit, concurrency/idempotency, scheduled
+  transitions, tenant/organization isolation, accessibility/localization/Theme,
+  migrations, rollback, regressions, and Requirement 32 evidence pass.
+
+**Final verification evidence:**
+
+- All accepted backend TG26 commits (`deb9ae8`, `b5d7a60`, `ecb8738`,
+  `076cf12`, and `a2ad7be`) and frontend TG26 implementation/corrective commits
+  through `5fee1758` are present in branch ancestry and pushed.
+- 154 backend E8, readiness, and journey assertions passed across domain,
+  persistence, migrations, retention, application/scheduler, projection,
+  transport, authorization, isolation, and compatibility suites.
+- 98 frontend Commercial Trial/Retention, localization, Journey, Setup Wizard,
+  datasource, repository, orchestration, and presentation assertions passed.
+  The run used `--detectOpenHandles` and terminated cleanly.
+- Focused E8 Ruff, backend compileall, scoped frontend ESLint, localization
+  parity, accessibility assertions, source-boundary scans, and Git diff checks
+  passed. Repository-wide TypeScript retained only the established unrelated
+  baseline and reported no E8-owned diagnostic.
+- Source and transport scans found no obsolete
+  `/commercial-trial/downloads` route, positive `DOWNLOADS` contract,
+  retained-artifact model, export-package lifecycle, temporary workaround, or
+  E8-owned TODO. The one `DOWNLOADS` reference is an intentional negative
+  frontend fail-closed assertion. Informational
+  `REQUEST_WORKSPACE_DATA_EXPORT` remains future capability scope.
+- Alembic has one E8 repository head, `20260729_030000`. The configured shared
+  development database still identifies the separate R7 revision
+  `20260727_000001`; this remains correctly classified as
+  **Environment / Release Gate**. The Release/Database Migration owner must
+  reconcile the integrated target graph and verify `upgrade head`, `current`,
+  and `heads` after integration and before promotion. No additional E8
+  engineering or migration change is required before merge.
+- Requirements, design, constitutional decisions, ADR-PF-019, ADR-PF-020,
+  implementation, tests, RTM, and task evidence are internally consistent.
+  Workspace Data Export remains future scope, E9 remains separate, and TG27
+  remains unauthorized.
+
+No checkpoint may begin until its predecessor meets its acceptance boundary. A
+checkpoint MUST stop if source evidence contradicts the approved contract or
+requires a new Product or Architecture decision. TG26.5B is the next canonical
+completed task. The E8 Final Acceptance Re-run conditions are resolved, and
+TG26.6 is complete. TG27 remains unauthorized until its stated prerequisites
+complete.
+
+**TG26 COMPLETE — E8 ENGINEERING ACCEPTED**
+
+**TG27 IMPLEMENTATION NOT AUTHORIZED**
 
 ## Git Delivery Strategy
 

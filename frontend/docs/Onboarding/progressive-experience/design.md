@@ -470,6 +470,483 @@ authorized by this constitutional contract.
 
 ---
 
+### E6 Draft Conflict and Multi-Clinic Recovery Constitutional Contract
+
+#### Domain ownership
+
+The E6 domain distinguishes two truths: backend-authoritative step state and a
+device-local, non-authoritative draft. Conflict is a guarded recovery condition,
+not a merge algorithm. Its identity is scoped by authenticated user,
+organization, effective tenant, Journey Visibility identity, and stable step
+code. The backend-issued opaque step revision is the concurrency authority;
+`updated_at` is UTC freshness evidence for explanation and audit.
+
+The conceptual lifecycle is: current state and local draft are loaded in the
+same validated scope; divergence is either absent, ineligible for choice, a
+recoverable editable conflict, or unavailable evidence; an explicit choice is
+made when allowed; the scope is revalidated; then recovery resolves or remains
+safely blocked. No lifecycle state authorizes a stale write.
+
+#### Backend ownership
+
+The backend owns the current per-step revision and timestamp, atomic association
+of revision with step state/completion and Journey Visibility identity,
+authorization, stale-write rejection, and typed recovery failures. Every visible
+step, including `not_started`, must carry authoritative evidence. The existing
+onboarding progress persistence remains the authoritative state owner; E6 must
+not introduce a second writer or let a transport/router decide conflict policy.
+
+The backend validates the effective organization/tenant and current revision at
+the mutation boundary. Unknown versions, missing evidence, projection mismatch,
+and stale or cross-scope revisions fail closed without partial state mutation.
+
+#### Frontend ownership
+
+The existing Wizard Draft boundary owns local draft data and local save time.
+The onboarding repository/query boundary owns fresh server evidence. A
+presentation hook may orchestrate the two, but presentation components must not
+fetch directly, invent revisions, infer tenant authority, or contain conflict
+business rules.
+
+The frontend owns accessible/localized conflict and unavailable-recovery
+presentation, explicit Use Latest/Keep Local intent, refresh and submission
+revalidation, completed/retired/hidden draft cleanup, stale-response rejection,
+and cleanup during effective-tenant switch/logout. Keep Local preserves editing
+only; it is not permission to overwrite.
+
+#### Persistence and synchronization ownership
+
+Backend persistence owns authoritative per-step state, opaque revision, and UTC
+timestamp. Frontend persistence owns only user/organization/effective-tenant/
+projection/step-scoped local drafts and their device-local timestamps. Neither
+store may copy responsibility from the other, and audit records contain safe
+identifiers/outcomes only, never draft content.
+
+E6 is request-driven. Devices converge by reading and conditionally mutating the
+backend authority; they do not synchronize local drafts peer-to-peer and E6 does
+not establish a general synchronization platform. On tenant switch, outgoing
+queries and in-flight responses are invalidated before the new scope loads.
+
+#### User-visible recovery contract
+
+Editable divergence presents Use Latest and Keep Local with complete
+consequences. Ineligible server states remove the stale draft from active use.
+Unavailable or invalid authority preserves the draft, disables submission, and
+offers safe refresh/retry. The dialog owns initial focus, focus containment and
+return, screen-reader role/labels, disabled/loading semantics, minimum touch
+targets, font scaling, and English/Hindi parity through existing Theme,
+localization, and accessibility systems.
+
+#### Acceptance boundary
+
+Constitutional acceptance requires source-backed proof for atomic revision/state
+changes, stale-write rejection, missing/unknown evidence, Use Latest, Keep Local
+plus revalidation, completed/retired/hidden cleanup, two-device propagation,
+effective-tenant switching, organization/tenant isolation, stale-response
+rejection, safe audit/error behavior, localization, accessibility, and rollback.
+Implementation remains unauthorized until a separately approved task boundary
+identifies files, migration/API impact if any, checkpoints, tests, rollback, and
+stop conditions.
+
+### E7 Offline Mutation Recovery Constitutional Design
+
+#### Domain and lifecycle ownership
+
+E7 owns a non-authoritative, tenant-scoped intent lifecycle for the single
+Version 1 operation `onboarding.step.submit.v1`. The frontend E7 application
+coordinator is the only durable retry authority. The backend onboarding
+mutation owner remains authoritative for whether an execution is accepted.
+
+```text
+eligible user attempt
+  → PENDING
+  → REPLAYING
+  → SUCCEEDED (remove)
+  | CONFLICT_BLOCKED (delegate to E6)
+  | MANUAL_ACTION_REQUIRED
+  | EXPIRED
+  → DISCARDED (explicit confirmation)
+```
+
+Known-offline UI remains gated. Enqueue occurs only when an attempt started
+online or with indeterminate connectivity and subsequently failed transiently.
+One effective tenant executes FIFO with one active claim. Restart, reconnect,
+and foreground are competing triggers for the same coordinator and lock, not
+separate replay engines.
+
+#### Operation registry and payload boundary
+
+The E7 domain owns a closed Version 1 operation registry. Its sole descriptor
+binds stable operation ID, step code, safe per-step payload validator, existing
+datasource/repository execution owner, E6 evidence requirements, and result/
+error mapper. Unknown operations, URLs, methods, headers, steps, or fields fail
+closed.
+
+Only allowlisted onboarding-configuration JSON may be persisted. Credentials,
+tokens, contact values, verification evidence, payment/banking values,
+clinical/patient data, files, raw errors, and unrestricted payloads are rejected
+before storage. Excluded operation families cannot opt into E7 by configuration;
+they require a later constitutional revision.
+
+#### Frontend ownership
+
+The existing onboarding presentation hook initiates user intent. An E7
+application coordinator owns eligibility, enqueue, claim, fresh-context
+validation, replay, lifecycle transitions, query invalidation, and safe
+telemetry. A synchronous Zustand store owns only lifecycle state mutations;
+standalone persistence functions own serialization, schema migration, storage,
+and corruption handling. React Query continues to own server cache.
+
+The existing onboarding datasource and repository execute the approved request.
+The queue does not call Axios from presentation, store React Query hooks, build
+URLs, or create another query-key family. Axios performs no independent retry
+for a persisted attempt.
+
+Tenant switch cancels execution and removes outgoing memory/cache before the new
+scope loads; durable records remain inaccessible under their original composite
+scope. Logout/account removal deletes the authenticated user's queue.
+Authorization loss blocks replay and surfaces manual recovery.
+
+#### Backend ownership
+
+The existing onboarding step endpoint/service owns fresh Effective Tenant,
+organization membership, permission, current Journey-visible step, E6 revision,
+idempotency, transaction, audit, typed failure, and accepted result. Replay uses
+the existing endpoint and the original idempotency key; no new endpoint,
+background replay worker, transaction owner, idempotency service, or alternate
+tenant authority is authorized.
+
+The backend never trusts queue state, attempt count, payload eligibility,
+frontend authorization, or captured revision as current. E6 stale/missing/
+projection conflict remains a typed blocked result with no partial mutation.
+
+#### Persistence, retry, and dead-letter ownership
+
+The Version 1 record is exactly the field set approved in the E7 requirements.
+It is schema-versioned, scoped by user/organization/effective tenant, expires
+after seven days, and retains acknowledged terminal evidence for no more than
+30 days. Pure additive migrations are required for recognized schemas; unknown,
+corrupt, cross-scope, or prohibited records never replay.
+
+Retry classification occurs once in the E7 application coordinator after the
+existing repository normalizes the typed transport result. The original attempt
+plus three replays use 2/4/8-second confirmed-online backoff. Offline waiting and
+local cancellation do not consume attempts. Retryable transport/5xx outcomes
+remain pending; validation, authorization, unsupported/malformed,
+idempotency-conflict, and other terminal outcomes require manual action.
+
+`CONFLICT_BLOCKED` delegates to the existing E6 refresh/Use Latest/Keep Local
+owner. Manual recovery may refresh, edit through the owning step, retry after
+fresh validation, discard with confirmation, or use an existing support route.
+There is no infinite retry, silent deletion, field merge, or cross-tenant
+transfer.
+
+#### Telemetry and presentation ownership
+
+An onboarding application telemetry port emits the approved safe lifecycle
+events without blocking mutation flow; an existing provider may implement it
+and a safe no-op adapter is valid when none is configured. Payloads, evidence,
+secrets, contact/clinical/payment data, and raw exceptions never enter events.
+
+Presentation consumes domain state and owns only localized explanation and
+bounded user intent. It uses `en-US`/`hi-IN` parity, central Theme, existing
+loading/error primitives, live regions, focus management, disabled/busy state,
+non-color meaning, touch targets, font scaling, and guarded hardware-back
+behavior.
+
+#### Compatibility, rollback, and acceptance
+
+Rollout first verifies existing backend typed failures and idempotency, then
+enables the additive frontend schema and operation registry. Feature disablement
+stops enqueue/replay but does not execute or transfer retained intents.
+Rollback returns to existing offline gating; a later compatible version may
+resume only records it validates. Unknown/legacy records fail closed.
+
+Acceptance must prove the complete lifecycle, operation and payload deny lists,
+single retry ownership, deterministic FIFO/locking, concurrent triggers,
+restart/reconnect/foreground, expiry/corruption/migration, idempotency, E6
+conflict delegation, tenant/organization/user isolation, authorization loss,
+manual recovery, telemetry leakage safety, localization/accessibility/Theme,
+rollback, and TG18–TG23 regressions. Requirement 32 staging/device evidence is a
+release gate.
+
+### Progressive Experience Epic Design Coverage Index
+
+This index reconciles design ownership without duplicating or redesigning the
+accepted contracts. A roadmap entry is not implementation design by itself.
+
+| Epic | Design authority | Current coverage |
+|---|---|---|
+| E1 Journey Foundation and Cards | `E1-JOURNEY-DOMAIN-DESIGN.md`, `E1-JOURNEY-VERSIONING.md`, `E1-JOURNEY-CARD-CONTRACT.md`, and `E1-REUSE-AUDIT.md` | Accepted and implemented by TG18. |
+| E2 Clinic Entry and Bring Your Clinic | E2 constitutional documents, `E2-OPERATIONAL-CONTRACT.md`, `E2-IMPLEMENTATION-BOUNDARY.md`, and ADR-PF-002–018 as referenced by those contracts | Accepted and implemented by TG19. |
+| E3 Workspace Preparation | `frontend/docs/TG20/design.md`, `domain-model.md`, `operational-contracts.md`, `final-authorization-contracts.md`, and `acceptance.md` | Accepted and implemented by TG20. |
+| E4 Capability Visibility | Req 33 and the E4 constitutional contract in this document | Accepted and implemented by TG21. |
+| E5 Ready-to-Start Experience | Req 34 and the E5 constitutional contract in this document | Accepted and implemented by TG22. |
+| E6 Conflict and Multi-Clinic Recovery | E6 constitutional product contract in `requirements.md` and the E6 constitutional design contract above | Constitutionally complete. Implementation remains unauthorized pending a separately approved task boundary and implementation-readiness review. |
+| E7 Offline Mutation Recovery | E7 constitutional requirements and the E7 constitutional design in this document | Constitutionally complete; TG24 implementation authorized, with TG25 reserved for final acceptance. |
+| E8 Commercial Trial | `E8-CONSTITUTIONAL-DECISIONS.md`, E8 requirements, and roadmap E8 | Constitutionally complete; TG26 implementation authorized. |
+| E9 Subscription Conversion and Payment Recovery | Req 12, 18–20, 23–28, 30, 32 and roadmap E9 | Incomplete. Payment ownership, verification, recovery, and security contracts are not accepted. |
+| E10 Informational Dunning | Req 20, 24, 25, 28 and roadmap E10 | Incomplete. Trigger, timing, channel, severity, and owned-action design is absent. |
+| E11 Dashboard First Actions and Progressive Guidance | Req 14, 15, 21, 23–25, 28 and roadmap E11 | Incomplete. Dashboard ownership, first-action authority, growth eligibility, and branding criteria are absent. |
+| E12 Cross-Cutting Completion and Release | Cross-cutting sections in this document, Req 14, 15, 19–25, 28, 30–32, and roadmap E12 | Partially covered. Hindi review ownership, staging/device matrix, analytics completion, security audit, and release evidence remain open. |
+
+The E4 and E5 sections above are the TG21/TG22 constitutional updates. They
+supersede any older implication that the frontend may derive capability
+visibility or readiness locally. Likewise, the historical Demo/Live transition
+design must not be used to bypass Req 34 or the approved E8 commercial contract.
+No other design section is declared obsolete by this reconciliation.
+
+### E8 Constitutional Design Ownership
+
+`E8-CONSTITUTIONAL-DECISIONS.md` is the accepted E8 authority. The backend
+commercial-trial domain owns the immutable trial identity, lifecycle, policy,
+server-UTC clock, commercial configuration, persistence/history, scheduled
+transitions, readiness-evidence validation, authorization, Effective Tenant and
+organization isolation, idempotency/concurrency, transactions, audit, retries,
+versioned typed APIs, compatibility, rollout, and rollback.
+
+The Trial Lifecycle is `ELIGIBLE` → `ACTIVE` → derived `EXPIRING` → `EXPIRED`
+and ends at `EXPIRED`. The separate Commercial Retention Lifecycle begins after
+expiry and is `SUSPENDED` → `ARCHIVED` → `DELETED`. This conceptual ownership
+separation does not alter approved behavior and keeps E8 trial authority
+distinct from future E9 subscription authority. An audited Super Admin
+extension restores the same immutable retained trial from `SUSPENDED` or
+`ARCHIVED` to `ACTIVE`; it never creates a second trial. Subscription initiation
+hands commercial authority to E9.
+
+Commercial deletion remains subordinate to legal hold, regulatory preservation,
+and mandatory statutory retention. E8 does not own those legal obligations and
+commercial policy cannot override them.
+
+The frontend owns presentation, orchestration, navigation, and user interaction
+through existing Clean Architecture. It consumes backend-authoritative
+commercial and retention states through verified existing datasource,
+repository, React Query, tenant-scoped cache, localization, accessibility, and
+Theme boundaries. It does not calculate policy, expiry, entitlement, retention,
+or commercial authority. Tenant switch, logout, authorization loss, stale
+responses, loading, errors, disabled actions, downloads, and retention
+navigation must preserve the approved authority and isolation boundaries.
+
+`ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md` owns the platform-wide scheduling
+and execution boundary for time-driven lifecycle work. Platform Foundation owns
+due-work coordination, process operation, bounded dispatch, and retry cadence;
+the E8 executor owns commercial eligibility, transitions, transaction, history,
+and audit. The scheduler cannot calculate commercial policy, infer tenant
+scope, or mutate an E8 aggregate directly. TG26.3 is the first authorized
+consumer and may register only the approved E8 commercial lifecycle job.
+`ADR-PF-020-PLATFORM-BACKGROUND-RUNTIME-CATALOG.md` is the permanent inventory
+and selection authority for background, deferred, startup, replay, executor,
+and reconciliation mechanisms; it preserves the distinction between runtime
+ownership and E8 business ownership.
+
+#### E8 implementation sequencing and retention foundation
+
+TG26.2 established only the Trial Lifecycle persistence foundation:
+`ELIGIBLE`, `ACTIVE`, persisted `EXPIRED`, and derived `EXPIRING`. Its accepted
+source does not persist `SUSPENDED`, `ARCHIVED`, or `DELETED`; does not preserve
+extension request/decision history; and exposes no repository contract for
+retention eligibility, protection evidence, or retained-state recovery.
+
+TG26.2A owns the missing E8 domain and persistence foundation required before
+TG26.3:
+
+- persisted Commercial Retention Lifecycle states `SUSPENDED`, `ARCHIVED`, and
+  terminal commercial `DELETED`, while secure deletion remains outside E8;
+- immutable extension request, direct-grant, approval, reason, channel,
+  approver, decision-time, and resulting-end-time evidence for the same trial;
+- same-identity recovery from `SUSPENDED` or `ARCHIVED` to `ACTIVE`, without
+  changing original activation evidence or creating another trial;
+- captured retention-policy identity and authoritative UTC transition
+  timestamps, with `EXPIRING` and final notice remaining derived views rather
+  than additional persisted lifecycle states;
+- append-only lifecycle/extension history and optimistic-concurrency evidence;
+- authoritative export-in-progress evidence with its governed timeout, plus
+  legal-hold, regulatory-preservation, and statutory-retention protection
+  evidence sufficient to block commercial deletion;
+- repository contracts for scoped lifecycle updates, due-transition
+  eligibility, protection checks, execution claim/lease persistence,
+  idempotent replay, and retained-state recovery; and
+- one additive migration and typed retention/extension configuration, without
+  fabricating historical evidence or reinterpreting legacy terms.
+
+TG26.2A owns no application orchestration, scheduler runtime, polling, worker
+startup, public API, frontend, E9 behavior, export format, legal-retention
+policy, or secure-deletion implementation. Existing E8 rows without captured
+retention evidence must remain explicit and fail closed; migration must not
+invent policy history, protection evidence, extension decisions, or lifecycle
+timestamps.
+
+After TG26.2A acceptance, TG26.3 owns activation reads/commands and transport,
+extension request/direct-grant/approval orchestration, database-UTC due-work
+discovery, the single E8 scheduler registration, the E8 lifecycle executor,
+scheduled transitions, retained-state recovery orchestration, claims/retries,
+idempotency, transactional audit, and typed transport. TG26.3 consumes the
+protection evidence established by TG26.2A and must not implement export
+formats, legal-retention policy, secure deletion, subscription, payment, or E9.
+
+TG26 must first prove semantic fit before reusing Demo, trial, subscription,
+billing, Go-Live, status, countdown, export, or archive assets. Compatibility
+code is source evidence, not authority to retain obsolete seven-day
+pre-readiness or Demo semantics. TG23 conflict handling and the E7 queue are not
+trial transition/retry owners. Commercial mutations must not be added to E7.
+
+Implementation must preserve existing paid and seven-day terms, avoid automatic
+Demo conversion or trial restart, classify ambiguous legacy organizations for
+governed review, and apply the new configuration-driven 30-day default only to
+new E8 activations. Rollback must disable new commands while preserving
+identities, elapsed time, lifecycle history, retention evidence, and clinical
+truth.
+
+#### TG26.5 presentation and navigation contract audit
+
+The prior retained-artifact and archive-content model is superseded. Commercial
+Retention owns the workspace lifecycle and eligibility decisions; it does not
+own export packages, downloadable artifacts, archive files, document
+generation, or storage.
+
+Version 1 uses one E8-owned Commercial Retention presentation destination:
+
+```text
+CommercialRetentionDestinationV1
+  route: /onboarding/commercial-retention
+  organizationId
+  tenantId
+  trialId
+  aggregateVersion
+  contractVersion
+```
+
+The backend Commercial Retention owner must supply one versioned,
+organization/tenant-scoped read projection containing only:
+
+- authoritative workspace/commercial state;
+- archived timestamp and retention-until timestamp when applicable;
+- restoration, permanent-deletion, extension, and export-request eligibility;
+- legal/statutory hold awareness;
+- allowed commercial actions; and
+- safe reason classifications for unavailable or ineligible actions.
+
+Eligibility and timestamps are backend-derived. Unknown versions, missing
+scope, unavailable protection evidence, and stale authority fail closed. The
+frontend must not infer eligibility from timestamps, scheduler evidence,
+transition history, or raw protection records.
+
+TG26.5 owns the destination presentation and route registration. It may show
+Workspace Status, Archived Date, Retention Until, Restore Workspace, Delete
+Permanently, Request Extension, Request Workspace Data Export, and Contact
+Support only when the backend read model authorizes or classifies them. It must
+not show artifact collections, export status, package metadata, download
+links, archive files, or retained-record collections.
+
+##### Workspace Data Export boundary
+
+Workspace Data Export is a separate future bounded capability. Commercial
+Retention may expose only whether a request is permitted. A
+`REQUEST_WORKSPACE_DATA_EXPORT` action is a governed future handoff, not proof
+that a request, export, package, retrieval, or download exists.
+
+Workspace Data Export owns export requests, content scope, generation, package
+lifecycle, metadata, retrieval, download, expiry, audit, and storage
+integration. Runtime owns execution, retry, and scheduling. Infrastructure
+owns storage providers, streaming, object storage, and file transport. TG26.5
+must remain informational when the future destination is unavailable and must
+not call the current `exports` handoff as if it were a package catalog.
+
+##### Support
+
+Version 1 Support is intentionally deferred and non-navigating. Product owns
+future support behavior; no support domain or navigation owner exists today.
+TG26.5 may show localized informational guidance where E8 permits contacting
+support, but the action remains disabled and exposes no URL, email address,
+phone number, provider, or fabricated request state. No organization or tenant
+context leaves the application. A future governed support capability must own
+its typed handoff, authorization, destination, audit, and unavailable behavior.
+
+##### E9 subscription handoff
+
+E9 owns all future subscription navigation and commercial behavior. Before E9
+registers a governed destination, TG26.5 presents subscription as deferred
+information and does not navigate, call billing/payment routes, or claim that a
+request was stored. The existing `E9`/`REQUEST_SUBSCRIPTION` handoff may be
+validated only through the TG26.4 repository boundary.
+
+The future Version 1 destination contract must carry `organizationId`,
+`tenantId`, `trialId`, `aggregateVersion`, and `contractVersion`. Unknown,
+unsupported, unauthorized, or unavailable destinations fail closed. Adding an
+E9 destination is E9 work and does not expand TG26.5.
+
+##### Extension request inputs
+
+The mandatory business reason is trimmed free text with a post-trim length of
+`1..160`. TG26.5 owns localized labels, guidance, remaining-length and
+validation presentation. It submits the trimmed value unchanged to the
+existing `reason` field. Guidance prohibits clinical details, patient
+information, credentials, payment data, and other sensitive content. Empty,
+over-length, or unsupported input fails locally and remains subject to backend
+validation.
+
+`approval channel` records interaction provenance, not decision state. Product
+owns the closed Version 1 vocabulary:
+
+- `IN_APP_REQUEST` for an Organization Admin request;
+- `SUPPORT`, `SALES`, or `CUSTOMER_SUCCESS` for a Super Admin direct grant
+  following the corresponding verified offline interaction.
+
+For an Organization Admin request, TG26.5 submits `IN_APP_REQUEST`
+automatically and does not show a selector. For a Super Admin direct grant,
+TG26.5 presents a localized required selector for the three offline channels.
+The frontend submits the stable value without translation. The backend owns
+authorization, existing bounded transport validation, persistence, and
+immutable audit. TG26.5 rejects unknown values before submission. Future values
+require additive Product approval and coordinated backend/frontend contract
+versioning; they cannot be inferred from arbitrary transport strings.
+
+Across these decisions, Product owns behavior, E8 owns commercial context,
+TG26.5 owns presentation, E8 frontend navigation owns its route contract,
+backend owners retain authorization and read-model authority, and future
+Workspace Data Export, Support, and E9 owners retain their downstream behavior.
+Unsupported or deferred behavior must remain explicit and fail closed.
+
+##### TG26.5 implementation prerequisite
+
+Source inspection proves that existing E8 persistence contains lifecycle
+timestamps, captured retention terms, extension evidence, and latest
+protection evidence, but the TG26.3 response does not expose the complete
+Commercial Retention projection above. TG26.4 therefore has no DTO/domain
+mapping for it.
+
+The smallest genuine prerequisites are:
+
+1. a backend Commercial Retention read-projection checkpoint that reuses
+   existing E8 persistence and authorization, adds no artifact model and no
+   export lifecycle, and exposes the approved typed projection; then
+2. a frontend data/domain integration checkpoint that maps that projection
+   through the existing datasource, repository, React Query, tenant-scoped
+   cache, and fail-closed domain boundaries without presentation.
+
+No migration is expected because the approved projection is derived from
+existing TG26.2/TG26.2A evidence. If implementation inspection disproves that
+fit, the prerequisite must stop rather than invent persistence. TG26.5 remains
+presentation-only and begins only after both prerequisites are complete.
+
+### Documentation Design Governance v1.0
+
+This document owns implementation design only. It consumes approved intent from
+`requirements.md` and must not redefine product scope, implementation status,
+or execution history. The RTM links each requirement to the accepted design
+section; `tasks.md` records what was executed.
+
+Before a future Task Group receives constitutional approval, its design must
+freeze the relevant ownership, lifecycle, boundaries, dependencies, failure
+behavior, security and tenant isolation, localization, accessibility, testing,
+rollback, and stop conditions. Missing design remains an explicit prerequisite
+in the RTM and must not be filled by implementation-time invention.
+
+An implementation or acceptance checkpoint updates this document only when
+verified evidence proves the accepted architecture inaccurate or an approved
+architecture change is made. Status, commits, tests, and acceptance results
+belong in the RTM and task ledger, not in design prose.
+
 ## Error Handling
 
 ### Tier 1 Error Handling

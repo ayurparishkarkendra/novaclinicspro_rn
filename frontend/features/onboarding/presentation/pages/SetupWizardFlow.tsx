@@ -3,20 +3,26 @@
  * Clinic preparation flow with stepper, navigation, and embedded step screens
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler, AppState, AppStateStatus } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, BackHandler, AppState, AppStateStatus, AccessibilityInfo } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClinicTheme } from '../../../../core/theme/useClinicTheme';
 import { useAuth } from '../../../auth/presentation/hooks/useAuth';
-import { useDemoStatusQuery, useSubmitStepMutation } from '../../data/repositories/onboarding.repository.impl';
+import {
+  executePendingMutation,
+  useDemoStatusQuery,
+  useSubmitStepMutation,
+} from '../../data/repositories/onboarding.repository.impl';
 import { createTenantSubscriptionApi, getSubscriptionPlansApi, SubscriptionPlanInfo } from '../../data/datasources/onboarding.api';
 import { WizardStepper } from '../components/WizardStepper';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { PendingMutationRecoveryBanner } from '../components/PendingMutationRecoveryBanner';
 import { DemoStatusBanner } from '../components/DemoStatusBanner';
 import { JourneySurface } from '../components/JourneySurface';
+import { DraftConflictModal } from '../components/DraftConflictModal';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorScreen } from '../components/ErrorScreen';
 import { ClinicProfileScreen } from './steps/ClinicProfileScreen';
@@ -33,6 +39,19 @@ import {
 import { useTranslation } from '../../../../core/localization/useTranslation';
 import { useJourneyFoundation } from '../hooks/useJourneyFoundation';
 import { JourneyVisibilityError } from '../../domain/entities/journey-visibility.entity';
+import { createDraftRevisionEvidence } from '../../domain/entities/step-revision.entity';
+import {
+  RevisionAwareSaveHandler,
+  useDraftConflictRecovery,
+} from '../hooks/useDraftConflictRecovery';
+import {
+  PendingMutationReplayCoordinator,
+  type ReplayAuthorityResult,
+} from '../../application/pending-mutation-replay.coordinator';
+import { executeRecoverableStepSubmission } from '../../application/recoverable-step-submission';
+import { usePendingMutationReplayLifecycle } from '../hooks/usePendingMutationReplayLifecycle';
+import { usePendingMutationsStore } from '../stores/pending-mutations.store';
+import type { PendingMutationRecord } from '../../domain/entities/pending-mutation.entity';
 
 interface Step {
   code: string;
@@ -71,6 +90,11 @@ const createSubmissionId = () => {
   });
 };
 
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
 export function SetupWizardFlow() {
   const theme = useClinicTheme();
   const { t } = useTranslation();
@@ -91,12 +115,16 @@ export function SetupWizardFlow() {
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanInfo[]>([]);
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState('BASIC');
   const [showProgressUpdatedNotice, setShowProgressUpdatedNotice] = useState(false);
-  const currentStepSaveHandlerRef = useRef<(() => Promise<void>) | null>(null);
+  const [recoveryVersion, setRecoveryVersion] = useState(0);
+  const [busyRecoveryMutationId, setBusyRecoveryMutationId] =
+    useState<string | null>(null);
+  const currentStepSaveHandlerRef = useRef<RevisionAwareSaveHandler | null>(null);
   const submissionIdRef = useRef<string | null>(null);
   const isSubmittingRef = useRef(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundStepSignatureRef = useRef<string | null>(null);
   const latestVisibleStepsSignatureRef = useRef<string | null>(null);
+  const nextButtonRef = useRef<View>(null);
   const currentStep = steps[currentStepIndex];
   const submitMutation = useSubmitStepMutation(tenantId, currentStep?.code || '');
   const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
@@ -114,9 +142,128 @@ export function SetupWizardFlow() {
     isRefreshing,
     revalidateTenant,
     scopeMatches,
+    organizationId,
+    statusDomain,
   } = useJourneyFoundation(tenantId, {
     enabled: !!tenantId, // Only fetch if tenantId exists
   });
+  const refreshReplayAuthority = useCallback(
+    async (
+      record: PendingMutationRecord,
+      signal: AbortSignal
+    ): Promise<ReplayAuthorityResult> => {
+      if (!isAuthenticated) return { status: 'AUTHORIZATION_LOST' };
+      if (signal.aborted) return { status: 'SCOPE_CHANGED' };
+      if (!(await revalidateTenant())) return { status: 'SCOPE_CHANGED' };
+      const latest = await refetch();
+      if (signal.aborted) return { status: 'SCOPE_CHANGED' };
+      if (
+        latest.data?.tenant_id !== record.tenantId ||
+        latest.projection?.identity.tenantId !== record.tenantId
+      ) {
+        return { status: 'SCOPE_CHANGED' };
+      }
+      const visible = latest.projection.visibleSteps.some(
+        (step) => step.stepId === record.stepCode
+      );
+      const step = latest.statusDomain?.steps.get(record.stepCode);
+      if (!visible || !step || step.isComplete) {
+        return { status: 'STEP_UNAVAILABLE' };
+      }
+      const evidence = step.authoritativeEvidence;
+      if (!evidence) return { status: 'E6_CONFLICT' };
+      return {
+        status: 'READY',
+        scope: {
+          userId: record.userId,
+          organizationId: record.organizationId,
+          tenantId: record.tenantId,
+        },
+        stepCode: record.stepCode,
+        expectedRevision: evidence.revision.value,
+        templateVersion: evidence.projectionIdentity.templateVersion,
+        capabilityRevision:
+          evidence.projectionIdentity.capabilityRevision,
+      };
+    },
+    [isAuthenticated, refetch, revalidateTenant]
+  );
+  const replayCoordinator = useMemo(
+    () =>
+      new PendingMutationReplayCoordinator({
+        refreshAuthority: refreshReplayAuthority,
+        execute: executePendingMutation,
+      }),
+    [refreshReplayAuthority]
+  );
+  const pendingMutationScope = useMemo(
+    () =>
+      currentUser?.userId && organizationId && tenantId && scopeMatches
+        ? {
+          userId: currentUser.userId,
+          organizationId,
+          tenantId,
+        }
+        : null,
+    [currentUser?.userId, organizationId, scopeMatches, tenantId]
+  );
+  usePendingMutationReplayLifecycle({
+    coordinator: replayCoordinator,
+    scope: pendingMutationScope,
+    isAuthenticated,
+  });
+  const pendingMutationRecords = usePendingMutationsStore(
+    (state) => state.records
+  );
+  const pendingMutationRecoveryRequired = usePendingMutationsStore(
+    (state) => state.recoveryRequired
+  );
+  const refreshConflictStatus = useCallback(async () => {
+    const result = await refetch();
+    return result.statusDomain;
+  }, [refetch]);
+  const announceConflictResolution = useCallback(
+    (outcome: 'USE_LATEST' | 'KEEP_LOCAL') => {
+      AccessibilityInfo.announceForAccessibility(
+        t(
+          `onboarding.progressiveExperience.conflict.success.${
+            outcome === 'USE_LATEST' ? 'useLatest' : 'keepLocal'
+          }`
+        )
+      );
+    },
+    [t]
+  );
+  const projectedStepCodes = useMemo(
+    () => projection?.visibleSteps.map((step) => step.stepId) ?? [],
+    [projection?.visibleSteps]
+  );
+  const conflictRecovery = useDraftConflictRecovery({
+    organizationId,
+    tenantId,
+    status: statusDomain,
+    activeStepCode: currentStep?.code ?? null,
+    projectedStepCodes,
+    refreshStatus: refreshConflictStatus,
+    onRecovered: () => setRecoveryVersion((version) => version + 1),
+    announce: announceConflictResolution,
+  });
+  const currentDraftBaseEvidence = useMemo(() => {
+    const authoritativeEvidence = currentStep
+      ? statusDomain?.steps.get(currentStep.code)?.authoritativeEvidence
+      : null;
+    if (!authoritativeEvidence || !organizationId) return undefined;
+    return createDraftRevisionEvidence({
+      organizationId,
+      tenantId,
+      stepCode: authoritativeEvidence.stepCode,
+      revision: authoritativeEvidence.revision.value,
+      templateVersion:
+        authoritativeEvidence.projectionIdentity.templateVersion,
+      capabilityRevision:
+        authoritativeEvidence.projectionIdentity.capabilityRevision,
+    });
+  }, [currentStep, organizationId, statusDomain, tenantId]);
   const { data: demoStatusData } = useDemoStatusQuery(tenantId, {
     enabled: !!tenantId && currentUser?.applicationStatus === 'onboarding',
     retry: false,
@@ -262,71 +409,102 @@ export function SetupWizardFlow() {
     setIsHandlingNext(true);
 
     try {
-      // If current step has a save handler, call it first
-      if (currentStepSaveHandlerRef.current) {
-        console.log('[SetupWizardFlow] Calling save handler for current step');
-        await currentStepSaveHandlerRef.current();
-        if (submissionIdRef.current !== submissionId) {
-          return;
-        }
-        // Save handler calls handleStepComplete, which refetches before advancing.
-        console.log('[SetupWizardFlow] Save handler completed successfully');
-        return;
-      }
+      const stepAtSubmission = currentStep;
+      if (!stepAtSubmission) return;
+      const saveHandler = currentStepSaveHandlerRef.current;
+      const evidence =
+        statusDomain?.steps.get(stepAtSubmission.code)?.authoritativeEvidence;
+      const draftData = asRecord(
+        useWizardStore.getState().stepDrafts[stepAtSubmission.code]?.data
+      );
+      const recoveryBody =
+        stepAtSubmission.code === 'operating_hours' &&
+        Array.isArray(draftData?.schedule)
+          ? { operating_hours: draftData.schedule }
+          : stepAtSubmission.code === 'rooms_and_therapy_beds' &&
+              Array.isArray(draftData?.rooms)
+            ? { rooms: draftData.rooms }
+            : null;
+      await conflictRecovery.executeSubmission({
+        stepCode: stepAtSubmission.code,
+        idempotencyKey: submissionId,
+        submit: async ({ expectedRevision, idempotencyKey }) => {
+          const runOriginalSubmission = async () => {
+            if (saveHandler) {
+              await saveHandler({ expectedRevision, idempotencyKey });
+              return;
+            }
 
-      // No save handler - this is an external step (operating_hours, staff, treatments, etc.)
-      // Submit empty data to mark step as complete
-      console.log('[SetupWizardFlow] No save handler, checking if external step needs submission');
-      console.log('[SetupWizardFlow] Current step:', currentStep);
+            await submitMutation.mutateAsync(
+              {
+                idempotencyKey,
+                data: recoveryBody ?? {},
+                mark_complete: true,
+                expected_revision: expectedRevision,
+              },
+              {
+                onSuccess: () => {
+                  if (submissionIdRef.current !== submissionId) return;
+                },
+                onError: () => {
+                  if (submissionIdRef.current !== submissionId) return;
+                },
+              }
+            );
+            if (submissionIdRef.current !== submissionId) return;
 
-      if (currentStep) {
-        console.log('[SetupWizardFlow] External step detected, submitting to backend:', currentStep.code);
-        await submitMutation.mutateAsync(
-          {
-            idempotencyKey: submissionId,
-            data: {}, // Empty data for external steps
-            mark_complete: true,
-          },
-          {
-            onSuccess: () => {
-              if (submissionIdRef.current !== submissionId) {
-                return;
-              }
-            },
-            onError: () => {
-              if (submissionIdRef.current !== submissionId) {
-                return;
-              }
-            },
+            await refetch();
+            if (submissionIdRef.current !== submissionId) return;
+            if (currentStepIndex < steps.length - 1) {
+              setCurrentStepIndex(currentStepIndex + 1);
+            } else {
+              router.replace(`/clinic-admin?tenantId=${tenantId}`);
+            }
+          };
+
+          if (
+            !recoveryBody ||
+            !evidence ||
+            !currentUser?.userId ||
+            !organizationId
+          ) {
+            await runOriginalSubmission();
+            return;
           }
-        );
-        if (submissionIdRef.current !== submissionId) {
-          return;
-        }
-        console.log('[SetupWizardFlow] External step submitted successfully');
-      }
 
-      // Refresh status to get latest data before advancing.
-      console.log('[SetupWizardFlow] Refetching status after step submission');
-      await refetch();
-      if (submissionIdRef.current !== submissionId) {
-        return;
-      }
-
-      if (currentStepIndex < steps.length - 1) {
-        console.log('[SetupWizardFlow] Advancing to next step');
-        setCurrentStepIndex(currentStepIndex + 1);
-      } else {
-        // All steps complete - go to dashboard
-        console.log('[SetupWizardFlow] All steps complete, redirecting to dashboard');
-        router.replace(`/clinic-admin?tenantId=${tenantId}`);
-      }
+          await executeRecoverableStepSubmission({
+            coordinator: replayCoordinator,
+            mutationId: submissionId,
+            idempotencyKey,
+            scope: {
+              userId: currentUser.userId,
+              organizationId,
+              tenantId,
+            },
+            stepCode: stepAtSubmission.code,
+            body: recoveryBody,
+            expectedRevision,
+            templateVersion: evidence.projectionIdentity.templateVersion,
+            capabilityRevision:
+              evidence.projectionIdentity.capabilityRevision,
+            connectivityAtAttempt:
+              netInfo.isConnected === true &&
+              netInfo.isInternetReachable !== false
+                ? 'ONLINE'
+                : 'INDETERMINATE',
+            submit: runOriginalSubmission,
+          });
+        },
+      });
     } catch (error) {
       if (submissionIdRef.current !== submissionId) {
         return;
       }
       console.error('[SetupWizardFlow] Error submitting step:', error);
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('onboarding.progressiveExperience.flow.saveProgressError'));
+      Alert.alert(
+        t('common.error'),
+        t('onboarding.progressiveExperience.flow.saveProgressError')
+      );
     } finally {
       if (submissionIdRef.current === submissionId) {
         setIsHandlingNext(false);
@@ -427,7 +605,7 @@ export function SetupWizardFlow() {
   };
 
   // Callback for steps to register their save handler
-  const registerSaveHandler = useCallback((handler: (() => Promise<void>) | null) => {
+  const registerSaveHandler = useCallback((handler: RevisionAwareSaveHandler | null) => {
     console.log('[SetupWizardFlow] Registering save handler:', handler ? 'function' : 'null');
     currentStepSaveHandlerRef.current = handler;
   }, []);
@@ -507,6 +685,57 @@ export function SetupWizardFlow() {
     return true;
   }, [journey?.identity.tenantId, scopeMatches, steps, tenantId]);
 
+  const retryPendingMutation = useCallback(
+    async (record: PendingMutationRecord) => {
+      setBusyRecoveryMutationId(record.mutationId);
+      try {
+        await replayCoordinator.retry(record.mutationId);
+      } catch {
+        usePendingMutationsStore.getState().setRecoveryRequired(true);
+      } finally {
+        setBusyRecoveryMutationId(null);
+      }
+    },
+    [replayCoordinator]
+  );
+
+  const confirmDiscardPendingMutation = useCallback(
+    (record: PendingMutationRecord, editAfterDiscard = false) => {
+      Alert.alert(
+        t(
+          'onboarding.progressiveExperience.mutationRecovery.discard.title'
+        ),
+        t(
+          'onboarding.progressiveExperience.mutationRecovery.discard.message'
+        ),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t(
+              'onboarding.progressiveExperience.mutationRecovery.actions.discard'
+            ),
+            style: 'destructive',
+            onPress: () => {
+              setBusyRecoveryMutationId(record.mutationId);
+              void replayCoordinator
+                .discard(record.mutationId)
+                .then(() => {
+                  if (editAfterDiscard) navigateToStep(record.stepCode);
+                })
+                .catch(() => {
+                  usePendingMutationsStore
+                    .getState()
+                    .setRecoveryRequired(true);
+                })
+                .finally(() => setBusyRecoveryMutationId(null));
+            },
+          },
+        ]
+      );
+    },
+    [navigateToStep, replayCoordinator, t]
+  );
+
   const journeyNavigationInFlight = useRef(false);
   const navigateToProjectedStep = useCallback(async (stepCode: string) => {
     if (journeyNavigationInFlight.current || !journey?.cards.some(card => card.stepCode === stepCode)) {
@@ -580,6 +809,7 @@ export function SetupWizardFlow() {
           isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
+          draftBaseEvidence={currentDraftBaseEvidence}
         />;
 
       case 'operating_hours':
@@ -685,6 +915,7 @@ export function SetupWizardFlow() {
           isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
+          draftBaseEvidence={currentDraftBaseEvidence}
         />;
 
       case 'payment_setup':
@@ -694,6 +925,7 @@ export function SetupWizardFlow() {
           isWizardMode={true}
           onSuccess={handleStepComplete}
           onRegisterSaveHandler={registerSaveHandler}
+          draftBaseEvidence={currentDraftBaseEvidence}
         />;
 
       case 'subscription_payment':
@@ -815,6 +1047,13 @@ export function SetupWizardFlow() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background.default }]}>
+      <View
+        style={styles.container}
+        accessibilityElementsHidden={conflictRecovery.visible}
+        importantForAccessibility={
+          conflictRecovery.visible ? 'no-hide-descendants' : 'auto'
+        }
+      >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.surface.default, padding: theme.spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.colors.border.default }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -831,6 +1070,14 @@ export function SetupWizardFlow() {
       {steps.length > 0 && <WizardStepper steps={steps} currentStepIndex={currentStepIndex} />}
 
       <OfflineBanner isOffline={isOffline} />
+      <PendingMutationRecoveryBanner
+        records={pendingMutationRecords}
+        recoveryRequired={pendingMutationRecoveryRequired}
+        busyMutationId={busyRecoveryMutationId}
+        onRetry={(record) => void retryPendingMutation(record)}
+        onEdit={(record) => confirmDiscardPendingMutation(record, true)}
+        onDiscard={(record) => confirmDiscardPendingMutation(record)}
+      />
 
       {demoStatusData && (
         <View style={{ marginHorizontal: theme.spacing.lg, marginTop: theme.spacing.md }}>
@@ -892,9 +1139,11 @@ export function SetupWizardFlow() {
             refreshing={isRefreshing}
           />
         )}
-        {journey?.availability === 'available' && journey.cards.length > 0
-          ? renderStepContent()
-          : null}
+        {journey?.availability === 'available' && journey.cards.length > 0 ? (
+          <React.Fragment key={`${tenantId}:${currentStep?.code}:${recoveryVersion}`}>
+            {renderStepContent()}
+          </React.Fragment>
+        ) : null}
       </ScrollView>
 
       {/* Navigation Footer */}
@@ -928,6 +1177,7 @@ export function SetupWizardFlow() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          ref={nextButtonRef}
           style={[
             styles.navButton,
             {
@@ -964,6 +1214,17 @@ export function SetupWizardFlow() {
         </TouchableOpacity>
         </View>
       )}
+      </View>
+      <DraftConflictModal
+        visible={conflictRecovery.visible}
+        pendingAction={conflictRecovery.pendingAction}
+        failure={conflictRecovery.failure}
+        useLatestDisabled={conflictRecovery.useLatestDisabled}
+        keepLocalDisabled={conflictRecovery.keepLocalDisabled}
+        onUseLatest={() => void conflictRecovery.useLatest()}
+        onKeepLocal={() => void conflictRecovery.keepLocal()}
+        returnFocusRef={nextButtonRef}
+      />
     </View>
   );
 }

@@ -95,6 +95,79 @@ export interface DemoStatusResponse {
   created_at: string;
 }
 
+// === Commercial Trial (E8 Version 1) ===
+export interface CommercialTrialResponseDTO {
+  contract_version: string;
+  trial_id: string;
+  organization_id: string;
+  tenant_id: string;
+  state: string;
+  aggregate_version: number;
+  activation_at: string | null;
+  expires_at: string | null;
+  final_notice_starts_at: string | null;
+  allowed_actions: string[];
+}
+
+export interface CommercialRetentionResponseDTO {
+  contract_version: string;
+  trial_id: string;
+  organization_id: string;
+  tenant_id: string;
+  commercial_state: string;
+  aggregate_version: number;
+  archived_at: string | null;
+  retention_until: string | null;
+  restore_eligible: boolean;
+  permanent_deletion_eligible: boolean;
+  extension_eligible: boolean;
+  workspace_data_export_request_permitted: boolean;
+  legal_hold_active: boolean | null;
+  statutory_retention_active: boolean | null;
+  allowed_actions: string[];
+  ineligibility_reasons: string[];
+}
+
+export interface ActivateCommercialTrialRequestDTO {
+  contract_version: 'commercial_trial_v1';
+  aggregate_version: number;
+  confirmed: boolean;
+}
+
+export interface RequestCommercialTrialExtensionDTO {
+  contract_version: 'commercial_trial_v1';
+  reason: string;
+  channel: string;
+}
+
+export interface GrantCommercialTrialExtensionDTO {
+  contract_version: 'commercial_trial_v1';
+  aggregate_version: number;
+  extension_days: number;
+  reason: string;
+  channel: string;
+  requester_id?: string;
+  request_operation_id?: string;
+}
+
+export interface CommercialTrialHandoffDTO {
+  owner: string;
+  action: string;
+  tenant_id: string;
+}
+
+export class CommercialTrialDatasourceError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly httpStatus?: number
+  ) {
+    super(messageToken);
+    this.name = 'CommercialTrialDatasourceError';
+  }
+}
+
 // === Setup Wizard (OLD - Keep for backward compatibility) ===
 export interface SetupWizardContextResponse {
   application_id: string;
@@ -141,12 +214,28 @@ export interface StepValidationDTO {
   is_valid: boolean;
   issues: ValidationIssueDTO[];
   blocked_reason: string | null;
-  action_url_template: string;
-  entity_type: string;
-  icon: string;
-  category: string;
+  action_url_template: string | null;
+  entity_type: string | null;
+  icon: string | null;
+  category: string | null;
   visible: boolean;
   actionable: boolean;
+  revision?: string | null;
+  updated_at?: string | null;
+  template_version?: string | null;
+  capability_revision?: string | null;
+}
+
+export class OnboardingStatusDatasourceError extends Error {
+  constructor(
+    readonly kind: 'TENANT_MISMATCH' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'BACKEND_FAILURE',
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean
+  ) {
+    super(messageToken);
+    this.name = 'OnboardingStatusDatasourceError';
+  }
 }
 
 export interface ValidationIssueDTO {
@@ -161,6 +250,7 @@ export interface ValidationIssueDTO {
 export interface StepSubmitRequest {
   data: Record<string, any>;
   mark_complete?: boolean;
+  expected_revision?: string;
 }
 
 export interface StepSubmitResponse {
@@ -170,6 +260,51 @@ export interface StepSubmitResponse {
   validation_errors: StepValidationError[];
   next_step: string | null;
   message: string;
+  revision?: string | null;
+  template_version?: string | null;
+  capability_revision?: string | null;
+}
+
+export interface StepConflictResponseDTO {
+  error: {
+    error_code: 'onboarding.step_revision_conflict';
+    message_token: string;
+    conflict: {
+      classification: 'STALE_REVISION';
+      step_code: string;
+      current_revision: string;
+      template_version: string;
+      capability_revision: string;
+    };
+  };
+}
+
+export type StepSubmissionDatasourceFailureKind =
+  | 'STALE_REVISION'
+  | 'MALFORMED_CONFLICT'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'TENANT_MISMATCH'
+  | 'ORGANIZATION_MISMATCH'
+  | 'VALIDATION'
+  | 'UNSUPPORTED'
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'NETWORK'
+  | 'TIMEOUT'
+  | 'CANCELLED'
+  | 'BACKEND_FAILURE';
+
+export class StepSubmissionDatasourceError extends Error {
+  constructor(
+    readonly kind: StepSubmissionDatasourceFailureKind,
+    readonly errorCode: string,
+    readonly messageToken: string,
+    readonly retryable: boolean,
+    readonly conflict: StepConflictResponseDTO['error']['conflict'] | null = null
+  ) {
+    super(messageToken);
+    this.name = 'StepSubmissionDatasourceError';
+  }
 }
 
 export interface CreatedEntity {

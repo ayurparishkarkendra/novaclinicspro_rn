@@ -6,12 +6,14 @@ const mockUseOnboardingStatusQuery = jest.fn();
 const mockUseJourneyVisibilityQuery = jest.fn();
 const mockUseOrganizationContextQuery = jest.fn();
 const mockClearJourneyVisibilityCache = jest.fn();
+const mockClearOnboardingStatusCache = jest.fn();
 
 jest.mock('../../features/onboarding/data/repositories/onboarding.repository.impl', () => ({
   useOnboardingStatusQuery: (...args: unknown[]) => mockUseOnboardingStatusQuery(...args),
   useJourneyVisibilityQuery: (...args: unknown[]) => mockUseJourneyVisibilityQuery(...args),
   useOrganizationContextQuery: () => mockUseOrganizationContextQuery(),
   useClearJourneyVisibilityCache: () => mockClearJourneyVisibilityCache,
+  useClearOnboardingStatusCache: () => mockClearOnboardingStatusCache,
 }));
 
 const revision = `cap-v1:${'a'.repeat(64)}`;
@@ -146,6 +148,7 @@ describe('useJourneyFoundation authoritative projection integration', () => {
     await waitFor(() =>
       expect(mockClearJourneyVisibilityCache).toHaveBeenCalledWith('org-1', 'tenant-a')
     );
+    expect(mockClearOnboardingStatusCache).toHaveBeenCalledWith('org-1', 'tenant-a');
   });
 
   it('blocks navigation revalidation after an effective-tenant change', async () => {

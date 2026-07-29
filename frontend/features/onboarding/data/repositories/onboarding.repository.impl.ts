@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
+import { queryClient as sharedQueryClient } from '../../../../core/api/queryClient';
 import {
   getApplicationDetailApi,
   getValidationReportApi,
@@ -33,6 +34,12 @@ import {
   retryWorkspacePreparationApi,
   getJourneyVisibilityApi,
   getReadyToStartApi,
+  activateCommercialTrialApi,
+  getCommercialRetentionApi,
+  getCommercialTrialApi,
+  grantCommercialTrialExtensionApi,
+  requestCommercialTrialExtensionApi,
+  requestCommercialTrialSubscriptionApi,
 } from '../datasources/onboarding.api';
 import {
   ApplicationDetailResponse,
@@ -57,6 +64,11 @@ import {
   ReadinessProviderDTO,
   ReadyToStartDatasourceError,
   ReadyToStartResponseDTO,
+  StepSubmissionDatasourceError,
+  CommercialTrialDatasourceError,
+  CommercialTrialHandoffDTO,
+  CommercialRetentionResponseDTO,
+  CommercialTrialResponseDTO,
 } from '../models/onboarding.dtos';
 import {
   BringClinicInput,
@@ -81,6 +93,7 @@ import {
 import {
   IJourneyVisibilityRepository,
   IReadyToStartRepository,
+  ICommercialTrialRepository,
 } from '../../domain/repositories/onboarding.repository';
 import {
   Advisory,
@@ -92,6 +105,29 @@ import {
   ReadyToStart,
   ReadyToStartError,
 } from '../../domain/entities/ready-to-start.entity';
+import {
+  COMMERCIAL_TRIAL_CONTRACT_V1,
+  CommercialRetention,
+  CommercialRetentionAction,
+  CommercialRetentionIneligibilityReason,
+  CommercialTrial,
+  CommercialTrialAction,
+  CommercialTrialError,
+  CommercialTrialHandoff,
+  CommercialTrialState,
+} from '../../domain/entities/commercial-trial.entity';
+import {
+  PendingMutationContractError,
+  parsePendingMutationRecord,
+  type PendingMutationExecutionResult,
+  type PendingMutationRecord,
+} from '../../domain/entities/pending-mutation.entity';
+import {
+  StepConflictError,
+  createAuthoritativeStepRevision,
+  createStepProjectionIdentity,
+  createStaleRevisionConflict,
+} from '../../domain/entities/step-revision.entity';
 
 type StepSubmitVariables = StepSubmitRequest & {
   idempotencyKey?: string;
@@ -110,7 +146,10 @@ export const onboardingKeys = {
   demo: (id: string) => [...onboardingKeys.demos(), id] as const,
   setupWizard: (id: string) => [...onboardingKeys.all, 'setup-wizard', id] as const,
   setupProgress: (id: string) => [...onboardingKeys.setupWizard(id), 'progress'] as const,
-  status: (tenantId: string) => [...onboardingKeys.all, 'status', tenantId] as const,
+  statuses: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'status', organizationId, tenantId] as const,
+  status: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.statuses(organizationId, tenantId), 'v1'] as const,
   organizationContext: () => [...onboardingKeys.all, 'organization-context'] as const,
   workspacePreparations: (organizationId: string, tenantId: string) =>
     [...onboardingKeys.all, 'workspace-preparation', organizationId, tenantId] as const,
@@ -135,6 +174,20 @@ export const onboardingKeys = {
     [
       ...onboardingKeys.readinesses(organizationId, tenantId),
       READY_TO_START_CONTRACT_V1,
+    ] as const,
+  commercialTrials: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'commercial-trial', organizationId, tenantId] as const,
+  commercialTrial: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.commercialTrials(organizationId, tenantId),
+      COMMERCIAL_TRIAL_CONTRACT_V1,
+    ] as const,
+  commercialRetentions: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'commercial-retention', organizationId, tenantId] as const,
+  commercialRetention: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.commercialRetentions(organizationId, tenantId),
+      COMMERCIAL_TRIAL_CONTRACT_V1,
     ] as const,
 };
 
@@ -525,6 +578,570 @@ export const useClearReadyToStartCache = () => {
   return useCallback(
     async (organizationId: string, tenantId: string): Promise<void> => {
       const queryKey = onboardingKeys.readinesses(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+const COMMERCIAL_TRIAL_STATES: readonly CommercialTrialState[] = [
+  'ELIGIBLE',
+  'ACTIVE',
+  'EXPIRING',
+  'EXPIRED',
+  'SUSPENDED',
+  'ARCHIVED',
+  'DELETED',
+];
+const COMMERCIAL_TRIAL_ACTIONS: readonly CommercialTrialAction[] = [
+  'START_TRIAL',
+  'REQUEST_EXTENSION',
+  'GRANT_EXTENSION',
+  'REQUEST_SUBSCRIPTION',
+];
+const COMMERCIAL_RETENTION_ACTIONS: readonly CommercialRetentionAction[] = [
+  'START_TRIAL',
+  'REQUEST_EXTENSION',
+  'GRANT_EXTENSION',
+  'RESTORE_WORKSPACE',
+  'REQUEST_PERMANENT_DELETION',
+  'REQUEST_WORKSPACE_DATA_EXPORT',
+  'REQUEST_SUBSCRIPTION',
+  'CONTACT_SUPPORT',
+];
+const COMMERCIAL_RETENTION_INELIGIBILITY_REASONS:
+  readonly CommercialRetentionIneligibilityReason[] = [
+    'PROTECTION_EVIDENCE_UNAVAILABLE',
+    'LEGAL_HOLD_ACTIVE',
+    'STATUTORY_RETENTION_ACTIVE',
+    'EXPORT_IN_PROGRESS',
+    'RETENTION_PERIOD_ACTIVE',
+  ];
+
+const commercialTrialInvalid = (
+  kind: CommercialTrialError['kind'] = 'INVALID_AGGREGATE',
+  code = 'commercial_trial.invalid_aggregate',
+  token = 'errors.commercialTrial.invalid_aggregate'
+): never => {
+  throw new CommercialTrialError(kind, code, token, false);
+};
+
+const validOptionalTimestamp = (value: string | null): boolean =>
+  value === null || timestamp(value);
+
+export const mapCommercialTrial = (
+  dto: CommercialTrialResponseDTO,
+  requestedOrganizationId: string,
+  requestedTenantId: string
+): CommercialTrial => {
+  if (dto.organization_id !== requestedOrganizationId) {
+    commercialTrialInvalid(
+      'ORGANIZATION_MISMATCH',
+      'commercial_trial.organization_mismatch',
+      'errors.commercialTrial.organization_mismatch'
+    );
+  }
+  if (dto.tenant_id !== requestedTenantId) {
+    commercialTrialInvalid(
+      'TENANT_MISMATCH',
+      'commercial_trial.tenant_mismatch',
+      'errors.commercialTrial.tenant_mismatch'
+    );
+  }
+  if (dto.contract_version !== COMMERCIAL_TRIAL_CONTRACT_V1) {
+    commercialTrialInvalid(
+      'UNSUPPORTED_CONTRACT',
+      'commercial_trial.unsupported_contract',
+      'errors.commercialTrial.unsupported_contract'
+    );
+  }
+  if (
+    !present(dto.trial_id) ||
+    !COMMERCIAL_TRIAL_STATES.includes(dto.state as CommercialTrialState) ||
+    !Number.isInteger(dto.aggregate_version) ||
+    dto.aggregate_version < 1 ||
+    !validOptionalTimestamp(dto.activation_at) ||
+    !validOptionalTimestamp(dto.expires_at) ||
+    !validOptionalTimestamp(dto.final_notice_starts_at) ||
+    !Array.isArray(dto.allowed_actions) ||
+    dto.allowed_actions.some(
+      (action) => !COMMERCIAL_TRIAL_ACTIONS.includes(action as CommercialTrialAction)
+    ) ||
+    new Set(dto.allowed_actions).size !== dto.allowed_actions.length
+  ) {
+    commercialTrialInvalid();
+  }
+
+  return Object.freeze({
+    contractVersion: COMMERCIAL_TRIAL_CONTRACT_V1,
+    trialId: dto.trial_id,
+    organizationId: dto.organization_id,
+    tenantId: dto.tenant_id,
+    state: dto.state as CommercialTrialState,
+    aggregateVersion: dto.aggregate_version,
+    activationAt: dto.activation_at,
+    expiresAt: dto.expires_at,
+    finalNoticeStartsAt: dto.final_notice_starts_at,
+    allowedActions: Object.freeze([...dto.allowed_actions]) as readonly CommercialTrialAction[],
+  });
+};
+
+export const mapCommercialRetention = (
+  dto: CommercialRetentionResponseDTO,
+  requestedOrganizationId: string,
+  requestedTenantId: string
+): CommercialRetention => {
+  if (dto.organization_id !== requestedOrganizationId) {
+    commercialTrialInvalid(
+      'ORGANIZATION_MISMATCH',
+      'commercial_trial.organization_mismatch',
+      'errors.commercialTrial.organization_mismatch'
+    );
+  }
+  if (dto.tenant_id !== requestedTenantId) {
+    commercialTrialInvalid(
+      'TENANT_MISMATCH',
+      'commercial_trial.tenant_mismatch',
+      'errors.commercialTrial.tenant_mismatch'
+    );
+  }
+  if (dto.contract_version !== COMMERCIAL_TRIAL_CONTRACT_V1) {
+    commercialTrialInvalid(
+      'UNSUPPORTED_CONTRACT',
+      'commercial_trial.unsupported_contract',
+      'errors.commercialTrial.unsupported_contract'
+    );
+  }
+  if (
+    !present(dto.trial_id) ||
+    !COMMERCIAL_TRIAL_STATES.includes(dto.commercial_state as CommercialTrialState) ||
+    !Number.isInteger(dto.aggregate_version) ||
+    dto.aggregate_version < 1 ||
+    !validOptionalTimestamp(dto.archived_at) ||
+    !validOptionalTimestamp(dto.retention_until) ||
+    typeof dto.restore_eligible !== 'boolean' ||
+    typeof dto.permanent_deletion_eligible !== 'boolean' ||
+    typeof dto.extension_eligible !== 'boolean' ||
+    typeof dto.workspace_data_export_request_permitted !== 'boolean' ||
+    ![true, false, null].includes(dto.legal_hold_active) ||
+    ![true, false, null].includes(dto.statutory_retention_active) ||
+    !Array.isArray(dto.allowed_actions) ||
+    dto.allowed_actions.some(
+      (action) =>
+        !COMMERCIAL_RETENTION_ACTIONS.includes(action as CommercialRetentionAction)
+    ) ||
+    new Set(dto.allowed_actions).size !== dto.allowed_actions.length ||
+    !Array.isArray(dto.ineligibility_reasons) ||
+    dto.ineligibility_reasons.some(
+      (reason) =>
+        !COMMERCIAL_RETENTION_INELIGIBILITY_REASONS.includes(
+          reason as CommercialRetentionIneligibilityReason
+        )
+    ) ||
+    new Set(dto.ineligibility_reasons).size !== dto.ineligibility_reasons.length
+  ) {
+    commercialTrialInvalid();
+  }
+
+  return Object.freeze({
+    contractVersion: COMMERCIAL_TRIAL_CONTRACT_V1,
+    trialId: dto.trial_id,
+    organizationId: dto.organization_id,
+    tenantId: dto.tenant_id,
+    commercialState: dto.commercial_state as CommercialTrialState,
+    aggregateVersion: dto.aggregate_version,
+    archivedAt: dto.archived_at,
+    retentionUntil: dto.retention_until,
+    restoreEligible: dto.restore_eligible,
+    permanentDeletionEligible: dto.permanent_deletion_eligible,
+    extensionEligible: dto.extension_eligible,
+    workspaceDataExportRequestPermitted: dto.workspace_data_export_request_permitted,
+    legalHoldActive: dto.legal_hold_active,
+    statutoryRetentionActive: dto.statutory_retention_active,
+    allowedActions: Object.freeze([
+      ...dto.allowed_actions,
+    ]) as readonly CommercialRetentionAction[],
+    ineligibilityReasons: Object.freeze([
+      ...dto.ineligibility_reasons,
+    ]) as readonly CommercialRetentionIneligibilityReason[],
+  });
+};
+
+const mapCommercialTrialHandoff = (
+  dto: CommercialTrialHandoffDTO,
+  requestedTenantId: string,
+  expectedOwner: CommercialTrialHandoff['owner'],
+  expectedAction: CommercialTrialHandoff['action']
+): CommercialTrialHandoff => {
+  if (
+    dto.tenant_id !== requestedTenantId ||
+    dto.owner !== expectedOwner ||
+    dto.action !== expectedAction
+  ) {
+    commercialTrialInvalid();
+  }
+  return Object.freeze({
+    owner: expectedOwner,
+    action: expectedAction,
+    tenantId: dto.tenant_id,
+  });
+};
+
+const commercialTrialFailureKind = (
+  error: CommercialTrialDatasourceError
+): CommercialTrialError['kind'] => {
+  if (error.httpStatus === 401) return 'UNAUTHORIZED';
+  if (error.errorCode === 'commercial_trial.tenant_mismatch') return 'TENANT_MISMATCH';
+  if (error.errorCode === 'commercial_trial.organization_mismatch') {
+    return 'ORGANIZATION_MISMATCH';
+  }
+  if (error.httpStatus === 403 || error.errorCode === 'commercial_trial.forbidden') {
+    return 'FORBIDDEN';
+  }
+  if (error.errorCode === 'commercial_trial.unsupported_contract') {
+    return 'UNSUPPORTED_CONTRACT';
+  }
+  if (error.errorCode === 'commercial_trial.not_ready') return 'NOT_READY';
+  if (error.errorCode === 'commercial_trial.confirmation_required') {
+    return 'CONFIRMATION_REQUIRED';
+  }
+  if (error.errorCode === 'commercial_trial.retention_evidence_unavailable') {
+    return 'RETENTION_EVIDENCE_UNAVAILABLE';
+  }
+  if (
+    error.httpStatus === 409 ||
+    error.errorCode.includes('conflict') ||
+    error.errorCode === 'commercial_trial.duplicate_operation'
+  ) return 'CONFLICT';
+  if (error.httpStatus === 404 || error.errorCode === 'commercial_trial.not_found') {
+    return 'NOT_FOUND';
+  }
+  return 'BACKEND_FAILURE';
+};
+
+const mapCommercialTrialError = (error: unknown): never => {
+  if (
+    error instanceof Error &&
+    (error.name === 'CanceledError' || (error as Error & { code?: string }).code === 'ERR_CANCELED')
+  ) throw error;
+  if (error instanceof CommercialTrialError) throw error;
+  if (error instanceof CommercialTrialDatasourceError) {
+    throw new CommercialTrialError(
+      commercialTrialFailureKind(error),
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new CommercialTrialError(
+    'BACKEND_FAILURE',
+    'commercial_trial.application_failure',
+    'errors.commercialTrial.application_failure',
+    true
+  );
+};
+
+export const commercialTrialRepository: ICommercialTrialRepository = {
+  async getCommercialTrial(organizationId, tenantId, signal) {
+    try {
+      return mapCommercialTrial(
+        await getCommercialTrialApi(tenantId, signal),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async getCommercialRetention(organizationId, tenantId, signal) {
+    try {
+      return mapCommercialRetention(
+        await getCommercialRetentionApi(tenantId, signal),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async activateCommercialTrial(
+    organizationId,
+    tenantId,
+    aggregateVersion,
+    confirmed,
+    idempotencyKey
+  ) {
+    try {
+      return mapCommercialTrial(
+        await activateCommercialTrialApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            aggregate_version: aggregateVersion,
+            confirmed,
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async requestCommercialTrialExtension(
+    organizationId,
+    tenantId,
+    reason,
+    channel,
+    idempotencyKey
+  ) {
+    try {
+      return mapCommercialTrial(
+        await requestCommercialTrialExtensionApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            reason,
+            channel,
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async grantCommercialTrialExtension(
+    organizationId,
+    tenantId,
+    aggregateVersion,
+    extensionDays,
+    reason,
+    channel,
+    idempotencyKey,
+    requesterId,
+    requestOperationId
+  ) {
+    try {
+      return mapCommercialTrial(
+        await grantCommercialTrialExtensionApi(
+          tenantId,
+          {
+            contract_version: COMMERCIAL_TRIAL_CONTRACT_V1,
+            aggregate_version: aggregateVersion,
+            extension_days: extensionDays,
+            reason,
+            channel,
+            ...(requesterId ? { requester_id: requesterId } : {}),
+            ...(requestOperationId ? { request_operation_id: requestOperationId } : {}),
+          },
+          idempotencyKey
+        ),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async requestCommercialTrialSubscription(_organizationId, tenantId) {
+    try {
+      return mapCommercialTrialHandoff(
+        await requestCommercialTrialSubscriptionApi(tenantId),
+        tenantId,
+        'E9',
+        'REQUEST_SUBSCRIPTION'
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+};
+
+export const shouldRetryCommercialTrial = (
+  failureCount: number,
+  error: Error
+): boolean =>
+  error instanceof CommercialTrialError && error.retryable && failureCount < 2;
+
+const updateCommercialTrialCache = (
+  current: CommercialTrial | undefined,
+  incoming: CommercialTrial
+): CommercialTrial =>
+  current && current.aggregateVersion > incoming.aggregateVersion ? current : incoming;
+
+export const useCommercialTrialQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<CommercialTrial, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<CommercialTrial, Error>({
+    queryKey: onboardingKeys.commercialTrial(organizationId, tenantId),
+    queryFn: ({ signal }) =>
+      commercialTrialRepository.getCommercialTrial(organizationId, tenantId, signal),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryCommercialTrial,
+    ...options,
+  });
+
+export const useCommercialRetentionQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<CommercialRetention, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<CommercialRetention, Error>({
+    queryKey: onboardingKeys.commercialRetention(organizationId, tenantId),
+    queryFn: ({ signal }) =>
+      commercialTrialRepository.getCommercialRetention(
+        organizationId,
+        tenantId,
+        signal
+      ),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryCommercialTrial,
+    ...options,
+  });
+
+const useCommercialTrialMutation = <
+  Variables,
+  Result extends CommercialTrial | CommercialTrialHandoff,
+>(
+  organizationId: string,
+  tenantId: string,
+  mutationFn: (variables: Variables) => Promise<Result>
+) => {
+  const queryClient = useQueryClient();
+  const queryKey = onboardingKeys.commercialTrial(organizationId, tenantId);
+  return useMutation<Result, Error, Variables>({
+    mutationFn,
+    onSuccess: (value) => {
+      if ('aggregateVersion' in value) {
+        queryClient.setQueryData<CommercialTrial>(queryKey, (current) =>
+          updateCommercialTrialCache(current, value)
+        );
+      }
+      queryClient.invalidateQueries({ queryKey });
+    },
+    retry: false,
+  });
+};
+
+export const useActivateCommercialTrialMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      aggregateVersion,
+      confirmed,
+      idempotencyKey,
+    }: {
+      aggregateVersion: number;
+      confirmed: boolean;
+      idempotencyKey: string;
+    }) =>
+      commercialTrialRepository.activateCommercialTrial(
+        organizationId,
+        tenantId,
+        aggregateVersion,
+        confirmed,
+        idempotencyKey
+      )
+  );
+
+export const useRequestCommercialTrialExtensionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      reason,
+      channel,
+      idempotencyKey,
+    }: {
+      reason: string;
+      channel: string;
+      idempotencyKey: string;
+    }) =>
+      commercialTrialRepository.requestCommercialTrialExtension(
+        organizationId,
+        tenantId,
+        reason,
+        channel,
+        idempotencyKey
+      )
+  );
+
+export const useGrantCommercialTrialExtensionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation(
+    organizationId,
+    tenantId,
+    ({
+      aggregateVersion,
+      extensionDays,
+      reason,
+      channel,
+      idempotencyKey,
+      requesterId,
+      requestOperationId,
+    }: {
+      aggregateVersion: number;
+      extensionDays: number;
+      reason: string;
+      channel: string;
+      idempotencyKey: string;
+      requesterId?: string;
+      requestOperationId?: string;
+    }) =>
+      commercialTrialRepository.grantCommercialTrialExtension(
+        organizationId,
+        tenantId,
+        aggregateVersion,
+        extensionDays,
+        reason,
+        channel,
+        idempotencyKey,
+        requesterId,
+        requestOperationId
+      )
+  );
+
+export const useCommercialTrialSubscriptionMutation = (
+  organizationId: string,
+  tenantId: string
+) =>
+  useCommercialTrialMutation<void, CommercialTrialHandoff>(organizationId, tenantId, () =>
+    commercialTrialRepository.requestCommercialTrialSubscription(organizationId, tenantId)
+  );
+
+export const useClearCommercialTrialCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.commercialTrials(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+export const useClearCommercialRetentionCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.commercialRetentions(organizationId, tenantId);
       await queryClient.cancelQueries({ queryKey });
       queryClient.removeQueries({ queryKey });
     },
@@ -962,29 +1579,289 @@ export const useOnboardingStatusQuery = (
   tenantId: string,
   options?: Omit<UseQueryOptions<OnboardingStatusResponse, Error>, 'queryKey' | 'queryFn'>
 ) => {
+  const organizationContext = useOrganizationContextQuery();
+  const organizationId = organizationContext.data?.effectiveOrganizationId ?? '';
+  const scopeMatches =
+    organizationContext.data?.effectiveTenantId === tenantId &&
+    !organizationContext.data?.sessionRefreshRequired;
   return useQuery<OnboardingStatusResponse, Error>({
-    queryKey: onboardingKeys.status(tenantId),
-    queryFn: () => getOnboardingStatusApi(tenantId),
-    enabled: !!tenantId,
+    queryKey: onboardingKeys.status(organizationId, tenantId),
+    queryFn: ({ signal }) => getOnboardingStatusApi(tenantId, signal),
     staleTime: 30000, // 30 seconds
     ...options,
+    enabled:
+      Boolean(organizationId && tenantId && scopeMatches) &&
+      (options?.enabled ?? true),
   });
 };
+
+export const useClearOnboardingStatusCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.statuses(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+export const mapStepSubmissionError = (error: unknown, stepCode: string): never => {
+  if (error instanceof StepConflictError) throw error;
+  if (error instanceof StepSubmissionDatasourceError) {
+    if (error.kind === 'STALE_REVISION' && error.conflict) {
+      const conflict = createStaleRevisionConflict({
+        classification: error.conflict.classification,
+        stepCode: error.conflict.step_code,
+        currentRevision: error.conflict.current_revision,
+        templateVersion: error.conflict.template_version,
+        capabilityRevision: error.conflict.capability_revision,
+        messageToken: error.messageToken,
+      });
+      if (conflict.stepCode !== stepCode) {
+        throw new StepConflictError(
+          'MALFORMED_CONFLICT',
+          'onboarding.step_conflict_scope_mismatch',
+          'errors.onboarding.stepConflictScopeMismatch',
+          false
+        );
+      }
+      throw new StepConflictError(
+        'STALE_REVISION',
+        error.errorCode,
+        error.messageToken,
+        false,
+        conflict
+      );
+    }
+    const conflictKind: StepConflictError['kind'] = (
+      [
+        'MALFORMED_CONFLICT',
+        'UNAUTHORIZED',
+        'FORBIDDEN',
+        'TENANT_MISMATCH',
+        'ORGANIZATION_MISMATCH',
+        'BACKEND_FAILURE',
+      ] as const
+    ).includes(error.kind as never)
+      ? error.kind as StepConflictError['kind']
+      : 'BACKEND_FAILURE';
+    throw new StepConflictError(
+      conflictKind,
+      error.errorCode,
+      error.messageToken,
+      error.retryable
+    );
+  }
+  throw new StepConflictError(
+    'BACKEND_FAILURE',
+    'onboarding.step_submission_failed',
+    'errors.onboarding.stepSubmissionFailed',
+    true
+  );
+};
+
+export const validateStepSubmissionResponse = (
+  response: StepSubmitResponse,
+  stepCode: string,
+  revisionAware: boolean
+): StepSubmitResponse => {
+  if (response.step_code && response.step_code !== stepCode) {
+    throw new StepConflictError(
+      'UNSUPPORTED_CONTRACT',
+      'onboarding.step_submission_scope_mismatch',
+      'errors.onboarding.stepSubmissionScopeMismatch',
+      false
+    );
+  }
+  const fields = [
+    response.revision,
+    response.template_version,
+    response.capability_revision,
+  ];
+  const complete = fields.every((field) => field !== null && field !== undefined);
+  if (revisionAware && !complete) {
+    throw new StepConflictError(
+      'UNSUPPORTED_CONTRACT',
+      'onboarding.step_submission_evidence_missing',
+      'errors.onboarding.stepSubmissionEvidenceMissing',
+      false
+    );
+  }
+  if (complete) {
+    createAuthoritativeStepRevision(response.revision);
+    createStepProjectionIdentity(
+      response.template_version,
+      response.capability_revision
+    );
+  }
+  return response;
+};
+
+type PendingMutationSubmit = typeof submitStepDataApi;
+
+export interface PendingMutationExecutionDependencies {
+  readonly submitStep: PendingMutationSubmit;
+  readonly invalidateCurrentStatus: (
+    organizationId: string,
+    tenantId: string
+  ) => Promise<unknown>;
+}
+
+const defaultPendingMutationExecutionDependencies:
+  PendingMutationExecutionDependencies = {
+  submitStep: submitStepDataApi,
+  invalidateCurrentStatus: (organizationId, tenantId) =>
+    sharedQueryClient.invalidateQueries({
+      queryKey: onboardingKeys.status(organizationId, tenantId),
+    }),
+};
+
+const terminal = (
+  category: Extract<
+    PendingMutationExecutionResult,
+    { status: 'TERMINAL_FAILURE' }
+  >['category']
+): PendingMutationExecutionResult => ({ status: 'TERMINAL_FAILURE', category });
+
+const mapPendingMutationExecutionError = (
+  error: unknown
+): PendingMutationExecutionResult => {
+  if (error instanceof PendingMutationContractError) {
+    return terminal(
+      error.kind === 'SCOPE_MISMATCH' ? 'SCOPE_MISMATCH' : 'UNSUPPORTED'
+    );
+  }
+  if (error instanceof StepConflictError) {
+    if (error.kind === 'STALE_REVISION') return { status: 'E6_CONFLICT' };
+    if (error.kind === 'UNAUTHORIZED') return terminal('AUTHENTICATION');
+    if (error.kind === 'FORBIDDEN') return terminal('AUTHORIZATION');
+    if (
+      error.kind === 'TENANT_MISMATCH' ||
+      error.kind === 'ORGANIZATION_MISMATCH'
+    ) return terminal('SCOPE_MISMATCH');
+    if (
+      error.kind === 'MALFORMED_CONFLICT' ||
+      error.kind === 'UNSUPPORTED_CONTRACT'
+    ) return terminal('MALFORMED_RESPONSE');
+    return error.retryable
+      ? { status: 'RETRYABLE_FAILURE', category: 'RETRYABLE_SERVER' }
+      : terminal('MALFORMED_RESPONSE');
+  }
+  if (error instanceof StepSubmissionDatasourceError) {
+    switch (error.kind) {
+      case 'STALE_REVISION':
+        return { status: 'E6_CONFLICT' };
+      case 'UNAUTHORIZED':
+        return terminal('AUTHENTICATION');
+      case 'FORBIDDEN':
+        return terminal('AUTHORIZATION');
+      case 'TENANT_MISMATCH':
+      case 'ORGANIZATION_MISMATCH':
+        return terminal('SCOPE_MISMATCH');
+      case 'VALIDATION':
+        return terminal('VALIDATION');
+      case 'UNSUPPORTED':
+        return terminal('UNSUPPORTED');
+      case 'IDEMPOTENCY_CONFLICT':
+        return terminal('IDEMPOTENCY_CONFLICT');
+      case 'MALFORMED_CONFLICT':
+        return terminal('MALFORMED_RESPONSE');
+      case 'NETWORK':
+        return { status: 'RETRYABLE_FAILURE', category: 'NETWORK' };
+      case 'TIMEOUT':
+        return { status: 'RETRYABLE_FAILURE', category: 'TIMEOUT' };
+      case 'CANCELLED':
+        return { status: 'CANCELLED' };
+      case 'BACKEND_FAILURE':
+        return error.retryable
+          ? { status: 'RETRYABLE_FAILURE', category: 'RETRYABLE_SERVER' }
+          : terminal('MALFORMED_RESPONSE');
+    }
+  }
+  return terminal('MALFORMED_RESPONSE');
+};
+
+export const createPendingMutationExecutor = (
+  dependencies: PendingMutationExecutionDependencies =
+  defaultPendingMutationExecutionDependencies
+) => async (
+  queuedRecord: PendingMutationRecord,
+  signal: AbortSignal
+): Promise<PendingMutationExecutionResult> => {
+  try {
+    const record = parsePendingMutationRecord(queuedRecord);
+    const response = await dependencies.submitStep(
+      record.tenantId,
+      record.stepCode,
+      {
+        data: record.body,
+        mark_complete: true,
+        expected_revision: record.revisionEvidence.revision.value,
+      },
+      record.idempotencyKey,
+      { signal, skipAuthRefreshRetry: true }
+    );
+    validateStepSubmissionResponse(response, record.stepCode, true);
+    await dependencies.invalidateCurrentStatus(
+      record.organizationId,
+      record.tenantId
+    );
+    return { status: 'SUCCEEDED' };
+  } catch (error) {
+    if (
+      error instanceof StepSubmissionDatasourceError &&
+      error.kind === 'STALE_REVISION'
+    ) {
+      try {
+        mapStepSubmissionError(error, queuedRecord.stepCode);
+      } catch (mappedError) {
+        return mapPendingMutationExecutionError(mappedError);
+      }
+    }
+    return mapPendingMutationExecutionError(error);
+  }
+};
+
+export const executePendingMutation =
+  createPendingMutationExecutor();
 
 /**
  * Hook to submit step data
  */
 export const useSubmitStepMutation = (tenantId: string, stepCode: string) => {
   const queryClient = useQueryClient();
+  const organizationContext = useOrganizationContextQuery();
+  const organizationId = organizationContext.data?.effectiveOrganizationId ?? '';
 
-  return useMutation<StepSubmitResponse, Error, StepSubmitVariables>({
-    mutationFn: ({ idempotencyKey, ...data }) => submitStepDataApi(tenantId, stepCode, data, idempotencyKey),
+  return useMutation<StepSubmitResponse, StepConflictError, StepSubmitVariables>({
+    mutationFn: async ({ idempotencyKey, ...data }) => {
+      try {
+        const response = await submitStepDataApi(
+          tenantId,
+          stepCode,
+          data,
+          idempotencyKey
+        );
+        return validateStepSubmissionResponse(
+          response,
+          stepCode,
+          Boolean(data.expected_revision)
+        );
+      } catch (error) {
+        return mapStepSubmissionError(error, stepCode);
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: onboardingKeys.status(tenantId) });
+      queryClient.invalidateQueries({
+        queryKey: onboardingKeys.status(organizationId, tenantId),
+      });
     },
     onError: (error) => {
       console.error('[useSubmitStepMutation] Error:', error);
     },
+    retry: false,
   });
 };
 

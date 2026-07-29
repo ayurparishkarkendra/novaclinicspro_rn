@@ -25,6 +25,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../features/auth/presentation/providers/auth.store';
+import { createDraftRevisionEvidence } from '../../features/onboarding/domain/entities/step-revision.entity';
 import {
   clearStepDraftAndSync,
   clearWizardDraftStorageForIdentity,
@@ -79,6 +80,17 @@ const keyFor = (tenantId: string, userId = 'user-a') =>
 
 const userKeyFor = (userId = 'user-a') =>
   `@novaclinics/user_${userId}/wizard_draft_v${WIZARD_DRAFT_SCHEMA_VERSION}`;
+const revision = `step-rev-v1:${'a'.repeat(64)}`;
+const capabilityRevision = `cap-v1:${'b'.repeat(64)}`;
+const draftEvidence = () =>
+  createDraftRevisionEvidence({
+    organizationId: 'org-a',
+    tenantId: 'tenant-a',
+    stepCode: 'clinic_profile',
+    revision,
+    templateVersion: 'template-v1',
+    capabilityRevision,
+  });
 
 describe('wizard.store draft persistence', () => {
   beforeEach(() => {
@@ -94,7 +106,9 @@ describe('wizard.store draft persistence', () => {
   });
 
   it('stores draft entries with stable createdAt and updated lastSavedAt', () => {
-    useWizardStore.getState().setStepDraft('clinic_profile', { name: 'First' });
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'First' }, draftEvidence());
     (Date.now as jest.Mock).mockReturnValue(1_700_000_000_500);
     useWizardStore.getState().setStepDraft('clinic_profile', { name: 'Second' });
 
@@ -103,9 +117,32 @@ describe('wizard.store draft persistence', () => {
       data: { name: 'Second' },
       createdAt: 1_700_000_000_000,
       lastSavedAt: 1_700_000_000_500,
+      baseEvidence: draftEvidence(),
     });
     expect(selectStepDraft('clinic_profile')(useWizardStore.getState())).toEqual({ name: 'Second' });
     expect(selectStepDraftLastSavedAt('clinic_profile')(useWizardStore.getState())).toBe(1_700_000_000_500);
+  });
+
+  it('does not advance authoritative evidence during local saves', () => {
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'First' }, draftEvidence());
+    useWizardStore.getState().setStepDraft('clinic_profile', { name: 'Second' });
+
+    expect(useWizardStore.getState().stepDrafts.clinic_profile.baseEvidence?.revision.value)
+      .toBe(revision);
+  });
+
+  it('updates base evidence only through the explicit accepted-evidence action', () => {
+    useWizardStore.getState().setStepDraft('clinic_profile', { name: 'First' });
+    expect(useWizardStore.getState().stepDrafts.clinic_profile.baseEvidence).toBeNull();
+
+    useWizardStore
+      .getState()
+      .acceptStepAuthoritativeEvidence('clinic_profile', draftEvidence());
+
+    expect(useWizardStore.getState().stepDrafts.clinic_profile.baseEvidence)
+      .toEqual(draftEvidence());
   });
 
   it('round-trips valid drafts through tenant and user scoped storage', async () => {
@@ -117,7 +154,7 @@ describe('wizard.store draft persistence', () => {
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       keyFor('tenant-a'),
-      expect.stringContaining('"version":1')
+      expect.stringContaining(`"version":${WIZARD_DRAFT_SCHEMA_VERSION}`)
     );
     expect(useWizardStore.getState().getStepData('clinic_profile')).toEqual(clinicProfile);
   });
@@ -188,6 +225,7 @@ describe('wizard.store draft persistence', () => {
     expect(entry.data).toEqual(clinicProfile);
     expect(entry.createdAt).toBe(1_700_000_000_000);
     expect(entry.lastSavedAt).toBe(1_700_000_000_000);
+    expect(entry.baseEvidence).toBeNull();
     expect(mockStorage.has('wizard-storage')).toBe(false);
     expect(mockStorage.has(keyFor('tenant-a'))).toBe(true);
   });
@@ -211,7 +249,35 @@ describe('wizard.store draft persistence', () => {
       data: clinicProfile,
       createdAt: 10,
       lastSavedAt: 20,
+      baseEvidence: null,
     });
+  });
+
+  it('migrates scoped v1 drafts to v2 with explicit unavailable evidence', async () => {
+    const v1Key = '@novaclinics/tenant-a/user_user-a/wizard_draft_v1';
+    mockStorage.set(v1Key, JSON.stringify({
+      version: 1,
+      tenantId: 'tenant-a',
+      userId: 'user-a',
+      stepDrafts: {
+        clinic_profile: {
+          data: clinicProfile,
+          createdAt: 1_700_000_000_000,
+          lastSavedAt: 1_700_000_000_000,
+        },
+      },
+    }));
+
+    await hydrateWizardDraftFromStorage();
+
+    expect(useWizardStore.getState().stepDrafts.clinic_profile).toEqual({
+      data: clinicProfile,
+      createdAt: 1_700_000_000_000,
+      lastSavedAt: 1_700_000_000_000,
+      baseEvidence: null,
+    });
+    expect(mockStorage.has(v1Key)).toBe(false);
+    expect(mockStorage.has(keyFor('tenant-a'))).toBe(true);
   });
 
   it('removes corrupt stored drafts without throwing', async () => {
@@ -301,5 +367,36 @@ describe('wizard.store draft persistence', () => {
       tax_rate: 18,
       invoice_prefix: 'INV',
     });
+  });
+
+  it('does not silently replace an existing draft revision during local edits', () => {
+    const firstEvidence = createDraftRevisionEvidence({
+      organizationId: 'org-a',
+      tenantId: 'tenant-a',
+      stepCode: 'clinic_profile',
+      revision: `step-rev-v1:${'a'.repeat(64)}`,
+      templateVersion: 'template-v1',
+      capabilityRevision: `cap-v1:${'c'.repeat(64)}`,
+    });
+    const newerEvidence = createDraftRevisionEvidence({
+      organizationId: 'org-a',
+      tenantId: 'tenant-a',
+      stepCode: 'clinic_profile',
+      revision: `step-rev-v1:${'b'.repeat(64)}`,
+      templateVersion: 'template-v1',
+      capabilityRevision: `cap-v1:${'c'.repeat(64)}`,
+    });
+
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'First' }, firstEvidence);
+    useWizardStore
+      .getState()
+      .setStepDraft('clinic_profile', { name: 'Edited' }, newerEvidence);
+
+    expect(
+      useWizardStore.getState().stepDrafts.clinic_profile.baseEvidence?.revision
+        .value
+    ).toBe(firstEvidence.revision.value);
   });
 });

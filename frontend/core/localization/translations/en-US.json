@@ -592,6 +592,7 @@
         "prepareClinic": "Prepare Your Clinic",
         "clinicPreparation": "Clinic Preparation",
         "workspacePreparation": "Workspace Preparation",
+        "commercialRetention": "Workspace Access",
         "reviewStep": "Review Step"
       },
       "dashboard": {
@@ -728,6 +729,129 @@
           "progressIndeterminate": "Workspace preparation is in progress"
         }
       },
+      "commercialRetention": {
+        "title": "Workspace access",
+        "introduction": "Review your workspace status, retention information, and the options currently available to your organization.",
+        "loading": "Loading workspace access information...",
+        "workspaceStatus": {
+          "title": "Workspace status"
+        },
+        "states": {
+          "ELIGIBLE": "Ready to start",
+          "ACTIVE": "Active",
+          "EXPIRING": "Trial ending soon",
+          "EXPIRED": "Trial ended",
+          "SUSPENDED": "Access paused",
+          "ARCHIVED": "Workspace archived",
+          "DELETED": "Workspace deleted"
+        },
+        "stateDescriptions": {
+          "ELIGIBLE": "Your organization can start its approved trial when an authorized administrator is ready.",
+          "ACTIVE": "Your workspace is available for normal use.",
+          "EXPIRING": "Your workspace remains active while the current trial approaches its end date.",
+          "EXPIRED": "Your trial has ended. Review the options authorized for your organization.",
+          "SUSPENDED": "Normal workspace use is paused while your data remains retained.",
+          "ARCHIVED": "Your workspace is not operational, but its data remains retained according to policy.",
+          "DELETED": "Operational workspace data is no longer available."
+        },
+        "retention": {
+          "title": "Retention information",
+          "archivedAt": "Archived on",
+          "retentionUntil": "Retained until",
+          "legalHold": "Legal hold",
+          "statutoryRetention": "Statutory retention",
+          "active": "Active",
+          "notActive": "Not active",
+          "notApplicable": "No retention dates or hold information apply to the current workspace status."
+        },
+        "availableActions": {
+          "title": "Available options",
+          "none": "No commercial actions are currently available."
+        },
+        "actionLabels": {
+          "START_TRIAL": "Start trial",
+          "REQUEST_EXTENSION": "Request an extension",
+          "GRANT_EXTENSION": "Grant an extension",
+          "RESTORE_WORKSPACE": "Restore workspace",
+          "REQUEST_PERMANENT_DELETION": "Request permanent deletion",
+          "REQUEST_WORKSPACE_DATA_EXPORT": "Request workspace data export",
+          "REQUEST_SUBSCRIPTION": "Review subscription options",
+          "CONTACT_SUPPORT": "Contact support"
+        },
+        "actionDescriptions": {
+          "START_TRIAL": "An authorized administrator may explicitly start the approved trial.",
+          "REQUEST_EXTENSION": "Your organization may ask for additional trial time.",
+          "GRANT_EXTENSION": "An authorized platform administrator may approve additional trial time.",
+          "RESTORE_WORKSPACE": "An authorized platform administrator may restore this retained workspace through an approved extension.",
+          "REQUEST_PERMANENT_DELETION": "An authorized administrator may request permanent deletion when all protections permit it.",
+          "REQUEST_WORKSPACE_DATA_EXPORT": "A future workspace data export service may accept a request. No export or download has been created.",
+          "REQUEST_SUBSCRIPTION": "Subscription options are not available in this version. No request has been submitted.",
+          "CONTACT_SUPPORT": "Support contact is not available in this version. No support request has been created."
+        },
+        "unavailable": {
+          "title": "Why some options are unavailable"
+        },
+        "ineligibilityReasons": {
+          "PROTECTION_EVIDENCE_UNAVAILABLE": "Required protection information is unavailable, so protected actions cannot continue.",
+          "LEGAL_HOLD_ACTIVE": "A legal hold currently prevents protected workspace changes.",
+          "STATUTORY_RETENTION_ACTIVE": "Mandatory statutory retention currently prevents protected workspace changes.",
+          "EXPORT_IN_PROGRESS": "An approved workspace data export is still in progress.",
+          "RETENTION_PERIOD_ACTIVE": "The workspace retention period is still active."
+        },
+        "empty": {
+          "title": "Workspace access unavailable",
+          "missingWorkspace": "The selected workspace could not be found.",
+          "permissionDenied": "You do not have permission to view commercial information for this workspace.",
+          "missingEvidence": "Retention information is temporarily unavailable. Protected actions remain unavailable.",
+          "unsupported": "This workspace status cannot be displayed safely. Refresh the app or contact your administrator.",
+          "network": "Workspace access information could not be loaded. Check your connection and try again."
+        },
+        "actions": {
+          "retry": "Try again"
+        },
+        "workflow": {
+          "actions": {
+            "cancel": "Cancel",
+            "submitting": "Submitting..."
+          },
+          "startTrial": {
+            "confirmTitle": "Start your trial?",
+            "confirmMessage": "The trial clock starts immediately after confirmation and is controlled by Nova's authoritative commercial record.",
+            "confirmAction": "Start trial",
+            "success": "Your trial has started."
+          },
+          "extension": {
+            "title": "Trial extension",
+            "guidance": "Provide a business reason only. Do not include patient or clinical information, credentials, or payment details.",
+            "reasonLabel": "Business reason",
+            "reasonHint": "Enter between 1 and 160 characters.",
+            "remaining": "{{count}} characters remaining",
+            "reasonError": "Enter a business reason between 1 and 160 characters.",
+            "daysLabel": "Extension days",
+            "daysError": "Enter a whole number from 1 to 30.",
+            "channelLabel": "Verified interaction channel",
+            "channelError": "Select the verified interaction channel.",
+            "channels": {
+              "SUPPORT": "Support",
+              "SALES": "Sales",
+              "CUSTOMER_SUCCESS": "Customer success"
+            },
+            "submit": "Submit",
+            "success": "The extension action was submitted successfully."
+          },
+          "errors": {
+            "permissionDenied": "You are not authorized to perform this commercial action.",
+            "confirmationRequired": "Confirmation is required before the trial can start.",
+            "conflict": "The commercial record changed. It has been refreshed; review it before trying again.",
+            "notAvailable": "This action is no longer available for the current workspace status.",
+            "network": "The action could not be completed. Check your connection and try again."
+          }
+        },
+        "accessibility": {
+          "screen": "Workspace access and retention information"
+        },
+        "footer": "Options shown here come from Nova's authoritative commercial record."
+      },
       "statusBanner": {
         "commercialTrialEnded": "Access Paused",
         "trialEndedMessage": "Your clinic data is safely stored. Review subscription options to continue using Nova.",
@@ -742,6 +866,40 @@
       },
       "drafts": {
         "restored": "Unsaved changes restored"
+      },
+      "conflict": {
+        "title": "Choose which changes to continue with",
+        "description": "Newer clinic setup progress is available from another device or session.",
+        "reassurance": "Your unsaved changes are still safe. Choose whether to use the latest clinic setup or keep your local changes.",
+        "actions": {
+          "useLatest": "Use Latest",
+          "keepLocal": "Keep Local"
+        },
+        "pending": {
+          "useLatest": "Loading the latest clinic setup...",
+          "keepLocal": "Saving your local changes..."
+        },
+        "success": {
+          "useLatest": "The latest clinic setup is now displayed.",
+          "keepLocal": "Your local changes were saved successfully."
+        },
+        "errors": {
+          "refresh": "The latest clinic setup could not be loaded. Your local changes are still safe. Try again.",
+          "draft": "Your local changes could not be updated safely. Nothing was discarded.",
+          "secondConflict": "Clinic setup changed again. Review the choices and try again.",
+          "tenantMismatch": "The selected clinic changed. Return to the current clinic before continuing.",
+          "unauthorized": "You no longer have permission to update this clinic setup.",
+          "unsupported": "This app cannot safely resolve the current setup changes. Refresh the app or contact support.",
+          "generic": "The changes could not be saved. Your local changes are still safe. Try again."
+        },
+        "accessibility": {
+          "dialog": "Clinic setup changes need your choice",
+          "opened": "Newer clinic setup progress is available. Choose Use Latest or Keep Local.",
+          "useLatestLabel": "Use the latest clinic setup",
+          "useLatestHint": "Discards the local draft for this step after the latest setup is loaded safely",
+          "keepLocalLabel": "Keep and save local changes",
+          "keepLocalHint": "Keeps the local draft and attempts to save it against the latest clinic setup"
+        }
       },
       "journeyCard": {
         "description": "Review and personalize this clinic preparation step.",
@@ -775,6 +933,27 @@
         "title": "You're offline",
         "message": "Changes are saved locally. Connect to the internet to submit this step.",
         "submitDisabled": "Connect to the internet to submit this step"
+      },
+      "mutationRecovery": {
+        "title": "Setup changes need attention",
+        "pendingCount": "{{count}} saved changes are waiting",
+        "states": {
+          "PENDING": "A saved change will be retried when Nova confirms a safe connection.",
+          "REPLAYING": "Nova is safely retrying your saved change.",
+          "CONFLICT_BLOCKED": "Newer clinic setup progress is available. Review this step before continuing.",
+          "MANUAL_ACTION_REQUIRED": "Nova could not retry this change automatically. Review the available actions.",
+          "EXPIRED": "This saved change expired without being submitted. Review the step before continuing.",
+          "RECOVERY_REQUIRED": "Saved recovery data could not be validated and was not submitted."
+        },
+        "actions": {
+          "retry": "Try again",
+          "edit": "Review step",
+          "discard": "Discard saved change"
+        },
+        "discard": {
+          "title": "Discard saved change?",
+          "message": "This removes the saved recovery intent. It does not undo any change already accepted by Nova."
+        }
       },
       "flow": {
         "saveProgressError": "Failed to save preparation progress. Please try again.",

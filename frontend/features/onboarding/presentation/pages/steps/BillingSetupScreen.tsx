@@ -21,15 +21,18 @@ import { useSubmitStepMutation } from '../../../data/repositories/onboarding.rep
 import { axiosClient } from '../../../../../core/api/axiosClient';
 import { clearStepDraftAndSync, useWizardStore } from '../../stores/wizard.store';
 import { RestoredDraftIndicator } from '../../components/RestoredDraftIndicator';
+import { DraftRevisionEvidence, StepConflictError } from '../../../domain/entities/step-revision.entity';
+import { RevisionAwareSaveContext, RevisionAwareSaveHandler } from '../../hooks/useDraftConflictRecovery';
 
 interface BillingSetupScreenProps {
   tenantId: string;
   isWizardMode?: boolean;
   onSuccess?: () => void;
-  onRegisterSaveHandler?: (handler: (() => Promise<void>) | null) => void;
+  onRegisterSaveHandler?: (handler: RevisionAwareSaveHandler | null) => void;
+  draftBaseEvidence?: DraftRevisionEvidence;
 }
 
-export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler }: BillingSetupScreenProps) {
+export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, onRegisterSaveHandler, draftBaseEvidence }: BillingSetupScreenProps) {
   const theme = useClinicTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -61,12 +64,12 @@ export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
           tax_enabled: taxEnabled,
           tax_rate: taxEnabled ? parseFloat(taxRate) : 0,
           invoice_prefix: invoicePrefix,
-        });
+        }, draftBaseEvidence);
       }, 500);
 
       return () => clearTimeout(timeout);
     }
-  }, [taxEnabled, taxRate, invoicePrefix, loading, setBilling, draftRestored]);
+  }, [taxEnabled, taxRate, invoicePrefix, loading, setBilling, draftRestored, draftBaseEvidence]);
 
   const fetchBillingSettings = async () => {
     try {
@@ -174,7 +177,7 @@ export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
     return true;
   };
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (saveContext?: RevisionAwareSaveContext) => {
     if (loading) {
       console.log('[BillingSetupScreen] Skipping submit - still loading');
       return;
@@ -216,12 +219,14 @@ export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
 
       // Then, mark the step as complete
       const result = await submitStepMutation.mutateAsync({
+        idempotencyKey: saveContext?.idempotencyKey,
         data: {
           tax_enabled: taxEnabled,
           tax_rate: taxEnabled ? parseFloat(taxRate) : 0,
           invoice_prefix: invoicePrefix,
         },
         mark_complete: true,
+        expected_revision: saveContext?.expectedRevision,
       });
 
       console.log('[BillingSetupScreen] Step completed successfully');
@@ -250,7 +255,9 @@ export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
         router.replace(`/onboarding/setup-wizard?tenantId=${tenantId}`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save billing settings');
+      if (!(error instanceof StepConflictError)) {
+        Alert.alert('Error', 'Failed to save billing settings');
+      }
       throw error;
     }
   }, [loading, taxEnabled, taxRate, invoicePrefix, tenantId, submitStepMutation, isWizardMode, onSuccess, router, validateForm]);
@@ -454,7 +461,7 @@ export function BillingSetupScreen({ tenantId, isWizardMode = false, onSuccess, 
                 alignItems: 'center',
               },
             ]}
-            onPress={handleSubmit}
+            onPress={() => void handleSubmit()}
             disabled={submitStepMutation.isPending}
           >
             <Text style={[theme.typography.button, { color: theme.colors.text.onPrimary }]}>
