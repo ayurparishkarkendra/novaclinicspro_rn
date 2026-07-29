@@ -2436,9 +2436,24 @@ Status: **COMPLETE — 2026-07-29**
   authorization-loss isolation, transport retry ownership, and no frontend
   policy calculation pass.
 
-### TG26.3A — Backend Commercial Retention Read Projection — AUTHORIZED
+### TG26.3A — Backend Commercial Retention Read Projection — COMPLETE
 
-**Status:** AUTHORIZED — first canonical implementation task.
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** Backend commit
+`076cf1240254c6e33bd47d2d815999f8feb7545b` adds the authenticated,
+organization/tenant-isolated `GET
+/onboarding/{tenant_id}/commercial-trial/retention` projection through the
+existing E8 application, repository, Effective Tenant, authorization, schema,
+router, and typed-error boundaries. It derives lifecycle state, retention
+timing, actor-scoped eligibility, hold awareness, allowed actions, and safe
+ineligibility reasons from existing TG26 persistence. It adds no migration,
+export request, artifact/package model, storage field, scheduler detail, or
+frontend behavior.
+
+**Verification evidence:** 14 focused TG26.3A application/transport tests and
+50 complete TG26.1–TG26.3A backend regression tests passed. Ruff and compileall
+passed for touched paths. Existing migration-contract tests passed unchanged.
 
 - **Objective:** Expose the approved Version 1 Commercial Retention read
   projection through the existing E8 application/transport boundaries.
@@ -2461,9 +2476,9 @@ Status: **COMPLETE — 2026-07-29**
   PostgreSQL tests, Ruff, compileall, and no export/artifact lifecycle pass.
 - **Stop condition:** Stop before TG26.4A.
 
-### TG26.4A — Frontend Commercial Retention Data and Domain Integration — BLOCKED
+### TG26.4A — Frontend Commercial Retention Data and Domain Integration — AUTHORIZED
 
-**Status:** BLOCKED until TG26.3A is complete.
+**Status:** AUTHORIZED — TG26.3A dependency complete.
 
 - **Objective:** Map the approved Commercial Retention projection through the
   existing datasource, repository, React Query, tenant-scoped cache, and
@@ -2520,9 +2535,9 @@ Retention projection and must not invent export or retained-record state.
 
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
-requires a new Product or Architecture decision. TG26.3A is the next canonical
-authorized task. TG26.4A, TG26.5, TG26.6, and TG27 remain unauthorized until
-their stated prerequisites complete.
+requires a new Product or Architecture decision. TG26.4A is the next canonical
+authorized task. TG26.5, TG26.6, and TG27 remain unauthorized until their
+stated prerequisites complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
