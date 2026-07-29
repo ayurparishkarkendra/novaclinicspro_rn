@@ -9,7 +9,6 @@ import {
   ensureWorkspacePreparationApi,
   getCommercialRetentionApi,
   getCommercialTrialApi,
-  getCommercialTrialDownloadsApi,
   getWorkspacePreparationApi,
   grantCommercialTrialExtensionApi,
   requestCommercialTrialExtensionApi,
@@ -300,14 +299,11 @@ describe('Commercial Trial datasource', () => {
     );
   });
 
-  it('uses only the approved download and E9 handoff routes', async () => {
-    await getCommercialTrialDownloadsApi('tenant-1');
+  it('uses only the approved E9 subscription handoff route', async () => {
     await requestCommercialTrialSubscriptionApi('tenant-1');
-    expect(mockGet).toHaveBeenCalledWith(
-      '/api/v1/onboarding/tenant-1/commercial-trial/downloads'
-    );
     expect(mockPost).toHaveBeenCalledWith(
       '/api/v1/onboarding/tenant-1/commercial-trial/subscription-request'
     );
+    expect(mockGet).not.toHaveBeenCalled();
   });
 });

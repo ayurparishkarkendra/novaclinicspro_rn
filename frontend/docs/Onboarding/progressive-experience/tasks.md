@@ -2581,9 +2581,9 @@ TG26.5A-owned error and retained the established unrelated baseline. Backend,
 migrations, Product requirements, and Workspace Data Export remained
 unchanged.
 
-### TG26.5B — Remove Superseded Commercial Retention Downloads / Export-Package Architecture — AUTHORIZED
+### TG26.5B — Remove Superseded Commercial Retention Downloads / Export-Package Architecture — COMPLETE
 
-**Status:** AUTHORIZED — TG26.5A dependency complete.
+**Status:** COMPLETE — 2026-07-29.
 
 - **Objective:** Remove the obsolete E8 `/commercial-trial/downloads` handoff
   and `DOWNLOADS`/download-package contracts introduced before Commercial
@@ -2604,9 +2604,27 @@ unchanged.
   only the affected task and RTM evidence.
 - **Stop condition:** Stop before the E8 Final Acceptance Re-run.
 
+**Implementation evidence:** Backend commit `a2ad7be` removes the obsolete
+`/commercial-trial/downloads` route and prevents the E8 trial projection from
+emitting `DOWNLOADS`. The companion frontend TG26.5B commit removes the
+obsolete datasource, repository method, hook, domain action/owner variants,
+and positive transport assertions. The frontend retains one negative
+`DOWNLOADS` assertion solely to prove that stale cached actions fail closed.
+`REQUEST_WORKSPACE_DATA_EXPORT` remains an informational, backend-authoritative
+Commercial Retention action without an executable export workflow.
+
+**Verification evidence:** 43 focused backend E8 domain, repository,
+retention, application, projection, and transport tests passed; Ruff and
+compileall passed. Sixty-nine focused frontend Commercial Trial/Retention
+tests and 37 Journey/Setup Wizard regressions passed; scoped ESLint passed.
+Repository-wide TypeScript retained only unrelated baseline errors and
+reported no TG26.5B-owned error. Re-scans found no obsolete production
+download route, action mapping, datasource, repository, hook, or navigation.
+No migration was created.
+
 ### E8 Final Acceptance Re-run — PENDING
 
-**Status:** PENDING — begins only after TG26.5B completes.
+**Status:** AUTHORIZED — TG26.5B dependency complete.
 
 - **Objective:** Re-run the original E8 Product, Architecture, Engineering,
   Security, UX, Traceability, and regression acceptance review.

@@ -194,19 +194,6 @@ export const grantCommercialTrialExtensionApi = async (
   }
 };
 
-export const getCommercialTrialDownloadsApi = async (
-  tenantId: string
-): Promise<CommercialTrialHandoffDTO> => {
-  try {
-    const response = await axiosClient.get<CommercialTrialHandoffDTO>(
-      `/api/v1/onboarding/${tenantId}/commercial-trial/downloads`
-    );
-    return response.data;
-  } catch (error) {
-    return throwCommercialTrialError(error);
-  }
-};
-
 export const requestCommercialTrialSubscriptionApi = async (
   tenantId: string
 ): Promise<CommercialTrialHandoffDTO> => {

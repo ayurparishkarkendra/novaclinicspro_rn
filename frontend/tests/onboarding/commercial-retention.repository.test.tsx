@@ -19,7 +19,6 @@ jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   activateCommercialTrialApi: jest.fn(),
   getCommercialRetentionApi: jest.fn(),
   getCommercialTrialApi: jest.fn(),
-  getCommercialTrialDownloadsApi: jest.fn(),
   grantCommercialTrialExtensionApi: jest.fn(),
   requestCommercialTrialExtensionApi: jest.fn(),
   requestCommercialTrialSubscriptionApi: jest.fn(),

@@ -13,7 +13,6 @@ export type CommercialTrialAction =
   | 'START_TRIAL'
   | 'REQUEST_EXTENSION'
   | 'GRANT_EXTENSION'
-  | 'DOWNLOADS'
   | 'REQUEST_SUBSCRIPTION';
 
 export type CommercialRetentionAction =
@@ -47,8 +46,8 @@ export interface CommercialTrial {
 }
 
 export interface CommercialTrialHandoff {
-  readonly owner: 'exports' | 'E9';
-  readonly action: 'OPEN_APPROVED_DOWNLOADS' | 'REQUEST_SUBSCRIPTION';
+  readonly owner: 'E9';
+  readonly action: 'REQUEST_SUBSCRIPTION';
   readonly tenantId: string;
 }
 

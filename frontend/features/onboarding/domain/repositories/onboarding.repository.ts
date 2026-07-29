@@ -80,10 +80,6 @@ export interface ICommercialTrialRepository {
     requesterId?: string,
     requestOperationId?: string
   ): Promise<CommercialTrial>;
-  getCommercialTrialDownloads(
-    organizationId: string,
-    tenantId: string
-  ): Promise<CommercialTrialHandoff>;
   requestCommercialTrialSubscription(
     organizationId: string,
     tenantId: string

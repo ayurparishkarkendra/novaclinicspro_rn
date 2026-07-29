@@ -37,7 +37,6 @@ import {
   activateCommercialTrialApi,
   getCommercialRetentionApi,
   getCommercialTrialApi,
-  getCommercialTrialDownloadsApi,
   grantCommercialTrialExtensionApi,
   requestCommercialTrialExtensionApi,
   requestCommercialTrialSubscriptionApi,
@@ -599,7 +598,6 @@ const COMMERCIAL_TRIAL_ACTIONS: readonly CommercialTrialAction[] = [
   'START_TRIAL',
   'REQUEST_EXTENSION',
   'GRANT_EXTENSION',
-  'DOWNLOADS',
   'REQUEST_SUBSCRIPTION',
 ];
 const COMMERCIAL_RETENTION_ACTIONS: readonly CommercialRetentionAction[] = [
@@ -950,18 +948,6 @@ export const commercialTrialRepository: ICommercialTrialRepository = {
       return mapCommercialTrialError(error);
     }
   },
-  async getCommercialTrialDownloads(_organizationId, tenantId) {
-    try {
-      return mapCommercialTrialHandoff(
-        await getCommercialTrialDownloadsApi(tenantId),
-        tenantId,
-        'exports',
-        'OPEN_APPROVED_DOWNLOADS'
-      );
-    } catch (error) {
-      return mapCommercialTrialError(error);
-    }
-  },
   async requestCommercialTrialSubscription(_organizationId, tenantId) {
     try {
       return mapCommercialTrialHandoff(
@@ -1129,14 +1115,6 @@ export const useGrantCommercialTrialExtensionMutation = (
         requesterId,
         requestOperationId
       )
-  );
-
-export const useCommercialTrialDownloadsMutation = (
-  organizationId: string,
-  tenantId: string
-) =>
-  useCommercialTrialMutation<void, CommercialTrialHandoff>(organizationId, tenantId, () =>
-    commercialTrialRepository.getCommercialTrialDownloads(organizationId, tenantId)
   );
 
 export const useCommercialTrialSubscriptionMutation = (

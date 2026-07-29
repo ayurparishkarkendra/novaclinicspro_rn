@@ -24,7 +24,6 @@ import { CommercialTrialError } from '../../features/onboarding/domain/entities/
 jest.mock('../../features/onboarding/data/datasources/onboarding.api', () => ({
   activateCommercialTrialApi: jest.fn(),
   getCommercialTrialApi: jest.fn(),
-  getCommercialTrialDownloadsApi: jest.fn(),
   grantCommercialTrialExtensionApi: jest.fn(),
   requestCommercialTrialExtensionApi: jest.fn(),
   requestCommercialTrialSubscriptionApi: jest.fn(),
@@ -102,7 +101,7 @@ describe('Commercial Trial repository and query', () => {
       mapCommercialTrial({ ...dto(), state: 'FUTURE' }, 'org-1', 'tenant-1')
     ).toThrow(expect.objectContaining({ kind: 'INVALID_AGGREGATE' }));
     expect(() =>
-      mapCommercialTrial({ ...dto(), allowed_actions: ['DELETE_NOW'] }, 'org-1', 'tenant-1')
+      mapCommercialTrial({ ...dto(), allowed_actions: ['DOWNLOADS'] }, 'org-1', 'tenant-1')
     ).toThrow(expect.objectContaining({ kind: 'INVALID_AGGREGATE' }));
     expect(() => mapCommercialTrial(dto('org-other'), 'org-1', 'tenant-1')).toThrow(
       expect.objectContaining({ kind: 'ORGANIZATION_MISMATCH' })
