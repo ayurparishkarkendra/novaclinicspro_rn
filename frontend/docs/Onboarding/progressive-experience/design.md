@@ -734,6 +734,10 @@ the E8 executor owns commercial eligibility, transitions, transaction, history,
 and audit. The scheduler cannot calculate commercial policy, infer tenant
 scope, or mutate an E8 aggregate directly. TG26.3 is the first authorized
 consumer and may register only the approved E8 commercial lifecycle job.
+`ADR-PF-020-PLATFORM-BACKGROUND-RUNTIME-CATALOG.md` is the permanent inventory
+and selection authority for background, deferred, startup, replay, executor,
+and reconciliation mechanisms; it preserves the distinction between runtime
+ownership and E8 business ownership.
 
 TG26 must first prove semantic fit before reusing Demo, trial, subscription,
 billing, Go-Live, status, countdown, export, or archive assets. Compatibility

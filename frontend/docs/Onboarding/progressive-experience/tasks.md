@@ -2223,6 +2223,12 @@ Status: **COMPLETE — 2026-07-29**
   TG26.3.
 - No scheduler, worker, lifecycle transition, API, migration, or frontend
   runtime behavior was implemented by this prerequisite.
+- `ADR-PF-020-PLATFORM-BACKGROUND-RUNTIME-CATALOG.md` now governs runtime
+  selection and ownership across the platform. It catalogs the Outbox Worker,
+  Lifecycle Scheduler and Executors, E7 Replay Coordinator, Workspace
+  Preparation Executor, FastAPI lifespan, `AsyncProcessor`, repair-on-read,
+  and the non-governed Legacy Billing Job Service without implementing or
+  expanding any runtime.
 
 ### TG26.3 — Backend Application, Scheduling, and Transport
 
