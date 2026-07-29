@@ -389,6 +389,101 @@ describe('CommercialRetentionScreen', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['0', '31', '1.5'])(
+    'rejects invalid extension duration %s without submitting',
+    async (duration) => {
+      mockUseCommercialRetentionQuery.mockReturnValue(
+        query(retention({ allowedActions: ['GRANT_EXTENSION'] }))
+      );
+      const { getByRole, getByLabelText, getByText } = render(
+        <CommercialRetentionScreen organizationId="org-1" tenantId="tenant-1" />
+      );
+
+      fireEvent.press(getByRole('button', { name: /actionLabels\.GRANT_EXTENSION/ }));
+      fireEvent.changeText(
+        getByLabelText(`${ROOT}.workflow.extension.reasonLabel`),
+        'Verified operational request'
+      );
+      fireEvent.changeText(
+        getByLabelText(`${ROOT}.workflow.extension.daysLabel`),
+        duration
+      );
+      fireEvent.press(
+        getByRole('radio', { name: `${ROOT}.workflow.extension.channels.SUPPORT` })
+      );
+      await act(async () => {
+        fireEvent.press(
+          getByRole('button', { name: `${ROOT}.workflow.extension.submit` })
+        );
+      });
+
+      expect(mockGrantExtension).not.toHaveBeenCalled();
+      expect(getByText(`${ROOT}.workflow.extension.daysError`)).toBeTruthy();
+    }
+  );
+
+  it.each(['1', '30'])(
+    'accepts approved extension duration boundary %s',
+    async (duration) => {
+      mockUseCommercialRetentionQuery.mockReturnValue(
+        query(retention({ allowedActions: ['GRANT_EXTENSION'] }))
+      );
+      const { getByRole, getByLabelText } = render(
+        <CommercialRetentionScreen organizationId="org-1" tenantId="tenant-1" />
+      );
+
+      fireEvent.press(getByRole('button', { name: /actionLabels\.GRANT_EXTENSION/ }));
+      fireEvent.changeText(
+        getByLabelText(`${ROOT}.workflow.extension.reasonLabel`),
+        'Verified operational request'
+      );
+      fireEvent.changeText(
+        getByLabelText(`${ROOT}.workflow.extension.daysLabel`),
+        duration
+      );
+      fireEvent.press(
+        getByRole('radio', { name: `${ROOT}.workflow.extension.channels.SUPPORT` })
+      );
+      await act(async () => {
+        fireEvent.press(
+          getByRole('button', { name: `${ROOT}.workflow.extension.submit` })
+        );
+      });
+
+      expect(mockGrantExtension).toHaveBeenCalledWith(
+        expect.objectContaining({ extensionDays: Number(duration), channel: 'SUPPORT' })
+      );
+    }
+  );
+
+  it('fails closed when no approved extension channel is selected', async () => {
+    mockUseCommercialRetentionQuery.mockReturnValue(
+      query(retention({ allowedActions: ['GRANT_EXTENSION'] }))
+    );
+    const { getByRole, getByLabelText, getByText, queryByRole } = render(
+      <CommercialRetentionScreen organizationId="org-1" tenantId="tenant-1" />
+    );
+
+    fireEvent.press(getByRole('button', { name: /actionLabels\.GRANT_EXTENSION/ }));
+    fireEvent.changeText(
+      getByLabelText(`${ROOT}.workflow.extension.reasonLabel`),
+      'Verified operational request'
+    );
+    fireEvent.changeText(getByLabelText(`${ROOT}.workflow.extension.daysLabel`), '14');
+
+    expect(
+      queryByRole('radio', { name: `${ROOT}.workflow.extension.channels.UNKNOWN` })
+    ).toBeNull();
+    await act(async () => {
+      fireEvent.press(
+        getByRole('button', { name: `${ROOT}.workflow.extension.submit` })
+      );
+    });
+
+    expect(mockGrantExtension).not.toHaveBeenCalled();
+    expect(getByText(`${ROOT}.workflow.extension.channelError`)).toBeTruthy();
+  });
+
   it('prevents duplicate action dispatch while a mutation is pending', () => {
     mockUseActivateMutation.mockReturnValue({
       mutateAsync: mockActivate,
@@ -483,5 +578,76 @@ describe('CommercialRetentionScreen', () => {
     await waitFor(() =>
       expect(getByText(`${ROOT}.workflow.errors.${token}`)).toBeTruthy()
     );
+  });
+
+  it('refreshes stale authority once after a conflict without retrying the mutation', async () => {
+    const refetch = jest.fn().mockResolvedValue(undefined);
+    mockRequestExtension.mockRejectedValue(
+      new CommercialTrialError(
+        'CONFLICT',
+        'commercial_trial.conflict',
+        'internal',
+        false
+      )
+    );
+    mockUseCommercialRetentionQuery.mockReturnValue({
+      ...query(retention({ allowedActions: ['REQUEST_EXTENSION'] })),
+      refetch,
+    });
+    const { getByRole, getByLabelText, getByText } = render(
+      <CommercialRetentionScreen organizationId="org-1" tenantId="tenant-1" />
+    );
+
+    fireEvent.press(getByRole('button', { name: /actionLabels\.REQUEST_EXTENSION/ }));
+    fireEvent.changeText(
+      getByLabelText(`${ROOT}.workflow.extension.reasonLabel`),
+      'Operational reason'
+    );
+    await act(async () => {
+      fireEvent.press(
+        getByRole('button', { name: `${ROOT}.workflow.extension.submit` })
+      );
+    });
+
+    expect(mockRequestExtension).toHaveBeenCalledTimes(1);
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(getByText(`${ROOT}.workflow.errors.conflict`)).toBeTruthy();
+  });
+
+  it('keeps activation fail-closed after an authorization failure', async () => {
+    const refetch = jest.fn().mockResolvedValue(undefined);
+    mockActivate.mockRejectedValue(
+      new CommercialTrialError(
+        'FORBIDDEN',
+        'commercial_trial.forbidden',
+        'internal-sensitive-detail',
+        false
+      )
+    );
+    mockUseCommercialRetentionQuery.mockReturnValue({
+      ...query(
+        retention({
+          commercialState: 'ELIGIBLE',
+          allowedActions: ['START_TRIAL'],
+        })
+      ),
+      refetch,
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByRole, getByText, queryByText } = render(
+      <CommercialRetentionScreen organizationId="org-1" tenantId="tenant-1" />
+    );
+
+    fireEvent.press(getByRole('button', { name: /actionLabels\.START_TRIAL/ }));
+    await act(async () => {
+      await alert.mock.calls[0][2]?.[1]?.onPress?.();
+    });
+
+    expect(mockActivate).toHaveBeenCalledTimes(1);
+    expect(refetch).not.toHaveBeenCalled();
+    expect(getByText(`${ROOT}.workflow.errors.permissionDenied`)).toBeTruthy();
+    expect(getByText(`${ROOT}.states.ELIGIBLE`)).toBeTruthy();
+    expect(queryByText('internal-sensitive-detail')).toBeNull();
+    alert.mockRestore();
   });
 });

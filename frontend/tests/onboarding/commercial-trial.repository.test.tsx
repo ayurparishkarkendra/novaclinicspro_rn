@@ -50,7 +50,12 @@ const dto = (
 });
 
 const createClient = () =>
-  new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  });
 
 const wrapperFor = (queryClient: QueryClient) => {
   const QueryWrapper = ({ children }: { children: React.ReactNode }) => (
