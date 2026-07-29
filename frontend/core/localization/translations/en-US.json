@@ -809,6 +809,44 @@
         "actions": {
           "retry": "Try again"
         },
+        "workflow": {
+          "actions": {
+            "cancel": "Cancel",
+            "submitting": "Submitting..."
+          },
+          "startTrial": {
+            "confirmTitle": "Start your trial?",
+            "confirmMessage": "The trial clock starts immediately after confirmation and is controlled by Nova's authoritative commercial record.",
+            "confirmAction": "Start trial",
+            "success": "Your trial has started."
+          },
+          "extension": {
+            "title": "Trial extension",
+            "guidance": "Provide a business reason only. Do not include patient or clinical information, credentials, or payment details.",
+            "reasonLabel": "Business reason",
+            "reasonHint": "Enter between 1 and 160 characters.",
+            "remaining": "{{count}} characters remaining",
+            "reasonError": "Enter a business reason between 1 and 160 characters.",
+            "daysLabel": "Extension days",
+            "daysError": "Enter a whole number from 1 to 30.",
+            "channelLabel": "Verified interaction channel",
+            "channelError": "Select the verified interaction channel.",
+            "channels": {
+              "SUPPORT": "Support",
+              "SALES": "Sales",
+              "CUSTOMER_SUCCESS": "Customer success"
+            },
+            "submit": "Submit",
+            "success": "The extension action was submitted successfully."
+          },
+          "errors": {
+            "permissionDenied": "You are not authorized to perform this commercial action.",
+            "confirmationRequired": "Confirmation is required before the trial can start.",
+            "conflict": "The commercial record changed. It has been refreshed; review it before trying again.",
+            "notAvailable": "This action is no longer available for the current workspace status.",
+            "network": "The action could not be completed. Check your connection and try again."
+          }
+        },
         "accessibility": {
           "screen": "Workspace access and retention information"
         },
