@@ -191,8 +191,11 @@ E6–E12 are not implementation-authorized:
 - E7 queue/retry/dead-letter/security and ownership contracts are resolved by
   the E7 constitutional requirements/design; TG24 is authorized and TG25 is
   reserved for final acceptance;
-- E8 commercial-trial contracts are approved and TG26 is authorized; E9–E10
-  still lack accepted payment, recovery, and dunning contracts;
+- E8 commercial-trial contracts are approved; TG26.2 implemented the
+  trial-phase foundation, TG26.2A is authorized for the missing retention and
+  extension domain/persistence foundation, and TG26.3 remains blocked until
+  TG26.2A is complete; E9–E10 still lack accepted payment, recovery, and
+  dunning contracts;
 - E11 lacks dashboard/first-action and growth/branding authority;
 - E12 retains Hindi review, analytics/security completion, staging/device
   access, and the release matrix.
@@ -206,7 +209,7 @@ authorization.
 |---|---|
 | E6 / TG23 | Satisfied by `E6-IMPLEMENTATION-READINESS.md`; TG23 is authorized and TG23.1 is the first source checkpoint. Implementation evidence remains absent until execution. |
 | E7 / TG24–TG25 | Satisfied by the E7 constitutional requirements/design; TG24 is authorized in `tasks.md`, and TG25 remains the final acceptance owner. |
-| E8 / TG26 | **CONSTITUTIONALLY COMPLETE; IMPLEMENTATION NOT STARTED.** `E8-CONSTITUTIONAL-DECISIONS.md`, requirements, and design approve lifecycle/clock authority, administrative hierarchy, activation, duration, extension, retention/recovery, backend/frontend ownership, compatibility, rollout, rollback, and E9 boundary. TG26 is authorized in `tasks.md`; implementation and acceptance evidence remain absent. |
+| E8 / TG26 | **CONSTITUTIONALLY COMPLETE; PARTIALLY IMPLEMENTED.** `E8-CONSTITUTIONAL-DECISIONS.md`, requirements, and design approve lifecycle/clock authority, administrative hierarchy, activation, duration, extension, retention/recovery, backend/frontend ownership, compatibility, rollout, rollback, and E9 boundary. TG26.2 commit `deb9ae81d0907d5df3c048a3ce5121c2b67bf6ec` implements `ELIGIBLE`, `ACTIVE`, persisted `EXPIRED`, derived `EXPIRING`, immutable identity/configuration, repository/UoW, history, and migration `20260729_010000`. TG26.2A is authorized for retained states, extension/recovery evidence, protection evidence, due/claim repository contracts, configuration, migration, and focused backend tests. TG26.3 remains blocked until TG26.2A completes; later implementation and acceptance evidence remain absent. |
 | E9 / TG27 | Approve subscription/payment authority, provider boundary, verification and pending-payment states, security/idempotency, recovery, tenant isolation, tests, rollback, and acceptance. |
 | E10 / TG28 | Approve dunning triggers, timing, severity, channels, non-destructive consequences, owned actions, localization/accessibility, audit, tests, rollback, and acceptance. |
 | E11 / TG29–TG30 | Approve dashboard ownership and first-action source, capability/eligibility rules, growth lifecycle, branding/design-system criteria, analytics, tests, rollback, and acceptance. |

@@ -2201,6 +2201,103 @@ Status: **COMPLETE — 2026-07-29**
   subscription, payment, and all frontend work remain unimplemented and
   unauthorized by this completion record.
 
+#### TG26.2 scope reconciliation
+
+The accepted TG26.2 implementation is narrower than the full persistence
+foundation canonical TG26.3 consumes. Source evidence confirms:
+
+| Missing TG26.3 prerequisite | Required owner before TG26.3 |
+| --- | --- |
+| `SUSPENDED`, `ARCHIVED`, and terminal commercial `DELETED` lifecycle invariants and transitions | TG26.2A domain |
+| Extension request/direct-grant/approval evidence and same-trial recovery to `ACTIVE` | TG26.2A domain and persistence |
+| Retention-policy identity, UTC transition timestamps, and derived final-notice boundary | TG26.2A domain, configuration, and persistence |
+| Immutable extension and retention lifecycle history | TG26.2A persistence and audit-evidence contract |
+| Export-in-progress timeout evidence and legal/regulatory/statutory protection evidence | TG26.2A persistence and repository protection contract; external policy owners remain unchanged |
+| Scoped compare-and-swap lifecycle update, due eligibility, protection check, execution claim/lease, and recovery operations | TG26.2A repository port/adapter |
+| Due-work polling, scheduler registration/runtime, lifecycle execution, retries, orchestration, and typed outcomes | TG26.3 scheduler/executor and application |
+| Activation, extension request/direct grant/approval, retained recovery, export/download handoff, and E9 request handoff APIs | TG26.3 application and transport |
+
+TG26.2 remains complete for its delivered trial-phase boundary. The missing
+retention and extension foundation is not silently reassigned to TG26.3.
+
+### TG26.2A — Retention and Extension Domain/Persistence Foundation (AUTHORIZED)
+
+- **Objective:** Complete only the E8 domain and persistence contracts required
+  for canonical TG26.3 to orchestrate retention, extension, recovery, and
+  protected scheduled transitions without inventing aggregate or schema
+  behavior.
+- **Ownership:** Backend E8 domain, value objects, typed errors, persistence,
+  repository port/adapter, active Unit of Work, typed configuration, migration,
+  lifecycle/extension history, organization/effective-tenant isolation, and
+  protection-evidence boundaries.
+- **Repository:** Backend only.
+- **Authorized domain:** Persist `SUSPENDED`, `ARCHIVED`, and terminal
+  commercial `DELETED`; preserve derived `EXPIRING` and final notice as views;
+  define legal server-UTC transitions; preserve immutable trial identity and
+  original activation evidence; support same-trial extension recovery from
+  `SUSPENDED` or `ARCHIVED` to `ACTIVE`; enforce the 30-day per-extension
+  maximum and typed fail-closed invariants.
+- **Authorized extension evidence:** Persist immutable request/direct-grant,
+  approval or rejection, required business reason, approval channel, requester
+  where applicable, Super Admin approver, decision timestamp, days granted,
+  prior and resulting authoritative end timestamps, correlation, and
+  idempotency evidence. No extension may create another trial or imply
+  subscription/payment.
+- **Authorized retention evidence:** Persist captured policy identity and
+  durations, authoritative transition timestamps, append-only lifecycle
+  history, export-in-progress reference/status/timeout evidence, and
+  legal-hold/regulatory/statutory protection evidence sufficient to make
+  deletion eligibility fail closed. TG26.2A does not own export formats, legal
+  policy, secure deletion, or external protection decisions.
+- **Authorized repository boundary:** Add flush-only scoped operations for
+  compare-and-swap lifecycle persistence, due-transition eligibility,
+  protection checks, deterministic execution identity, claim acquisition,
+  lease renewal/reclamation/release, idempotent replay, extension evidence, and
+  retained-state recovery. No polling or executor loop is authorized.
+- **Configuration:** Add typed, validated Version 1 retention durations,
+  extension maximum, protection timeout, and immutable policy-version
+  configuration. Configuration affects future captured terms only.
+- **Migration authorization:** Exactly one additive migration may extend the
+  E8 tables and constraints and add only constitutionally required E8
+  extension/protection persistence. Historical migrations remain untouched.
+  Existing rows retain their current facts; no lifecycle timestamp, policy
+  identity, extension decision, legal hold, export state, or protection
+  evidence may be fabricated. Existing rows lacking required evidence fail
+  closed for later scheduled retention until governed classification.
+- **Audit boundary:** Persist append-only safe lifecycle and decision evidence
+  suitable for later transactional organization/platform audit. No clinical
+  content, export payload, legal document, contact, credential, token,
+  fingerprint, payment data, or raw exception may be stored.
+- **Rollback boundary:** Downgrade must preserve or refuse safely when retained
+  states, extensions, protection evidence, or claims exist; it must never
+  collapse retained state into `EXPIRED`, shorten terms, remove legal/export
+  protection, restart a trial, or delete clinical truth.
+- **Focused tests:** State/version fail-closed behavior; every legal and illegal
+  trial/retention transition; derived-state behavior; immutable identity and
+  activation evidence; extension limit and repeated extension history;
+  retained recovery; organization/tenant isolation; optimistic concurrency;
+  due eligibility; multi-worker claim/lease safety and expiry; idempotent
+  replay; export/legal protection blocking; safe history; configuration
+  capture; legacy-row fail-closed behavior; migration upgrade/downgrade,
+  constraints/indexes, current/head, and model-registry coverage.
+- **Explicitly prohibited:** Scheduler runtime, due-work polling, worker
+  startup, lifecycle executor, application services, public APIs, frontend,
+  E9/subscription, payment, billing, dunning, export generation/format,
+  legal-retention policy, secure deletion, additional runtime registrations,
+  legacy Demo conversion, or historical backfill/inference.
+- **Stop conditions:** Stop if implementation needs more than one migration,
+  a product lifecycle change, a second trial identity, fabricated legacy
+  evidence, a scheduler/application/transport behavior, an external export or
+  legal-policy decision, E9 behavior, or any weakening of tenant isolation,
+  audit, idempotency, legal protection, or clinical truth.
+- **Acceptance boundary:** Domain, repository, persistence, configuration,
+  migration, PostgreSQL, concurrency, protection, rollback, and focused
+  regression evidence pass with no runtime or transport implementation.
+
+TG26.2A is the exact next authorized task. TG26.3, TG26.4, TG26.5, TG27, and E9
+remain unauthorized until their existing prerequisites and acceptance
+boundaries are satisfied.
+
 ### TG26.3 Prerequisite — Governed Scheduler/Executor Authority (COMPLETE)
 
 Status: **COMPLETE — 2026-07-29**
@@ -2217,10 +2314,10 @@ Status: **COMPLETE — 2026-07-29**
   Platform Foundation authority for explicit registration, database-UTC
   due-work discovery, bounded dispatch, claim safety, retries, system-actor
   audit, tenant isolation, and domain-owned lifecycle execution.
-- Authorized TG26.3 to implement only the minimum scheduler/executor contracts
-  and separate-process runtime, the single E8 registration/provider/executor,
-  and the backend application/transport work already listed in canonical
-  TG26.3.
+- Established the runtime authority later consumed by TG26.3: the minimum
+  scheduler/executor contracts and separate-process runtime, the single E8
+  registration/provider/executor, and canonical backend application/transport
+  work. This authority does not make TG26.3 ready independently of TG26.2A.
 - No scheduler, worker, lifecycle transition, API, migration, or frontend
   runtime behavior was implemented by this prerequisite.
 - `ADR-PF-020-PLATFORM-BACKGROUND-RUNTIME-CATALOG.md` now governs runtime
@@ -2230,7 +2327,7 @@ Status: **COMPLETE — 2026-07-29**
   and the non-governed Legacy Billing Job Service without implementing or
   expanding any runtime.
 
-### TG26.3 — Backend Application, Scheduling, and Transport
+### TG26.3 — Backend Application, Scheduling, and Transport (BLOCKED UNTIL TG26.2A COMPLETE)
 
 - **Objective:** Implement authorized reads and lifecycle commands, including
   explicit activation, extension request/approval, retained-state recovery,
@@ -2240,12 +2337,25 @@ Status: **COMPLETE — 2026-07-29**
   authorization/RBAC, idempotency, audit, scheduler/executor, and typed-error
   owners.
 - **Repository:** Backend only.
+- **Prerequisite:** TG26.2A must be implemented, verified, accepted, committed,
+  and synchronized before TG26.3 begins. TG26.3 consumes its retained states,
+  extension/recovery evidence, transition/protection evidence, configuration,
+  and repository/claim contracts; TG26.3 must not redesign or duplicate them.
 - **Scheduler authority:** Implement against
   `ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md`. Reuse the existing outbox
   worker's separate-process and concurrency patterns and the
   workspace-preparation executor's claim/transaction patterns without merging
   their ownership. Register only the E8 lifecycle job; business transitions
   remain E8-owned.
+- **Final application/transport boundary:** Own activation reads/commands,
+  extension request/direct-grant/approval orchestration, database-UTC due-work
+  discovery, the single E8 scheduler registration/runtime, lifecycle
+  execution, scheduled transitions, retained-state recovery orchestration,
+  bounded retry and claims, idempotency, transactional audit, typed failures,
+  and the approved export/download and E9 subscription-request handoffs. It
+  does not own export generation/format, legal-retention policy, secure
+  deletion, subscription, payment, billing, dunning, frontend, or another
+  runtime registration.
 - **Rollback boundary:** E8 routes, composition, and scheduled execution may be
   disabled while preserving records, elapsed commercial time, retained access,
   immutable evidence, and E9 boundary.

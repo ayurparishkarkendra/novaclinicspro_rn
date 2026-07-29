@@ -739,6 +739,51 @@ and selection authority for background, deferred, startup, replay, executor,
 and reconciliation mechanisms; it preserves the distinction between runtime
 ownership and E8 business ownership.
 
+#### E8 implementation sequencing and retention foundation
+
+TG26.2 established only the Trial Lifecycle persistence foundation:
+`ELIGIBLE`, `ACTIVE`, persisted `EXPIRED`, and derived `EXPIRING`. Its accepted
+source does not persist `SUSPENDED`, `ARCHIVED`, or `DELETED`; does not preserve
+extension request/decision history; and exposes no repository contract for
+retention eligibility, protection evidence, or retained-state recovery.
+
+TG26.2A owns the missing E8 domain and persistence foundation required before
+TG26.3:
+
+- persisted Commercial Retention Lifecycle states `SUSPENDED`, `ARCHIVED`, and
+  terminal commercial `DELETED`, while secure deletion remains outside E8;
+- immutable extension request, direct-grant, approval, reason, channel,
+  approver, decision-time, and resulting-end-time evidence for the same trial;
+- same-identity recovery from `SUSPENDED` or `ARCHIVED` to `ACTIVE`, without
+  changing original activation evidence or creating another trial;
+- captured retention-policy identity and authoritative UTC transition
+  timestamps, with `EXPIRING` and final notice remaining derived views rather
+  than additional persisted lifecycle states;
+- append-only lifecycle/extension history and optimistic-concurrency evidence;
+- authoritative export-in-progress evidence with its governed timeout, plus
+  legal-hold, regulatory-preservation, and statutory-retention protection
+  evidence sufficient to block commercial deletion;
+- repository contracts for scoped lifecycle updates, due-transition
+  eligibility, protection checks, execution claim/lease persistence,
+  idempotent replay, and retained-state recovery; and
+- one additive migration and typed retention/extension configuration, without
+  fabricating historical evidence or reinterpreting legacy terms.
+
+TG26.2A owns no application orchestration, scheduler runtime, polling, worker
+startup, public API, frontend, E9 behavior, export format, legal-retention
+policy, or secure-deletion implementation. Existing E8 rows without captured
+retention evidence must remain explicit and fail closed; migration must not
+invent policy history, protection evidence, extension decisions, or lifecycle
+timestamps.
+
+After TG26.2A acceptance, TG26.3 owns activation reads/commands and transport,
+extension request/direct-grant/approval orchestration, database-UTC due-work
+discovery, the single E8 scheduler registration, the E8 lifecycle executor,
+scheduled transitions, retained-state recovery orchestration, claims/retries,
+idempotency, transactional audit, and typed transport. TG26.3 consumes the
+protection evidence established by TG26.2A and must not implement export
+formats, legal-retention policy, secure deletion, subscription, payment, or E9.
+
 TG26 must first prove semantic fit before reusing Demo, trial, subscription,
 billing, Go-Live, status, countdown, export, or archive assets. Compatibility
 code is source evidence, not authority to retain obsolete seven-day
