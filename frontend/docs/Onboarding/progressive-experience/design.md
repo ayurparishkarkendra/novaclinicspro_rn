@@ -797,6 +797,59 @@ new E8 activations. Rollback must disable new commands while preserving
 identities, elapsed time, lifecycle history, retention evidence, and clinical
 truth.
 
+#### TG26.5 presentation and navigation contract audit
+
+The TG26.3 transport and TG26.4 frontend data/domain integration establish
+typed handoffs only:
+
+- retained downloads return owner `exports`, action
+  `OPEN_APPROVED_DOWNLOADS`, and the effective tenant ID;
+- subscription requests return owner `E9`, action `REQUEST_SUBSCRIPTION`, and
+  the effective tenant ID.
+
+Neither handoff identifies a route, URL, destination version, organization
+context, unavailable-state policy, or destination authorization contract.
+Source inspection confirms that no E8-owned retained-download, retained-data,
+archive, support, or E9 subscription destination is registered. The plausible
+existing routes are not reusable:
+
+| Candidate route | Existing owner | TG26.5 decision |
+|---|---|---|
+| `/clinic-admin/reports` | Clinic operational reporting | Not suitable: it is Clinic Admin-scoped and does not own Organization Admin retained-data access. |
+| `/clinic-admin/billing` | Clinic billing | Not suitable: billing is not E8 retained-data or E9 subscription authority. |
+| `/super-admin/billing` | Platform billing administration | Not suitable: it is a Super Admin surface, not the Organization Admin commercial handoff. |
+| `/clinic-admin/settings` | Clinic operational settings | Not suitable: it has neither retained-data nor commercial ownership. |
+| `/owner` | Organization-owner dashboard | Not suitable: no retained-download, archive, support, or subscription destination contract is implemented there. |
+| `/onboarding/*` | Existing onboarding and workspace preparation | Not suitable: no commercial-retention or support route is registered. |
+
+The E8 constitution confirms the Organization Admin's retained-download,
+archive, support, extension-request, and E9-handoff rights, but it does not
+approve the interaction and navigation decisions needed to present them.
+Accordingly, the following remain Product and Architecture decisions:
+
+- whether approved downloads and archived records use one retained-data
+  destination or separate destinations; the destination owner, typed
+  organization/tenant parameters, authorization owner, export-in-progress,
+  unavailable, expired-download, and fallback behavior;
+- the Version 1 support destination or typed external handoff, its owner,
+  context, authorization evidence, and unavailable fallback;
+- whether the E9 action is disabled, informational, deferred, or navigable
+  before E9 exists, plus its future destination owner and minimum typed
+  organization/tenant handoff;
+- whether extension reason is free text, a reason code, or both. The transport
+  proves only that a trimmed/non-empty policy still needs definition around an
+  existing bounded string (`1..160`); it does not approve presentation
+  semantics, localization, or sensitive-content guidance; and
+- what `approval channel` means in Version 1, its allowed values, who selects
+  or assigns it, whether TG26.5 submits or only displays it, and who owns
+  future values. The existing bounded string (`1..64`) is transport shape, not
+  an approved channel vocabulary or workflow.
+
+Until those decisions are approved, TG26.5 must fail closed: it must not invent
+routes, external destinations, reason values, channel values, or a substitute
+approval workflow. No navigation-foundation prerequisite is authorized because
+its route and handoff contract would depend on the same unresolved decisions.
+
 ### Documentation Design Governance v1.0
 
 This document owns implementation design only. It consumes approved intent from
