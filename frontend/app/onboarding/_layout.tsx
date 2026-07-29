@@ -46,6 +46,10 @@ export default function OnboardingLayout() {
         name="workspace-preparation"
         options={{ title: t('onboarding.progressiveExperience.routes.workspacePreparation') }}
       />
+      <Stack.Screen
+        name="commercial-retention"
+        options={{ title: t('onboarding.progressiveExperience.routes.commercialRetention') }}
+      />
       <Stack.Screen 
         name="step-detail" 
         options={{ title: t('onboarding.progressiveExperience.routes.reviewStep') }} 

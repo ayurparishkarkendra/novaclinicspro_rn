@@ -592,6 +592,7 @@
         "prepareClinic": "Prepare Your Clinic",
         "clinicPreparation": "Clinic Preparation",
         "workspacePreparation": "Workspace Preparation",
+        "commercialRetention": "Workspace Access",
         "reviewStep": "Review Step"
       },
       "dashboard": {
@@ -727,6 +728,91 @@
           "progress": "Workspace preparation progress",
           "progressIndeterminate": "Workspace preparation is in progress"
         }
+      },
+      "commercialRetention": {
+        "title": "Workspace access",
+        "introduction": "Review your workspace status, retention information, and the options currently available to your organization.",
+        "loading": "Loading workspace access information...",
+        "workspaceStatus": {
+          "title": "Workspace status"
+        },
+        "states": {
+          "ELIGIBLE": "Ready to start",
+          "ACTIVE": "Active",
+          "EXPIRING": "Trial ending soon",
+          "EXPIRED": "Trial ended",
+          "SUSPENDED": "Access paused",
+          "ARCHIVED": "Workspace archived",
+          "DELETED": "Workspace deleted"
+        },
+        "stateDescriptions": {
+          "ELIGIBLE": "Your organization can start its approved trial when an authorized administrator is ready.",
+          "ACTIVE": "Your workspace is available for normal use.",
+          "EXPIRING": "Your workspace remains active while the current trial approaches its end date.",
+          "EXPIRED": "Your trial has ended. Review the options authorized for your organization.",
+          "SUSPENDED": "Normal workspace use is paused while your data remains retained.",
+          "ARCHIVED": "Your workspace is not operational, but its data remains retained according to policy.",
+          "DELETED": "Operational workspace data is no longer available."
+        },
+        "retention": {
+          "title": "Retention information",
+          "archivedAt": "Archived on",
+          "retentionUntil": "Retained until",
+          "legalHold": "Legal hold",
+          "statutoryRetention": "Statutory retention",
+          "active": "Active",
+          "notActive": "Not active",
+          "notApplicable": "No retention dates or hold information apply to the current workspace status."
+        },
+        "availableActions": {
+          "title": "Available options",
+          "none": "No commercial actions are currently available."
+        },
+        "actionLabels": {
+          "START_TRIAL": "Start trial",
+          "REQUEST_EXTENSION": "Request an extension",
+          "GRANT_EXTENSION": "Grant an extension",
+          "RESTORE_WORKSPACE": "Restore workspace",
+          "REQUEST_PERMANENT_DELETION": "Request permanent deletion",
+          "REQUEST_WORKSPACE_DATA_EXPORT": "Request workspace data export",
+          "REQUEST_SUBSCRIPTION": "Review subscription options",
+          "CONTACT_SUPPORT": "Contact support"
+        },
+        "actionDescriptions": {
+          "START_TRIAL": "An authorized administrator may explicitly start the approved trial.",
+          "REQUEST_EXTENSION": "Your organization may ask for additional trial time.",
+          "GRANT_EXTENSION": "An authorized platform administrator may approve additional trial time.",
+          "RESTORE_WORKSPACE": "An authorized platform administrator may restore this retained workspace through an approved extension.",
+          "REQUEST_PERMANENT_DELETION": "An authorized administrator may request permanent deletion when all protections permit it.",
+          "REQUEST_WORKSPACE_DATA_EXPORT": "A future workspace data export service may accept a request. No export or download has been created.",
+          "REQUEST_SUBSCRIPTION": "Subscription options are not available in this version. No request has been submitted.",
+          "CONTACT_SUPPORT": "Support contact is not available in this version. No support request has been created."
+        },
+        "unavailable": {
+          "title": "Why some options are unavailable"
+        },
+        "ineligibilityReasons": {
+          "PROTECTION_EVIDENCE_UNAVAILABLE": "Required protection information is unavailable, so protected actions cannot continue.",
+          "LEGAL_HOLD_ACTIVE": "A legal hold currently prevents protected workspace changes.",
+          "STATUTORY_RETENTION_ACTIVE": "Mandatory statutory retention currently prevents protected workspace changes.",
+          "EXPORT_IN_PROGRESS": "An approved workspace data export is still in progress.",
+          "RETENTION_PERIOD_ACTIVE": "The workspace retention period is still active."
+        },
+        "empty": {
+          "title": "Workspace access unavailable",
+          "missingWorkspace": "The selected workspace could not be found.",
+          "permissionDenied": "You do not have permission to view commercial information for this workspace.",
+          "missingEvidence": "Retention information is temporarily unavailable. Protected actions remain unavailable.",
+          "unsupported": "This workspace status cannot be displayed safely. Refresh the app or contact your administrator.",
+          "network": "Workspace access information could not be loaded. Check your connection and try again."
+        },
+        "actions": {
+          "retry": "Try again"
+        },
+        "accessibility": {
+          "screen": "Workspace access and retention information"
+        },
+        "footer": "Options shown here come from Nova's authoritative commercial record."
       },
       "statusBanner": {
         "commercialTrialEnded": "Access Paused",

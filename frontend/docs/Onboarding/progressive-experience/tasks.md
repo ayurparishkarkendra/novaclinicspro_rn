@@ -2509,9 +2509,29 @@ Data Export, download, package, or artifact implementation changed.
   commercial authority pass.
 - **Stop condition:** Stop before TG26.5.
 
-### TG26.5 — Frontend Commercial and Retention Presentation — AUTHORIZED
+### TG26.5 — Frontend Commercial and Retention Presentation — COMPLETE
 
-**Status:** AUTHORIZED — TG26.3A and TG26.4A dependencies complete.
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** The E8-owned
+`/onboarding/commercial-retention` destination now presents the existing
+TG26.4A query projection through central Theme, `en-US`/`hi-IN`
+localization, and accessible onboarding loading/error/content patterns. It
+shows backend-authoritative workspace status, archived and retention dates,
+legal/statutory hold awareness, exact allowed actions, and safe ineligibility
+reasons without identifiers, raw enums, lifecycle derivation, or policy
+calculation. Export, Support, and E9 actions remain explicit informational
+handoffs; no export, package, download, support request, billing, or navigation
+behavior was invented.
+
+**Verification evidence:** 41 focused TG26.5/TG26.4A UI, localization,
+datasource, repository, query, and cache tests passed. The TG26.5 UI plus
+SetupWizardFlow, JourneySurface, and WorkspacePreparation presentation
+regressions passed with 58 tests. Scoped ESLint, localization key parity, and
+`git diff --check` passed. Repository-wide TypeScript reported no
+TG26.5-owned failure and retained only the established unrelated baseline.
+Backend, API, repository, migration, and Workspace Data Export source remained
+unchanged.
 
 **Version 1 authority:** Commercial Retention presentation only. The former
 retained-artifact, `DOWNLOADS`/`ARCHIVE` artifact-mode, archive-file, and export
@@ -2534,7 +2554,9 @@ Retention projection and must not invent export or retained-record state.
   screen reader/focus/live/touch/font behavior, Theme-only styling, no artifact
   presentation, and no Demo semantics pass.
 
-### TG26.6 — Final Verification and Acceptance
+### TG26.6 — Final Verification and Acceptance — AUTHORIZED
+
+**Status:** AUTHORIZED — TG26.5 dependency complete.
 
 - **Objective:** Verify the complete frozen E8 contract and correct only
   verified TG26-owned defects.
@@ -2551,9 +2573,9 @@ Retention projection and must not invent export or retained-record state.
 
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
-requires a new Product or Architecture decision. TG26.5 is the next canonical
-authorized task. TG26.6 and TG27 remain unauthorized until their stated
-prerequisites complete.
+requires a new Product or Architecture decision. TG26.6 is the next canonical
+authorized task. TG27 remains unauthorized until its stated prerequisites
+complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
