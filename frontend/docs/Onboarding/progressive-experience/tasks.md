@@ -2622,9 +2622,11 @@ reported no TG26.5B-owned error. Re-scans found no obsolete production
 download route, action mapping, datasource, repository, hook, or navigation.
 No migration was created.
 
-### E8 Final Acceptance Re-run — CONDITIONALLY ACCEPTED
+### E8 Final Acceptance Re-run — CONDITIONS RESOLVED; CONDITIONALLY READY
 
-**Status:** CONDITIONALLY ACCEPTED — 2026-07-29; no Critical or High findings.
+**Status:** CONDITIONS RESOLVED — 2026-07-29; no Critical, High, or open
+Medium findings. Merge is ready subject to the environment-owned pre-promotion
+migration gate below.
 
 - **Objective:** Re-run the original E8 Product, Architecture, Engineering,
   Security, UX, Traceability, and regression acceptance review.
@@ -2645,32 +2647,47 @@ datasource, Journey, and Setup Wizard assertions terminated cleanly. Ruff,
 compileall, scoped ESLint, repository searches, and diff checks passed.
 Repository-wide TypeScript retained only unrelated baseline errors.
 
-**Non-blocking findings and merge conditions:**
+**Acceptance-condition closure:**
 
-1. The configured development PostgreSQL database reports Alembic revision
-   `20260727_000001`, which is absent from this branch; repository head is
-   `20260729_030000`. Migration structure tests pass, but deployment migration
-   compatibility must be reconciled against the target environment before
-   promotion.
-2. `commercial-trial.repository.test.tsx` passes all 13 assertions but retains
-   a Jest handle after its mutation test; the presentation, retention
-   repository, localization, datasource, Journey, and Setup Wizard suites
-   terminate cleanly. The TG26 query/mutation test harness must close its
-   handle before the final release gate.
-3. Source implements bounded duration/channel validation and stale-authority
-   refresh, but focused presentation coverage does not directly assert invalid
-   grant duration, missing/unknown channel, conflict-driven refetch, or
-   activation authorization failure. Those assertions must be added before the
-   final release gate.
+1. **Closed — Environment/Release Gate.** Full remote-ref and Git-history
+   inspection proves `20260727_000001` is the R7 Case Sheet contribution
+   snapshot migration on `origin/feature/r7-clinical-operating-system`, not a
+   lost or superseded E8 migration. R7 evidence records that migration as
+   applied to the shared development Supabase database. The E8 branch has one
+   valid head, `20260729_030000`, and its migration structure tests pass. The
+   Release/Database Migration owner must reconcile the integrated target
+   migration graph and run `alembic upgrade head`, `alembic current`, and
+   `alembic heads` after branch integration and before promotion. No E8
+   migration was created or altered.
+2. **Closed — Technical.** Frontend commit `5fee1758` gives the focused
+   Commercial Trial QueryClient explicit non-scheduling query/mutation
+   garbage-collection semantics. The repository suite and the broader seven
+   suite E8/onboarding set terminate normally under `--detectOpenHandles`,
+   without `--forceExit`, warnings, or retained TG26 handles.
+3. **Closed — Technical.** Frontend commit `5fee1758` directly verifies invalid
+   and boundary extension durations, fail-closed missing/unknown approval
+   channels, the approved channel vocabulary, fixed Organization Admin
+   `IN_APP_REQUEST`, conflict-driven authoritative refetch with no automatic
+   retry, and safe activation authorization failure with no optimistic state or
+   sensitive-detail leakage.
 
-Merge into `dev` is recommended only after these three conditions are closed
-or explicitly resolved by the responsible release gate. This verdict does not
-authorize TG26.6 yet and does not mark E8 unconditionally accepted.
+Closure verification passed 154 backend E8/readiness/journey assertions and 98
+frontend E8/onboarding assertions. The frontend run used
+`--detectOpenHandles`; scoped ESLint and diff checks passed. Repository-wide
+TypeScript and Ruff still report only pre-existing unrelated baseline debt;
+neither changed file has a scoped lint or TypeScript error. Backend compileall
+passed. No Product, architecture, API, migration, or runtime behavior changed.
+
+Merge into `dev` is ready. Promotion remains conditional on the
+Release/Database Migration owner completing the integrated-environment action
+recorded above. This accepted ownership boundary closes the three Medium
+findings and authorizes TG26.6; it does not itself execute TG26.6.
 
 ### TG26.6 — Final Verification and Acceptance
 
-**Status:** NOT YET AUTHORIZED — TG26.5A and TG26.5B are complete; the three
-E8 Final Acceptance Re-run conditions must be closed before authorization.
+**Status:** AUTHORIZED — TG26.5A and TG26.5B are complete, and all three E8
+Final Acceptance Re-run conditions are technically closed or formally resolved
+through the approved Release/Database Migration ownership boundary.
 
 - **Objective:** Verify the complete frozen E8 contract and correct only
   verified TG26-owned defects.
@@ -2688,9 +2705,9 @@ E8 Final Acceptance Re-run conditions must be closed before authorization.
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
 requires a new Product or Architecture decision. TG26.5B is the next canonical
-authorized task. The E8 Final Acceptance Re-run and TG26.6 remain dependent on
-their stated predecessors. TG27 remains unauthorized until its stated
-prerequisites complete.
+completed task. The E8 Final Acceptance Re-run conditions are resolved, and
+TG26.6 is the next canonical authorized checkpoint. TG27 remains unauthorized
+until its stated prerequisites complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
