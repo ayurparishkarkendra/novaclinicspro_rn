@@ -727,6 +727,14 @@ or commercial authority. Tenant switch, logout, authorization loss, stale
 responses, loading, errors, disabled actions, downloads, and retention
 navigation must preserve the approved authority and isolation boundaries.
 
+`ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md` owns the platform-wide scheduling
+and execution boundary for time-driven lifecycle work. Platform Foundation owns
+due-work coordination, process operation, bounded dispatch, and retry cadence;
+the E8 executor owns commercial eligibility, transitions, transaction, history,
+and audit. The scheduler cannot calculate commercial policy, infer tenant
+scope, or mutate an E8 aggregate directly. TG26.3 is the first authorized
+consumer and may register only the approved E8 commercial lifecycle job.
+
 TG26 must first prove semantic fit before reusing Demo, trial, subscription,
 billing, Go-Live, status, countdown, export, or archive assets. Compatibility
 code is source evidence, not authority to retain obsolete seven-day

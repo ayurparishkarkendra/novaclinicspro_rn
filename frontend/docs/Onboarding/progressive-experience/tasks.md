@@ -2156,7 +2156,10 @@ test, and stop boundaries are source-backed with no unresolved decision inside
 that checkpoint. The governed production scheduler/executor required for
 scheduled transitions is a genuine Platform Foundation gap for TG26.3; TG26.3
 must remain blocked on that authority unless an approved reusable mechanism is
-identified before implementation.
+identified before implementation. This historical TG26.1 finding was resolved
+on 2026-07-29 by
+`ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md`; it does not retroactively expand
+TG26.1 or TG26.2.
 
 ### TG26.2 — Backend Trial Domain and Persistence (COMPLETE)
 
@@ -2198,6 +2201,29 @@ Status: **COMPLETE — 2026-07-29**
   subscription, payment, and all frontend work remain unimplemented and
   unauthorized by this completion record.
 
+### TG26.3 Prerequisite — Governed Scheduler/Executor Authority (COMPLETE)
+
+Status: **COMPLETE — 2026-07-29**
+
+- Audited the outbox worker and handler registry, workspace-preparation
+  executor, active Unit of Work and audit/idempotency infrastructure,
+  in-process async processor, FastAPI lifespan, legacy billing jobs,
+  repair-on-read sweeps, and E7 replay/retry ownership.
+- Confirmed that no existing component is approved unchanged as a production
+  time-based lifecycle scheduler. The outbox worker and
+  workspace-preparation executor provide reusable operational and execution
+  patterns, but retain their existing event-delivery and onboarding ownership.
+- Accepted `ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md` as the additive
+  Platform Foundation authority for explicit registration, database-UTC
+  due-work discovery, bounded dispatch, claim safety, retries, system-actor
+  audit, tenant isolation, and domain-owned lifecycle execution.
+- Authorized TG26.3 to implement only the minimum scheduler/executor contracts
+  and separate-process runtime, the single E8 registration/provider/executor,
+  and the backend application/transport work already listed in canonical
+  TG26.3.
+- No scheduler, worker, lifecycle transition, API, migration, or frontend
+  runtime behavior was implemented by this prerequisite.
+
 ### TG26.3 — Backend Application, Scheduling, and Transport
 
 - **Objective:** Implement authorized reads and lifecycle commands, including
@@ -2208,6 +2234,12 @@ Status: **COMPLETE — 2026-07-29**
   authorization/RBAC, idempotency, audit, scheduler/executor, and typed-error
   owners.
 - **Repository:** Backend only.
+- **Scheduler authority:** Implement against
+  `ADR-PF-019-GOVERNED-LIFECYCLE-SCHEDULER.md`. Reuse the existing outbox
+  worker's separate-process and concurrency patterns and the
+  workspace-preparation executor's claim/transaction patterns without merging
+  their ownership. Register only the E8 lifecycle job; business transitions
+  remain E8-owned.
 - **Rollback boundary:** E8 routes, composition, and scheduled execution may be
   disabled while preserving records, elapsed commercial time, retained access,
   immutable evidence, and E9 boundary.
