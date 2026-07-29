@@ -2685,9 +2685,9 @@ findings and authorizes TG26.6; it does not itself execute TG26.6.
 
 ### TG26.6 — Final Verification and Acceptance
 
-**Status:** AUTHORIZED — TG26.5A and TG26.5B are complete, and all three E8
-Final Acceptance Re-run conditions are technically closed or formally resolved
-through the approved Release/Database Migration ownership boundary.
+**Status:** COMPLETE — 2026-07-29. E8 engineering is accepted and ready to
+merge into `dev`. Promotion remains subject to the approved
+Release/Database Migration environment gate.
 
 - **Objective:** Verify the complete frozen E8 contract and correct only
   verified TG26-owned defects.
@@ -2702,14 +2702,47 @@ through the approved Release/Database Migration ownership boundary.
   transitions, tenant/organization isolation, accessibility/localization/Theme,
   migrations, rollback, regressions, and Requirement 32 evidence pass.
 
+**Final verification evidence:**
+
+- All accepted backend TG26 commits (`deb9ae8`, `b5d7a60`, `ecb8738`,
+  `076cf12`, and `a2ad7be`) and frontend TG26 implementation/corrective commits
+  through `5fee1758` are present in branch ancestry and pushed.
+- 154 backend E8, readiness, and journey assertions passed across domain,
+  persistence, migrations, retention, application/scheduler, projection,
+  transport, authorization, isolation, and compatibility suites.
+- 98 frontend Commercial Trial/Retention, localization, Journey, Setup Wizard,
+  datasource, repository, orchestration, and presentation assertions passed.
+  The run used `--detectOpenHandles` and terminated cleanly.
+- Focused E8 Ruff, backend compileall, scoped frontend ESLint, localization
+  parity, accessibility assertions, source-boundary scans, and Git diff checks
+  passed. Repository-wide TypeScript retained only the established unrelated
+  baseline and reported no E8-owned diagnostic.
+- Source and transport scans found no obsolete
+  `/commercial-trial/downloads` route, positive `DOWNLOADS` contract,
+  retained-artifact model, export-package lifecycle, temporary workaround, or
+  E8-owned TODO. The one `DOWNLOADS` reference is an intentional negative
+  frontend fail-closed assertion. Informational
+  `REQUEST_WORKSPACE_DATA_EXPORT` remains future capability scope.
+- Alembic has one E8 repository head, `20260729_030000`. The configured shared
+  development database still identifies the separate R7 revision
+  `20260727_000001`; this remains correctly classified as
+  **Environment / Release Gate**. The Release/Database Migration owner must
+  reconcile the integrated target graph and verify `upgrade head`, `current`,
+  and `heads` after integration and before promotion. No additional E8
+  engineering or migration change is required before merge.
+- Requirements, design, constitutional decisions, ADR-PF-019, ADR-PF-020,
+  implementation, tests, RTM, and task evidence are internally consistent.
+  Workspace Data Export remains future scope, E9 remains separate, and TG27
+  remains unauthorized.
+
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
 requires a new Product or Architecture decision. TG26.5B is the next canonical
 completed task. The E8 Final Acceptance Re-run conditions are resolved, and
-TG26.6 is the next canonical authorized checkpoint. TG27 remains unauthorized
-until its stated prerequisites complete.
+TG26.6 is complete. TG27 remains unauthorized until its stated prerequisites
+complete.
 
-**TG26 IMPLEMENTATION AUTHORIZED**
+**TG26 COMPLETE — E8 ENGINEERING ACCEPTED**
 
 **TG27 IMPLEMENTATION NOT AUTHORIZED**
 
