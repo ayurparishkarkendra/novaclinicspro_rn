@@ -822,33 +822,100 @@ existing routes are not reusable:
 | `/owner` | Organization-owner dashboard | Not suitable: no retained-download, archive, support, or subscription destination contract is implemented there. |
 | `/onboarding/*` | Existing onboarding and workspace preparation | Not suitable: no commercial-retention or support route is registered. |
 
-The E8 constitution confirms the Organization Admin's retained-download,
-archive, support, extension-request, and E9-handoff rights, but it does not
-approve the interaction and navigation decisions needed to present them.
-Accordingly, the following remain Product and Architecture decisions:
+The following Version 1 Product and Architecture decisions resolve the audited
+presentation gap.
 
-- whether approved downloads and archived records use one retained-data
-  destination or separate destinations; the destination owner, typed
-  organization/tenant parameters, authorization owner, export-in-progress,
-  unavailable, expired-download, and fallback behavior;
-- the Version 1 support destination or typed external handoff, its owner,
-  context, authorization evidence, and unavailable fallback;
-- whether the E9 action is disabled, informational, deferred, or navigable
-  before E9 exists, plus its future destination owner and minimum typed
-  organization/tenant handoff;
-- whether extension reason is free text, a reason code, or both. The transport
-  proves only that a trimmed/non-empty policy still needs definition around an
-  existing bounded string (`1..160`); it does not approve presentation
-  semantics, localization, or sensitive-content guidance; and
-- what `approval channel` means in Version 1, its allowed values, who selects
-  or assigns it, whether TG26.5 submits or only displays it, and who owns
-  future values. The existing bounded string (`1..64`) is transport shape, not
-  an approved channel vocabulary or workflow.
+##### Retained downloads and archived records
 
-Until those decisions are approved, TG26.5 must fail closed: it must not invent
-routes, external destinations, reason values, channel values, or a substitute
-approval workflow. No navigation-foundation prerequisite is authorized because
-its route and handoff contract would depend on the same unresolved decisions.
+Version 1 uses one E8-owned retained-data presentation destination with a typed
+mode:
+
+```text
+CommercialRetentionDestinationV1
+  route: /onboarding/commercial-retention
+  organizationId
+  tenantId
+  trialId
+  aggregateVersion
+  contractVersion
+  mode: DOWNLOADS | ARCHIVE
+```
+
+Product owns the retained-access experience. E8 owns the commercial-retention
+domain context. TG26.5 owns the destination's presentation, typed navigation
+contract, and route registration. The existing onboarding repository and
+TG26.3 handoff remain the only data/handoff path. Backend Effective Tenant,
+organization authorization, commercial state, and the `exports` owner remain
+authoritative; navigation is never authorization.
+
+`DOWNLOADS` presents approved-download access only after the exact
+`exports`/`OPEN_APPROVED_DOWNLOADS` handoff succeeds. `ARCHIVE` presents the
+same retained-data surface in archived mode and must not restore normal
+application navigation. An empty result is a localized empty state. Missing,
+unknown, stale, expired, or unavailable handoff authority is a localized
+informational/retry state with no data disclosure. Export-in-progress is
+read-only backend evidence; TG26.5 may present it but cannot infer completion,
+cancel it, or permit deletion. All export/download audit remains with the
+backend exports owner. TG26.5 emits only safe presentation telemetry.
+
+TG26.5 does not generate exports, store archives, define deletion, or create a
+second data-access API. Future retained-data modes require a versioned additive
+contract.
+
+##### Support
+
+Version 1 Support is intentionally deferred and non-navigating. Product owns
+future support behavior; no support domain or navigation owner exists today.
+TG26.5 may show localized informational guidance where E8 permits contacting
+support, but the action remains disabled and exposes no URL, email address,
+phone number, provider, or fabricated request state. No organization or tenant
+context leaves the application. A future governed support capability must own
+its typed handoff, authorization, destination, audit, and unavailable behavior.
+
+##### E9 subscription handoff
+
+E9 owns all future subscription navigation and commercial behavior. Before E9
+registers a governed destination, TG26.5 presents subscription as deferred
+information and does not navigate, call billing/payment routes, or claim that a
+request was stored. The existing `E9`/`REQUEST_SUBSCRIPTION` handoff may be
+validated only through the TG26.4 repository boundary.
+
+The future Version 1 destination contract must carry `organizationId`,
+`tenantId`, `trialId`, `aggregateVersion`, and `contractVersion`. Unknown,
+unsupported, unauthorized, or unavailable destinations fail closed. Adding an
+E9 destination is E9 work and does not expand TG26.5.
+
+##### Extension request inputs
+
+The mandatory business reason is trimmed free text with a post-trim length of
+`1..160`. TG26.5 owns localized labels, guidance, remaining-length and
+validation presentation. It submits the trimmed value unchanged to the
+existing `reason` field. Guidance prohibits clinical details, patient
+information, credentials, payment data, and other sensitive content. Empty,
+over-length, or unsupported input fails locally and remains subject to backend
+validation.
+
+`approval channel` records interaction provenance, not decision state. Product
+owns the closed Version 1 vocabulary:
+
+- `IN_APP_REQUEST` for an Organization Admin request;
+- `SUPPORT`, `SALES`, or `CUSTOMER_SUCCESS` for a Super Admin direct grant
+  following the corresponding verified offline interaction.
+
+For an Organization Admin request, TG26.5 submits `IN_APP_REQUEST`
+automatically and does not show a selector. For a Super Admin direct grant,
+TG26.5 presents a localized required selector for the three offline channels.
+The frontend submits the stable value without translation. The backend owns
+authorization, existing bounded transport validation, persistence, and
+immutable audit. TG26.5 rejects unknown values before submission. Future values
+require additive Product approval and coordinated backend/frontend contract
+versioning; they cannot be inferred from arbitrary transport strings.
+
+Across all five decisions, Product owns behavior, E8 owns commercial context,
+TG26.5 owns presentation, E8 frontend navigation owns its route contract,
+TG26.3/backend owners retain authorization and handoff authority, and future
+exports, Support, and E9 owners retain their respective downstream behavior.
+Unsupported or deferred behavior must remain explicit and fail closed.
 
 ### Documentation Design Governance v1.0
 

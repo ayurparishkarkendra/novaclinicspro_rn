@@ -2436,31 +2436,17 @@ Status: **COMPLETE — 2026-07-29**
   authorization-loss isolation, transport retry ownership, and no frontend
   policy calculation pass.
 
-### TG26.5 — Frontend Commercial and Retention Presentation — BLOCKED
+### TG26.5 — Frontend Commercial and Retention Presentation — AUTHORIZED
 
-**Status:** BLOCKED — Product and Architecture decision required.
+**Status:** AUTHORIZED — Version 1 Product and Architecture contracts frozen.
 
-**Verified blocker:** TG26.3 and TG26.4 provide typed
-`OPEN_APPROVED_DOWNLOADS` and `REQUEST_SUBSCRIPTION` handoffs but no governed
-frontend destination. No existing retained-data, archive, support, or E9 route
-has matching ownership. The existing extension transport bounds `reason` and
-`channel` as strings but does not define their approved Version 1 interaction
-semantics.
-
-Before TG26.5 may be authorized, Product and Architecture must approve:
-
-1. retained-download and archived-record destination ownership, typed scope,
-   authorization, availability, export-in-progress, expiry, and fallback;
-2. the Version 1 support destination or governed typed handoff and fallback;
-3. the E9 pre-implementation handoff presentation and future destination;
-4. extension-reason form, validation, localization, and prohibited-content
-   guidance; and
-5. approval-channel meaning, allowed values, assignment owner, presentation,
-   validation, and extensibility.
-
-No prerequisite navigation task is authorized until these decisions establish
-what that foundation would own. TG26.5 must not invent routes, external
-destinations, input vocabularies, or approval workflow.
+**Version 1 authority:** `requirements.md` and the TG26.5 design contract now
+freeze a single E8 retained-data destination with typed `DOWNLOADS`/`ARCHIVE`
+modes; deferred non-navigating Support and pre-E9 subscription presentation;
+mandatory trimmed `1..160` business-reason text; and the closed approval-channel
+vocabulary `IN_APP_REQUEST`, `SUPPORT`, `SALES`, and `CUSTOMER_SUCCESS`.
+TG26.5 must implement only those presentation/navigation contracts through the
+existing TG26.4 repository/handoff boundary.
 
 - **Objective:** Present eligible, active, expiring, expired, suspended,
   archived, final-notice, deleted, unavailable, and recovery experiences with
@@ -2494,9 +2480,8 @@ destinations, input vocabularies, or approval workflow.
 TG26.1 is the first authorized checkpoint. No later checkpoint may begin until
 its predecessor meets its acceptance boundary. A checkpoint MUST stop if source
 evidence contradicts the approved contract or requires a new Product or
-Architecture decision. TG26.5 is currently the next canonical task but is
-blocked by the Product and Architecture decisions recorded above; TG26.6 and
-TG27 remain unauthorized.
+Architecture decision. TG26.5 is the next authorized implementation task.
+TG26.6 and TG27 remain unauthorized until TG26.5 meets its acceptance boundary.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 

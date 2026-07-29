@@ -1214,6 +1214,43 @@ authority for E8. The following requirements are frozen:
     calculate commercial policy, expiry, entitlement, retention, or authority.
 13. Commercial state SHALL remain organization/tenant isolated and SHALL NOT
     alter authorization, clinical ownership, or clinical truth.
+14. Version 1 retained downloads and archived-record access SHALL use one
+    E8-owned retained-data presentation destination at
+    `/onboarding/commercial-retention`, with a typed mode of `DOWNLOADS` or
+    `ARCHIVE`. The destination SHALL receive the organization ID, effective
+    tenant ID, commercial-trial ID, aggregate version, and contract version.
+    Backend authorization and the `exports` owner SHALL remain authoritative.
+    Missing, unsupported, expired, or unavailable export authority SHALL fail
+    closed with localized informational or retry presentation and SHALL NOT
+    expose clinical data.
+15. Version 1 support SHALL be a deferred informational capability. TG26.5
+    SHALL NOT invent an in-app route, external URL, email address, phone number,
+    provider, or support request. It MAY present localized support guidance
+    without an enabled navigation action. A future governed support owner MUST
+    define any navigable handoff.
+16. Before E9 exists, the subscription action SHALL be a deferred
+    informational action. TG26.5 SHALL NOT navigate to billing, pricing, or
+    payment, and SHALL NOT claim that a subscription request was persisted.
+    Future E9 SHALL own its destination and may consume a typed handoff carrying
+    organization ID, effective tenant ID, commercial-trial ID, aggregate
+    version, and contract version.
+17. An extension reason SHALL be mandatory trimmed free text. It SHALL contain
+    1 through 160 characters after trimming, SHALL map unchanged after trimming
+    to the existing `reason` transport field, and SHALL use localized labels,
+    guidance, and validation. Guidance SHALL prohibit clinical details,
+    patient information, credentials, payment data, and other sensitive
+    content.
+18. `approval channel` SHALL mean the provenance of the extension request or
+    approval interaction, not an approval state. Version 1 values SHALL be
+    `IN_APP_REQUEST`, `SUPPORT`, `SALES`, or `CUSTOMER_SUCCESS`.
+    Organization Admin requests SHALL submit the Product-defined
+    `IN_APP_REQUEST` without a user-selectable control. Super Admin direct
+    grants SHALL select the verified offline channel from `SUPPORT`, `SALES`,
+    or `CUSTOMER_SUCCESS`. Unknown values SHALL fail closed in TG26.5
+    presentation. Product owns the vocabulary; the backend retains existing
+    authorization, bounded transport validation, persistence, and audit
+    ownership; the frontend localizes presentation but SHALL NOT translate the
+    submitted value.
 
 These requirements constitutionally authorize TG26 only. They do not authorize
 TG27 or redefine E9.
