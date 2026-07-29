@@ -33,6 +33,7 @@ import {
   ActivateCommercialTrialRequestDTO,
   CommercialTrialDatasourceError,
   CommercialTrialHandoffDTO,
+  CommercialRetentionResponseDTO,
   CommercialTrialResponseDTO,
   GrantCommercialTrialExtensionDTO,
   RequestCommercialTrialExtensionDTO,
@@ -119,6 +120,21 @@ export const getCommercialTrialApi = async (
   try {
     const response = await axiosClient.get<CommercialTrialResponseDTO>(
       `/api/v1/onboarding/${tenantId}/commercial-trial`,
+      { signal }
+    );
+    return response.data;
+  } catch (error) {
+    return throwCommercialTrialError(error);
+  }
+};
+
+export const getCommercialRetentionApi = async (
+  tenantId: string,
+  signal?: AbortSignal
+): Promise<CommercialRetentionResponseDTO> => {
+  try {
+    const response = await axiosClient.get<CommercialRetentionResponseDTO>(
+      `/api/v1/onboarding/${tenantId}/commercial-trial/retention`,
       { signal }
     );
     return response.data;

@@ -35,6 +35,7 @@ import {
   getJourneyVisibilityApi,
   getReadyToStartApi,
   activateCommercialTrialApi,
+  getCommercialRetentionApi,
   getCommercialTrialApi,
   getCommercialTrialDownloadsApi,
   grantCommercialTrialExtensionApi,
@@ -67,6 +68,7 @@ import {
   StepSubmissionDatasourceError,
   CommercialTrialDatasourceError,
   CommercialTrialHandoffDTO,
+  CommercialRetentionResponseDTO,
   CommercialTrialResponseDTO,
 } from '../models/onboarding.dtos';
 import {
@@ -106,6 +108,9 @@ import {
 } from '../../domain/entities/ready-to-start.entity';
 import {
   COMMERCIAL_TRIAL_CONTRACT_V1,
+  CommercialRetention,
+  CommercialRetentionAction,
+  CommercialRetentionIneligibilityReason,
   CommercialTrial,
   CommercialTrialAction,
   CommercialTrialError,
@@ -176,6 +181,13 @@ export const onboardingKeys = {
   commercialTrial: (organizationId: string, tenantId: string) =>
     [
       ...onboardingKeys.commercialTrials(organizationId, tenantId),
+      COMMERCIAL_TRIAL_CONTRACT_V1,
+    ] as const,
+  commercialRetentions: (organizationId: string, tenantId: string) =>
+    [...onboardingKeys.all, 'commercial-retention', organizationId, tenantId] as const,
+  commercialRetention: (organizationId: string, tenantId: string) =>
+    [
+      ...onboardingKeys.commercialRetentions(organizationId, tenantId),
       COMMERCIAL_TRIAL_CONTRACT_V1,
     ] as const,
 };
@@ -590,6 +602,24 @@ const COMMERCIAL_TRIAL_ACTIONS: readonly CommercialTrialAction[] = [
   'DOWNLOADS',
   'REQUEST_SUBSCRIPTION',
 ];
+const COMMERCIAL_RETENTION_ACTIONS: readonly CommercialRetentionAction[] = [
+  'START_TRIAL',
+  'REQUEST_EXTENSION',
+  'GRANT_EXTENSION',
+  'RESTORE_WORKSPACE',
+  'REQUEST_PERMANENT_DELETION',
+  'REQUEST_WORKSPACE_DATA_EXPORT',
+  'REQUEST_SUBSCRIPTION',
+  'CONTACT_SUPPORT',
+];
+const COMMERCIAL_RETENTION_INELIGIBILITY_REASONS:
+  readonly CommercialRetentionIneligibilityReason[] = [
+    'PROTECTION_EVIDENCE_UNAVAILABLE',
+    'LEGAL_HOLD_ACTIVE',
+    'STATUTORY_RETENTION_ACTIVE',
+    'EXPORT_IN_PROGRESS',
+    'RETENTION_PERIOD_ACTIVE',
+  ];
 
 const commercialTrialInvalid = (
   kind: CommercialTrialError['kind'] = 'INVALID_AGGREGATE',
@@ -659,6 +689,87 @@ export const mapCommercialTrial = (
   });
 };
 
+export const mapCommercialRetention = (
+  dto: CommercialRetentionResponseDTO,
+  requestedOrganizationId: string,
+  requestedTenantId: string
+): CommercialRetention => {
+  if (dto.organization_id !== requestedOrganizationId) {
+    commercialTrialInvalid(
+      'ORGANIZATION_MISMATCH',
+      'commercial_trial.organization_mismatch',
+      'errors.commercialTrial.organization_mismatch'
+    );
+  }
+  if (dto.tenant_id !== requestedTenantId) {
+    commercialTrialInvalid(
+      'TENANT_MISMATCH',
+      'commercial_trial.tenant_mismatch',
+      'errors.commercialTrial.tenant_mismatch'
+    );
+  }
+  if (dto.contract_version !== COMMERCIAL_TRIAL_CONTRACT_V1) {
+    commercialTrialInvalid(
+      'UNSUPPORTED_CONTRACT',
+      'commercial_trial.unsupported_contract',
+      'errors.commercialTrial.unsupported_contract'
+    );
+  }
+  if (
+    !present(dto.trial_id) ||
+    !COMMERCIAL_TRIAL_STATES.includes(dto.commercial_state as CommercialTrialState) ||
+    !Number.isInteger(dto.aggregate_version) ||
+    dto.aggregate_version < 1 ||
+    !validOptionalTimestamp(dto.archived_at) ||
+    !validOptionalTimestamp(dto.retention_until) ||
+    typeof dto.restore_eligible !== 'boolean' ||
+    typeof dto.permanent_deletion_eligible !== 'boolean' ||
+    typeof dto.extension_eligible !== 'boolean' ||
+    typeof dto.workspace_data_export_request_permitted !== 'boolean' ||
+    ![true, false, null].includes(dto.legal_hold_active) ||
+    ![true, false, null].includes(dto.statutory_retention_active) ||
+    !Array.isArray(dto.allowed_actions) ||
+    dto.allowed_actions.some(
+      (action) =>
+        !COMMERCIAL_RETENTION_ACTIONS.includes(action as CommercialRetentionAction)
+    ) ||
+    new Set(dto.allowed_actions).size !== dto.allowed_actions.length ||
+    !Array.isArray(dto.ineligibility_reasons) ||
+    dto.ineligibility_reasons.some(
+      (reason) =>
+        !COMMERCIAL_RETENTION_INELIGIBILITY_REASONS.includes(
+          reason as CommercialRetentionIneligibilityReason
+        )
+    ) ||
+    new Set(dto.ineligibility_reasons).size !== dto.ineligibility_reasons.length
+  ) {
+    commercialTrialInvalid();
+  }
+
+  return Object.freeze({
+    contractVersion: COMMERCIAL_TRIAL_CONTRACT_V1,
+    trialId: dto.trial_id,
+    organizationId: dto.organization_id,
+    tenantId: dto.tenant_id,
+    commercialState: dto.commercial_state as CommercialTrialState,
+    aggregateVersion: dto.aggregate_version,
+    archivedAt: dto.archived_at,
+    retentionUntil: dto.retention_until,
+    restoreEligible: dto.restore_eligible,
+    permanentDeletionEligible: dto.permanent_deletion_eligible,
+    extensionEligible: dto.extension_eligible,
+    workspaceDataExportRequestPermitted: dto.workspace_data_export_request_permitted,
+    legalHoldActive: dto.legal_hold_active,
+    statutoryRetentionActive: dto.statutory_retention_active,
+    allowedActions: Object.freeze([
+      ...dto.allowed_actions,
+    ]) as readonly CommercialRetentionAction[],
+    ineligibilityReasons: Object.freeze([
+      ...dto.ineligibility_reasons,
+    ]) as readonly CommercialRetentionIneligibilityReason[],
+  });
+};
+
 const mapCommercialTrialHandoff = (
   dto: CommercialTrialHandoffDTO,
   requestedTenantId: string,
@@ -696,6 +807,9 @@ const commercialTrialFailureKind = (
   if (error.errorCode === 'commercial_trial.not_ready') return 'NOT_READY';
   if (error.errorCode === 'commercial_trial.confirmation_required') {
     return 'CONFIRMATION_REQUIRED';
+  }
+  if (error.errorCode === 'commercial_trial.retention_evidence_unavailable') {
+    return 'RETENTION_EVIDENCE_UNAVAILABLE';
   }
   if (
     error.httpStatus === 409 ||
@@ -735,6 +849,17 @@ export const commercialTrialRepository: ICommercialTrialRepository = {
     try {
       return mapCommercialTrial(
         await getCommercialTrialApi(tenantId, signal),
+        organizationId,
+        tenantId
+      );
+    } catch (error) {
+      return mapCommercialTrialError(error);
+    }
+  },
+  async getCommercialRetention(organizationId, tenantId, signal) {
+    try {
+      return mapCommercialRetention(
+        await getCommercialRetentionApi(tenantId, signal),
         organizationId,
         tenantId
       );
@@ -877,6 +1002,24 @@ export const useCommercialTrialQuery = (
     ...options,
   });
 
+export const useCommercialRetentionQuery = (
+  organizationId: string,
+  tenantId: string,
+  options?: Omit<UseQueryOptions<CommercialRetention, Error>, 'queryKey' | 'queryFn'>
+) =>
+  useQuery<CommercialRetention, Error>({
+    queryKey: onboardingKeys.commercialRetention(organizationId, tenantId),
+    queryFn: ({ signal }) =>
+      commercialTrialRepository.getCommercialRetention(
+        organizationId,
+        tenantId,
+        signal
+      ),
+    enabled: Boolean(organizationId && tenantId),
+    retry: shouldRetryCommercialTrial,
+    ...options,
+  });
+
 const useCommercialTrialMutation = <
   Variables,
   Result extends CommercialTrial | CommercialTrialHandoff,
@@ -1009,6 +1152,18 @@ export const useClearCommercialTrialCache = () => {
   return useCallback(
     async (organizationId: string, tenantId: string): Promise<void> => {
       const queryKey = onboardingKeys.commercialTrials(organizationId, tenantId);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
+    },
+    [queryClient]
+  );
+};
+
+export const useClearCommercialRetentionCache = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (organizationId: string, tenantId: string): Promise<void> => {
+      const queryKey = onboardingKeys.commercialRetentions(organizationId, tenantId);
       await queryClient.cancelQueries({ queryKey });
       queryClient.removeQueries({ queryKey });
     },

@@ -109,6 +109,25 @@ export interface CommercialTrialResponseDTO {
   allowed_actions: string[];
 }
 
+export interface CommercialRetentionResponseDTO {
+  contract_version: string;
+  trial_id: string;
+  organization_id: string;
+  tenant_id: string;
+  commercial_state: string;
+  aggregate_version: number;
+  archived_at: string | null;
+  retention_until: string | null;
+  restore_eligible: boolean;
+  permanent_deletion_eligible: boolean;
+  extension_eligible: boolean;
+  workspace_data_export_request_permitted: boolean;
+  legal_hold_active: boolean | null;
+  statutory_retention_active: boolean | null;
+  allowed_actions: string[];
+  ineligibility_reasons: string[];
+}
+
 export interface ActivateCommercialTrialRequestDTO {
   contract_version: 'commercial_trial_v1';
   aggregate_version: number;

@@ -2476,9 +2476,25 @@ passed for touched paths. Existing migration-contract tests passed unchanged.
   PostgreSQL tests, Ruff, compileall, and no export/artifact lifecycle pass.
 - **Stop condition:** Stop before TG26.4A.
 
-### TG26.4A — Frontend Commercial Retention Data and Domain Integration — AUTHORIZED
+### TG26.4A — Frontend Commercial Retention Data and Domain Integration — COMPLETE
 
-**Status:** AUTHORIZED — TG26.3A dependency complete.
+**Status:** COMPLETE — 2026-07-29.
+
+**Implementation evidence:** The existing E8 onboarding datasource, repository,
+domain, TanStack Query, typed-error, and tenant-scoped cache boundaries now
+consume the TG26.3A
+`GET /onboarding/{tenant_id}/commercial-trial/retention` projection. The
+immutable frontend model preserves backend-authoritative commercial state,
+timestamps, eligibility, hold awareness, allowed actions, ineligibility
+reasons, and aggregate version without deriving lifecycle policy or adding
+presentation.
+
+**Verification evidence:** 40 focused datasource, repository, mapping, query,
+cache-isolation, loading/error, retry, and existing Commercial Trial tests
+passed. Scoped ESLint and `git diff --check` passed. Repository-wide TypeScript
+verification reported only the established unrelated baseline failures and no
+TG26.4A-owned failure. No backend, migration, presentation, route, Workspace
+Data Export, download, package, or artifact implementation changed.
 
 - **Objective:** Map the approved Commercial Retention projection through the
   existing datasource, repository, React Query, tenant-scoped cache, and
@@ -2493,9 +2509,9 @@ passed for touched paths. Existing migration-contract tests passed unchanged.
   commercial authority pass.
 - **Stop condition:** Stop before TG26.5.
 
-### TG26.5 — Frontend Commercial and Retention Presentation — BLOCKED
+### TG26.5 — Frontend Commercial and Retention Presentation — AUTHORIZED
 
-**Status:** BLOCKED until TG26.3A and TG26.4A are complete.
+**Status:** AUTHORIZED — TG26.3A and TG26.4A dependencies complete.
 
 **Version 1 authority:** Commercial Retention presentation only. The former
 retained-artifact, `DOWNLOADS`/`ARCHIVE` artifact-mode, archive-file, and export
@@ -2535,9 +2551,9 @@ Retention projection and must not invent export or retained-record state.
 
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
-requires a new Product or Architecture decision. TG26.4A is the next canonical
-authorized task. TG26.5, TG26.6, and TG27 remain unauthorized until their
-stated prerequisites complete.
+requires a new Product or Architecture decision. TG26.5 is the next canonical
+authorized task. TG26.6 and TG27 remain unauthorized until their stated
+prerequisites complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 

@@ -7,6 +7,7 @@
 import {
   activateCommercialTrialApi,
   ensureWorkspacePreparationApi,
+  getCommercialRetentionApi,
   getCommercialTrialApi,
   getCommercialTrialDownloadsApi,
   getWorkspacePreparationApi,
@@ -235,6 +236,15 @@ describe('Commercial Trial datasource', () => {
     await getCommercialTrialApi('tenant-1', controller.signal);
     expect(mockGet).toHaveBeenCalledWith(
       '/api/v1/onboarding/tenant-1/commercial-trial',
+      { signal: controller.signal }
+    );
+  });
+
+  it('uses the authenticated client and cancellation for the retention read', async () => {
+    const controller = new AbortController();
+    await getCommercialRetentionApi('tenant-1', controller.signal);
+    expect(mockGet).toHaveBeenCalledWith(
+      '/api/v1/onboarding/tenant-1/commercial-trial/retention',
       { signal: controller.signal }
     );
   });

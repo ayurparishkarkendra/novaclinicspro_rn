@@ -31,6 +31,7 @@ import {
 import { JourneyVisibilityProjection } from '../entities/journey-visibility.entity';
 import { ReadyToStart } from '../entities/ready-to-start.entity';
 import {
+  CommercialRetention,
   CommercialTrial,
   CommercialTrialHandoff,
 } from '../entities/commercial-trial.entity';
@@ -49,6 +50,11 @@ export interface ICommercialTrialRepository {
     tenantId: string,
     signal?: AbortSignal
   ): Promise<CommercialTrial>;
+  getCommercialRetention(
+    organizationId: string,
+    tenantId: string,
+    signal?: AbortSignal
+  ): Promise<CommercialRetention>;
   activateCommercialTrial(
     organizationId: string,
     tenantId: string,
