@@ -2554,9 +2554,72 @@ Retention projection and must not invent export or retained-record state.
   screen reader/focus/live/touch/font behavior, Theme-only styling, no artifact
   presentation, and no Demo semantics pass.
 
-### TG26.6 — Final Verification and Acceptance — AUTHORIZED
+### TG26.5A — Executable Commercial Retention Workflows — COMPLETE
 
-**Status:** AUTHORIZED — TG26.5 dependency complete.
+**Status:** IMPLEMENTED (CORRECTIVE) — 2026-07-29.
+
+**Purpose and constitutional justification:** This post-acceptance-review
+corrective checkpoint follows the E8 Closure Review and subsequent Product and
+Architecture reconciliation, which confirmed that TG26.5
+presentation ownership includes the already-approved Start Trial confirmation,
+extension-request interaction, bounded reason validation, approved
+approval-channel handling, mutation orchestration, and authoritative refresh.
+TG26.5A closes that verified implementation gap without changing backend
+commercial policy or introducing Workspace Data Export behavior.
+
+**Implementation evidence:** Frontend commit
+`465365af2601ca32c2111de2f3a3bec4df25029a` adds explicit Start Trial
+confirmation, Organization Admin `IN_APP_REQUEST` extension requests, Super
+Admin grant/restore inputs, duplicate-submission protection, safe typed errors,
+authoritative refetch, central Theme, accessibility, and `en-US`/`hi-IN`
+localization through the existing TG26.4A query and mutation boundaries.
+
+**Verification evidence:** 29 focused TG26.5A and localization tests and 109
+broader onboarding presentation/data regressions passed. Scoped ESLint and
+`git diff --check` passed. Repository-wide TypeScript reported no
+TG26.5A-owned error and retained the established unrelated baseline. Backend,
+migrations, Product requirements, and Workspace Data Export remained
+unchanged.
+
+### TG26.5B — Remove Superseded Commercial Retention Downloads / Export-Package Architecture — AUTHORIZED
+
+**Status:** AUTHORIZED — TG26.5A dependency complete.
+
+- **Objective:** Remove the obsolete E8 `/commercial-trial/downloads` handoff
+  and `DOWNLOADS`/download-package contracts introduced before Commercial
+  Retention was separated from the future Workspace Data Export capability.
+- **Ownership:** Backend and frontend E8 cleanup only.
+- **Required boundary:** Remove obsolete backend transport and frontend
+  datasource, repository, domain, hook, mock, fixture, and test ownership while
+  preserving the backend-authoritative informational
+  `REQUEST_WORKSPACE_DATA_EXPORT` action.
+- **Explicitly out of scope:** New export requests, generation, packages,
+  storage, retrieval, download, navigation, compatibility aliases, Product
+  redesign, and unrelated export bounded contexts.
+- **Acceptance boundary:** Backend/frontend focused tests and relevant
+  regressions prove the obsolete route and contracts are absent, current E8
+  lifecycle/retention/TG26.5A behavior is unchanged, future export permission
+  remains informational and fail closed, and no migration exists.
+- **Delivery:** Use separate reviewed backend and frontend commits, then update
+  only the affected task and RTM evidence.
+- **Stop condition:** Stop before the E8 Final Acceptance Re-run.
+
+### E8 Final Acceptance Re-run — PENDING
+
+**Status:** PENDING — begins only after TG26.5B completes.
+
+- **Objective:** Re-run the original E8 Product, Architecture, Engineering,
+  Security, UX, Traceability, and regression acceptance review.
+- **Acceptance boundary:** Confirm that no Critical or High findings remain,
+  reconcile only verified E8 task/RTM evidence, and issue an evidence-backed
+  merge recommendation.
+- **Explicitly out of scope:** New E8 functionality, TG27 implementation, or
+  acceptance waivers without evidence.
+
+### TG26.6 — Final Verification and Acceptance
+
+**Status:** NOT YET AUTHORIZED — requires successful TG26.5A, TG26.5B, and E8
+Final Acceptance Re-run completion.
 
 - **Objective:** Verify the complete frozen E8 contract and correct only
   verified TG26-owned defects.
@@ -2573,9 +2636,10 @@ Retention projection and must not invent export or retained-record state.
 
 No checkpoint may begin until its predecessor meets its acceptance boundary. A
 checkpoint MUST stop if source evidence contradicts the approved contract or
-requires a new Product or Architecture decision. TG26.6 is the next canonical
-authorized task. TG27 remains unauthorized until its stated prerequisites
-complete.
+requires a new Product or Architecture decision. TG26.5B is the next canonical
+authorized task. The E8 Final Acceptance Re-run and TG26.6 remain dependent on
+their stated predecessors. TG27 remains unauthorized until its stated
+prerequisites complete.
 
 **TG26 IMPLEMENTATION AUTHORIZED**
 
